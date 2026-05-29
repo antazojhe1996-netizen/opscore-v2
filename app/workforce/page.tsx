@@ -1,9 +1,23 @@
 "use client";
 
+import { useEffect } from "react";
+import { supabase } from "../lib/supabase";
 import Sidebar from "@/components/Sidebar";
 
 export default function WorkforcePage() {
   /// STATES
+useEffect(() => {
+  const testConnection = async () => {
+    const { data, error } = await supabase
+      .from("employees")
+      .select("*");
+
+    console.log("EMPLOYEES:", data);
+    console.log("ERROR:", error);
+  };
+
+  testConnection();
+}, []);
 
   /// DATA
   const workforceData = [

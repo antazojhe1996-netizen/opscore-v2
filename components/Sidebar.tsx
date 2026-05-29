@@ -27,6 +27,10 @@ export default function Sidebar() {
         <Link href="/finance" className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-white">
           Finance
         </Link>
+        <Link href="/employees" className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-white">
+  Employee Details
+</Link>
+
       </nav>
     </aside>
   );
