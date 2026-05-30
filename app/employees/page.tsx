@@ -15,6 +15,7 @@ type Employee = {
   employment_type: string;
   daily_rate: number;
   hire_date: string;
+  contact_number: string;
 };
 
 export default function EmployeesPage() {
@@ -26,7 +27,7 @@ const [positions, setPositions] = useState<any[]>([]);
 const [employmentStatuses, setEmploymentStatuses] = useState<any[]>([]);
 const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState("");
-
+const [contactNumber, setContactNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [department, setDepartment] = useState("");
@@ -35,6 +36,7 @@ const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
   const [employmentType, setEmploymentType] = useState("");
   const [dailyRate, setDailyRate] = useState("");
   const [hireDate, setHireDate] = useState("");
+  
 
   /// FUNCTIONS
 
@@ -80,8 +82,9 @@ const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
       employment_status: employmentStatus,
       employment_type: employmentType,
       daily_rate: Number(dailyRate) || 0,
-      hire_date: hireDate || null,
-      created_at: new Date().toISOString(),
+      contact_number: contactNumber,
+hire_date: hireDate || "2026-05-29",
+created_at: new Date().toISOString(),
     });
 
     if (error) {
@@ -107,6 +110,7 @@ const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
         employment_type: employmentType,
         daily_rate: Number(dailyRate) || 0,
         hire_date: hireDate || null,
+        contact_number: contactNumber,
       })
       .eq("id", editingEmployeeId);
 
@@ -120,16 +124,19 @@ const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
   };
 
   const editEmployee = (employee: Employee) => {
-    setEditingEmployeeId(employee.id);
-    setFirstName(employee.first_name || "");
-    setLastName(employee.last_name || "");
-    setDepartment(employee.department || "");
-    setPosition(employee.position || "");
-    setEmploymentStatus(employee.employment_status || "Active");
-    setEmploymentType(employee.employment_type || "");
-    setDailyRate(String(employee.daily_rate || ""));
-    setHireDate(employee.hire_date || "");
-  };
+  console.log("EDITING EMPLOYEE:", employee);
+
+  setEditingEmployeeId(employee.id);
+  setFirstName(employee.first_name || "");
+  setLastName(employee.last_name || "");
+  setDepartment(employee.department || "");
+  setPosition(employee.position || "");
+  setEmploymentStatus(employee.employment_status || "Active");
+  setEmploymentType(employee.employment_type || "");
+  setDailyRate(String(employee.daily_rate || ""));
+  setHireDate(employee.hire_date || "");
+};
+
 
   useEffect(() => {
   getEmployees();
@@ -156,6 +163,7 @@ const getDropdownData = async () => {
   .from("employment_types")
   .select("*")
   .order("name");
+  
 
 console.log("EMPLOYMENT TYPES:", typesData);
 
