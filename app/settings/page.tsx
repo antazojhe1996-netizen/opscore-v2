@@ -21,6 +21,12 @@ export default function SettingsPage() {
       description: "Control which statuses count in workforce and scheduling.",
       href: "/settings/employment-statuses",
     },
+
+    {
+      title: "Employment Type Management",
+      description: "Configure full-time, part-time, OJT, and other employment types.",
+      href: "/settings/employment-types",
+    },
     {
       title: "Shift Management",
       description: "Configure shift templates and working shift rules.",

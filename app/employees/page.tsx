@@ -22,12 +22,12 @@ export default function EmployeesPage() {
   /// STATES
   
   const [employees, setEmployees] = useState<Employee[]>([]);
-const [departments, setDepartments] = useState<any[]>([]);
-const [positions, setPositions] = useState<any[]>([]);
-const [employmentStatuses, setEmploymentStatuses] = useState<any[]>([]);
-const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [positions, setPositions] = useState<any[]>([]);
+  const [employmentStatuses, setEmploymentStatuses] = useState<any[]>([]);
+  const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState("");
-const [contactNumber, setContactNumber] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [department, setDepartment] = useState("");
@@ -36,7 +36,8 @@ const [contactNumber, setContactNumber] = useState("");
   const [employmentType, setEmploymentType] = useState("");
   const [dailyRate, setDailyRate] = useState("");
   const [hireDate, setHireDate] = useState("");
-  
+  const [formError, setFormError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   /// FUNCTIONS
 
@@ -69,7 +70,21 @@ const [contactNumber, setContactNumber] = useState("");
   };
 
   const addEmployee = async () => {
-    if (!firstName.trim() || !lastName.trim()) return;
+    if (
+  !firstName.trim() ||
+  !lastName.trim() ||
+  !department ||
+  !position ||
+  !employmentStatus ||
+  !employmentType ||
+  !dailyRate ||
+  !hireDate
+) {
+  setFormError("Please complete all required fields.");
+  return;
+}
+
+setFormError("");
 
     const employeeNo = "EMP-" + Date.now();
 
@@ -97,29 +112,65 @@ created_at: new Date().toISOString(),
   };
 
   const updateEmployee = async () => {
-    if (!editingEmployeeId) return;
+  if (!editingEmployeeId) return;
+
+  if (
+    !firstName.trim() ||
+    !lastName.trim() ||
+    !department ||
+    !position ||
+    !employmentStatus ||
+    !employmentType ||
+    !dailyRate ||
+    !hireDate
+  ) {
+    setFormError("Please complete all required fields.");
+    return;
+  }
+
+  setFormError("");
+
+  const { error } = await supabase
+    .from("employees")
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      department,
+      position,
+      employment_status: employmentStatus,
+      employment_type: employmentType,
+      daily_rate: Number(dailyRate) || 0,
+      hire_date: hireDate || null,
+      contact_number: contactNumber,
+    })
+    .eq("employee_no", editingEmployeeId);
+
+  if (error) {
+    console.log("UPDATE EMPLOYEE ERROR:", error.message);
+    return;
+  }
+
+  clearForm();
+  getEmployees();
+};
+
+  const deleteEmployee = async (employeeNo: string) => {
+  const confirmDelete = window.confirm(
+    "Are you sure you want to permanently delete this employee?"
+  );
+
+    if (!confirmDelete) return;
 
     const { error } = await supabase
       .from("employees")
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        department,
-        position,
-        employment_status: employmentStatus,
-        employment_type: employmentType,
-        daily_rate: Number(dailyRate) || 0,
-        hire_date: hireDate || null,
-        contact_number: contactNumber,
-      })
-      .eq("id", editingEmployeeId);
+      .delete()
+      .eq("employee_no", employeeNo);
 
     if (error) {
-      console.log("UPDATE EMPLOYEE ERROR:", error.message);
+      console.log("DELETE EMPLOYEE ERROR:", error.message);
       return;
     }
 
-    clearForm();
     getEmployees();
   };
 
@@ -127,7 +178,7 @@ created_at: new Date().toISOString(),
   console.log("EDIT CLICKED:", employee);
   console.log("EMPLOYEE ID:", employee.id);
 
-  setEditingEmployeeId(employee.id);
+  setEditingEmployeeId(employee.employee_no);
   setFirstName(employee.first_name || "");
   setLastName(employee.last_name || "");
   setDepartment(employee.department || "");
@@ -188,6 +239,12 @@ const inactiveEmployees = employees.filter(
 const resignedEmployees = employees.filter(
   (emp) => emp.employment_status === "Resigned"
 ).length;
+
+const filteredEmployees = employees.filter((emp) =>
+  `${emp.employee_no} ${emp.first_name} ${emp.last_name} ${emp.department} ${emp.position} ${emp.employment_status}`
+    .toLowerCase()
+    .includes(searchTerm.toLowerCase())
+);
   
 
   /// UI
@@ -206,6 +263,13 @@ const resignedEmployees = employees.filter(
             {editingEmployeeId ? "Edit Employee" : "Add Employee"}
           </h2>
 
+           {formError && (
+              <p className="mt-3 text-sm font-semibold text-red-400">
+                {formError}
+              </p>
+            )}
+
+
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
             <input
               className="rounded bg-slate-800 p-2 text-white outline-none"
@@ -222,10 +286,12 @@ const resignedEmployees = employees.filter(
             />
 
             <select
-              className="rounded bg-slate-800 p-2 text-white outline-none"
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-            >
+                className={`rounded bg-slate-800 p-2 outline-none ${
+                  department ? "text-white" : "text-slate-400"
+                }`}
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+              >
               <option value="">Select Department</option>
               {departments.map((dept) => (
               <option key={dept.id} value={dept.name}>
@@ -235,10 +301,12 @@ const resignedEmployees = employees.filter(
             </select>
 
             <select
-              className="rounded bg-slate-800 p-2 text-white outline-none"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-            >
+                  className={`rounded bg-slate-800 p-2 outline-none ${
+                    position ? "text-white" : "text-slate-400"
+                  }`}
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                >
               <option value="">Select Position</option>
               {positions.map((pos) => (
                 <option key={pos.id} value={pos.name}>
@@ -247,11 +315,13 @@ const resignedEmployees = employees.filter(
               ))}
             </select>
 
-            <select
-                className="rounded bg-slate-800 p-2 text-white outline-none"
-                value={employmentStatus}
-                onChange={(e) => setEmploymentStatus(e.target.value)}
-              >
+          <select
+                    className={`rounded bg-slate-800 p-2 outline-none ${
+                      employmentStatus ? "text-white" : "text-slate-400"
+                    }`}
+                    value={employmentStatus}
+                    onChange={(e) => setEmploymentStatus(e.target.value)}
+                  >
                 <option value="">Select Status</option>
                 {employmentStatuses.map((status) => (
                   <option key={status.id} value={status.name}>
@@ -261,10 +331,12 @@ const resignedEmployees = employees.filter(
               </select>
 
             <select
-                className="rounded bg-slate-800 p-2 text-white outline-none"
-                value={employmentType}
-                onChange={(e) => setEmploymentType(e.target.value)}
-              >
+                  className={`rounded bg-slate-800 p-2 outline-none ${
+                    employmentType ? "text-white" : "text-slate-400"
+                  }`}
+                  value={employmentType}
+                  onChange={(e) => setEmploymentType(e.target.value)}
+                >
                 <option value="">Select Employment Type</option>
                 {employmentTypes.map((type) => (
                   <option key={type.id} value={type.name}>
@@ -282,9 +354,16 @@ const resignedEmployees = employees.filter(
             />
 
             <input
-              type="date"
-              className="rounded bg-slate-800 p-2 text-white outline-none"
+              type={hireDate ? "date" : "text"}
+              placeholder="Hire Date"
+              className={`rounded bg-slate-800 p-2 outline-none ${
+                hireDate ? "text-white" : "text-slate-400"
+              }`}
               value={hireDate}
+              onFocus={(e) => (e.target.type = "date")}
+              onBlur={(e) => {
+                if (!hireDate) e.target.type = "text";
+              }}
               onChange={(e) => setHireDate(e.target.value)}
             />
           </div>
@@ -341,8 +420,18 @@ const resignedEmployees = employees.filter(
   </div>
 
 </div>
+        
+          <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold">Employee List</h2>
 
-          <h2 className="text-xl font-bold">Employee List</h2>
+              <input
+                className="w-80 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white outline-none placeholder:text-slate-400 focus:border-yellow-400"
+                placeholder="Search employee..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
 
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-800">
             <table className="w-full text-left text-sm">
@@ -361,7 +450,7 @@ const resignedEmployees = employees.filter(
               </thead>
 
               <tbody>
-                {employees.map((emp) => (
+                {filteredEmployees.map((emp) => (
                   <tr key={emp.id} className="border-t border-slate-800">
                     <td className="p-4">{emp.employee_no}</td>
 
@@ -385,17 +474,26 @@ const resignedEmployees = employees.filter(
                     <td className="p-4">{emp.hire_date || "-"}</td>
 
                     <td className="p-4">
+                     <div className="flex gap-2">
                       <button
                         onClick={() => editEmployee(emp)}
-                        className="rounded bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600"
+                        className="rounded bg-slate-700 px-3 py-1 text-xs font-bold text-white hover:bg-slate-600"
                       >
                         Edit
                       </button>
+
+                      <button
+                          onClick={() => deleteEmployee(emp.employee_no)}
+                          className="rounded bg-slate-700 px-3 py-1 text-xs font-bold text-white transition-all hover:bg-red-600 hover:scale-105"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
 
-                {employees.length === 0 && (
+                {filteredEmployees.length === 0 && (
                   <tr>
                     <td className="p-4 text-slate-400" colSpan={9}>
                       No employees yet.
@@ -405,6 +503,8 @@ const resignedEmployees = employees.filter(
               </tbody>
             </table>
           </div>
+
+           
         </div>
       </main>
     </div>

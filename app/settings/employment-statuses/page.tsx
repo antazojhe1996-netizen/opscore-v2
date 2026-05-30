@@ -11,6 +11,7 @@ export default function EmploymentStatusPage() {
   const [countInWorkforce, setCountInWorkforce] = useState(true);
   const [allowScheduling, setAllowScheduling] = useState(true);
   const [showInReports, setShowInReports] = useState(true);
+  const [editingStatusId, setEditingStatusId] = useState("");
 
   /// FUNCTIONS
   const getEmploymentStatuses = async () => {
@@ -25,6 +26,14 @@ export default function EmploymentStatusPage() {
     }
 
     setEmploymentStatuses(data || []);
+  };
+
+  const clearForm = () => {
+    setEditingStatusId("");
+    setEmploymentStatusName("");
+    setCountInWorkforce(true);
+    setAllowScheduling(true);
+    setShowInReports(true);
   };
 
   const addEmploymentStatus = async () => {
@@ -42,10 +51,56 @@ export default function EmploymentStatusPage() {
       return;
     }
 
-    setEmploymentStatusName("");
-    setCountInWorkforce(true);
-    setAllowScheduling(true);
-    setShowInReports(true);
+    clearForm();
+    getEmploymentStatuses();
+  };
+
+  const editEmploymentStatus = (status: any) => {
+    setEditingStatusId(status.id);
+    setEmploymentStatusName(status.name);
+    setCountInWorkforce(status.count_in_workforce);
+    setAllowScheduling(status.allow_scheduling);
+    setShowInReports(status.show_in_reports);
+  };
+
+  const updateEmploymentStatus = async () => {
+    if (!editingStatusId) return;
+    if (!employmentStatusName.trim()) return;
+
+    const { error } = await supabase
+      .from("employment_statuses")
+      .update({
+        name: employmentStatusName,
+        count_in_workforce: countInWorkforce,
+        allow_scheduling: allowScheduling,
+        show_in_reports: showInReports,
+      })
+      .eq("id", editingStatusId);
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    clearForm();
+    getEmploymentStatuses();
+  };
+
+  const deleteEmploymentStatus = async (id: string) => {
+    const confirmDelete = confirm("Delete this employment status?");
+
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("employment_statuses")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
     getEmploymentStatuses();
   };
 
@@ -56,108 +111,165 @@ export default function EmploymentStatusPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#050514] text-white">
       <Sidebar />
 
       <main className="flex-1 p-8">
-        <h1 className="text-3xl font-bold">
-          Employment Status Management
-        </h1>
+        <h1 className="text-3xl font-bold">Employment Status Management</h1>
 
         <p className="mt-2 text-slate-400">
           Configure employment statuses and how they behave in workforce and scheduling.
         </p>
 
-        <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="mb-4 text-xl font-bold">
-            Add Employment Status
+        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <h2 className="text-xl font-bold">
+            {editingStatusId ? "Edit Employment Status" : "Add Employment Status"}
           </h2>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
             <input
-              type="text"
+              className="rounded bg-slate-800 p-2 text-white outline-none placeholder:text-slate-400"
+              placeholder="Status Name"
               value={employmentStatusName}
               onChange={(e) => setEmploymentStatusName(e.target.value)}
-              placeholder="Status Name"
-              className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-3"
             />
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={countInWorkforce}
-                  onChange={(e) => setCountInWorkforce(e.target.checked)}
-                />
-                Count in Workforce
-              </label>
+            <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={countInWorkforce}
+                onChange={(e) => setCountInWorkforce(e.target.checked)}
+              />
+              Count in Workforce
+            </label>
 
-              <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={allowScheduling}
-                  onChange={(e) => setAllowScheduling(e.target.checked)}
-                />
-                Allow Scheduling
-              </label>
+            <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={allowScheduling}
+                onChange={(e) => setAllowScheduling(e.target.checked)}
+              />
+              Allow Scheduling
+            </label>
 
-              <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={showInReports}
-                  onChange={(e) => setShowInReports(e.target.checked)}
-                />
-                Show in Reports
-              </label>
-            </div>
+            <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={showInReports}
+                onChange={(e) => setShowInReports(e.target.checked)}
+              />
+              Show in Reports
+            </label>
           </div>
 
-          <button
-            onClick={addEmploymentStatus}
-            className="mt-4 rounded-lg bg-yellow-500 px-6 py-3 font-bold text-black"
-          >
-            Add Status
-          </button>
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={editingStatusId ? updateEmploymentStatus : addEmploymentStatus}
+              className="rounded bg-yellow-400 px-4 py-2 font-bold text-black hover:bg-yellow-300"
+            >
+              {editingStatusId ? "Update Status" : "Add Status"}
+            </button>
+
+            {editingStatusId && (
+              <button
+                onClick={clearForm}
+                className="rounded bg-slate-700 px-4 py-2 font-bold text-white hover:bg-slate-600"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="mb-4 text-xl font-bold">
-            Employment Status List
-          </h2>
+        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <h2 className="text-xl font-bold">Employment Status List</h2>
 
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700 text-left text-slate-300">
-                <th className="py-3">Status Name</th>
-                <th className="py-3 text-center">Workforce</th>
-                <th className="py-3 text-center">Scheduling</th>
-                <th className="py-3 text-center">Reports</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {employmentStatuses.map((status) => (
-                <tr
-                  key={status.id}
-                  className="border-b border-slate-800"
-                >
-                  <td className="py-3 font-semibold">{status.name}</td>
-
-                  <td className="py-3 text-center">
-                    {status.count_in_workforce ? "Yes" : "No"}
-                  </td>
-
-                  <td className="py-3 text-center">
-                    {status.allow_scheduling ? "Yes" : "No"}
-                  </td>
-
-                  <td className="py-3 text-center">
-                    {status.show_in_reports ? "Yes" : "No"}
-                  </td>
+          <div className="mt-4 overflow-hidden rounded-xl border border-slate-800">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#08081a] text-slate-300">
+                <tr>
+                  <th className="p-4">Status Name</th>
+                  <th className="p-4 text-center">Workforce</th>
+                  <th className="p-4 text-center">Scheduling</th>
+                  <th className="p-4 text-center">Reports</th>
+                  <th className="w-48 p-4 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {employmentStatuses.map((status) => (
+                  <tr
+                    key={status.id}
+                    className="border-t border-slate-800 hover:bg-slate-800/40"
+                  >
+                    <td className="p-4 font-bold">{status.name}</td>
+
+                    <td className="p-4 text-center">
+                      <span
+                        className={
+                          status.count_in_workforce
+                            ? "font-semibold text-green-400"
+                            : "font-semibold text-red-400"
+                        }
+                      >
+                        {status.count_in_workforce ? "Yes" : "No"}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-center">
+                      <span
+                        className={
+                          status.allow_scheduling
+                            ? "font-semibold text-green-400"
+                            : "font-semibold text-red-400"
+                        }
+                      >
+                        {status.allow_scheduling ? "Yes" : "No"}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-center">
+                      <span
+                        className={
+                          status.show_in_reports
+                            ? "font-semibold text-green-400"
+                            : "font-semibold text-red-400"
+                        }
+                      >
+                        {status.show_in_reports ? "Yes" : "No"}
+                      </span>
+                    </td>
+
+                    <td className="w-48 p-4">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => editEmploymentStatus(status)}
+                          className="rounded bg-slate-700 px-3 py-1 text-xs font-bold text-white hover:bg-slate-600"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => deleteEmploymentStatus(status.id)}
+                          className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {employmentStatuses.length === 0 && (
+                  <tr>
+                    <td className="p-4 text-slate-400" colSpan={5}>
+                      No employment statuses yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>
