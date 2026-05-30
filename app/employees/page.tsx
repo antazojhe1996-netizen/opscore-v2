@@ -31,7 +31,7 @@ const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
   const [lastName, setLastName] = useState("");
   const [department, setDepartment] = useState("");
   const [position, setPosition] = useState("");
-  const [employmentStatus, setEmploymentStatus] = useState("Active");
+  const [employmentStatus, setEmploymentStatus] = useState("");
   const [employmentType, setEmploymentType] = useState("");
   const [dailyRate, setDailyRate] = useState("");
   const [hireDate, setHireDate] = useState("");
@@ -132,11 +132,6 @@ const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
   };
 
   useEffect(() => {
-    getEmployees();
-  }, []);
-
-
-  useEffect(() => {
   getEmployees();
   getDropdownData();
 }, []);
@@ -158,9 +153,11 @@ const getDropdownData = async () => {
     .order("name");
 
   const { data: typesData } = await supabase
-    .from("employment_types")
-    .select("*")
-    .order("name");
+  .from("employment_types")
+  .select("*")
+  .order("name");
+
+console.log("EMPLOYMENT TYPES:", typesData);
 
   setDepartments(departmentsData || []);
   setPositions(positionsData || []);
@@ -243,30 +240,30 @@ const resignedEmployees = employees.filter(
             </select>
 
             <select
-              className="rounded bg-slate-800 p-2 text-white outline-none"
-              value={employmentStatus}
-              onChange={(e) => setEmploymentStatus(e.target.value)}
-            >
-              <option value="">Select Status</option>
-              {employmentStatuses.map((status) => (
-                <option key={status.id} value={status.name}>
-                  {status.name}
-                </option>
-              ))}
-            </select>
+                className="rounded bg-slate-800 p-2 text-white outline-none"
+                value={employmentStatus}
+                onChange={(e) => setEmploymentStatus(e.target.value)}
+              >
+                <option value="">Select Status</option>
+                {employmentStatuses.map((status) => (
+                  <option key={status.id} value={status.name}>
+                    {status.name}
+                  </option>
+                ))}
+              </select>
 
             <select
-              className="rounded bg-slate-800 p-2 text-white outline-none"
-              value={employmentType}
-              onChange={(e) => setEmploymentType(e.target.value)}
-            >
-              <option value="">Select Employment Type</option>
-              {employmentTypes.map((type) => (
-                <option key={type.id} value={type.name}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
+                className="rounded bg-slate-800 p-2 text-white outline-none"
+                value={employmentType}
+                onChange={(e) => setEmploymentType(e.target.value)}
+              >
+                <option value="">Select Employment Type</option>
+                {employmentTypes.map((type) => (
+                  <option key={type.id} value={type.name}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
 
             <input
               type="number"

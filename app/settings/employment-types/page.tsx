@@ -4,18 +4,18 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
-export default function EmploymentStatusPage() {
+export default function EmploymentTypesPage() {
   /// STATES
-  const [employmentStatuses, setEmploymentStatuses] = useState<any[]>([]);
-  const [employmentStatusName, setEmploymentStatusName] = useState("");
+  const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
+  const [employmentTypeName, setEmploymentTypeName] = useState("");
   const [countInWorkforce, setCountInWorkforce] = useState(true);
   const [allowScheduling, setAllowScheduling] = useState(true);
   const [showInReports, setShowInReports] = useState(true);
 
   /// FUNCTIONS
-  const getEmploymentStatuses = async () => {
+  const getEmploymentTypes = async () => {
     const { data, error } = await supabase
-      .from("employment_statuses")
+      .from("employment_types")
       .select("*")
       .order("name");
 
@@ -24,14 +24,14 @@ export default function EmploymentStatusPage() {
       return;
     }
 
-    setEmploymentStatuses(data || []);
+    setEmploymentTypes(data || []);
   };
 
-  const addEmploymentStatus = async () => {
-    if (!employmentStatusName.trim()) return;
+  const addEmploymentType = async () => {
+    if (!employmentTypeName.trim()) return;
 
-    const { error } = await supabase.from("employment_statuses").insert({
-      name: employmentStatusName,
+    const { error } = await supabase.from("employment_types").insert({
+      name: employmentTypeName,
       count_in_workforce: countInWorkforce,
       allow_scheduling: allowScheduling,
       show_in_reports: showInReports,
@@ -42,16 +42,16 @@ export default function EmploymentStatusPage() {
       return;
     }
 
-    setEmploymentStatusName("");
+    setEmploymentTypeName("");
     setCountInWorkforce(true);
     setAllowScheduling(true);
     setShowInReports(true);
-    getEmploymentStatuses();
+    getEmploymentTypes();
   };
 
   /// EFFECTS
   useEffect(() => {
-    getEmploymentStatuses();
+    getEmploymentTypes();
   }, []);
 
   /// UI
@@ -61,24 +61,24 @@ export default function EmploymentStatusPage() {
 
       <main className="flex-1 p-8">
         <h1 className="text-3xl font-bold">
-          Employment Status Management
+          Employment Type Management
         </h1>
 
         <p className="mt-2 text-slate-400">
-          Configure employment statuses and how they behave in workforce and scheduling.
+          Configure employment types and how they behave in workforce and scheduling.
         </p>
 
         <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <h2 className="mb-4 text-xl font-bold">
-            Add Employment Status
+            Add Employment Type
           </h2>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <input
               type="text"
-              value={employmentStatusName}
-              onChange={(e) => setEmploymentStatusName(e.target.value)}
-              placeholder="Status Name"
+              value={employmentTypeName}
+              onChange={(e) => setEmploymentTypeName(e.target.value)}
+              placeholder="Type Name"
               className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-3"
             />
 
@@ -113,22 +113,22 @@ export default function EmploymentStatusPage() {
           </div>
 
           <button
-            onClick={addEmploymentStatus}
+            onClick={addEmploymentType}
             className="mt-4 rounded-lg bg-yellow-500 px-6 py-3 font-bold text-black"
           >
-            Add Status
+            Add Type
           </button>
         </div>
 
         <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <h2 className="mb-4 text-xl font-bold">
-            Employment Status List
+            Employment Type List
           </h2>
 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-700 text-left text-slate-300">
-                <th className="py-3">Status Name</th>
+                <th className="py-3">Type Name</th>
                 <th className="py-3 text-center">Workforce</th>
                 <th className="py-3 text-center">Scheduling</th>
                 <th className="py-3 text-center">Reports</th>
@@ -136,23 +136,23 @@ export default function EmploymentStatusPage() {
             </thead>
 
             <tbody>
-              {employmentStatuses.map((status) => (
+              {employmentTypes.map((type) => (
                 <tr
-                  key={status.id}
+                  key={type.id}
                   className="border-b border-slate-800"
                 >
-                  <td className="py-3 font-semibold">{status.name}</td>
+                  <td className="py-3 font-semibold">{type.name}</td>
 
                   <td className="py-3 text-center">
-                    {status.count_in_workforce ? "Yes" : "No"}
+                    {type.count_in_workforce ? "Yes" : "No"}
                   </td>
 
                   <td className="py-3 text-center">
-                    {status.allow_scheduling ? "Yes" : "No"}
+                    {type.allow_scheduling ? "Yes" : "No"}
                   </td>
 
                   <td className="py-3 text-center">
-                    {status.show_in_reports ? "Yes" : "No"}
+                    {type.show_in_reports ? "Yes" : "No"}
                   </td>
                 </tr>
               ))}
