@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "../lib/supabase";
 
@@ -36,20 +36,23 @@ export default function SchedulingPage() {
   const [viewMode, setViewMode] = useState<"weekly" | "monthly">("weekly");
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  const todayColumnRef = useRef<HTMLDivElement | null>(null);
+
   /// DATA
   const defaultShifts: ShiftTemplate[] = [
-  { id: 1, shift_name: "AM Shift", start_time: "07:00", end_time: "16:00", color: "blue" },
-  { id: 2, shift_name: "PM Shift", start_time: "14:00", end_time: "23:59", color: "purple" },
-  { id: 3, shift_name: "Mid Shift", start_time: "11:00", end_time: "20:00", color: "green" },
-  { id: 4, shift_name: "GY Shift", start_time: "23:00", end_time: "08:00", color: "gray" },
-  { id: 5, shift_name: "OFF", start_time: null, end_time: null, color: "gray" },
-];
+    { id: 1, shift_name: "AM Shift", start_time: "07:00", end_time: "16:00", color: "blue" },
+    { id: 2, shift_name: "PM Shift", start_time: "14:00", end_time: "23:59", color: "purple" },
+    { id: 3, shift_name: "Mid Shift", start_time: "11:00", end_time: "20:00", color: "green" },
+    { id: 4, shift_name: "GY Shift", start_time: "23:00", end_time: "08:00", color: "gray" },
+    { id: 5, shift_name: "OFF", start_time: null, end_time: null, color: "gray" },
+  ];
 
   /// FUNCTIONS
   const formatDateKey = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
+
     return `${year}-${month}-${day}`;
   };
 
@@ -60,6 +63,7 @@ export default function SchedulingPage() {
     const newDate = new Date(date);
     const day = newDate.getDay();
     const diff = day === 0 ? -6 : 1 - day;
+
     newDate.setDate(newDate.getDate() + diff);
     return newDate;
   };
@@ -81,18 +85,22 @@ export default function SchedulingPage() {
     }
 
     const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const totalDays = new Date(year, month + 1, 0).getDate();
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31);
+    const daysArray = [];
+    const date = new Date(startDate);
 
-    return Array.from({ length: totalDays }, (_, index) => {
-      const date = new Date(year, month, index + 1);
-
-      return {
+    while (date <= endDate) {
+      daysArray.push({
         key: formatDateKey(date),
         dayName: date.toLocaleDateString("en-US", { weekday: "short" }),
         dateLabel: formatShortDate(date),
-      };
-    });
+      });
+
+      date.setDate(date.getDate() + 1);
+    }
+
+    return daysArray;
   };
 
   const moveDate = (direction: "prev" | "next") => {
@@ -101,10 +109,16 @@ export default function SchedulingPage() {
     if (viewMode === "weekly") {
       newDate.setDate(newDate.getDate() + (direction === "next" ? 7 : -7));
     } else {
-      newDate.setMonth(newDate.getMonth() + (direction === "next" ? 1 : -1));
+      newDate.setFullYear(
+        newDate.getFullYear() + (direction === "next" ? 1 : -1)
+      );
     }
 
     setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
   };
 
   const getDateRangeLabel = () => {
@@ -118,10 +132,7 @@ export default function SchedulingPage() {
       return `${first.dateLabel} - ${last.dateLabel}, ${currentDate.getFullYear()}`;
     }
 
-    return currentDate.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
+    return `Full Year ${currentDate.getFullYear()}`;
   };
 
   const getEmployees = async () => {
@@ -156,7 +167,6 @@ export default function SchedulingPage() {
       return;
     }
 
-    console.log("SCHEDULES:", data);
     setSchedules(data || []);
   };
 
@@ -199,7 +209,9 @@ export default function SchedulingPage() {
 
       setSchedules((prev) =>
         prev.map((schedule) =>
-          schedule.id === existingSchedule.id ? { ...schedule, shift } : schedule
+          schedule.id === existingSchedule.id
+            ? { ...schedule, shift }
+            : schedule
         )
       );
 
@@ -240,7 +252,17 @@ export default function SchedulingPage() {
     getShiftTemplates();
   }, []);
 
-  
+  useEffect(() => {
+    if (viewMode === "monthly" && todayColumnRef.current) {
+      setTimeout(() => {
+        todayColumnRef.current?.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
+      }, 100);
+    }
+  }, [viewMode, currentDate]);
 
   /// CALCULATIONS
   const departments = useMemo(() => {
@@ -263,7 +285,7 @@ export default function SchedulingPage() {
       : `220px repeat(${visibleDays.length}, 125px)`;
 
   const tableWidthClass =
-    viewMode === "weekly" ? "w-full min-w-[1100px]" : "w-[4100px] max-w-none";
+    viewMode === "weekly" ? "w-full min-w-[1100px]" : "w-[46000px] max-w-none";
 
   const getShift = (employeeId: string, day: string) => {
     const foundSchedule = schedules.find(
@@ -275,71 +297,65 @@ export default function SchedulingPage() {
     return foundSchedule?.shift || "OFF";
   };
 
-  const getShiftLabel = (shiftName: string) => {
-    if (shiftName === "OFF") return "OFF";
-
+  const getShortShiftLabel = (shiftName: string) => {
     const shift = shifts.find((item) => item.shift_name === shiftName);
 
-    if (!shift) return shiftName;
+    if (shiftName === "OFF") return "OFF";
 
-    if (!shift.start_time || !shift.end_time) return shift.shift_name;
+    const shortName = shiftName.includes("AM")
+      ? "AM"
+      : shiftName.includes("PM")
+      ? "PM"
+      : shiftName.includes("Mid")
+      ? "MID"
+      : shiftName.includes("GY")
+      ? "GY"
+      : shiftName;
 
-    return `${shift.start_time.slice(0, 5)} - ${shift.end_time.slice(0, 5)}`;
+    if (!shift?.start_time || !shift?.end_time) return shortName;
+
+    return `${shortName} ${shift.start_time.slice(0, 5)}-${shift.end_time.slice(
+      0,
+      5
+    )}`;
   };
 
-  const getShortShiftLabel = (shiftName: string) => {
-  const shift = shifts.find((item) => item.shift_name === shiftName);
-
-  if (shiftName === "OFF") return "OFF";
-
-  const shortName =
-    shiftName.includes("AM") ? "AM" :
-    shiftName.includes("PM") ? "PM" :
-    shiftName.includes("Mid") ? "MID" :
-    shiftName.includes("GY") ? "GY" :
-    shiftName;
-
-  if (!shift?.start_time || !shift?.end_time) return shortName;
-
-  return `${shortName} ${shift.start_time.slice(0, 5)}-${shift.end_time.slice(0, 5)}`;
-};
-
   const normalizeColor = (color?: string | null) => {
-  if (!color) return "blue";
-  if (color.includes("green")) return "green";
-  if (color.includes("yellow")) return "yellow";
-  if (color.includes("purple")) return "purple";
-  if (color.includes("red")) return "red";
-  if (color.includes("slate") || color.includes("gray")) return "gray";
-  return "blue";
-};
+    if (!color) return "blue";
+    if (color.includes("green")) return "green";
+    if (color.includes("yellow")) return "yellow";
+    if (color.includes("purple")) return "purple";
+    if (color.includes("red")) return "red";
+    if (color.includes("slate") || color.includes("gray")) return "gray";
+    return "blue";
+  };
 
-const getShiftColorClass = (shiftName: string) => {
-  const shift = shifts.find((item) => item.shift_name === shiftName);
-  const colorKey = normalizeColor(shift?.color);
+  const getShiftColorClass = (shiftName: string) => {
+    const shift = shifts.find((item) => item.shift_name === shiftName);
+    const colorKey = normalizeColor(shift?.color);
 
-  if (colorKey === "blue") {
-    return "border-blue-500/40 bg-blue-500/20 text-blue-300";
-  }
+    if (colorKey === "blue") {
+      return "border-blue-500/40 bg-blue-500/20 text-blue-300";
+    }
 
-  if (colorKey === "green") {
-    return "border-green-500/40 bg-green-500/20 text-green-300";
-  }
+    if (colorKey === "green") {
+      return "border-green-500/40 bg-green-500/20 text-green-300";
+    }
 
-  if (colorKey === "yellow") {
-    return "border-yellow-500/40 bg-yellow-500/20 text-yellow-300";
-  }
+    if (colorKey === "yellow") {
+      return "border-yellow-500/40 bg-yellow-500/20 text-yellow-300";
+    }
 
-  if (colorKey === "purple") {
-    return "border-purple-500/40 bg-purple-500/20 text-purple-300";
-  }
+    if (colorKey === "purple") {
+      return "border-purple-500/40 bg-purple-500/20 text-purple-300";
+    }
 
-  if (colorKey === "red") {
-    return "border-red-500/40 bg-red-500/20 text-red-300";
-  }
+    if (colorKey === "red") {
+      return "border-red-500/40 bg-red-500/20 text-red-300";
+    }
 
-  return "border-slate-600 bg-slate-800 text-slate-400";
-};
+    return "border-slate-600 bg-slate-800 text-slate-400";
+  };
 
   const dailyStaffCount = visibleDays.map((day) =>
     filteredEmployees.filter(
@@ -410,7 +426,7 @@ const getShiftColorClass = (shiftName: string) => {
               </button>
 
               <button
-                onClick={() => setCurrentDate(new Date())}
+                onClick={goToToday}
                 className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold hover:bg-slate-700"
               >
                 Today
@@ -443,21 +459,27 @@ const getShiftColorClass = (shiftName: string) => {
                 className="grid bg-slate-950 text-sm font-bold text-slate-300"
                 style={{ gridTemplateColumns: tableGridColumns }}
               >
-                <div className="border-r border-slate-800 px-4 py-3">
+                <div className="sticky left-0 z-30 border-r border-slate-800 bg-slate-950 px-4 py-3">
                   Staff Name
                 </div>
 
-                {visibleDays.map((day) => (
-                  <div
-                    key={day.key}
-                    className="border-r border-slate-800 px-4 py-3 text-center last:border-r-0"
-                  >
-                    <div>{day.dayName}</div>
-                    <div className="mt-1 text-xs font-normal text-slate-400">
-                      {day.dateLabel}
+                {visibleDays.map((day) => {
+                  const todayKey = formatDateKey(new Date());
+                  const isToday = day.key === todayKey;
+
+                  return (
+                    <div
+                      key={day.key}
+                      ref={isToday ? todayColumnRef : null}
+                      className="border-r border-slate-800 px-4 py-3 text-center last:border-r-0"
+                    >
+                      <div>{day.dayName}</div>
+                      <div className="mt-1 text-xs font-normal text-slate-400">
+                        {day.dateLabel}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {filteredEmployees.map((employee) => (
@@ -466,7 +488,7 @@ const getShiftColorClass = (shiftName: string) => {
                   className="grid border-t border-slate-800 text-sm"
                   style={{ gridTemplateColumns: tableGridColumns }}
                 >
-                  <div className="border-r border-slate-800 px-4 py-3 font-semibold">
+                  <div className="sticky left-0 z-20 border-r border-slate-800 bg-slate-900 px-4 py-3 font-semibold">
                     {employee.first_name} {employee.last_name}
                   </div>
 
@@ -492,13 +514,13 @@ const getShiftColorClass = (shiftName: string) => {
                           } ${getShiftColorClass(currentShift)}`}
                         >
                           {shifts.map((shift) => (
-                           <option
-  key={shift.shift_name}
-  value={shift.shift_name}
-  className="bg-slate-900 text-white"
->
-  {getShortShiftLabel(shift.shift_name)}
-</option>
+                            <option
+                              key={shift.shift_name}
+                              value={shift.shift_name}
+                              className="bg-slate-900 text-white"
+                            >
+                              {getShortShiftLabel(shift.shift_name)}
+                            </option>
                           ))}
 
                           {!shifts.some(
@@ -515,7 +537,7 @@ const getShiftColorClass = (shiftName: string) => {
                 className="grid border-t border-slate-700 bg-slate-800/60 text-sm font-semibold"
                 style={{ gridTemplateColumns: tableGridColumns }}
               >
-                <div className="border-r border-slate-700 px-4 py-3">
+                <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
                   Daily Staff Count
                 </div>
 
@@ -533,7 +555,7 @@ const getShiftColorClass = (shiftName: string) => {
                 className="grid border-t border-slate-700 bg-slate-800/40 text-sm font-semibold"
                 style={{ gridTemplateColumns: tableGridColumns }}
               >
-                <div className="border-r border-slate-700 px-4 py-3">
+                <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
                   Required HC
                 </div>
 
@@ -551,7 +573,7 @@ const getShiftColorClass = (shiftName: string) => {
                 className="grid border-t border-slate-700 bg-slate-800/40 text-sm font-semibold"
                 style={{ gridTemplateColumns: tableGridColumns }}
               >
-                <div className="border-r border-slate-700 px-4 py-3">
+                <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
                   Coverage Gap
                 </div>
 
