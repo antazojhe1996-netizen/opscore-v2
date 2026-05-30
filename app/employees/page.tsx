@@ -45,7 +45,7 @@ const [contactNumber, setContactNumber] = useState("");
   const getEmployees = async () => {
     const { data, error } = await supabase
       .from("employees")
-      .select("*")
+      .select("id, employee_no, first_name, last_name, department, position, employment_status, employment_type, daily_rate, hire_date, contact_number, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -124,7 +124,8 @@ created_at: new Date().toISOString(),
   };
 
   const editEmployee = (employee: Employee) => {
-  console.log("EDITING EMPLOYEE:", employee);
+  console.log("EDIT CLICKED:", employee);
+  console.log("EMPLOYEE ID:", employee.id);
 
   setEditingEmployeeId(employee.id);
   setFirstName(employee.first_name || "");
@@ -136,7 +137,6 @@ created_at: new Date().toISOString(),
   setDailyRate(String(employee.daily_rate || ""));
   setHireDate(employee.hire_date || "");
 };
-
 
   useEffect(() => {
   getEmployees();
