@@ -20,10 +20,11 @@ type Schedule = {
 };
 
 type ShiftTemplate = {
-  id: number;
+  id: string | number;
   shift_name: string;
-  start_time?: string | null;
-  end_time?: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  color: string | null;
 };
 
 export default function SchedulingPage() {
@@ -37,12 +38,12 @@ export default function SchedulingPage() {
 
   /// DATA
   const defaultShifts: ShiftTemplate[] = [
-    { id: 1, shift_name: "AM Shift", start_time: "07:00", end_time: "16:00" },
-    { id: 2, shift_name: "PM Shift", start_time: "14:00", end_time: "23:59" },
-    { id: 3, shift_name: "Mid Shift", start_time: "11:00", end_time: "20:00" },
-    { id: 4, shift_name: "GY Shift", start_time: "23:00", end_time: "08:00" },
-    { id: 5, shift_name: "OFF", start_time: null, end_time: null },
-  ];
+  { id: 1, shift_name: "AM Shift", start_time: "07:00", end_time: "16:00", color: "blue" },
+  { id: 2, shift_name: "PM Shift", start_time: "14:00", end_time: "23:59", color: "purple" },
+  { id: 3, shift_name: "Mid Shift", start_time: "11:00", end_time: "20:00", color: "green" },
+  { id: 4, shift_name: "GY Shift", start_time: "23:00", end_time: "08:00", color: "gray" },
+  { id: 5, shift_name: "OFF", start_time: null, end_time: null, color: "gray" },
+];
 
   /// FUNCTIONS
   const formatDateKey = (date: Date) => {
@@ -155,6 +156,7 @@ export default function SchedulingPage() {
       return;
     }
 
+    console.log("SCHEDULES:", data);
     setSchedules(data || []);
   };
 
@@ -179,7 +181,9 @@ export default function SchedulingPage() {
     shift: string
   ) => {
     const existingSchedule = schedules.find(
-      (schedule) => schedule.employee_id === employeeId && schedule.day === day
+      (schedule) =>
+        String(schedule.employee_id) === String(employeeId) &&
+        String(schedule.day) === String(day)
     );
 
     if (existingSchedule) {
@@ -192,20 +196,41 @@ export default function SchedulingPage() {
         console.log("UPDATE SCHEDULE ERROR:", error.message);
         return;
       }
-    } else {
-      const { error } = await supabase.from("schedules").insert({
+
+      setSchedules((prev) =>
+        prev.map((schedule) =>
+          schedule.id === existingSchedule.id ? { ...schedule, shift } : schedule
+        )
+      );
+
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("schedules")
+      .insert({
         employee_id: employeeId,
         day,
         shift,
-      });
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-      if (error) {
-        console.log("INSERT SCHEDULE ERROR:", error.message);
-        return;
-      }
+    if (error) {
+      console.log("INSERT SCHEDULE ERROR:", error.message);
+      return;
     }
 
-    getSchedules();
+    setSchedules((prev) => [
+      ...prev,
+      {
+        id: data?.id || Date.now(),
+        employee_id: employeeId,
+        day,
+        shift,
+      },
+    ]);
   };
 
   /// EFFECTS
@@ -214,6 +239,8 @@ export default function SchedulingPage() {
     getSchedules();
     getShiftTemplates();
   }, []);
+
+  
 
   /// CALCULATIONS
   const departments = useMemo(() => {
@@ -240,7 +267,9 @@ export default function SchedulingPage() {
 
   const getShift = (employeeId: string, day: string) => {
     const foundSchedule = schedules.find(
-      (schedule) => schedule.employee_id === employeeId && schedule.day === day
+      (schedule) =>
+        String(schedule.employee_id) === String(employeeId) &&
+        String(schedule.day) === String(day)
     );
 
     return foundSchedule?.shift || "OFF";
@@ -258,31 +287,59 @@ export default function SchedulingPage() {
     return `${shift.start_time.slice(0, 5)} - ${shift.end_time.slice(0, 5)}`;
   };
 
-  const getShiftColorClass = (shift: string) => {
-    const lowerShift = shift.toLowerCase();
+  const getShortShiftLabel = (shiftName: string) => {
+  const shift = shifts.find((item) => item.shift_name === shiftName);
 
-    if (lowerShift.includes("am")) {
-      return "border-blue-500/40 bg-blue-500/20 text-blue-300";
-    }
+  if (shiftName === "OFF") return "OFF";
 
-    if (lowerShift.includes("pm")) {
-      return "border-purple-500/40 bg-purple-500/20 text-purple-300";
-    }
+  const shortName =
+    shiftName.includes("AM") ? "AM" :
+    shiftName.includes("PM") ? "PM" :
+    shiftName.includes("Mid") ? "MID" :
+    shiftName.includes("GY") ? "GY" :
+    shiftName;
 
-    if (lowerShift.includes("mid")) {
-      return "border-green-500/40 bg-green-500/20 text-green-300";
-    }
+  if (!shift?.start_time || !shift?.end_time) return shortName;
 
-    if (lowerShift.includes("gy") || lowerShift.includes("night")) {
-      return "border-indigo-500/40 bg-indigo-500/20 text-indigo-300";
-    }
+  return `${shortName} ${shift.start_time.slice(0, 5)}-${shift.end_time.slice(0, 5)}`;
+};
 
-    if (lowerShift.includes("off")) {
-      return "border-slate-600 bg-slate-800 text-slate-400";
-    }
+  const normalizeColor = (color?: string | null) => {
+  if (!color) return "blue";
+  if (color.includes("green")) return "green";
+  if (color.includes("yellow")) return "yellow";
+  if (color.includes("purple")) return "purple";
+  if (color.includes("red")) return "red";
+  if (color.includes("slate") || color.includes("gray")) return "gray";
+  return "blue";
+};
 
-    return "border-slate-600 bg-slate-800 text-white";
-  };
+const getShiftColorClass = (shiftName: string) => {
+  const shift = shifts.find((item) => item.shift_name === shiftName);
+  const colorKey = normalizeColor(shift?.color);
+
+  if (colorKey === "blue") {
+    return "border-blue-500/40 bg-blue-500/20 text-blue-300";
+  }
+
+  if (colorKey === "green") {
+    return "border-green-500/40 bg-green-500/20 text-green-300";
+  }
+
+  if (colorKey === "yellow") {
+    return "border-yellow-500/40 bg-yellow-500/20 text-yellow-300";
+  }
+
+  if (colorKey === "purple") {
+    return "border-purple-500/40 bg-purple-500/20 text-purple-300";
+  }
+
+  if (colorKey === "red") {
+    return "border-red-500/40 bg-red-500/20 text-red-300";
+  }
+
+  return "border-slate-600 bg-slate-800 text-slate-400";
+};
 
   const dailyStaffCount = visibleDays.map((day) =>
     filteredEmployees.filter(
@@ -435,12 +492,13 @@ export default function SchedulingPage() {
                           } ${getShiftColorClass(currentShift)}`}
                         >
                           {shifts.map((shift) => (
-                            <option
-                              key={shift.shift_name}
-                              value={shift.shift_name}
-                            >
-                              {getShiftLabel(shift.shift_name)}
-                            </option>
+                           <option
+  key={shift.shift_name}
+  value={shift.shift_name}
+  className="bg-slate-900 text-white"
+>
+  {getShortShiftLabel(shift.shift_name)}
+</option>
                           ))}
 
                           {!shifts.some(
