@@ -30,13 +30,14 @@ export default function Sidebar() {
         <Link href="/employees" className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-white">
           Employee Details
         </Link>
+
         <Link
         href="/settings"
         className="block rounded-lg px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white"
       >
         Settings
       </Link>
-
+      
       </nav>
     </aside>
   );

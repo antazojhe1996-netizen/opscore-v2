@@ -19,7 +19,7 @@ export default function SettingsPage() {
     {
       title: "Employment Status Management",
       description: "Control which statuses count in workforce and scheduling.",
-      href: "/settings/employment-status",
+      href: "/settings/employment-statuses",
     },
     {
       title: "Shift Management",
