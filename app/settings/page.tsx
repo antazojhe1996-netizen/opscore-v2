@@ -6,6 +6,8 @@ import Sidebar from "@/components/Sidebar";
 export default function SettingsPage() {
   /// DATA
   const settingGroups = [
+
+  
     {
       groupTitle: "HR Setup",
       description: "Core employee information used across OPSCORE.",
@@ -35,6 +37,7 @@ export default function SettingsPage() {
       ],
     },
     {
+
       groupTitle: "Workforce Rules",
       description: "Rules that control scheduling, manpower, and HC planning.",
       modules: [
@@ -72,12 +75,16 @@ export default function SettingsPage() {
       groupTitle: "Operations Data",
       description: "Operational data used for forecasting and finance.",
       modules: [
+
+        
         {
           title: "Occupancy Import",
           description:
             "Upload room occupancy data for forecasting and workforce planning.",
           href: "/settings/occupancy-import",
         },
+
+        
       ],
     },
   ];
