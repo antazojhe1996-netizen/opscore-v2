@@ -5,10 +5,8 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
 export default function LeaveSettingsPage() {
-  /// STATES
   const [leaveSettings, setLeaveSettings] = useState<any[]>([]);
 
-  /// FUNCTIONS
   const getLeaveSettings = async () => {
     const { data, error } = await supabase
       .from("leave_settings")
@@ -35,7 +33,6 @@ export default function LeaveSettingsPage() {
 
     if (error) {
       console.log("UPDATE LEAVE SETTING ERROR:", error);
-      alert("Failed to update leave setting.");
       return;
     }
 
@@ -46,7 +43,6 @@ export default function LeaveSettingsPage() {
     getLeaveSettings();
   }, []);
 
-  /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
@@ -55,19 +51,17 @@ export default function LeaveSettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Leave Settings</h1>
           <p className="text-sm text-slate-400">
-            Manage leave types, credits, and leave policy rules.
+            Control which leave types are available and which ones deduct credits.
           </p>
         </div>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Leave Controls</h2>
-              <p className="text-sm text-slate-400">
-                Configure which leave types are available and whether credits
-                are required.
-              </p>
-            </div>
+          <div className="mb-6">
+            <h2 className="text-xl font-bold">Leave Policy Controls</h2>
+            <p className="text-sm text-slate-400">
+              Enabled leaves appear in the request form. Deduct Credits controls
+              whether approval reduces employee leave balance.
+            </p>
           </div>
 
           <div className="overflow-x-auto">
@@ -75,10 +69,8 @@ export default function LeaveSettingsPage() {
               <thead>
                 <tr className="border-b border-slate-800 text-left text-slate-400">
                   <th className="py-3 pr-4">Leave Type</th>
-                  <th className="py-3 pr-4">Default Credits</th>
                   <th className="py-3 pr-4">Enabled</th>
-                  <th className="py-3 pr-4">Requires Credits</th>
-                  <th className="py-3 pr-4">Policy Meaning</th>
+                  <th className="py-3 pr-4">Deduct Credits</th>
                 </tr>
               </thead>
 
@@ -88,27 +80,11 @@ export default function LeaveSettingsPage() {
                     key={leave.id}
                     className="border-b border-slate-800/70 text-slate-200"
                   >
-                    <td className="py-3 pr-4 font-medium">
+                    <td className="py-4 pr-4 font-medium">
                       {leave.leave_type}
                     </td>
 
-                    <td className="py-3 pr-4">
-                      <input
-                        type="number"
-                        min="0"
-                        value={leave.default_credits}
-                        onChange={(e) =>
-                          updateLeaveSetting(
-                            leave.id,
-                            "default_credits",
-                            Number(e.target.value)
-                          )
-                        }
-                        className="w-24 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none"
-                      />
-                    </td>
-
-                    <td className="py-3 pr-4">
+                    <td className="py-4 pr-4">
                       <button
                         onClick={() =>
                           updateLeaveSetting(
@@ -117,17 +93,18 @@ export default function LeaveSettingsPage() {
                             !leave.is_enabled
                           )
                         }
-                        className={`rounded-full px-4 py-1 text-xs font-semibold ${
-                          leave.is_enabled
-                            ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                            : "bg-red-500/20 text-red-400 border border-red-500/30"
-                        }`}
+                        className={`w-28 rounded-full border px-4 py-1 text-center text-xs font-semibold transition-all duration-200 hover:scale-105 ${
+
+                        leave.is_enabled
+                          ? "border-green-500/30 bg-green-500/20 text-green-400"
+                          : "border-red-500/30 bg-red-500/20 text-red-400"
+                      }`}
                       >
                         {leave.is_enabled ? "Enabled" : "Disabled"}
                       </button>
                     </td>
 
-                    <td className="py-3 pr-4">
+                    <td className="py-4 pr-4">
                       <button
                         onClick={() =>
                           updateLeaveSetting(
@@ -136,20 +113,14 @@ export default function LeaveSettingsPage() {
                             !leave.requires_credits
                           )
                         }
-                        className={`rounded-full px-4 py-1 text-xs font-semibold ${
+                        className={`w-32 rounded-full border px-4 py-1 text-center text-xs font-semibold transition-all duration-200 hover:scale-105 ${
                           leave.requires_credits
-                            ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                            : "bg-slate-700 text-slate-300 border border-slate-600"
+                            ? "border-yellow-500/30 bg-yellow-500/20 text-yellow-400"
+                            : "border-slate-600 bg-slate-700 text-slate-300"
                         }`}
                       >
-                        {leave.requires_credits ? "Required" : "Not Required"}
+                        {leave.requires_credits ? "Deduct" : "No Deduction"}
                       </button>
-                    </td>
-
-                    <td className="py-3 pr-4 text-slate-400">
-                      {leave.requires_credits
-                        ? `Deduct from ${leave.default_credits} credits when approved`
-                        : "Allowed even without leave credits"}
                     </td>
                   </tr>
                 ))}
@@ -157,7 +128,7 @@ export default function LeaveSettingsPage() {
                 {leaveSettings.length === 0 && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={3}
                       className="py-8 text-center text-slate-500"
                     >
                       No leave settings found.
