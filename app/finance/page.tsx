@@ -33,6 +33,21 @@ export default function FinancePage() {
           </Link>
 
           <Link
+            href="/finance/settings"
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-yellow-400 hover:bg-slate-800"
+            >
+            <h2 className="text-xl font-bold">Finance Settings</h2>
+
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+                Configure expense categories, payment methods, and revenue sources.
+            </p>
+
+            <p className="mt-6 text-sm font-semibold text-yellow-400">
+                Open Finance →
+            </p>
+            </Link>
+
+          <Link
   href="/finance/expenses"
   className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-yellow-400 hover:bg-slate-800"
 >
