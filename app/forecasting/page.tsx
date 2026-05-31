@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
@@ -109,6 +109,35 @@ export default function ForecastingPage() {
             Forecast headcount requirements using imported occupancy data.
           </p>
         </div>
+
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+  <Link
+    href="/forecasting/occupancy-import"
+    className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-yellow-400 hover:bg-slate-800"
+  >
+    <h2 className="text-xl font-bold">Occupancy Import</h2>
+
+    <p className="mt-3 text-sm leading-6 text-slate-400">
+      Upload Cloudbeds occupancy data for forecasting and workforce planning.
+    </p>
+
+    <p className="mt-6 text-sm font-semibold text-yellow-400">
+      Open Import →
+    </p>
+  </Link>
+
+  <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 opacity-60">
+    <h2 className="text-xl font-bold">Event Add-ons</h2>
+
+    <p className="mt-3 text-sm leading-6 text-slate-400">
+      Add special events that increase required manpower.
+    </p>
+
+    <p className="mt-6 text-sm font-semibold text-slate-500">
+      Coming Soon
+    </p>
+  </div>
+</section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">

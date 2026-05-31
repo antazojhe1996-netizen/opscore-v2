@@ -6,8 +6,6 @@ import Sidebar from "@/components/Sidebar";
 export default function SettingsPage() {
   /// DATA
   const settingGroups = [
-
-  
     {
       groupTitle: "HR Setup",
       description: "Core employee information used across OPSCORE.",
@@ -25,7 +23,8 @@ export default function SettingsPage() {
         },
         {
           title: "Employment Status Management",
-          description: "Control which statuses count in workforce and scheduling.",
+          description:
+            "Control which statuses count in workforce and scheduling.",
           href: "/settings/employment-statuses",
         },
         {
@@ -37,7 +36,6 @@ export default function SettingsPage() {
       ],
     },
     {
-
       groupTitle: "Workforce Rules",
       description: "Rules that control scheduling, manpower, and HC planning.",
       modules: [
@@ -48,7 +46,8 @@ export default function SettingsPage() {
         },
         {
           title: "HC Rules",
-          description: "Set required headcount based on occupancy and department.",
+          description:
+            "Set required headcount based on occupancy and department.",
           href: "/settings/hc-rules",
         },
       ],
@@ -73,16 +72,9 @@ export default function SettingsPage() {
     },
     {
       groupTitle: "Operations Data",
-      description: "Operational data used for forecasting and finance.",
+      description:
+        "Operational data used for occupancy forecasting and workforce planning.",
       modules: [
-
-        
-        {
-          title: "Occupancy Import",
-          description:
-            "Upload room occupancy data for forecasting and workforce planning.",
-          href: "/settings/occupancy-import",
-        },
 
         
       ],
@@ -98,8 +90,8 @@ export default function SettingsPage() {
         <section>
           <h1 className="text-3xl font-bold">Settings</h1>
           <p className="mt-2 text-slate-400">
-            Configure OPSCORE rules, HR setup, workforce controls, and operations
-            data.
+            Configure OPSCORE rules, HR setup, workforce controls, and
+            operations data.
           </p>
         </section>
 
@@ -119,7 +111,7 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {group.modules.map((module) => (
                   <Link
-                    key={module.title}
+                    key={module.href}
                     href={module.href}
                     className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-yellow-400 hover:bg-slate-800"
                   >
