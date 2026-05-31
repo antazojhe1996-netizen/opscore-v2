@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "../lib/supabase";
 
+
 type Employee = {
   id: string;
   first_name: string;
@@ -27,6 +28,25 @@ type ShiftTemplate = {
   color: string | null;
 };
 
+type RuleGroup = {
+  id: number;
+  min: number;
+  max: number;
+  rules: Record<string, number>;
+};
+
+type PeakRule = {
+  id: number;
+  day: string;
+  rules: Record<string, number>;
+};
+
+type HCRules = {
+  occupancyRules: RuleGroup[];
+  peakRules: PeakRule[];
+  eventRules: RuleGroup[];
+};
+
 export default function SchedulingPage() {
   /// STATES
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -35,8 +55,11 @@ export default function SchedulingPage() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [viewMode, setViewMode] = useState<"weekly" | "monthly">("weekly");
   const [currentDate, setCurrentDate] = useState(new Date());
-
   const todayColumnRef = useRef<HTMLDivElement | null>(null);
+  const [hcRules, setHcRules] = useState<HCRules | null>(null);
+  const [roomsSold, setRoomsSold] = useState(0);
+  const [showWarnings, setShowWarnings] = useState(false);
+  const [copyingSchedule, setCopyingSchedule] = useState(false);
 
   /// DATA
   const defaultShifts: ShiftTemplate[] = [
@@ -244,12 +267,103 @@ export default function SchedulingPage() {
       },
     ]);
   };
+  const loadHCRules = async () => {
+  const { data, error } = await supabase
+    .from("hc_rule_settings")
+    .select("setting_data")
+    .eq("setting_name", "hc_rules")
+    .maybeSingle();
+
+  if (error) {
+    console.log("LOAD HC RULES ERROR:", error.message);
+    return;
+  }
+
+  if (data?.setting_data) {
+    setHcRules(data.setting_data);
+  }
+};
+
+const copyLastWeekSchedule = async () => {
+  const confirmCopy = window.confirm(
+    "Copy last week's schedule into this week?"
+  );
+
+  if (!confirmCopy) return;
+
+  try {
+    setCopyingSchedule(true);
+
+    const currentWeekStart = new Date(visibleDays[0].key);
+
+    const lastWeekStart = new Date(currentWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    const lastWeekEnd = new Date(lastWeekStart);
+    lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+
+    const startKey = formatDateKey(lastWeekStart);
+    const endKey = formatDateKey(lastWeekEnd);
+
+    const { data: lastWeekSchedules, error } = await supabase
+      .from("schedules")
+      .select("*")
+      .gte("day", startKey)
+      .lte("day", endKey);
+
+    if (error) throw error;
+
+    const newSchedules =
+      lastWeekSchedules?.map((schedule) => {
+        const oldDate = new Date(schedule.day);
+
+        const newDate = new Date(oldDate);
+        newDate.setDate(newDate.getDate() + 7);
+
+        return {
+          employee_id: schedule.employee_id,
+          day: formatDateKey(newDate),
+          shift: schedule.shift,
+        };
+      }) || [];
+
+    if (newSchedules.length === 0) {
+      alert("No schedule found from last week.");
+      return;
+    }
+
+    const currentWeekKeys = visibleDays.map((day) => day.key);
+
+    await supabase
+      .from("schedules")
+      .delete()
+      .in("day", currentWeekKeys);
+
+    const { error: insertError } = await supabase
+      .from("schedules")
+      .insert(newSchedules);
+
+    if (insertError) throw insertError;
+
+    await getSchedules();
+
+    alert("Schedule copied successfully.");
+  } catch (error) {
+    console.error(error);
+    alert("Failed to copy schedule.");
+  } finally {
+    setCopyingSchedule(false);
+  }
+};
 
   /// EFFECTS
+
+  
   useEffect(() => {
     getEmployees();
     getSchedules();
     getShiftTemplates();
+    loadHCRules();
   }, []);
 
   useEffect(() => {
@@ -363,239 +477,386 @@ export default function SchedulingPage() {
     ).length
   );
 
-  const requiredHC = visibleDays.map(() => 0);
+ const getRequiredHC = (dayKey: string) => {
+  if (!hcRules || !selectedDepartment) return 0;
+
+  const date = new Date(dayKey);
+  const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
+
+  const occupancyRule = hcRules.occupancyRules.find(
+    (rule) => roomsSold >= rule.min && roomsSold <= rule.max
+  );
+
+  const baseHC = occupancyRule?.rules[selectedDepartment] || 0;
+
+  const peakRule = hcRules.peakRules.find((rule) => rule.day === dayName);
+
+  const peakHC = peakRule?.rules[selectedDepartment] || 0;
+
+  return baseHC + peakHC;
+};
+
+const requiredHC = visibleDays.map((day) => getRequiredHC(day.key));
 
   const coverageGap = dailyStaffCount.map(
     (count, index) => count - requiredHC[index]
   );
 
+  const recommendationText = coverageGap.map((gap) => {
+  if (gap < 0) return `Add ${Math.abs(gap)} staff`;
+  if (gap > 0) return `Reduce ${gap} staff`;
+  return "Good coverage";
+});
+
+const activeOccupancyRule = hcRules?.occupancyRules.find(
+  (rule) => roomsSold >= rule.min && roomsSold <= rule.max
+);
+
+const totalShortage = coverageGap
+  .filter((gap) => gap < 0)
+  .reduce((total, gap) => total + Math.abs(gap), 0);
+
+const biggestShortage = Math.min(...coverageGap);
+
+const biggestShortageIndex = coverageGap.findIndex(
+  (gap) => gap === biggestShortage
+);
+
+const biggestShortageDay =
+  biggestShortageIndex >= 0
+    ? visibleDays[biggestShortageIndex]?.dayName
+    : null;
+
+
+const employeeNameCount = filteredEmployees.reduce<Record<string, number>>(
+  (count, employee) => {
+    const name = `${employee.first_name} ${employee.last_name}`.toLowerCase();
+    count[name] = (count[name] || 0) + 1;
+    return count;
+  },
+  {}
+);
+
+const duplicateEmployees = filteredEmployees.filter((employee) => {
+  const name = `${employee.first_name} ${employee.last_name}`.toLowerCase();
+  return employeeNameCount[name] > 1;
+});
+
+const unscheduledEmployees = filteredEmployees.filter((employee) =>
+  visibleDays.every((day) => getShift(employee.id, day.key) === "OFF")
+);
+
+const overworkedEmployees = filteredEmployees.filter((employee) => {
+  const workingDays = visibleDays.filter(
+    (day) => getShift(employee.id, day.key) !== "OFF"
+  ).length;
+
+  return workingDays >= 7;
+});
+
+const hasScheduleWarnings =
+  duplicateEmployees.length > 0 ||
+  unscheduledEmployees.length > 0 ||
+  overworkedEmployees.length > 0;
+
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+  <div className="flex min-h-screen bg-slate-950 text-white">
+    <Sidebar />
 
-      <main className="min-w-0 flex-1 p-8">
-        <section>
-          <h1 className="text-3xl font-bold">Scheduling</h1>
-          <p className="mt-1 text-slate-400">
-            Manage weekly and monthly staff schedules with shift color coding.
-          </p>
-        </section>
+    <main className="min-w-0 flex-1 p-8">
+      <section>
+        <h1 className="text-3xl font-bold">Scheduling</h1>
+        <p className="mt-1 text-slate-400">
+          Manage weekly and monthly staff schedules with shift color coding.
+        </p>
+      </section>
 
-        <section className="mt-8 w-full max-w-full rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold">
-                {selectedDepartment || "Department"} Schedule
-              </h2>
-              <p className="mt-1 text-sm text-slate-400">
-                {getDateRangeLabel()}
-              </p>
-            </div>
+      <section className="mt-8 w-full max-w-full rounded-xl border border-slate-800 bg-slate-900 p-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold">
+              {selectedDepartment || "Department"} Schedule
+            </h2>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex rounded-lg border border-slate-700 bg-slate-950 p-1">
-                <button
-                  onClick={() => setViewMode("weekly")}
-                  className={
-                    viewMode === "weekly"
-                      ? "rounded-md bg-yellow-400 px-4 py-2 text-sm font-bold text-black"
-                      : "rounded-md px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
-                  }
-                >
-                  Weekly
-                </button>
+            <p className="mt-1 text-sm text-slate-400">
+              {getDateRangeLabel()}
+              <span className="ml-2 text-slate-500">
+                • Occupancy Range: {activeOccupancyRule?.min} -{" "}
+                {activeOccupancyRule?.max} Rooms
+              </span>
 
-                <button
-                  onClick={() => setViewMode("monthly")}
-                  className={
-                    viewMode === "monthly"
-                      ? "rounded-md bg-yellow-400 px-4 py-2 text-sm font-bold text-black"
-                      : "rounded-md px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
-                  }
-                >
-                  Monthly
-                </button>
-              </div>
+              {totalShortage > 0 && (
+                <span className="ml-2 font-medium text-red-400">
+                  • {totalShortage} staffing gaps detected
+                </span>
 
+                
+              )}
+
+              {hasScheduleWarnings && (
               <button
-                onClick={() => moveDate("prev")}
-                className="rounded-lg bg-slate-800 px-4 py-2 font-bold hover:bg-slate-700"
-              >
-                ‹
-              </button>
-
-              <button
-                onClick={goToToday}
-                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold hover:bg-slate-700"
-              >
-                Today
-              </button>
-
-              <button
-                onClick={() => moveDate("next")}
-                className="rounded-lg bg-slate-800 px-4 py-2 font-bold hover:bg-slate-700"
-              >
-                ›
-              </button>
-
-              <select
-                value={selectedDepartment}
-                onChange={(event) => setSelectedDepartment(event.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-white"
-              >
-                {departments.map((department) => (
-                  <option key={department} value={department}>
-                    {department}
-                  </option>
-                ))}
-              </select>
-            </div>
+  type="button"
+  onClick={() => setShowWarnings(!showWarnings)}
+  className="ml-2 font-medium text-yellow-400 hover:underline"
+>
+  • {duplicateEmployees.length + unscheduledEmployees.length + overworkedEmployees.length} schedule warnings
+</button>
+            )}
+            </p>
           </div>
 
-          <div className="block w-full max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-slate-800">
-            <div className={tableWidthClass}>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex rounded-lg border border-slate-700 bg-slate-950 p-1">
+              <button
+                onClick={() => setViewMode("weekly")}
+                className={
+                  viewMode === "weekly"
+                    ? "rounded-md bg-yellow-400 px-4 py-2 text-sm font-bold text-black"
+                    : "rounded-md px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                }
+              >
+                Weekly
+              </button>
+
+              <button
+                onClick={() => setViewMode("monthly")}
+                className={
+                  viewMode === "monthly"
+                    ? "rounded-md bg-yellow-400 px-4 py-2 text-sm font-bold text-black"
+                    : "rounded-md px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                }
+              >
+                Monthly
+              </button>
+            </div>
+
+            <button
+              onClick={() => moveDate("prev")}
+              className="rounded-lg bg-slate-800 px-4 py-2 font-bold hover:bg-slate-700"
+            >
+              ‹
+            </button>
+
+            <button
+              onClick={goToToday}
+              className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold hover:bg-slate-700"
+            >
+              Today
+            </button>
+
+            <button
+  onClick={copyLastWeekSchedule}
+  disabled={copyingSchedule}
+  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500 disabled:opacity-50"
+>
+  {copyingSchedule ? "Copying..." : " Copy Last Week"}
+</button>
+
+            <button
+              onClick={() => moveDate("next")}
+              className="rounded-lg bg-slate-800 px-4 py-2 font-bold hover:bg-slate-700"
+            >
+              ›
+            </button>
+
+            <select
+              value={selectedDepartment}
+              onChange={(event) => setSelectedDepartment(event.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-white"
+            >
+              {departments.map((department) => (
+                <option key={department} value={department}>
+                  {department}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {showWarnings && hasScheduleWarnings && (
+  <div className="mb-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-sm text-slate-300">
+    {duplicateEmployees.length > 0 && (
+      <p>• {duplicateEmployees.length} duplicate employee record detected.</p>
+    )}
+
+    {unscheduledEmployees.length > 0 && (
+      <p>• {unscheduledEmployees.length} employee has no schedule this week.</p>
+    )}
+
+    {overworkedEmployees.length > 0 && (
+      <p>• {overworkedEmployees.length} employee scheduled 7 straight days.</p>
+    )}
+  </div>
+)}
+
+        <div className="block w-full max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-slate-800">
+          <div className={tableWidthClass}>
+            <div
+              className="grid bg-slate-950 text-sm font-bold text-slate-300"
+              style={{ gridTemplateColumns: tableGridColumns }}
+            >
+              <div className="sticky left-0 z-30 border-r border-slate-800 bg-slate-950 px-4 py-3">
+                Staff Name
+              </div>
+
+              {visibleDays.map((day) => {
+                const todayKey = formatDateKey(new Date());
+                const isToday = day.key === todayKey;
+
+                return (
+                  <div
+                    key={day.key}
+                    ref={isToday ? todayColumnRef : null}
+                    className="border-r border-slate-800 px-4 py-3 text-center last:border-r-0"
+                  >
+                    <div>{day.dayName}</div>
+                    <div className="mt-1 text-xs font-normal text-slate-400">
+                      {day.dateLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {filteredEmployees.map((employee) => (
               <div
-                className="grid bg-slate-950 text-sm font-bold text-slate-300"
+                key={employee.id}
+                className="grid border-t border-slate-800 text-sm"
                 style={{ gridTemplateColumns: tableGridColumns }}
               >
-                <div className="sticky left-0 z-30 border-r border-slate-800 bg-slate-950 px-4 py-3">
-                  Staff Name
+                <div className="sticky left-0 z-20 border-r border-slate-800 bg-slate-900 px-4 py-3 font-semibold">
+                  {employee.first_name} {employee.last_name}
                 </div>
 
                 {visibleDays.map((day) => {
-                  const todayKey = formatDateKey(new Date());
-                  const isToday = day.key === todayKey;
+                  const currentShift = getShift(employee.id, day.key);
 
                   return (
                     <div
-                      key={day.key}
-                      ref={isToday ? todayColumnRef : null}
-                      className="border-r border-slate-800 px-4 py-3 text-center last:border-r-0"
+                      key={`${employee.id}-${day.key}`}
+                      className="border-r border-slate-800 px-2 py-2 last:border-r-0"
                     >
-                      <div>{day.dayName}</div>
-                      <div className="mt-1 text-xs font-normal text-slate-400">
-                        {day.dateLabel}
-                      </div>
+                      <select
+                        value={currentShift}
+                        onChange={(event) =>
+                          updateSchedule(
+                            employee.id,
+                            day.key,
+                            event.target.value
+                          )
+                        }
+                        className={`block rounded-md border px-2 py-2 text-center text-xs font-bold outline-none ${
+                          viewMode === "weekly" ? "w-full" : "w-[105px]"
+                        } ${getShiftColorClass(currentShift)}`}
+                      >
+                        {shifts.map((shift) => (
+                          <option
+                            key={shift.shift_name}
+                            value={shift.shift_name}
+                            className="bg-slate-900 text-white"
+                          >
+                            {getShortShiftLabel(shift.shift_name)}
+                          </option>
+                        ))}
+
+                        {!shifts.some((shift) => shift.shift_name === "OFF") && (
+                          <option value="OFF">OFF</option>
+                        )}
+                      </select>
                     </div>
                   );
                 })}
               </div>
+            ))}
 
-              {filteredEmployees.map((employee) => (
+            <div
+              className="grid border-t border-slate-700 bg-slate-800/60 text-sm font-semibold"
+              style={{ gridTemplateColumns: tableGridColumns }}
+            >
+              <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
+                Daily Staff Count
+              </div>
+
+              {dailyStaffCount.map((count, index) => (
                 <div
-                  key={employee.id}
-                  className="grid border-t border-slate-800 text-sm"
-                  style={{ gridTemplateColumns: tableGridColumns }}
+                  key={visibleDays[index].key}
+                  className="border-r border-slate-700 px-4 py-3 text-center last:border-r-0"
                 >
-                  <div className="sticky left-0 z-20 border-r border-slate-800 bg-slate-900 px-4 py-3 font-semibold">
-                    {employee.first_name} {employee.last_name}
-                  </div>
-
-                  {visibleDays.map((day) => {
-                    const currentShift = getShift(employee.id, day.key);
-
-                    return (
-                      <div
-                        key={`${employee.id}-${day.key}`}
-                        className="border-r border-slate-800 px-2 py-2 last:border-r-0"
-                      >
-                        <select
-                          value={currentShift}
-                          onChange={(event) =>
-                            updateSchedule(
-                              employee.id,
-                              day.key,
-                              event.target.value
-                            )
-                          }
-                          className={`block rounded-md border px-2 py-2 text-center text-xs font-bold outline-none ${
-                            viewMode === "weekly" ? "w-full" : "w-[105px]"
-                          } ${getShiftColorClass(currentShift)}`}
-                        >
-                          {shifts.map((shift) => (
-                            <option
-                              key={shift.shift_name}
-                              value={shift.shift_name}
-                              className="bg-slate-900 text-white"
-                            >
-                              {getShortShiftLabel(shift.shift_name)}
-                            </option>
-                          ))}
-
-                          {!shifts.some(
-                            (shift) => shift.shift_name === "OFF"
-                          ) && <option value="OFF">OFF</option>}
-                        </select>
-                      </div>
-                    );
-                  })}
+                  {count}
                 </div>
               ))}
+            </div>
 
-              <div
-                className="grid border-t border-slate-700 bg-slate-800/60 text-sm font-semibold"
-                style={{ gridTemplateColumns: tableGridColumns }}
-              >
-                <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
-                  Daily Staff Count
-                </div>
-
-                {dailyStaffCount.map((count, index) => (
-                  <div
-                    key={visibleDays[index].key}
-                    className="border-r border-slate-700 px-4 py-3 text-center last:border-r-0"
-                  >
-                    {count}
-                  </div>
-                ))}
+            <div
+              className="grid border-t border-slate-700 bg-slate-800/40 text-sm font-semibold"
+              style={{ gridTemplateColumns: tableGridColumns }}
+            >
+              <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
+                Required HC
               </div>
 
-              <div
-                className="grid border-t border-slate-700 bg-slate-800/40 text-sm font-semibold"
-                style={{ gridTemplateColumns: tableGridColumns }}
-              >
-                <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
-                  Required HC
+              {requiredHC.map((required, index) => (
+                <div
+                  key={visibleDays[index].key}
+                  className="border-r border-slate-700 px-4 py-3 text-center text-green-400 last:border-r-0"
+                >
+                  {required}
                 </div>
+              ))}
+            </div>
 
-                {requiredHC.map((required, index) => (
-                  <div
-                    key={visibleDays[index].key}
-                    className="border-r border-slate-700 px-4 py-3 text-center text-green-400 last:border-r-0"
-                  >
-                    {required}
-                  </div>
-                ))}
+            <div
+              className="grid border-t border-slate-700 bg-slate-800/40 text-sm font-semibold"
+              style={{ gridTemplateColumns: tableGridColumns }}
+            >
+              <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
+                Coverage Gap
               </div>
 
-              <div
-                className="grid border-t border-slate-700 bg-slate-800/40 text-sm font-semibold"
-                style={{ gridTemplateColumns: tableGridColumns }}
-              >
-                <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-800 px-4 py-3">
-                  Coverage Gap
+              {coverageGap.map((gap, index) => (
+                <div
+                  key={visibleDays[index].key}
+                  className={
+                    gap < 0
+                      ? "border-r border-slate-700 px-4 py-3 text-center text-red-400 last:border-r-0"
+                      : gap > 0
+                      ? "border-r border-slate-700 px-4 py-3 text-center text-yellow-400 last:border-r-0"
+                      : "border-r border-slate-700 px-4 py-3 text-center text-green-400 last:border-r-0"
+                  }
+                >
+                  {gap > 0 ? `+${gap}` : gap}
                 </div>
+              ))}
+            </div>
 
-                {coverageGap.map((gap, index) => (
-                  <div
-                    key={visibleDays[index].key}
-                    className={
-                      gap < 0
-                        ? "border-r border-slate-700 px-4 py-3 text-center text-red-400 last:border-r-0"
-                        : gap > 0
-                        ? "border-r border-slate-700 px-4 py-3 text-center text-yellow-400 last:border-r-0"
-                        : "border-r border-slate-700 px-4 py-3 text-center text-green-400 last:border-r-0"
-                    }
-                  >
-                    {gap > 0 ? `+${gap}` : gap}
-                  </div>
-                ))}
+            <div
+              className="grid border-t border-slate-700 bg-slate-900/80 text-sm font-semibold"
+              style={{ gridTemplateColumns: tableGridColumns }}
+            >
+              <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-900 px-4 py-3">
+                Recommendation
               </div>
+
+              {recommendationText.map((text, index) => (
+                <div
+                  key={visibleDays[index].key}
+                  className={
+                    coverageGap[index] < 0
+                      ? "border-r border-slate-700 px-3 py-3 text-center text-red-400 last:border-r-0"
+                      : coverageGap[index] > 0
+                      ? "border-r border-slate-700 px-3 py-3 text-center text-yellow-400 last:border-r-0"
+                      : "border-r border-slate-700 px-3 py-3 text-center text-green-400 last:border-r-0"
+                  }
+                >
+                  {text}
+                </div>
+              ))}
             </div>
           </div>
-        </section>
-      </main>
-    </div>
-  );
+        </div>
+      </section>
+    </main>
+  </div>
+);
 }
