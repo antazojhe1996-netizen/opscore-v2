@@ -81,7 +81,7 @@ export default function LeaveManagementPage() {
 
     setLeaveSettings(data || []);
 
-    if (data && data.length > 0) {
+    if (data && data.length > 0 && !leaveType) {
       setLeaveType(data[0].leave_type);
     }
   };
@@ -126,6 +126,60 @@ export default function LeaveManagementPage() {
   };
 
   const updateStatus = async (id: number, status: string) => {
+    const leaveRequest = leaveRequests.find((leave) => leave.id === id);
+
+    if (!leaveRequest) {
+      alert("Leave request not found.");
+      return;
+    }
+
+    if (status === "Approved") {
+      const leavePolicy = leaveSettings.find(
+        (setting) => setting.leave_type === leaveRequest.leave_type
+      );
+
+      const shouldDeductCredits = leavePolicy?.requires_credits === true;
+
+      if (shouldDeductCredits) {
+        const { data: creditData, error: creditError } = await supabase
+          .from("employee_leave_credits")
+          .select("*")
+          .eq("employee_no", leaveRequest.employee_id)
+          .eq("leave_type", leaveRequest.leave_type)
+          .single();
+
+        if (creditError || !creditData) {
+          alert("No leave credits found for this employee and leave type.");
+          return;
+        }
+
+        const leaveDays = Number(leaveRequest.days || 0);
+        const remainingCredits = Number(creditData.remaining_credits || 0);
+        const usedCredits = Number(creditData.used_credits || 0);
+
+        if (remainingCredits < leaveDays) {
+          alert(
+            `Insufficient leave credits.\n\nRemaining: ${remainingCredits}\nRequested: ${leaveDays}`
+          );
+          return;
+        }
+
+        const { error: deductError } = await supabase
+          .from("employee_leave_credits")
+          .update({
+            used_credits: usedCredits + leaveDays,
+            remaining_credits: remainingCredits - leaveDays,
+          })
+          .eq("id", creditData.id);
+
+        if (deductError) {
+          console.log("DEDUCT CREDIT ERROR:", deductError);
+          alert("Failed to deduct leave credits.");
+          return;
+        }
+      }
+    }
+
     const { error } = await supabase
       .from("leave_requests")
       .update({ status })
@@ -133,6 +187,7 @@ export default function LeaveManagementPage() {
 
     if (error) {
       console.log("UPDATE STATUS ERROR:", error);
+      alert("Failed to update leave status.");
       return;
     }
 
@@ -152,7 +207,7 @@ export default function LeaveManagementPage() {
       .eq("id", id);
 
     if (error) {
-      console.log("DELETE ERROR:", error);
+      console.log("DELETE LEAVE ERROR:", error);
       return;
     }
 
