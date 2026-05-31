@@ -20,6 +20,10 @@ export default function Sidebar() {
           Scheduling
         </Link>
 
+        <Link href="/leave-management" className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-white">
+          Leave Management
+        </Link>
+
         <Link href="/forecasting" className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-white">
           Forecasting
         </Link>

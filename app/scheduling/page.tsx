@@ -60,6 +60,9 @@ export default function SchedulingPage() {
   const [roomsSold, setRoomsSold] = useState(0);
   const [showWarnings, setShowWarnings] = useState(false);
   const [copyingSchedule, setCopyingSchedule] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  
+  
 
   /// DATA
   const defaultShifts: ShiftTemplate[] = [
@@ -159,28 +162,32 @@ export default function SchedulingPage() {
   };
 
   const getEmployees = async () => {
-    const { data, error } = await supabase
-      .from("employees")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("employees")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.log("EMPLOYEE ERROR:", error.message);
-      return;
-    }
+  if (error) {
+    console.log("EMPLOYEE ERROR:", error.message);
+    return;
+  }
 
-    const activeEmployees = (data || []).filter(
-      (employee) =>
-        employee.employment_status !== "Resigned" &&
-        employee.employment_status !== "Terminated"
-    );
+  const activeEmployees = (data || []).filter((employee) => {
+    const status = employee.employment_status?.trim().toLowerCase();
 
-    setEmployees(activeEmployees);
+    return status !== "resigned" && status !== "terminated";
+  });
 
-    if (!selectedDepartment && activeEmployees.length > 0) {
-      setSelectedDepartment(activeEmployees[0].department);
-    }
-  };
+  setEmployees(activeEmployees);
+
+  const firstDepartment = activeEmployees.find(
+    (employee) => employee.department?.trim()
+  )?.department?.trim();
+
+  if (firstDepartment) {
+    setSelectedDepartment((current) => current || firstDepartment);
+  }
+};
 
   const getSchedules = async () => {
     const { data, error } = await supabase.from("schedules").select("*");
@@ -208,16 +215,23 @@ export default function SchedulingPage() {
     setShifts(data && data.length > 0 ? data : defaultShifts);
   };
 
+
+
   const updateSchedule = async (
     employeeId: string,
     day: string,
     shift: string
   ) => {
+
+      setSaveStatus("saving");
+
     const existingSchedule = schedules.find(
       (schedule) =>
         String(schedule.employee_id) === String(employeeId) &&
         String(schedule.day) === String(day)
     );
+
+    
 
     if (existingSchedule) {
       const { error } = await supabase
@@ -237,6 +251,17 @@ export default function SchedulingPage() {
             : schedule
         )
       );
+
+      setSaveStatus("saved");
+
+  setTimeout(() => {
+    setSaveStatus("idle");
+  }, 1500);
+
+  if (viewMode !== "weekly") {
+  alert("Copy Last Week is only available in weekly view.");
+  return;
+}
 
       return;
     }
@@ -356,6 +381,56 @@ const copyLastWeekSchedule = async () => {
   }
 };
 
+const autoFixGaps = async () => {
+  try {
+    const updates: {
+      employeeId: string;
+      day: string;
+      shift: string;
+    }[] = [];
+
+    if (viewMode !== "weekly") {
+  alert("Auto Fix Gaps is only available in weekly view.");
+  return;
+}
+
+    visibleDays.forEach((day, dayIndex) => {
+      const gap = coverageGap[dayIndex];
+
+      if (gap >= 0) return;
+
+      const availableEmployees = filteredEmployees.filter(
+        (employee) => getShift(employee.id, day.key) === "OFF"
+      );
+
+      availableEmployees
+        .slice(0, Math.abs(gap))
+        .forEach((employee) => {
+          updates.push({
+            employeeId: employee.id,
+            day: day.key,
+            shift: "PM Shift",
+          });
+        });
+    });
+
+    for (const update of updates) {
+      await updateSchedule(
+        update.employeeId,
+        update.day,
+        update.shift
+      );
+    }
+
+    await getSchedules();
+
+    alert(`${updates.length} schedule gaps fixed.`);
+  } catch (error) {
+    console.error(error);
+    alert("Failed to auto fix schedule.");
+  }
+};
+
   /// EFFECTS
 
   
@@ -380,16 +455,24 @@ const copyLastWeekSchedule = async () => {
 
   /// CALCULATIONS
   const departments = useMemo(() => {
-    const uniqueDepartments = employees
-      .map((employee) => employee.department)
-      .filter(Boolean);
+  const uniqueDepartments = employees
+    .map((employee) => employee.department?.trim())
+    .filter((department): department is string => Boolean(department));
 
-    return Array.from(new Set(uniqueDepartments));
-  }, [employees]);
+  return Array.from(new Set(uniqueDepartments));
+}, [employees]);
 
-  const filteredEmployees = employees.filter(
-    (employee) => employee.department === selectedDepartment
-  );
+  useEffect(() => {
+  if (!selectedDepartment && departments.length > 0) {
+    setSelectedDepartment(departments[0]);
+  }
+}, [departments, selectedDepartment]);
+
+ const filteredEmployees = selectedDepartment
+  ? employees.filter(
+      (employee) => employee.department?.trim() === selectedDepartment
+    )
+  : employees;
 
   const visibleDays = getVisibleDays();
 
@@ -537,6 +620,10 @@ const employeeNameCount = filteredEmployees.reduce<Record<string, number>>(
   {}
 );
 
+const overstaffDays = coverageGap.filter(
+  (gap) => gap > 0
+).length;
+
 const duplicateEmployees = filteredEmployees.filter((employee) => {
   const name = `${employee.first_name} ${employee.last_name}`.toLowerCase();
   return employeeNameCount[name] > 1;
@@ -554,10 +641,39 @@ const overworkedEmployees = filteredEmployees.filter((employee) => {
   return workingDays >= 7;
 });
 
-const hasScheduleWarnings =
-  duplicateEmployees.length > 0 ||
-  unscheduledEmployees.length > 0 ||
-  overworkedEmployees.length > 0;
+const understaffDays = coverageGap.filter((gap) => gap < 0).length;
+
+
+const totalScheduleWarnings =
+  understaffDays +
+  overstaffDays +
+  duplicateEmployees.length +
+  unscheduledEmployees.length +
+  overworkedEmployees.length;
+
+const hasScheduleWarnings = totalScheduleWarnings > 0;
+
+const scheduleSuggestions = visibleDays.flatMap((day, dayIndex) => {
+  const gap = coverageGap[dayIndex];
+
+  if (gap >= 0) return [];
+
+  const availableEmployees = filteredEmployees.filter(
+    (employee) => getShift(employee.id, day.key) === "OFF"
+  );
+
+  return availableEmployees
+    .slice(0, Math.abs(gap))
+    .map((employee) => ({
+      employeeId: employee.id,
+      employeeName: `${employee.first_name} ${employee.last_name}`,
+      day: day.dayName,
+      date: day.key,
+      suggestedShift: "PM Shift",
+    }));
+});
+
+
 
   /// UI
   return (
@@ -581,27 +697,49 @@ const hasScheduleWarnings =
 
             <p className="mt-1 text-sm text-slate-400">
               {getDateRangeLabel()}
+
               <span className="ml-2 text-slate-500">
                 • Occupancy Range: {activeOccupancyRule?.min} -{" "}
                 {activeOccupancyRule?.max} Rooms
               </span>
 
-              {totalShortage > 0 && (
-                <span className="ml-2 font-medium text-red-400">
-                  • {totalShortage} staffing gaps detected
-                </span>
+            
+                          {hasScheduleWarnings && (
+              <span
+                onMouseEnter={() => setShowWarnings(true)}
+                onMouseLeave={() => setShowWarnings(false)}
+                className="relative ml-2 cursor-help font-medium text-yellow-400"
+              >
+                • {totalScheduleWarnings} schedule warnings
 
-                
-              )}
+                {showWarnings && (
+                  <div className="absolute left-0 top-6 z-50 w-96 rounded-lg border border-yellow-500/30 bg-slate-950 p-3 text-sm font-normal text-slate-300 shadow-xl">
+                    <p className="mb-2 font-semibold text-yellow-400">
+                      Schedule Warnings
+                    </p>
 
-              {hasScheduleWarnings && (
-              <button
-  type="button"
-  onClick={() => setShowWarnings(!showWarnings)}
-  className="ml-2 font-medium text-yellow-400 hover:underline"
->
-  • {duplicateEmployees.length + unscheduledEmployees.length + overworkedEmployees.length} schedule warnings
-</button>
+                    {understaffDays > 0 && (
+                      <p>• {understaffDays} day(s) currently understaffed.</p>
+                    )}
+
+                    {overstaffDays > 0 && (
+                      <p>• {overstaffDays} day(s) currently overstaffed.</p>
+                    )}
+
+                    {duplicateEmployees.length > 0 && (
+                      <p>• {duplicateEmployees.length} duplicate employee record detected.</p>
+                    )}
+
+                    {unscheduledEmployees.length > 0 && (
+                      <p>• {unscheduledEmployees.length} employee has no schedule this week.</p>
+                    )}
+
+                    {overworkedEmployees.length > 0 && (
+                      <p>• {overworkedEmployees.length} employee scheduled 7 straight days.</p>
+                    )}
+                  </div>
+                )}
+              </span>
             )}
             </p>
           </div>
@@ -646,12 +784,33 @@ const hasScheduleWarnings =
             </button>
 
             <button
-  onClick={copyLastWeekSchedule}
-  disabled={copyingSchedule}
-  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500 disabled:opacity-50"
->
-  {copyingSchedule ? "Copying..." : " Copy Last Week"}
-</button>
+              onClick={copyLastWeekSchedule}
+              disabled={copyingSchedule || viewMode !== "weekly"}
+              className={
+                viewMode !== "weekly"
+                  ? "rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-slate-400 opacity-60 cursor-not-allowed"
+                  : "rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500 disabled:opacity-50"
+              }
+            >
+              {copyingSchedule ? "Copying..." : "Copy Last Week"}
+            </button>
+
+            <button
+              onClick={autoFixGaps}
+              disabled={viewMode !== "weekly"}
+              title={
+                viewMode !== "weekly"
+                  ? "Auto Fix Gaps is only available in weekly view"
+                  : "Automatically fill weekly staffing gaps"
+              }
+              className={
+                viewMode !== "weekly"
+                  ? "cursor-not-allowed rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-slate-400 opacity-60"
+                  : "rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold hover:bg-emerald-500"
+              }
+            >
+              Auto Fix Gaps
+            </button>
 
             <button
               onClick={() => moveDate("next")}
@@ -660,11 +819,17 @@ const hasScheduleWarnings =
               ›
             </button>
 
+            
+
             <select
               value={selectedDepartment}
               onChange={(event) => setSelectedDepartment(event.target.value)}
               className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-white"
             >
+              {departments.length === 0 && (
+                <option value="">No departments found</option>
+              )}
+
               {departments.map((department) => (
                 <option key={department} value={department}>
                   {department}
@@ -674,21 +839,9 @@ const hasScheduleWarnings =
           </div>
         </div>
 
-        {showWarnings && hasScheduleWarnings && (
-  <div className="mb-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-sm text-slate-300">
-    {duplicateEmployees.length > 0 && (
-      <p>• {duplicateEmployees.length} duplicate employee record detected.</p>
-    )}
+        
 
-    {unscheduledEmployees.length > 0 && (
-      <p>• {unscheduledEmployees.length} employee has no schedule this week.</p>
-    )}
-
-    {overworkedEmployees.length > 0 && (
-      <p>• {overworkedEmployees.length} employee scheduled 7 straight days.</p>
-    )}
-  </div>
-)}
+       
 
         <div className="block w-full max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-slate-800">
           <div className={tableWidthClass}>
@@ -717,7 +870,10 @@ const hasScheduleWarnings =
                   </div>
                 );
               })}
+
             </div>
+
+            
 
             {filteredEmployees.map((employee) => (
               <div
@@ -765,10 +921,16 @@ const hasScheduleWarnings =
                         )}
                       </select>
                     </div>
+
+                    
                   );
                 })}
               </div>
+
+              
             ))}
+
+            
 
             <div
               className="grid border-t border-slate-700 bg-slate-800/60 text-sm font-semibold"
@@ -805,6 +967,8 @@ const hasScheduleWarnings =
                 </div>
               ))}
             </div>
+
+            
 
             <div
               className="grid border-t border-slate-700 bg-slate-800/40 text-sm font-semibold"
@@ -851,11 +1015,33 @@ const hasScheduleWarnings =
                 >
                   {text}
                 </div>
+
+                
               ))}
             </div>
+
+            
           </div>
+          
         </div>
+        {saveStatus !== "idle" && (
+  <div className="fixed bottom-4 right-4 z-50">
+    <div
+       className={`rounded-lg border px-4 py-2 text-sm shadow-lg backdrop-blur ${
+    saveStatus === "saving"
+          ? "border-yellow-500/30 bg-slate-900/90 backdrop-blur text-yellow-400"
+          : "border-green-500/30 bg-slate-900/90 backdrop-blur text-green-400"
+      }`}
+    >
+      {saveStatus === "saving"
+        ? "Saving changes..."
+        : "✓ All changes saved"}
+    </div>
+  </div>
+)}
       </section>
+
+      
     </main>
   </div>
 );
