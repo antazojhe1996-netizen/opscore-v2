@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import { title } from "process";
 
 export default function SettingsPage() {
   /// DATA
@@ -37,16 +38,20 @@ export default function SettingsPage() {
       description: "Set required headcount based on occupancy and department.",
       href: "/settings/hc-rules",
     },
-    {
-      title: "Peak Day Rules",
-      description: "Add extra headcount rules for busy days.",
-      href: "/settings/peak-days",
+     {
+      title: "Leave Credits",
+      description: "Configure employee leave balances and leave credit allocation.",
+      href: "/settings/leave-credits",
     },
-    {
-      title: "Event Add-ons",
-      description: "Add extra HC requirements for special events.",
-      href: "/settings/events",
-    },
+    
+
+      {
+        title: "Leave Settings",
+        description: " Manage leave types, leave credits, and leave approval rules.",
+        href: "/settings/leave-settings",
+      }
+
+
   ];
 
   /// UI
