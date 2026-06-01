@@ -1,12 +1,15 @@
 "use client";
+
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
 export default function ForecastingPage() {
   /// STATES
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
+  const [viewRange, setViewRange] = useState("7");
+  const [riskFilter, setRiskFilter] = useState("All");
 
   /// CALCULATIONS
   const getRequiredHC = (occupancy: number) => {
@@ -15,50 +18,117 @@ export default function ForecastingPage() {
     return 20;
   };
 
-  const forecastData = occupancyData.map((day) => ({
-    ...day,
-    required_hc: getRequiredHC(Number(day.occupancy || 0)),
-  }));
+  const getScheduledHC = (occupancy: number) => {
+    if (occupancy >= 80) return 45;
+    if (occupancy >= 50) return 35;
+    return 22;
+  };
 
-  const next7Days = forecastData.slice(0, 7);
+  const getDemandStatus = (occupancy: number) => {
+    if (occupancy >= 85) return "Critical";
+    if (occupancy >= 70) return "High";
+    if (occupancy >= 50) return "Normal";
+    return "Low";
+  };
+
+  const getStaffingStatus = (gap: number) => {
+    if (gap < 0) return "Low Staff";
+    if (gap > 0) return "Over Staff";
+    return "Normal";
+  };
+
+  const forecastData = useMemo(() => {
+    return occupancyData.map((day) => {
+      const occupancy = Number(day.occupancy || 0);
+      const requiredHC = getRequiredHC(occupancy);
+      const scheduledHC = getScheduledHC(occupancy);
+      const gap = scheduledHC - requiredHC;
+
+      return {
+        ...day,
+        occupancy,
+        required_hc: requiredHC,
+        scheduled_hc: scheduledHC,
+        gap,
+        demand_status: getDemandStatus(occupancy),
+        staffing_status: getStaffingStatus(gap),
+      };
+    });
+  }, [occupancyData]);
+
+  const rangedData = forecastData.slice(0, Number(viewRange));
+
+  const filteredData =
+    riskFilter === "All"
+      ? rangedData
+      : rangedData.filter((day) => day.staffing_status === riskFilter);
 
   const averageOccupancy =
-    next7Days.length > 0
+    rangedData.length > 0
       ? Math.round(
-          next7Days.reduce(
-            (sum, day) => sum + Number(day.occupancy || 0),
+          rangedData.reduce((sum, day) => sum + Number(day.occupancy || 0), 0) /
+            rangedData.length
+        )
+      : 0;
+
+  const averageRequiredHC =
+    rangedData.length > 0
+      ? Math.round(
+          rangedData.reduce(
+            (sum, day) => sum + Number(day.required_hc || 0),
             0
-          ) / next7Days.length
+          ) / rangedData.length
         )
       : 0;
 
   const highestOccupancyDay =
-    next7Days.length > 0
-      ? next7Days.reduce((highest, day) =>
+    rangedData.length > 0
+      ? rangedData.reduce((highest, day) =>
           Number(day.occupancy || 0) > Number(highest.occupancy || 0)
             ? day
             : highest
         )
       : null;
 
-  const lowestOccupancyDay =
-    next7Days.length > 0
-      ? next7Days.reduce((lowest, day) =>
-          Number(day.occupancy || 0) < Number(lowest.occupancy || 0)
-            ? day
-            : lowest
-        )
-      : null;
+  const criticalDays = rangedData.filter(
+    (day) => day.demand_status === "Critical" || day.staffing_status === "Low Staff"
+  );
 
-  const averageRequiredHC =
-    next7Days.length > 0
-      ? Math.round(
-          next7Days.reduce(
-            (sum, day) => sum + Number(day.required_hc || 0),
-            0
-          ) / next7Days.length
-        )
-      : 0;
+  const totalGap = rangedData.reduce((sum, day) => sum + Number(day.gap || 0), 0);
+
+  const laborRisk =
+    criticalDays.length > 0
+      ? "High Risk"
+      : totalGap > 5
+      ? "Overstaff Risk"
+      : "Normal";
+
+  const departmentBreakdown = [
+    {
+      department: "Front Office",
+      required: Math.ceil(averageRequiredHC * 0.12),
+    },
+    {
+      department: "Housekeeping",
+      required: Math.ceil(averageRequiredHC * 0.28),
+    },
+    {
+      department: "Kitchen",
+      required: Math.ceil(averageRequiredHC * 0.18),
+    },
+    {
+      department: "Waitress",
+      required: Math.ceil(averageRequiredHC * 0.18),
+    },
+    {
+      department: "Cashier",
+      required: Math.ceil(averageRequiredHC * 0.1),
+    },
+    {
+      department: "Maintenance",
+      required: Math.ceil(averageRequiredHC * 0.08),
+    },
+  ];
 
   /// FUNCTIONS
   const getOccupancyData = async () => {
@@ -76,21 +146,21 @@ export default function ForecastingPage() {
   };
 
   const occupancyBadge = (occupancy: number) => {
-    if (occupancy >= 80) {
-      return "border-green-500/30 bg-green-500/20 text-green-400";
-    }
-
-    if (occupancy >= 50) {
-      return "border-yellow-500/30 bg-yellow-500/20 text-yellow-400";
-    }
-
+    if (occupancy >= 80) return "border-green-500/30 bg-green-500/20 text-green-400";
+    if (occupancy >= 50) return "border-yellow-500/30 bg-yellow-500/20 text-yellow-400";
     return "border-red-500/30 bg-red-500/20 text-red-400";
   };
 
-  const hcStatus = (occupancy: number) => {
-    if (occupancy >= 80) return "High Demand";
-    if (occupancy >= 50) return "Normal Demand";
-    return "Low Demand";
+  const statusBadge = (status: string) => {
+    if (status === "Low Staff" || status === "Critical" || status === "High Risk") {
+      return "border-red-500/30 bg-red-500/20 text-red-400";
+    }
+
+    if (status === "Over Staff" || status === "High" || status === "Overstaff Risk") {
+      return "border-yellow-500/30 bg-yellow-500/20 text-yellow-400";
+    }
+
+    return "border-green-500/30 bg-green-500/20 text-green-400";
   };
 
   useEffect(() => {
@@ -103,84 +173,131 @@ export default function ForecastingPage() {
       <Sidebar />
 
       <main className="flex-1 p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Forecasting</h1>
-          <p className="text-sm text-slate-400">
-            Forecast headcount requirements using imported occupancy data.
-          </p>
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Forecasting</h1>
+            <p className="text-sm text-slate-400">
+              Forecast headcount requirements using imported room occupancy data.
+            </p>
+          </div>
+
+          <Link
+            href="/forecasting/occupancy-import"
+            className="w-fit rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-yellow-300"
+          >
+            Import Occupancy
+          </Link>
+          <Link
+            href="/forecasting/event-addons"
+            className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:border-yellow-400 hover:bg-slate-800"
+          >
+            Event Add-ons
+          </Link>
+          
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-  <Link
-    href="/forecasting/occupancy-import"
-    className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-yellow-400 hover:bg-slate-800"
-  >
-    <h2 className="text-xl font-bold">Occupancy Import</h2>
-
-    <p className="mt-3 text-sm leading-6 text-slate-400">
-      Upload Cloudbeds occupancy data for forecasting and workforce planning.
-    </p>
-
-    <p className="mt-6 text-sm font-semibold text-yellow-400">
-      Open Import →
-    </p>
-  </Link>
-
-  <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 opacity-60">
-    <h2 className="text-xl font-bold">Event Add-ons</h2>
-
-    <p className="mt-3 text-sm leading-6 text-slate-400">
-      Add special events that increase required manpower.
-    </p>
-
-    <p className="mt-6 text-sm font-semibold text-slate-500">
-      Coming Soon
-    </p>
-  </div>
-</section>
-
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <p className="text-sm text-slate-400">Next 7 Days Avg Occupancy</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <p className="text-sm text-slate-400">Average Occupancy</p>
             <h2 className="mt-2 text-3xl font-bold">{averageOccupancy}%</h2>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <p className="text-sm text-slate-400">Avg Required HC</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <p className="text-sm text-slate-400">Average Required HC</p>
             <h2 className="mt-2 text-3xl font-bold">{averageRequiredHC}</h2>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <p className="text-sm text-slate-400">Highest Occupancy</p>
             <h2 className="mt-2 text-3xl font-bold">
-              {highestOccupancyDay
-                ? `${highestOccupancyDay.occupancy}%`
-                : "0%"}
+              {highestOccupancyDay ? `${highestOccupancyDay.occupancy}%` : "0%"}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               {highestOccupancyDay?.business_date || "No data"}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <p className="text-sm text-slate-400">Lowest Occupancy</p>
-            <h2 className="mt-2 text-3xl font-bold">
-              {lowestOccupancyDay
-                ? `${lowestOccupancyDay.occupancy}%`
-                : "0%"}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {lowestOccupancyDay?.business_date || "No data"}
-            </p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <p className="text-sm text-slate-400">Labor Risk</p>
+            <h2 className="mt-2 text-3xl font-bold">{laborRisk}</h2>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <label className="mb-2 block text-sm text-slate-400">View Range</label>
+              <select
+                value={viewRange}
+                onChange={(e) => setViewRange(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+              >
+                <option value="7">Next 7 Days</option>
+                <option value="14">Next 14 Days</option>
+                <option value="30">Next 30 Days</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-400">Staffing Risk</label>
+              <select
+                value={riskFilter}
+                onChange={(e) => setRiskFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+              >
+                <option value="All">All</option>
+                <option value="Low Staff">Low Staff</option>
+                <option value="Normal">Normal</option>
+                <option value="Over Staff">Over Staff</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h2 className="mb-4 text-xl font-bold">Smart Alerts</h2>
+
+          <div className="space-y-3">
+            {criticalDays.length > 0 ? (
+              criticalDays.slice(0, 5).map((day) => (
+                <div
+                  key={day.id}
+                  className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300"
+                >
+                  {day.business_date} has {day.occupancy}% occupancy. Required HC is{" "}
+                  {day.required_hc}. Staffing status: {day.staffing_status}.
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
+                No critical staffing risk detected for the selected period.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h2 className="mb-4 text-xl font-bold">Department HC Breakdown</h2>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {departmentBreakdown.map((dept) => (
+              <div
+                key={dept.department}
+                className="rounded-xl border border-slate-800 bg-slate-950 p-4"
+              >
+                <p className="text-sm text-slate-400">{dept.department}</p>
+                <h3 className="mt-2 text-2xl font-bold">{dept.required}</h3>
+                <p className="mt-1 text-xs text-slate-500">Suggested required HC</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-6">
             <h2 className="text-xl font-bold">Occupancy-Based HC Forecast</h2>
             <p className="text-sm text-slate-400">
-              Required HC is currently calculated using simple occupancy
-              thresholds.
+              Required HC is calculated from occupancy forecast. Settings integration is ready next.
             </p>
           </div>
 
@@ -193,14 +310,17 @@ export default function ForecastingPage() {
                   <th className="py-3 pr-4">Available</th>
                   <th className="py-3 pr-4">Occupancy</th>
                   <th className="py-3 pr-4">Required HC</th>
-                  <th className="py-3 pr-4">Demand Status</th>
+                  <th className="py-3 pr-4">Scheduled HC</th>
+                  <th className="py-3 pr-4">Gap</th>
+                  <th className="py-3 pr-4">Staffing Status</th>
+                  <th className="py-3 pr-4">Demand</th>
                   <th className="py-3 pr-4">Room Revenue</th>
                   <th className="py-3 pr-4">ADR</th>
                 </tr>
               </thead>
 
               <tbody>
-                {forecastData.map((day) => (
+                {filteredData.map((day) => (
                   <tr
                     key={day.id}
                     className="border-b border-slate-800/70 text-slate-200 transition hover:bg-slate-800/30"
@@ -212,33 +332,49 @@ export default function ForecastingPage() {
                     <td className="py-3 pr-4">
                       <span
                         className={`rounded-full border px-3 py-1 text-xs font-semibold ${occupancyBadge(
-                          Number(day.occupancy || 0)
+                          day.occupancy
                         )}`}
                       >
                         {day.occupancy}%
                       </span>
                     </td>
 
+                    <td className="py-3 pr-4 font-semibold">{day.required_hc}</td>
+                    <td className="py-3 pr-4">{day.scheduled_hc}</td>
+
                     <td className="py-3 pr-4 font-semibold">
-                      {day.required_hc}
+                      {day.gap > 0 ? `+${day.gap}` : day.gap}
                     </td>
 
                     <td className="py-3 pr-4">
-                      {hcStatus(Number(day.occupancy || 0))}
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadge(
+                          day.staffing_status
+                        )}`}
+                      >
+                        {day.staffing_status}
+                      </span>
                     </td>
 
-                    <td className="py-3 pr-4">₱{day.room_revenue}</td>
-                    <td className="py-3 pr-4">₱{day.adr}</td>
+                    <td className="py-3 pr-4">
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadge(
+                          day.demand_status
+                        )}`}
+                      >
+                        {day.demand_status}
+                      </span>
+                    </td>
+
+                    <td className="py-3 pr-4">₱{day.room_revenue || 0}</td>
+                    <td className="py-3 pr-4">₱{day.adr || 0}</td>
                   </tr>
                 ))}
 
-                {forecastData.length === 0 && (
+                {filteredData.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="py-8 text-center text-slate-500"
-                    >
-                      No occupancy data found. Import Cloudbeds data first.
+                    <td colSpan={11} className="py-8 text-center text-slate-500">
+                      No forecast data found.
                     </td>
                   </tr>
                 )}

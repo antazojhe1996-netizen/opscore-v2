@@ -125,17 +125,18 @@ export default function LeaveManagementPage() {
     getLeaveRequests();
   };
 
-  const updateStatus = async (id: number, status: string) => {
-    const leaveRequest = leaveRequests.find((leave) => leave.id === id);
+const updateStatus = async (id: number, status: string) => {
+  const leaveRequest = leaveRequests.find((leave) => leave.id === id);
 
-    if (!leaveRequest) {
-      alert("Leave request not found.");
-      return;
-    }
+  if (!leaveRequest) {
+    alert("Leave request not found.");
+    return;
+  }
 
     if (status === "Approved") {
       const leavePolicy = leaveSettings.find(
         (setting) => setting.leave_type === leaveRequest.leave_type
+        
       );
 
       const shouldDeductCredits = leavePolicy?.requires_credits === true;
@@ -214,15 +215,17 @@ export default function LeaveManagementPage() {
     getLeaveRequests();
   };
 
-  const getEmployeeName = (employeeNo: any) => {
-    const employee = employees.find(
-      (emp) => String(emp.employee_no) === String(employeeNo)
-    );
+  const getEmployeeName = (employeeId: any) => {
+  const employee = employees.find(
+    (emp) =>
+      String(emp.id) === String(employeeId) ||
+      String(emp.employee_no) === String(employeeId)
+  );
 
-    if (!employee) return "Unknown Employee";
+  if (!employee) return "Unknown Employee";
 
-    return `${employee.first_name} ${employee.last_name}`;
-  };
+  return `${employee.first_name} ${employee.last_name}`;
+};  
 
   const statusStyle = (status: string) => {
     if (status === "Approved") {
@@ -274,10 +277,10 @@ export default function LeaveManagementPage() {
 
                   {employees.map((employee) => (
                     <option
-                      key={employee.employee_no}
-                      value={employee.employee_no}
-                      className="bg-slate-950 text-white"
-                    >
+                    key={employee.id}
+                    value={employee.id}
+                    className="bg-slate-950 text-white"
+                  >
                       {employee.first_name} {employee.last_name}
                     </option>
                   ))}
