@@ -47,8 +47,14 @@ export default function SettingsPage() {
         {
           title: "HC Rules",
           description:
-            "Set required headcount based on occupancy and department.",
+            "Set required headcount based on occupancy, peak days, and events.",
           href: "/settings/hc-rules",
+        },
+        {
+          title: "Forecasting Rules",
+          description:
+            "Configure demand status thresholds and labor risk rules.",
+          href: "/settings/forecasting-rules",
         },
       ],
     },
@@ -75,8 +81,18 @@ export default function SettingsPage() {
       description:
         "Operational data used for occupancy forecasting and workforce planning.",
       modules: [
-
-        
+        {
+          title: "Occupancy Import",
+          description:
+            "Import room occupancy forecast used by Forecasting and Scheduling.",
+          href: "/forecasting/occupancy-import",
+        },
+        {
+          title: "Event Add-ons",
+          description:
+            "Encode event dates, event names, and expected pax for manpower forecasting.",
+          href: "/forecasting/event-addons",
+        },
       ],
     },
   ];
