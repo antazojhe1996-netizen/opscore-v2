@@ -93,9 +93,27 @@ export default function SettingsPage() {
             "Encode event dates, event names, and expected pax for manpower forecasting.",
           href: "/forecasting/event-addons",
         },
+
+     
       ],
     },
+
+    {
+  groupTitle: "Property Management",
+  description:
+    "Manage apartment units, tenants, rent defaults, payment methods, and billing setup.",
+  modules: [
+    {
+      title: "Property Settings",
+      description:
+        "Configure apartment units, rent, due day, utility defaults, and payment methods.",
+      href: "/settings/property",
+    },
+  ],
+},
   ];
+
+  
 
   /// UI
   return (

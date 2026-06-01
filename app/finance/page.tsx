@@ -26,16 +26,15 @@ export default function FinancePage() {
   };
 
   const getRevenueLink = (name: string) => {
-    const slug = name.toLowerCase().replaceAll(" ", "-");
+  const slug = name.toLowerCase().replaceAll(" ", "-");
 
-    if (slug === "hotel-rooms") return "/finance/room-sales";
-    if (slug === "restaurant") return "/finance/restaurant-import";
-    if (slug === "apartment") return "/finance/apartment-sales";
-    if (slug === "sports-bar") return "/finance/sports-bar-sales";
+  if (slug === "hotel-rooms") return "/finance/room-sales";
+  if (slug === "restaurant") return "/finance/restaurant-import";
+  if (slug === "apartment") return "/finance/apartment";
+  if (slug === "sports-bar") return "/finance/sports-bar-sales";
 
-    return `/finance/revenue/${slug}`;
-  };
-
+  return `/finance/revenue/${slug}`;
+};
   useEffect(() => {
     getRevenueSources();
   }, []);
