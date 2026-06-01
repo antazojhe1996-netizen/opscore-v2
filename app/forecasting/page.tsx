@@ -1,205 +1,109 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  Building2,
-  CalendarDays,
-  DollarSign,
-  Hotel,
-  Receipt,
-  TrendingDown,
-  TrendingUp,
-  Utensils,
-  Users,
-} from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
-type RangeType = "daily" | "weekly" | "monthly" | "yearly";
-
-export default function ExecutiveDashboardPage() {
+export default function ForecastingPage() {
   /// STATES
-  const [rangeType, setRangeType] = useState<RangeType>("daily");
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
-  const [roomSales, setRoomSales] = useState<any[]>([]);
-  const [restaurantSales, setRestaurantSales] = useState<any[]>([]);
-  const [apartmentSales, setApartmentSales] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [eventAddons, setEventAddons] = useState<any[]>([]);
   const [hcRules, setHcRules] = useState<any>(null);
-
-  /// HELPERS
-  const todayKey = new Date().toISOString().slice(0, 10);
-
-  const formatPeso = (value: number) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
-      maximumFractionDigits: 2,
-    })}`;
-
-  const getDateValue = (row: any) =>
-    String(
-      row.business_date ||
-        row.date ||
-        row.sale_date ||
-        row.sales_date ||
-        row.expense_date ||
-        row.event_date ||
-        row.created_at ||
-        ""
-    ).slice(0, 10);
-
-  const getAmountValue = (row: any) =>
-    Number(
-      row.amount ||
-        row.total_amount ||
-        row.total ||
-        row.revenue ||
-        row.sales ||
-        row.net_sales ||
-        row.gross_sales ||
-        row.room_revenue ||
-        row.restaurant_revenue ||
-        row.apartment_revenue ||
-        0
-    );
-
-  const isWithinRange = (dateString: string) => {
-    if (!dateString) return false;
-
-    const date = new Date(dateString);
-    const today = new Date(todayKey);
-
-    if (rangeType === "daily") return dateString === todayKey;
-
-    if (rangeType === "weekly") {
-      const weekAgo = new Date(today);
-      weekAgo.setDate(today.getDate() - 6);
-      return date >= weekAgo && date <= today;
-    }
-
-    if (rangeType === "monthly") {
-      return (
-        date.getFullYear() === today.getFullYear() &&
-        date.getMonth() === today.getMonth()
-      );
-    }
-
-    return date.getFullYear() === today.getFullYear();
-  };
-
-  const sumAmount = (rows: any[]) =>
-    rows
-      .filter((row) => isWithinRange(getDateValue(row)))
-      .reduce((sum, row) => sum + getAmountValue(row), 0);
-
-  const getFirstAvailableTable = async (tableNames: string[]) => {
-    for (const tableName of tableNames) {
-      const { data, error } = await supabase.from(tableName).select("*");
-      if (!error) return data || [];
-    }
-
-    return [];
-  };
+  const [forecastingRules, setForecastingRules] = useState<any>(null);
+  const [viewRange, setViewRange] = useState("7");
+  const [riskFilter, setRiskFilter] = useState("All");
+  const [showAlertPanel, setShowAlertPanel] = useState(false);
 
   /// FUNCTIONS
-  const loadDashboardData = async () => {
-    const { data: occupancy } = await supabase
+  const getOccupancyData = async () => {
+    const { data, error } = await supabase
       .from("occupancy_data")
       .select("*")
       .order("business_date", { ascending: true });
 
-    const roomSalesData = await getFirstAvailableTable([
-      "room_sales",
-      "rooms_sales",
-      "hotel_sales",
-      "sales_rooms",
-      "room_revenue",
-    ]);
+    if (error) {
+      console.log("GET OCCUPANCY ERROR:", error.message);
+      return;
+    }
 
-    const restaurantSalesData = await getFirstAvailableTable([
-      "restaurant_sales",
-      "resto_sales",
-      "restaurant_revenue",
-      "food_sales",
-      "pos_sales",
-    ]);
+    setOccupancyData(data || []);
+  };
 
-    const apartmentSalesData = await getFirstAvailableTable([
-      "apartment_sales",
-      "apartment_revenue",
-      "rental_sales",
-      "rental_revenue",
-    ]);
+  const getSchedules = async () => {
+    const { data, error } = await supabase.from("schedules").select("*");
 
-    const { data: expensesData } = await supabase.from("expenses").select("*");
+    if (error) {
+      console.log("GET SCHEDULES ERROR:", error.message);
+      return;
+    }
 
-    const { data: eventsData } = await supabase
+    setSchedules(data || []);
+  };
+
+  const getEventAddons = async () => {
+    const { data, error } = await supabase
       .from("event_addons")
       .select("*")
       .order("event_date", { ascending: true });
 
-    const { data: schedulesData } = await supabase.from("schedules").select("*");
-    const { data: employeesData } = await supabase.from("employees").select("*");
-    const { data: leavesData } = await supabase.from("leave_requests").select("*");
+    if (error) {
+      console.log("GET EVENT ADDONS ERROR:", error.message);
+      return;
+    }
 
-    const { data: hcData } = await supabase
+    setEventAddons(data || []);
+  };
+
+  const loadHCRules = async () => {
+    const { data, error } = await supabase
       .from("hc_rule_settings")
       .select("setting_data")
       .eq("setting_name", "hc_rules")
       .maybeSingle();
 
-    setOccupancyData(occupancy || []);
-    setRoomSales(roomSalesData || []);
-    setRestaurantSales(restaurantSalesData || []);
-    setApartmentSales(apartmentSalesData || []);
-    setExpenses(expensesData || []);
-    setEvents(eventsData || []);
-    setSchedules(schedulesData || []);
-    setEmployees(employeesData || []);
-    setLeaveRequests(leavesData || []);
-    setHcRules(hcData?.setting_data || null);
+    if (error) {
+      console.log("LOAD HC RULES ERROR:", error.message);
+      return;
+    }
+
+    setHcRules(data?.setting_data || null);
   };
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const loadForecastingRules = async () => {
+    const { data, error } = await supabase
+      .from("forecasting_settings")
+      .select("setting_data")
+      .eq("setting_name", "forecasting_rules")
+      .maybeSingle();
 
-  /// HC CALCULATIONS
-  const todayOccupancy =
-    occupancyData.find((day) => String(day.business_date) === todayKey) ||
-    occupancyData[0];
+    if (error) {
+      console.log("LOAD FORECASTING RULES ERROR:", error.message);
+      return;
+    }
 
-  const todayEvents = events.filter(
-    (event) => String(event.event_date) === todayKey
-  );
+    setForecastingRules(data?.setting_data || null);
+  };
 
-  const upcomingEvents = events.filter(
-    (event) => String(event.event_date) >= todayKey
-  );
+  const getEventForDate = (date: string) => {
+    return eventAddons.find(
+      (event) => String(event.event_date) === String(date)
+    );
+  };
 
-  const getRequiredHCByDepartment = () => {
-    if (!hcRules || !todayOccupancy) return [];
+  const sumRuleValues = (rules: Record<string, number> = {}) => {
+    return Object.values(rules).reduce(
+      (sum, value) => sum + Number(value || 0),
+      0
+    );
+  };
 
-    const roomsSold = Number(todayOccupancy.rooms_sold || 0);
-    const date = String(todayOccupancy.business_date || todayKey);
+  const getRequiredHC = (day: any) => {
+    if (!hcRules) return 0;
+
+    const roomsSold = Number(day.rooms_sold || 0);
+    const date = String(day.business_date);
 
     const occupancyRule = hcRules.occupancyRules?.find((rule: any) => {
       return (
@@ -207,6 +111,8 @@ export default function ExecutiveDashboardPage() {
         roomsSold <= Number(rule.max || 999999)
       );
     });
+
+    const baseHC = sumRuleValues(occupancyRule?.rules || {});
 
     const dayName = new Date(date).toLocaleDateString("en-US", {
       weekday: "long",
@@ -216,8 +122,10 @@ export default function ExecutiveDashboardPage() {
       (rule: any) => rule.day === dayName
     );
 
-    const eventToday = events.find((event) => String(event.event_date) === date);
-    const eventPax = Number(eventToday?.expected_pax || 0);
+    const peakHC = sumRuleValues(peakRule?.rules || {});
+
+    const event = getEventForDate(date);
+    const eventPax = Number(event?.expected_pax || 0);
 
     const eventRule = hcRules.eventRules?.find((rule: any) => {
       return (
@@ -226,416 +134,423 @@ export default function ExecutiveDashboardPage() {
       );
     });
 
-    const departments = new Set<string>([
-      ...Object.keys(occupancyRule?.rules || {}),
-      ...Object.keys(peakRule?.rules || {}),
-      ...Object.keys(eventRule?.rules || {}),
-    ]);
+    const eventHC = event ? sumRuleValues(eventRule?.rules || {}) : 0;
 
-    return Array.from(departments).map((department) => {
-      const required =
-        Number(occupancyRule?.rules?.[department] || 0) +
-        Number(peakRule?.rules?.[department] || 0) +
-        Number(eventToday ? eventRule?.rules?.[department] || 0 : 0);
-
-      const scheduled = schedules.filter((schedule) => {
-        const employee = employees.find(
-          (emp) => String(emp.id) === String(schedule.employee_id)
-        );
-
-        return (
-          String(schedule.day) === date &&
-          String(schedule.shift).toUpperCase() !== "OFF" &&
-          String(employee?.department || "").trim() === department
-        );
-      }).length;
-
-      return {
-        department,
-        required,
-        scheduled,
-        gap: scheduled - required,
-      };
-    });
+    return baseHC + peakHC + eventHC;
   };
 
-  const departmentStatus = getRequiredHCByDepartment();
+  const getScheduledHC = (date: string) => {
+    return schedules.filter(
+      (schedule) =>
+        String(schedule.day) === String(date) &&
+        String(schedule.shift).toUpperCase() !== "OFF"
+    ).length;
+  };
 
-  const requiredHCToday = departmentStatus.reduce(
-    (sum, dept) => sum + Number(dept.required || 0),
+  const getDemandStatus = (occupancy: number, eventPax: number) => {
+    const highOccupancy = Number(forecastingRules?.demand?.high || 90);
+    const normalOccupancy = Number(forecastingRules?.demand?.normal || 50);
+    const lowOccupancy = Number(forecastingRules?.demand?.low || 30);
+
+    const highPax = Number(forecastingRules?.eventDemand?.highPax || 200);
+    const normalPax = Number(forecastingRules?.eventDemand?.normalPax || 80);
+    const lowPax = Number(forecastingRules?.eventDemand?.lowPax || 30);
+
+    if (occupancy >= highOccupancy || eventPax >= highPax) return "High";
+    if (occupancy >= normalOccupancy || eventPax >= normalPax) return "Normal";
+    if (occupancy >= lowOccupancy || eventPax >= lowPax) return "Low";
+
+    return "Very Low";
+  };
+
+  const getStaffingStatus = (gap: number) => {
+    if (gap < 0) return "Low Staff";
+    if (gap > 0) return "Over Staff";
+    return "Normal";
+  };
+
+  const statusBadge = (status: string) => {
+    if (status === "Low Staff" || status === "High Risk" || status === "High") {
+      return "border-red-500/30 bg-red-500/20 text-red-400";
+    }
+
+    if (status === "Over Staff" || status === "Normal") {
+      return "border-yellow-500/30 bg-yellow-500/20 text-yellow-400";
+    }
+
+    return "border-green-500/30 bg-green-500/20 text-green-400";
+  };
+
+  const demandBadge = (status: string) => {
+    if (status === "High") {
+      return "border-green-500/30 bg-green-500/20 text-green-400";
+    }
+
+    if (status === "Normal") {
+      return "border-yellow-500/30 bg-yellow-500/20 text-yellow-400";
+    }
+
+    return "border-red-500/30 bg-red-500/20 text-red-400";
+  };
+
+  /// EFFECTS
+  useEffect(() => {
+    getOccupancyData();
+    getSchedules();
+    getEventAddons();
+    loadHCRules();
+    loadForecastingRules();
+  }, []);
+
+  /// CALCULATIONS
+  const forecastData = useMemo(() => {
+    return occupancyData.map((day) => {
+      const occupancy = Number(day.occupancy || 0);
+      const event = getEventForDate(day.business_date);
+      const eventPax = Number(event?.expected_pax || 0);
+
+      const requiredHC = getRequiredHC(day);
+      const scheduledHC = getScheduledHC(day.business_date);
+      const gap = scheduledHC - requiredHC;
+
+      const demandStatus = getDemandStatus(occupancy, eventPax);
+      const staffingStatus = getStaffingStatus(gap);
+
+      return {
+        ...day,
+        occupancy,
+        event_name: event?.event_name || "-",
+        expected_pax: eventPax,
+        required_hc: requiredHC,
+        scheduled_hc: scheduledHC,
+        gap,
+        demand_status: demandStatus,
+        staffing_status: staffingStatus,
+      };
+    });
+  }, [occupancyData, schedules, eventAddons, hcRules, forecastingRules]);
+
+  const rangedData = forecastData.slice(0, Number(viewRange));
+
+  const filteredData =
+    riskFilter === "All"
+      ? rangedData
+      : rangedData.filter((day) => day.staffing_status === riskFilter);
+
+  const criticalDays = rangedData.filter(
+    (day) => day.staffing_status === "Low Staff"
+  );
+
+  const totalEventPax = eventAddons.reduce(
+    (sum, event) => sum + Number(event.expected_pax || 0),
     0
   );
 
-  const scheduledHCToday = departmentStatus.reduce(
-    (sum, dept) => sum + Number(dept.scheduled || 0),
+  const peakDemandDay =
+    rangedData.length > 0
+      ? rangedData.reduce((peak, day) => {
+          const dayScore =
+            Number(day.occupancy || 0) + Number(day.expected_pax || 0) / 10;
+
+          const peakScore =
+            Number(peak.occupancy || 0) + Number(peak.expected_pax || 0) / 10;
+
+          return dayScore > peakScore ? day : peak;
+        })
+      : null;
+
+  const totalGap = rangedData.reduce(
+    (sum, day) => sum + Number(day.gap || 0),
     0
   );
 
-  const hcGapToday = scheduledHCToday - requiredHCToday;
+  const overstaffGap = Number(forecastingRules?.laborRisk?.overstaffGap || 5);
 
-  /// FINANCE
-  const roomRevenue = sumAmount(roomSales);
-  const restaurantRevenue = sumAmount(restaurantSales);
-  const apartmentRevenue = sumAmount(apartmentSales);
-  const totalRevenue = roomRevenue + restaurantRevenue + apartmentRevenue;
-  const totalExpenses = sumAmount(expenses);
-  const netProfit = totalRevenue - totalExpenses;
-
-  const profitMargin =
-    totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
-
-  const revenueBreakdown = [
-    { name: "Rooms", value: roomRevenue },
-    { name: "Restaurant", value: restaurantRevenue },
-    { name: "Apartment", value: apartmentRevenue },
-  ];
-
-  /// OPERATIONS
-  const roomsSoldToday = Number(todayOccupancy?.rooms_sold || 0);
-  const availableRoomsToday = Number(todayOccupancy?.available_rooms || 0);
-  const occupancyToday = Number(todayOccupancy?.occupancy || 0);
-
-  const pendingLeaves = leaveRequests.filter(
-    (leave) => String(leave.status || "").toLowerCase() === "pending"
-  );
-
-  const criticalDepartments = departmentStatus.filter((dept) => dept.gap < 0);
-
-  const criticalAlerts = [
-    ...criticalDepartments.map(
-      (dept) => `${dept.department} short by ${Math.abs(dept.gap)} staff`
-    ),
-    ...(pendingLeaves.length > 0
-      ? [`${pendingLeaves.length} leave request(s) pending approval`]
-      : []),
-    ...(todayEvents.length > 0
-      ? todayEvents.map(
-          (event) =>
-            `${event.event_name} today with ${event.expected_pax || 0} pax`
-        )
-      : []),
-    ...(netProfit < 0 ? ["Expenses are higher than revenue"] : []),
-  ];
-
-  /// TREND DATA
-  const trendData = useMemo(() => {
-    const map: Record<
-      string,
-      { date: string; revenue: number; expenses: number; profit: number }
-    > = {};
-
-    [...roomSales, ...restaurantSales, ...apartmentSales].forEach((row) => {
-      const date = getDateValue(row);
-      if (!date || !isWithinRange(date)) return;
-
-      if (!map[date]) map[date] = { date, revenue: 0, expenses: 0, profit: 0 };
-      map[date].revenue += getAmountValue(row);
-    });
-
-    expenses.forEach((row) => {
-      const date = getDateValue(row);
-      if (!date || !isWithinRange(date)) return;
-
-      if (!map[date]) map[date] = { date, revenue: 0, expenses: 0, profit: 0 };
-      map[date].expenses += getAmountValue(row);
-    });
-
-    return Object.values(map)
-      .map((row) => ({
-        ...row,
-        profit: row.revenue - row.expenses,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-14);
-  }, [roomSales, restaurantSales, apartmentSales, expenses, rangeType]);
-
-  const miniOccupancyTrend = occupancyData.slice(-7).map((row) => ({
-    date: String(row.business_date || "").slice(5),
-    occupancy: Number(row.occupancy || 0),
-  }));
+  const laborRisk =
+    criticalDays.length > 0
+      ? "High Risk"
+      : totalGap > overstaffGap
+      ? "Overstaff Risk"
+      : "Normal";
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+  <div className="flex min-h-screen bg-slate-950 text-white">
+    <Sidebar />
 
-      <main className="flex-1 p-8">
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Executive Dashboard</h1>
-            <p className="mt-2 text-slate-400">
-              Sales, expenses, profit, occupancy, staffing health, and critical alerts.
-            </p>
-          </div>
-
-          <div className="flex rounded-xl border border-slate-800 bg-slate-900 p-1">
-            {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
-              (range) => (
-                <button
-                  key={range}
-                  onClick={() => setRangeType(range)}
-                  className={
-                    rangeType === range
-                      ? "rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold capitalize text-slate-950"
-                      : "rounded-lg px-4 py-2 text-sm font-bold capitalize text-slate-400 hover:bg-slate-800"
-                  }
-                >
-                  {range}
-                </button>
-              )
-            )}
-          </div>
-        </div>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <KpiCard icon={<Hotel size={22} />} title="Room Revenue" value={formatPeso(roomRevenue)} />
-          <KpiCard icon={<Utensils size={22} />} title="Restaurant Revenue" value={formatPeso(restaurantRevenue)} />
-          <KpiCard icon={<Building2 size={22} />} title="Apartment Revenue" value={formatPeso(apartmentRevenue)} />
-          <KpiCard icon={<Receipt size={22} />} title="Expenses" value={formatPeso(totalExpenses)} danger />
-          <KpiCard
-            icon={<DollarSign size={22} />}
-            title="Net Profit"
-            value={formatPeso(netProfit)}
-            success={netProfit >= 0}
-            danger={netProfit < 0}
-            subtitle={`${profitMargin}% margin`}
-          />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <MiniChartCard
-            title="Room Occupancy"
-            value={`${occupancyToday}%`}
-            subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`}
-            icon={<TrendingUp size={22} />}
-            data={miniOccupancyTrend}
-            dataKey="occupancy"
-          />
-
-          <KpiCard icon={<Users size={22} />} title="Required HC Today" value={requiredHCToday} />
-          <KpiCard icon={<Users size={22} />} title="Scheduled HC Today" value={scheduledHCToday} />
-          <KpiCard
-            icon={hcGapToday < 0 ? <TrendingDown size={22} /> : <TrendingUp size={22} />}
-            title="HC Gap"
-            value={hcGapToday > 0 ? `+${hcGapToday}` : hcGapToday}
-            success={hcGapToday >= 0}
-            danger={hcGapToday < 0}
-          />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
-            <h2 className="text-xl font-bold">Revenue vs Expenses Trend</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Sales, expenses, and profit based on selected range.
-            </p>
-
-            <div className="mt-6 h-[340px]">
-              {trendData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" stroke="#94a3b8" />
-                    <YAxis stroke="#94a3b8" tickFormatter={(value) => `₱${Number(value) / 1000}k`} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#020617",
-                        border: "1px solid #334155",
-                        borderRadius: "12px",
-                      }}
-                      formatter={(value: any) => formatPeso(Number(value))}
-                    />
-                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} dot />
-                    <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={3} dot />
-                    <Line type="monotone" dataKey="profit" stroke="#22c55e" strokeWidth={3} dot />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                  No financial data found for selected range.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <h2 className="text-xl font-bold">Revenue Breakdown</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Rooms, restaurant, and apartment contribution.
-            </p>
-
-            <div className="mt-6 h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={revenueBreakdown}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={65}
-                    outerRadius={105}
-                    paddingAngle={2}
-                  >
-                    <Cell fill="#3b82f6" />
-                    <Cell fill="#22c55e" />
-                    <Cell fill="#a855f7" />
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#020617",
-                      border: "1px solid #334155",
-                      borderRadius: "12px",
-                    }}
-                    formatter={(value: any) => formatPeso(Number(value))}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="space-y-3">
-              {revenueBreakdown.map((item) => (
-                <div key={item.name} className="flex justify-between text-sm">
-                  <span className="text-slate-400">{item.name}</span>
-                  <span className="font-bold">{formatPeso(item.value)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6">
-            <h2 className="flex items-center gap-2 text-xl font-bold text-red-300">
-              <AlertTriangle size={22} /> Critical Alerts
-            </h2>
-
-            <div className="mt-4 space-y-3">
-              {criticalAlerts.length > 0 ? (
-                criticalAlerts.slice(0, 6).map((alert, index) => (
-                  <div
-                    key={index}
-                    className="rounded-xl border border-red-500/20 bg-slate-950 p-3 text-sm text-red-300"
-                  >
-                    ⚠ {alert}
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-300">
-                  ✅ Operations healthy. No critical alerts.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="flex items-center gap-2 text-xl font-bold">
-              <CalendarDays size={22} /> Upcoming Events
-            </h2>
-
-            <div className="mt-4 space-y-3">
-              {upcomingEvents.length > 0 ? (
-                upcomingEvents.slice(0, 5).map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 p-4"
-                  >
-                    <div>
-                      <p className="font-semibold">{event.event_name}</p>
-                      <p className="text-xs text-slate-400">{event.event_date}</p>
-                    </div>
-
-                    <p className="font-bold text-green-400">
-                      {event.expected_pax || 0} pax
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-slate-500">No upcoming events.</p>
-              )}
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
-}
-
-function KpiCard({
-  icon,
-  title,
-  value,
-  subtitle,
-  success,
-  danger,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: any;
-  subtitle?: string;
-  success?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-          ? "border-green-500/20 bg-green-500/10"
-          : "border-slate-800 bg-slate-900"
-      }`}
-    >
-      <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">{icon}</div>
-        <p className="text-sm text-slate-400">{title}</p>
-      </div>
-      <h2 className="text-2xl font-bold">{value}</h2>
-      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
-    </div>
-  );
-}
-
-function MiniChartCard({
-  icon,
-  title,
-  value,
-  subtitle,
-  data,
-  dataKey,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: any;
-  subtitle?: string;
-  data: any[];
-  dataKey: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-blue-400">{icon}</div>
-        <p className="text-sm text-slate-400">{title}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
+    <main className="flex-1 p-6">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{value}</h2>
-          {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+          <h1 className="text-2xl font-bold">Forecasting</h1>
+          <p className="text-sm text-slate-400">
+            View future demand from room occupancy, staffing risk, and occasional events.
+          </p>
         </div>
 
-        <div className="h-[60px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <Area
-                type="monotone"
-                dataKey={dataKey}
-                stroke="#3b82f6"
-                fill="#3b82f6"
-                fillOpacity={0.25}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/forecasting/occupancy-import"
+            className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-yellow-300"
+          >
+            Import Room Occupancy
+          </Link>
+
+          <Link
+            href="/forecasting/event-addons"
+            className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:border-yellow-400 hover:bg-slate-800"
+          >
+            Event Add-ons
+          </Link>
+
+          <button
+            onClick={() => setShowAlertPanel(true)}
+            className="rounded-xl border border-red-500/40 bg-red-500/20 px-5 py-3 text-sm font-bold text-red-300 hover:bg-red-500/30"
+          >
+            View Alerts
+          </button>
         </div>
       </div>
-    </div>
-  );
+
+      <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5">
+          <p className="text-sm text-yellow-300">Peak Room Occupancy Day</p>
+          <h2 className="mt-2 text-2xl font-bold">
+            {peakDemandDay?.business_date || "No data"}
+          </h2>
+          <p className="mt-1 text-xs text-yellow-300">
+            {peakDemandDay?.occupancy || 0}% room occupancy
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-5">
+          <p className="text-sm text-green-300">Upcoming Events</p>
+          <h2 className="mt-2 text-3xl font-bold">{eventAddons.length}</h2>
+          <p className="mt-1 text-xs text-green-300">
+            {totalEventPax} total pax
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5">
+          <p className="text-sm text-red-300">Staff Alerts</p>
+          <h2 className="mt-2 text-3xl font-bold">{criticalDays.length}</h2>
+          <p className="mt-1 text-xs text-red-300">Need manpower review</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <p className="text-sm text-slate-400">Labor Risk</p>
+          <h2 className="mt-2 text-3xl font-bold">{laborRisk}</h2>
+        </div>
+      </section>
+
+      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <label className="mb-2 block text-sm text-slate-400">View Range</label>
+            <select
+              value={viewRange}
+              onChange={(e) => setViewRange(e.target.value)}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+            >
+              <option value="7">Next 7 Days</option>
+              <option value="14">Next 14 Days</option>
+              <option value="30">Next 30 Days</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm text-slate-400">Staffing Risk</label>
+            <select
+              value={riskFilter}
+              onChange={(e) => setRiskFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+            >
+              <option value="All">All</option>
+              <option value="Low Staff">Low Staff</option>
+              <option value="Normal">Normal</option>
+              <option value="Over Staff">Over Staff</option>
+            </select>
+          </div>
+
+          <div className="xl:col-span-2">
+            <p className="mb-2 text-sm text-slate-400">Forecast Summary</p>
+            <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+              Main demand is based on room occupancy. Events are added only when encoded.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold">Room Occupancy Demand Forecast</h2>
+          <p className="text-sm text-slate-400">
+            Future demand based mainly on room occupancy forecast. Event data appears at the end when available.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+            <tr className="border-b border-slate-800 text-left text-slate-400">
+            <th className="py-3 pr-4">Date</th>
+            <th className="py-3 pr-4">Room Occupancy</th>
+            <th className="py-3 pr-4">Rooms Sold</th>
+            <th className="py-3 pr-4">Available Rooms</th>
+            <th className="w-[220px] py-3 pr-6">Event</th>
+            <th className="w-[90px] py-3 pr-6">Pax</th>
+            <th className="py-3 pr-4">Demand</th>
+            <th className="py-3 pr-4">Staffing Risk</th>
+          </tr>
+                      </thead>
+
+            <tbody>
+              {filteredData.map((day) => (
+                <tr
+            key={day.id}
+            className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
+          >
+            <td className="py-3 pr-4">{day.business_date}</td>
+            <td className="py-3 pr-4 font-semibold">{day.occupancy}%</td>
+            <td className="py-3 pr-4">{day.rooms_sold}</td>
+            <td className="py-3 pr-4">{day.available_rooms}</td>
+
+            <td className="w-[220px] py-3 pr-6 text-slate-300">
+          {day.event_name || "-"}
+        </td>
+
+            <td className="w-[90px] py-3 pr-6">
+              {day.expected_pax || "-"}
+            </td>
+
+            <td className="py-3 pr-4">
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${demandBadge(
+                  day.demand_status
+                )}`}
+              >
+                {day.demand_status}
+              </span>
+            </td>
+
+            <td className="py-3 pr-4">
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadge(
+                  day.staffing_status
+                )}`}
+              >
+                {day.staffing_status}
+              </span>
+            </td>
+          </tr>
+              ))}
+
+              {filteredData.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-500">
+                    No forecast data found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {showAlertPanel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+          <div className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Forecast Alerts</h2>
+                <p className="text-sm text-slate-400">
+                  Review upcoming events and staffing risks.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowAlertPanel(false)}
+                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold hover:bg-slate-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+                <h3 className="mb-3 font-bold text-red-400">Staffing Alerts</h3>
+
+                <div className="space-y-2">
+                  {criticalDays.length > 0 ? (
+                    criticalDays.map((day) => (
+                      <div
+                        key={day.id}
+                        className="rounded-lg bg-slate-900 p-3"
+                      >
+                        <div className="flex justify-between">
+                          <span className="font-semibold">
+                            {day.business_date}
+                          </span>
+
+                          <span className="font-bold text-red-400">
+                            Gap {day.gap}
+                          </span>
+                        </div>
+
+                        <div className="mt-1 text-sm text-slate-300">
+                          Required HC: {day.required_hc}
+                        </div>
+
+                        <div className="text-sm text-slate-300">
+                          Scheduled HC: {day.scheduled_hc}
+                        </div>
+
+                        <div className="text-sm text-red-400">
+                          {day.staffing_status}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400">
+                      No staffing alerts.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4">
+                <h3 className="mb-3 font-bold text-green-400">Upcoming Events</h3>
+
+                <div className="space-y-2">
+                  {eventAddons.length > 0 ? (
+                    eventAddons.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-center justify-between rounded-lg bg-slate-900 p-3"
+                      >
+                        <div>
+                          <p className="font-semibold text-white">
+                            {event.event_name}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {event.event_date}
+                          </p>
+                        </div>
+
+                        <div className="rounded-full bg-green-500/20 px-3 py-1 text-sm font-bold text-green-400">
+                          {event.expected_pax} Pax
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400">No events added.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  </div>
+);
 }
