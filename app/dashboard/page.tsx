@@ -135,9 +135,11 @@ export default function ExecutiveDashboardPage() {
   const getChartLabel = (dateString: string) => {
     const date = new Date(dateString);
 
-    if (rangeType === "daily") {
-      return date.toLocaleDateString("en-US", { weekday: "short" });
-    }
+    if (rangeType === "yearly") {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+  });
+}
 
     if (rangeType === "weekly") {
       return date.toLocaleDateString("en-US", {
@@ -154,8 +156,47 @@ export default function ExecutiveDashboardPage() {
     return date.toLocaleDateString("en-US", { month: "short" });
   };
 
-  const isWithinRange = (dateString: string) => {
-  return true;
+ const getLatestFinanceDate = () => {
+  const dates = [
+    ...roomSales,
+    ...restaurantSales,
+    ...apartmentSales,
+    ...expenses,
+  ]
+    .map((row) => getDateValue(row))
+    .filter(Boolean)
+    .sort();
+
+  return dates[dates.length - 1] || todayKey;
+};
+
+const isWithinRange = (dateString: string) => {
+  if (!dateString) return false;
+
+  const anchorKey = getLatestFinanceDate();
+  const date = new Date(dateString);
+  const anchorDate = new Date(anchorKey);
+
+  if (Number.isNaN(date.getTime())) return false;
+
+  if (rangeType === "daily") {
+    return dateString === anchorKey;
+  }
+
+  if (rangeType === "weekly") {
+    const weekAgo = new Date(anchorDate);
+    weekAgo.setDate(anchorDate.getDate() - 6);
+    return date >= weekAgo && date <= anchorDate;
+  }
+
+  if (rangeType === "monthly") {
+    return (
+      date.getFullYear() === anchorDate.getFullYear() &&
+      date.getMonth() === anchorDate.getMonth()
+    );
+  }
+
+  return date.getFullYear() === anchorDate.getFullYear();
 };
 
  
@@ -430,42 +471,72 @@ export default function ExecutiveDashboardPage() {
   ];
 
   /// TREND DATA
-  const trendData = useMemo(() => {
-    const map: Record<
-      string,
-      { date: string; revenue: number; expenses: number; profit: number }
-    > = {};
 
-    [...roomSales, ...restaurantSales, ...apartmentSales].forEach((row) => {
-      const date = getDateValue(row);
-      if (!date || !isWithinRange(date)) return;
+/// TREND DATA
+/// TREND DATA
+const trendData = useMemo(() => {
+  const map: Record<
+    string,
+    { date: string; revenue: number; expenses: number; profit: number }
+  > = {};
 
-      if (!map[date]) map[date] = { date, revenue: 0, expenses: 0, profit: 0 };
-      map[date].revenue += getAmountValue(row);
-    });
+  const addToMap = (
+    date: string,
+    type: "revenue" | "expenses",
+    amount: number
+  ) => {
+    if (!date || !isWithinRange(date)) return;
 
-    expenses.forEach((row) => {
-      const date = getDateValue(row);
-      if (!date || !isWithinRange(date)) return;
+    const groupKey =
+      rangeType === "yearly"
+        ? date.slice(0, 7)
+        : date;
 
-      if (!map[date]) map[date] = { date, revenue: 0, expenses: 0, profit: 0 };
-      map[date].expenses += getAmountValue(row);
-    });
+    if (!map[groupKey]) {
+      map[groupKey] = {
+        date: groupKey,
+        revenue: 0,
+        expenses: 0,
+        profit: 0,
+      };
+    }
 
-    return Object.values(map)
-      .map((row) => ({
-        ...row,
-        label: getChartLabel(row.date),
-        profit: row.revenue - row.expenses,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-14);
-  }, [roomSales, restaurantSales, apartmentSales, expenses, rangeType]);
+    map[groupKey][type] += Number(amount || 0);
+  };
 
-  const miniOccupancyTrend = occupancyData.slice(-7).map((row) => ({
-    date: String(row.business_date || "").slice(5),
-    occupancy: Number(row.occupancy || 0),
-  }));
+  restaurantSales.forEach((row) => {
+    addToMap(
+      String(row.sale_date || row.date || row.created_at || "").slice(0, 10),
+      "revenue",
+      Number(row.revenue || 0)
+    );
+  });
+
+  roomSales.forEach((row) => {
+    addToMap(getDateValue(row), "revenue", getAmountValue(row));
+  });
+
+  apartmentSales.forEach((row) => {
+    addToMap(getDateValue(row), "revenue", getAmountValue(row));
+  });
+
+  expenses.forEach((row) => {
+    addToMap(getDateValue(row), "expenses", getAmountValue(row));
+  });
+
+  return Object.values(map)
+    .map((row) => ({
+      ...row,
+      label: getChartLabel(row.date),
+      profit: row.revenue - row.expenses,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}, [roomSales, restaurantSales, apartmentSales, expenses, rangeType]);
+
+const miniOccupancyTrend = occupancyData.slice(-7).map((row) => ({
+  date: String(row.business_date || "").slice(5),
+  occupancy: Number(row.occupancy || 0),
+}));
 
   /// UI
   return (
