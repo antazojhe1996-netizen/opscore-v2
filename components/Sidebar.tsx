@@ -8,9 +8,12 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-2">
-        <Link href="/" className="rounded-lg bg-slate-900 px-4 py-2 text-sm">
-          Dashboard
-        </Link>
+        <Link
+  href="/dashboard"
+  className="rounded-lg bg-slate-900 px-4 py-2 text-sm"
+>
+  Dashboard
+</Link>
 
         <Link href="/workforce" className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-white">
           Workforce
