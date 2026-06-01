@@ -1,6 +1,29 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Building2,
+  CalendarDays,
+  DollarSign,
+  Hotel,
+  Receipt,
+  TrendingDown,
+  TrendingUp,
+  Utensils,
+  Users,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
@@ -9,7 +32,6 @@ type RangeType = "daily" | "weekly" | "monthly" | "yearly";
 export default function ExecutiveDashboardPage() {
   /// STATES
   const [rangeType, setRangeType] = useState<RangeType>("daily");
-
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
   const [roomSales, setRoomSales] = useState<any[]>([]);
   const [restaurantSales, setRestaurantSales] = useState<any[]>([]);
@@ -25,7 +47,12 @@ export default function ExecutiveDashboardPage() {
   const todayKey = new Date().toISOString().slice(0, 10);
 
   const formatPeso = (value: number) =>
-    `₱${Number(value || 0).toLocaleString("en-PH")}`;
+    `₱${Number(value || 0).toLocaleString("en-PH", {
+      maximumFractionDigits: 2,
+    })}`;
+
+  const normalizeText = (value: any) =>
+    String(value || "").trim().toLowerCase();
 
   const getDateValue = (row: any) =>
     String(
@@ -33,61 +60,118 @@ export default function ExecutiveDashboardPage() {
         row.date ||
         row.sale_date ||
         row.sales_date ||
+        row.transaction_date ||
         row.expense_date ||
         row.event_date ||
         row.created_at ||
         ""
     ).slice(0, 10);
 
-  const getAmountValue = (row: any) =>
-    Number(
-      row.amount ||
-        row.total_amount ||
-        row.total ||
-        row.revenue ||
-        row.sales ||
-        row.net_sales ||
-        row.gross_sales ||
-        row.room_revenue ||
-        row.restaurant_revenue ||
-        row.apartment_revenue ||
-        0
+  const getAmountValue = (row: any) => {
+    const possibleAmount =
+      row.amount ??
+      row.total_amount ??
+      row.total ??
+      row.revenue ??
+      row.sales ??
+      row.net_sales ??
+      row.gross_sales ??
+      row.room_revenue ??
+      row.restaurant_revenue ??
+      row.apartment_revenue ??
+      row.room_sales ??
+      row.restaurant_sales ??
+      row.apartment_sales ??
+      row.sales_amount ??
+      row.total_sales ??
+      row.cash_sales ??
+      row.gcash_sales ??
+      row.card_sales ??
+      row.bank_sales ??
+      0;
+
+    return Number(possibleAmount || 0);
+  };
+
+  const getCategoryValue = (row: any) =>
+    normalizeText(
+      row.category ||
+        row.department ||
+        row.revenue_category ||
+        row.income_category ||
+        row.sales_category ||
+        row.sales_type ||
+        row.type ||
+        row.source ||
+        row.business_unit ||
+        row.description
     );
 
-  const isWithinRange = (dateString: string) => {
-    if (!dateString) return false;
+  const isRoomSale = (row: any) => {
+    const category = getCategoryValue(row);
+    return (
+      category.includes("room") ||
+      category.includes("hotel") ||
+      category.includes("accommodation")
+    );
+  };
 
+  const isRestaurantSale = (row: any) => {
+    const category = getCategoryValue(row);
+    return (
+      category.includes("restaurant") ||
+      category.includes("resto") ||
+      category.includes("food") ||
+      category.includes("bar") ||
+      category.includes("pos")
+    );
+  };
+
+  const isApartmentSale = (row: any) => {
+    const category = getCategoryValue(row);
+    return category.includes("apartment") || category.includes("rental");
+  };
+
+  const getChartLabel = (dateString: string) => {
     const date = new Date(dateString);
-    const today = new Date(todayKey);
 
-    if (rangeType === "daily") return dateString === todayKey;
+    if (rangeType === "daily") {
+      return date.toLocaleDateString("en-US", { weekday: "short" });
+    }
 
     if (rangeType === "weekly") {
-      const weekAgo = new Date(today);
-      weekAgo.setDate(today.getDate() - 6);
-      return date >= weekAgo && date <= today;
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
     }
 
     if (rangeType === "monthly") {
-      return (
-        date.getFullYear() === today.getFullYear() &&
-        date.getMonth() === today.getMonth()
-      );
+      const weekNumber = Math.ceil(date.getDate() / 7);
+      return `Week ${weekNumber}`;
     }
 
-    return date.getFullYear() === today.getFullYear();
+    return date.toLocaleDateString("en-US", { month: "short" });
   };
+
+  const isWithinRange = (dateString: string) => {
+  return true;
+};
+
+ 
 
   const sumAmount = (rows: any[]) =>
     rows
       .filter((row) => isWithinRange(getDateValue(row)))
       .reduce((sum, row) => sum + getAmountValue(row), 0);
 
-  const getFirstAvailableTable = async (tableNames: string[]) => {
+  const getRowsFromTables = async (tableNames: string[]) => {
     for (const tableName of tableNames) {
       const { data, error } = await supabase.from(tableName).select("*");
 
-      if (!error) return data || [];
+      if (!error && data) {
+        return data || [];
+      }
     }
 
     return [];
@@ -100,7 +184,7 @@ export default function ExecutiveDashboardPage() {
       .select("*")
       .order("business_date", { ascending: true });
 
-    const roomSalesData = await getFirstAvailableTable([
+    const roomSalesData = await getRowsFromTables([
       "room_sales",
       "rooms_sales",
       "hotel_sales",
@@ -108,7 +192,7 @@ export default function ExecutiveDashboardPage() {
       "room_revenue",
     ]);
 
-    const restaurantSalesData = await getFirstAvailableTable([
+    const restaurantSalesData = await getRowsFromTables([
       "restaurant_sales",
       "resto_sales",
       "restaurant_revenue",
@@ -116,12 +200,38 @@ export default function ExecutiveDashboardPage() {
       "pos_sales",
     ]);
 
-    const apartmentSalesData = await getFirstAvailableTable([
+    const apartmentSalesData = await getRowsFromTables([
       "apartment_sales",
       "apartment_revenue",
       "rental_sales",
       "rental_revenue",
     ]);
+
+    const combinedSalesData = await getRowsFromTables([
+      "sales",
+      "daily_sales",
+      "finance_sales",
+      "sales_reports",
+      "revenue",
+      "revenues",
+      "income",
+      "income_entries",
+    ]);
+
+    const finalRoomSales =
+      roomSalesData.length > 0
+        ? roomSalesData
+        : combinedSalesData.filter(isRoomSale);
+
+    const finalRestaurantSales =
+      restaurantSalesData.length > 0
+        ? restaurantSalesData
+        : combinedSalesData.filter(isRestaurantSale);
+
+    const finalApartmentSales =
+      apartmentSalesData.length > 0
+        ? apartmentSalesData
+        : combinedSalesData.filter(isApartmentSale);
 
     const { data: expensesData } = await supabase.from("expenses").select("*");
 
@@ -131,12 +241,8 @@ export default function ExecutiveDashboardPage() {
       .order("event_date", { ascending: true });
 
     const { data: schedulesData } = await supabase.from("schedules").select("*");
-
     const { data: employeesData } = await supabase.from("employees").select("*");
-
-    const { data: leavesData } = await supabase
-      .from("leave_requests")
-      .select("*");
+    const { data: leavesData } = await supabase.from("leave_requests").select("*");
 
     const { data: hcData } = await supabase
       .from("hc_rule_settings")
@@ -145,9 +251,9 @@ export default function ExecutiveDashboardPage() {
       .maybeSingle();
 
     setOccupancyData(occupancy || []);
-    setRoomSales(roomSalesData || []);
-    setRestaurantSales(restaurantSalesData || []);
-    setApartmentSales(apartmentSalesData || []);
+    setRoomSales(finalRoomSales || []);
+    setRestaurantSales(finalRestaurantSales || []);
+    setApartmentSales(finalApartmentSales || []);
     setExpenses(expensesData || []);
     setEvents(eventsData || []);
     setSchedules(schedulesData || []);
@@ -195,7 +301,6 @@ export default function ExecutiveDashboardPage() {
     );
 
     const eventToday = events.find((event) => String(event.event_date) === date);
-
     const eventPax = Number(eventToday?.expected_pax || 0);
 
     const eventRule = hcRules.eventRules?.find((rule: any) => {
@@ -212,13 +317,10 @@ export default function ExecutiveDashboardPage() {
     ]);
 
     return Array.from(departments).map((department) => {
-      const baseHC = Number(occupancyRule?.rules?.[department] || 0);
-      const peakHC = Number(peakRule?.rules?.[department] || 0);
-      const eventHC = eventToday
-        ? Number(eventRule?.rules?.[department] || 0)
-        : 0;
-
-      const required = baseHC + peakHC + eventHC;
+      const required =
+        Number(occupancyRule?.rules?.[department] || 0) +
+        Number(peakRule?.rules?.[department] || 0) +
+        Number(eventToday ? eventRule?.rules?.[department] || 0 : 0);
 
       const scheduled = schedules.filter((schedule) => {
         const employee = employees.find(
@@ -255,7 +357,7 @@ export default function ExecutiveDashboardPage() {
 
   const hcGapToday = scheduledHCToday - requiredHCToday;
 
-  /// FINANCE CALCULATIONS
+  /// FINANCE
   const roomRevenue = sumAmount(roomSales);
   const restaurantRevenue = sumAmount(restaurantSales);
   const apartmentRevenue = sumAmount(apartmentSales);
@@ -268,12 +370,37 @@ export default function ExecutiveDashboardPage() {
     totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
 
   const revenueBreakdown = [
-    { label: "Rooms", value: roomRevenue },
-    { label: "Restaurant", value: restaurantRevenue },
-    { label: "Apartment", value: apartmentRevenue },
+    { name: "Rooms", value: roomRevenue },
+    { name: "Restaurant", value: restaurantRevenue },
+    { name: "Apartment", value: apartmentRevenue },
   ];
 
-  const topRevenue = Math.max(...revenueBreakdown.map((item) => item.value), 1);
+  const sortedSources = [...revenueBreakdown].sort(
+    (a, b) => Number(b.value || 0) - Number(a.value || 0)
+  );
+
+  const topSource = sortedSources[0];
+  const topValue = Number(topSource?.value || 0);
+
+  const dependency =
+    totalRevenue > 0 ? Math.round((topValue / totalRevenue) * 100) : 0;
+
+  const mixStatus =
+    dependency >= 80
+      ? "Single-source heavy"
+      : dependency >= 50
+      ? "Main source dominant"
+      : "Balanced revenue mix";
+
+  const riskLevel =
+    dependency >= 80 ? "High" : dependency >= 50 ? "Moderate" : "Healthy";
+
+  const riskStyle =
+    riskLevel === "High"
+      ? "border-red-500/30 bg-red-500/10 text-red-400"
+      : riskLevel === "Moderate"
+      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+      : "border-green-500/30 bg-green-500/10 text-green-400";
 
   /// OPERATIONS
   const roomsSoldToday = Number(todayOccupancy?.rooms_sold || 0);
@@ -314,7 +441,6 @@ export default function ExecutiveDashboardPage() {
       if (!date || !isWithinRange(date)) return;
 
       if (!map[date]) map[date] = { date, revenue: 0, expenses: 0, profit: 0 };
-
       map[date].revenue += getAmountValue(row);
     });
 
@@ -323,25 +449,23 @@ export default function ExecutiveDashboardPage() {
       if (!date || !isWithinRange(date)) return;
 
       if (!map[date]) map[date] = { date, revenue: 0, expenses: 0, profit: 0 };
-
       map[date].expenses += getAmountValue(row);
     });
 
     return Object.values(map)
       .map((row) => ({
         ...row,
+        label: getChartLabel(row.date),
         profit: row.revenue - row.expenses,
       }))
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-14);
   }, [roomSales, restaurantSales, apartmentSales, expenses, rangeType]);
 
-  const maxTrendValue = Math.max(
-    ...trendData.map((row) =>
-      Math.max(row.revenue, row.expenses, Math.abs(row.profit))
-    ),
-    1
-  );
+  const miniOccupancyTrend = occupancyData.slice(-7).map((row) => ({
+    date: String(row.business_date || "").slice(5),
+    occupancy: Number(row.occupancy || 0),
+  }));
 
   /// UI
   return (
@@ -377,17 +501,12 @@ export default function ExecutiveDashboardPage() {
         </div>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <DashboardCard title="Room Revenue" value={formatPeso(roomRevenue)} />
-          <DashboardCard
-            title="Restaurant Revenue"
-            value={formatPeso(restaurantRevenue)}
-          />
-          <DashboardCard
-            title="Apartment Revenue"
-            value={formatPeso(apartmentRevenue)}
-          />
-          <DashboardCard title="Expenses" value={formatPeso(totalExpenses)} danger />
-          <DashboardCard
+          <KpiCard icon={<Hotel size={22} />} title="Room Revenue" value={formatPeso(roomRevenue)} />
+          <KpiCard icon={<Utensils size={22} />} title="Restaurant Revenue" value={formatPeso(restaurantRevenue)} />
+          <KpiCard icon={<Building2 size={22} />} title="Apartment Revenue" value={formatPeso(apartmentRevenue)} />
+          <KpiCard icon={<Receipt size={22} />} title="Expenses" value={formatPeso(totalExpenses)} danger />
+          <KpiCard
+            icon={<DollarSign size={22} />}
             title="Net Profit"
             value={formatPeso(netProfit)}
             success={netProfit >= 0}
@@ -397,14 +516,19 @@ export default function ExecutiveDashboardPage() {
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <DashboardCard
+          <MiniChartCard
             title="Room Occupancy"
             value={`${occupancyToday}%`}
             subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`}
+            icon={<TrendingUp size={22} />}
+            data={miniOccupancyTrend}
+            dataKey="occupancy"
           />
-          <DashboardCard title="Required HC Today" value={requiredHCToday} />
-          <DashboardCard title="Scheduled HC Today" value={scheduledHCToday} />
-          <DashboardCard
+
+          <KpiCard icon={<Users size={22} />} title="Required HC Today" value={requiredHCToday} />
+          <KpiCard icon={<Users size={22} />} title="Scheduled HC Today" value={scheduledHCToday} />
+          <KpiCard
+            icon={hcGapToday < 0 ? <TrendingDown size={22} /> : <TrendingUp size={22} />}
             title="HC Gap"
             value={hcGapToday > 0 ? `+${hcGapToday}` : hcGapToday}
             success={hcGapToday >= 0}
@@ -412,85 +536,158 @@ export default function ExecutiveDashboardPage() {
           />
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <div className="mb-5">
-              <h2 className="text-xl font-bold">Revenue vs Expenses Trend</h2>
-              <p className="text-sm text-slate-400">
-                Sales, expenses, and profit based on selected range.
-              </p>
-            </div>
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+            <h2 className="text-xl font-bold">Revenue vs Expenses Trend</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Sales, expenses, and profit based on selected range.
+            </p>
 
-            <div className="space-y-4">
+            <div className="mt-6 h-[340px]">
               {trendData.length > 0 ? (
-                trendData.map((row) => (
-                  <div key={row.date}>
-                    <div className="mb-1 flex justify-between text-xs text-slate-400">
-                      <span>{row.date}</span>
-                      <span>
-                        Revenue {formatPeso(row.revenue)} • Expenses{" "}
-                        {formatPeso(row.expenses)} • Profit {formatPeso(row.profit)}
-                      </span>
-                    </div>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={trendData}
+                    margin={{ top: 35, right: 30, left: 10, bottom: 10 }}
+                  >
+                    <defs>
+                      <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
 
-                    <div className="space-y-1">
-                      <BarRow
-                        value={row.revenue}
-                        max={maxTrendValue}
-                        label="Revenue"
-                      />
-                      <BarRow
-                        value={row.expenses}
-                        max={maxTrendValue}
-                        label="Expenses"
-                      />
-                      <BarRow
-                        value={Math.max(row.profit, 0)}
-                        max={maxTrendValue}
-                        label="Profit"
-                      />
-                    </div>
-                  </div>
-                ))
+                      <linearGradient id="expensesFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.28} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      </linearGradient>
+
+                      <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="label" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" tickFormatter={(value) => `₱${Number(value) / 1000}k`} />
+
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#020617",
+                        border: "1px solid #334155",
+                        borderRadius: "12px",
+                        color: "#fff",
+                      }}
+                      formatter={(value: any) => formatPeso(Number(value))}
+                    />
+
+                    <Legend verticalAlign="top" height={35} />
+
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      name="Revenue"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      fill="url(#revenueFill)"
+                      fillOpacity={1}
+                      dot={{ r: 4, strokeWidth: 2 }}
+                      activeDot={{ r: 6 }}
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="expenses"
+                      name="Expenses"
+                      stroke="#ef4444"
+                      strokeWidth={3}
+                      fill="url(#expensesFill)"
+                      fillOpacity={1}
+                      dot={{ r: 4, strokeWidth: 2 }}
+                      activeDot={{ r: 6 }}
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="profit"
+                      name="Profit"
+                      stroke="#22c55e"
+                      strokeWidth={3}
+                      fill="url(#profitFill)"
+                      fillOpacity={1}
+                      dot={{ r: 4, strokeWidth: 2 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               ) : (
-                <p className="text-sm text-slate-500">
+                <div className="flex h-full items-center justify-center text-sm text-slate-500">
                   No financial data found for selected range.
-                </p>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-bold">Revenue Breakdown</h2>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
+            <h2 className="text-xl font-bold">Revenue Intelligence</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Rooms, restaurant, and apartment contribution.
+              Quick business read based on current revenue mix.
             </p>
 
-            <div className="mt-5 space-y-4">
-              {revenueBreakdown.map((item) => (
-                <div key={item.label}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span>{item.label}</span>
-                    <span className="font-semibold">{formatPeso(item.value)}</span>
-                  </div>
+            <div className="mt-6 space-y-4">
+              
 
-                  <div className="h-3 rounded-full bg-slate-800">
-                    <div
-                      className="h-3 rounded-full bg-yellow-400"
-                      style={{
-                        width: `${Math.max(4, (item.value / topRevenue) * 100)}%`,
-                      }}
-                    />
-                  </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                <p className="text-sm text-slate-400">Source Ranking</p>
+
+                <div className="mt-4 space-y-3">
+                  {sortedSources.map((item, index) => {
+                    const sourceShare =
+                      totalRevenue > 0
+                        ? Math.round(
+                            (Number(item.value || 0) / totalRevenue) * 100
+                          )
+                        : 0;
+
+                    const dotColor =
+                      item.name === "Rooms"
+                        ? "text-blue-400"
+                        : item.name === "Restaurant"
+                        ? "text-green-400"
+                        : "text-purple-400";
+
+                    return (
+                      <div
+                        key={item.name}
+                        className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3"
+                      >
+                        <div>
+                          <p className={`font-semibold ${dotColor}`}>
+                            #{index + 1} • {item.name}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            {sourceShare}% contribution
+                          </p>
+                        </div>
+
+                        <p className="font-bold text-white">
+                          {formatPeso(Number(item.value || 0))}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6">
-            <h2 className="text-xl font-bold text-red-300">Critical Alerts</h2>
+            <h2 className="flex items-center gap-2 text-xl font-bold text-red-300">
+              <AlertTriangle size={22} /> Critical Alerts
+            </h2>
 
             <div className="mt-4 space-y-3">
               {criticalAlerts.length > 0 ? (
@@ -511,7 +708,9 @@ export default function ExecutiveDashboardPage() {
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-bold">Upcoming Events</h2>
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              <CalendarDays size={22} /> Upcoming Events
+            </h2>
 
             <div className="mt-4 space-y-3">
               {upcomingEvents.length > 0 ? (
@@ -541,13 +740,15 @@ export default function ExecutiveDashboardPage() {
   );
 }
 
-function DashboardCard({
+function KpiCard({
+  icon,
   title,
   value,
   subtitle,
   success,
   danger,
 }: {
+  icon: React.ReactNode;
   title: string;
   value: any;
   subtitle?: string;
@@ -564,29 +765,65 @@ function DashboardCard({
           : "border-slate-800 bg-slate-900"
       }`}
     >
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className="mt-2 text-2xl font-bold">{value}</h2>
+      <div className="mb-3 flex items-center gap-3">
+        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+          {icon}
+        </div>
+
+        <p className="text-sm text-slate-400">{title}</p>
+      </div>
+
+      <h2 className="text-2xl font-bold">{value}</h2>
+
       {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
     </div>
   );
 }
 
-function BarRow({
+function MiniChartCard({
+  icon,
+  title,
   value,
-  max,
-  label,
+  subtitle,
+  data,
+  dataKey,
 }: {
-  value: number;
-  max: number;
-  label: string;
+  icon: React.ReactNode;
+  title: string;
+  value: any;
+  subtitle?: string;
+  data: any[];
+  dataKey: string;
 }) {
-  const width = `${Math.max(3, (value / max) * 100)}%`;
-
   return (
-    <div className="grid grid-cols-[78px_1fr] items-center gap-3 text-xs">
-      <span className="text-slate-500">{label}</span>
-      <div className="h-2 rounded-full bg-slate-800">
-        <div className="h-2 rounded-full bg-yellow-400" style={{ width }} />
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="rounded-full bg-slate-800 p-3 text-blue-400">
+          {icon}
+        </div>
+
+        <p className="text-sm text-slate-400">{title}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <h2 className="text-2xl font-bold">{value}</h2>
+          {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+        </div>
+
+        <div className="h-[60px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <Area
+                type="monotone"
+                dataKey={dataKey}
+                stroke="#3b82f6"
+                fill="#3b82f6"
+                fillOpacity={0.25}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
