@@ -25,6 +25,8 @@ export default function PayrollRegisterPage() {
   const [selectedPayslipId, setSelectedPayslipId] = useState("");
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [checkedAuditItems, setCheckedAuditItems] = useState<string[]>([]);
+  const [payslipAdjustments, setPayslipAdjustments] = useState<any[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -76,11 +78,25 @@ export default function PayrollRegisterPage() {
     return `${entry.time_in || "-"} - ${entry.time_out || "-"}`;
   };
 
+  const getAuditKey = (log: any, index: number) => {
+    return `${selectedPeriodId}-${selectedAuditRecord?.employee_id || ""}-${
+      log.date
+    }-${log.issue}-${index}`;
+  };
+
+  const toggleAuditCheck = (key: string) => {
+    setCheckedAuditItems((prev) =>
+      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+    );
+  };
+
   const mapSettings = (rows: any[] = []) => {
     const mapped: Record<string, string> = {};
+
     rows.forEach((item: any) => {
       mapped[item.setting_key] = item.setting_value;
     });
+
     return mapped;
   };
 
@@ -98,6 +114,7 @@ export default function PayrollRegisterPage() {
 
   const getSettings = async () => {
     const { data, error } = await supabase.from("payroll_settings").select("*");
+
     if (error) return console.log("GET SETTINGS ERROR:", error.message);
 
     const mapped = mapSettings(data || []);
@@ -197,7 +214,9 @@ export default function PayrollRegisterPage() {
     const selected = periods.find((period) => period.id === selectedPeriodId);
 
     const confirmDelete = confirm(
-      `Delete payroll period "${selected?.period_name || "selected period"}"? This will also delete its payroll records and manual adjustments.`
+      `Delete payroll period "${
+        selected?.period_name || "selected period"
+      }"? This will also delete its payroll records and manual adjustments.`
     );
 
     if (!confirmDelete) return;
@@ -232,6 +251,8 @@ export default function PayrollRegisterPage() {
     setSelectedPayslipId("");
     setSelectedAuditRecord(null);
     setAuditLogs([]);
+    setPayslipAdjustments([]);
+    setCheckedAuditItems([]);
 
     await getPeriods();
     alert("Payroll period deleted.");
@@ -442,6 +463,8 @@ export default function PayrollRegisterPage() {
     setSelectedPayslipId("");
     setSelectedAuditRecord(null);
     setAuditLogs([]);
+    setPayslipAdjustments([]);
+    setCheckedAuditItems([]);
 
     alert("Payroll generated using latest schedule-aware attendance logic.");
   };
@@ -484,7 +507,37 @@ export default function PayrollRegisterPage() {
     setAdjustmentRemarks("");
 
     await getAdjustments(selectedPeriodId);
+
+    setSelectedPayslipId("");
+    setSelectedAuditRecord(null);
+    setAuditLogs([]);
+    setPayslipAdjustments([]);
+
     alert("Adjustment saved. Click Generate again to apply.");
+  };
+
+  const deleteAdjustment = async (id: string) => {
+    const confirmDelete = confirm("Delete this manual adjustment?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("payroll_adjustments")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("Failed to delete adjustment.");
+      return console.log("DELETE ADJUSTMENT ERROR:", error.message);
+    }
+
+    await getAdjustments(selectedPeriodId);
+
+    setSelectedPayslipId("");
+    setSelectedAuditRecord(null);
+    setAuditLogs([]);
+    setPayslipAdjustments([]);
+
+    alert("Adjustment deleted. Click Generate again to update payroll.");
   };
 
   const getEmployeeAuditLogs = async (record: any) => {
@@ -533,7 +586,8 @@ export default function PayrollRegisterPage() {
       if (restDay) issueParts.push("Rest Day / Off");
       if (!restDay && absent) issueParts.push("Absent from scheduled work day");
       if (lateMinutes > 0) issueParts.push(`${lateMinutes} mins late`);
-      if (undertimeMinutes > 0) issueParts.push(`${undertimeMinutes} mins undertime`);
+      if (undertimeMinutes > 0)
+        issueParts.push(`${undertimeMinutes} mins undertime`);
       if (otMinutes > 0) issueParts.push(`${otMinutes} mins OT`);
 
       if (issueParts.length > 0) issue = issueParts.join(" • ");
@@ -579,12 +633,20 @@ export default function PayrollRegisterPage() {
 
     const logs = await getEmployeeAuditLogs(record);
     setAuditLogs(logs);
+
+    const employeeAdjustments = adjustments.filter(
+      (item) => item.employee_id === record.employee_id
+    );
+
+    setPayslipAdjustments(employeeAdjustments);
   };
 
   const approvePayroll = async () => {
     if (!selectedPeriodId) return;
 
-    const highAlerts = managerAlerts.filter((alert) => alert.severity === "High");
+    const highAlerts = managerAlerts.filter(
+      (alert) => alert.severity === "High"
+    );
 
     if (highAlerts.length > 0) {
       const proceed = confirm(
@@ -626,7 +688,9 @@ export default function PayrollRegisterPage() {
   }, [selectedPeriodId]);
 
   /// CALCULATIONS
-  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
+  const selectedPeriod = periods.find(
+    (period) => period.id === selectedPeriodId
+  );
 
   const filteredRecords = useMemo(() => {
     return records.filter((record) =>
@@ -636,7 +700,9 @@ export default function PayrollRegisterPage() {
     );
   }, [records, searchTerm]);
 
-  const selectedPayslip = records.find((record) => record.id === selectedPayslipId);
+  const selectedPayslip = records.find(
+    (record) => record.id === selectedPayslipId
+  );
 
   const totalGross = records.reduce(
     (sum, record) => sum + Number(record.gross_pay || 0),
@@ -772,10 +838,26 @@ export default function PayrollRegisterPage() {
 
         <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard title="Employees" value={records.length} />
-          <SummaryCard title="Manager Alerts" value={managerAlerts.length} color="text-amber-400" />
-          <SummaryCard title="Gross Pay" value={formatMoney(totalGross)} color="text-blue-400" />
-          <SummaryCard title="Deductions" value={formatMoney(totalDeductions)} color="text-red-400" />
-          <SummaryCard title="Net Pay" value={formatMoney(totalNet)} color="text-emerald-400" />
+          <SummaryCard
+            title="Manager Alerts"
+            value={managerAlerts.length}
+            color="text-amber-400"
+          />
+          <SummaryCard
+            title="Gross Pay"
+            value={formatMoney(totalGross)}
+            color="text-blue-400"
+          />
+          <SummaryCard
+            title="Deductions"
+            value={formatMoney(totalDeductions)}
+            color="text-red-400"
+          />
+          <SummaryCard
+            title="Net Pay"
+            value={formatMoney(totalNet)}
+            color="text-emerald-400"
+          />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -798,6 +880,7 @@ export default function PayrollRegisterPage() {
                   style={{ colorScheme: "dark" }}
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 />
+
                 <input
                   type="date"
                   value={endDate}
@@ -849,14 +932,11 @@ export default function PayrollRegisterPage() {
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <div className="flex flex-col gap-1 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-black">2. Manual Adjustment</h2>
-                <p className="text-xs text-slate-400">
-                  Resto unpaid, cash advance, salary loan, allowance, bonus.
-                </p>
-              </div>
-            </div>
+            <h2 className="text-xl font-black">2. Manual Adjustment</h2>
+            <p className="text-xs text-slate-400">
+              Add or delete resto unpaid, cash advance, salary loan, allowance,
+              bonus, or other adjustments.
+            </p>
 
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
               <select
@@ -904,6 +984,60 @@ export default function PayrollRegisterPage() {
                 placeholder="Remarks"
                 className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-5"
               />
+
+              <div className="max-h-44 overflow-auto rounded-xl border border-slate-800 md:col-span-5">
+                <table className="w-full min-w-[800px] text-xs">
+                  <thead className="bg-slate-950 text-left text-slate-400">
+                    <tr>
+                      <th className="px-3 py-2">Employee</th>
+                      <th className="px-3 py-2">Type</th>
+                      <th className="px-3 py-2">Direction</th>
+                      <th className="px-3 py-2 text-right">Amount</th>
+                      <th className="px-3 py-2">Remarks</th>
+                      <th className="px-3 py-2">Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {adjustments.map((item) => (
+                      <tr key={item.id} className="border-t border-slate-800">
+                        <td className="px-3 py-2 font-bold">
+                          {item.employee_name}
+                        </td>
+                        <td className="px-3 py-2">{item.adjustment_type}</td>
+                        <td className="px-3 py-2">
+                          {item.adjustment_direction}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {formatMoney(item.amount)}
+                        </td>
+                        <td className="px-3 py-2 text-slate-400">
+                          {item.remarks || "-"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => deleteAdjustment(item.id)}
+                            className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {adjustments.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-6 text-center text-slate-500"
+                        >
+                          No manual adjustments yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>
@@ -940,7 +1074,9 @@ export default function PayrollRegisterPage() {
                   <tr key={index} className="border-t border-slate-800">
                     <td className="px-4 py-3 font-black">{alert.employee}</td>
                     <td className="px-4 py-3 text-amber-400">{alert.type}</td>
-                    <td className="px-4 py-3 text-slate-300">{alert.message}</td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {alert.message}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -957,7 +1093,10 @@ export default function PayrollRegisterPage() {
 
                 {managerAlerts.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
+                    <td
+                      colSpan={4}
+                      className="px-4 py-10 text-center text-slate-500"
+                    >
                       No manager audit alerts.
                     </td>
                   </tr>
@@ -1070,7 +1209,10 @@ export default function PayrollRegisterPage() {
 
                 {filteredRecords.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="px-4 py-14 text-center text-slate-500">
+                    <td
+                      colSpan={13}
+                      className="px-4 py-14 text-center text-slate-500"
+                    >
                       No payroll records. Select period then click Generate.
                     </td>
                   </tr>
@@ -1089,19 +1231,22 @@ export default function PayrollRegisterPage() {
                 </h2>
                 <p className="text-sm text-slate-400">
                   {selectedAuditRecord.employee_name} •{" "}
-                  {selectedAuditRecord.department} • {selectedAuditRecord.position}
+                  {selectedAuditRecord.department} •{" "}
+                  {selectedAuditRecord.position}
                 </p>
               </div>
 
               <div className="rounded-full border border-blue-500/40 px-4 py-2 text-sm font-black text-blue-400">
-                {auditLogs.filter((log) => log.isDeduction).length} deduction item/s
+                {auditLogs.filter((log) => log.isDeduction).length} deduction
+                item/s
               </div>
             </div>
 
             <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1300px] text-sm">
+              <table className="w-full min-w-[1400px] text-sm">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
+                    <th className="px-4 py-3">Checked</th>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Schedule</th>
                     <th className="px-4 py-3">Actual Attendance</th>
@@ -1115,31 +1260,58 @@ export default function PayrollRegisterPage() {
                 </thead>
 
                 <tbody>
-                  {auditLogs.map((log, index) => (
-                    <tr key={index} className="border-t border-slate-800">
-                      <td className="px-4 py-3 font-bold">{log.date}</td>
-                      <td className="px-4 py-3">{log.schedule}</td>
-                      <td className="px-4 py-3">{log.actual}</td>
-                      <td className="px-4 py-3">{log.status}</td>
-                      <td className="px-4 py-3 text-slate-300">{log.issue}</td>
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(log.lateAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(log.undertimeAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(log.absentAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-red-400">
-                        {formatMoney(log.totalAmount)}
-                      </td>
-                    </tr>
-                  ))}
+                  {auditLogs.map((log, index) => {
+                    const key = getAuditKey(log, index);
+                    const checked = checkedAuditItems.includes(key);
+
+                    return (
+                      <tr
+                        key={index}
+                        className={`border-t border-slate-800 ${
+                          checked ? "bg-emerald-500/10" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => toggleAuditCheck(key)}
+                            className={`rounded-lg px-3 py-1 text-xs font-black ${
+                              checked
+                                ? "bg-emerald-500 text-slate-950"
+                                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                            }`}
+                          >
+                            {checked ? "✓ Checked" : "Check"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 font-bold">{log.date}</td>
+                        <td className="px-4 py-3">{log.schedule}</td>
+                        <td className="px-4 py-3">{log.actual}</td>
+                        <td className="px-4 py-3">{log.status}</td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {log.issue}
+                        </td>
+                        <td className="px-4 py-3 text-right text-red-400">
+                          {formatMoney(log.lateAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-red-400">
+                          {formatMoney(log.undertimeAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-red-400">
+                          {formatMoney(log.absentAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-black text-red-400">
+                          {formatMoney(log.totalAmount)}
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {auditLogs.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
+                      <td
+                        colSpan={10}
+                        className="px-4 py-10 text-center text-slate-500"
+                      >
                         No audit logs found for this employee.
                       </td>
                     </tr>
@@ -1163,7 +1335,10 @@ export default function PayrollRegisterPage() {
 
               <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
                 <Info label="Employee" value={selectedPayslip.employee_name} />
-                <Info label="Employee No." value={selectedPayslip.employee_no || "-"} />
+                <Info
+                  label="Employee No."
+                  value={selectedPayslip.employee_no || "-"}
+                />
                 <Info label="Department" value={selectedPayslip.department} />
                 <Info label="Position" value={selectedPayslip.position} />
               </div>
@@ -1171,49 +1346,130 @@ export default function PayrollRegisterPage() {
               <div className="mt-8 rounded-xl border border-slate-300 p-4 text-sm">
                 <h3 className="mb-3 font-black">Attendance Summary</h3>
                 <div className="grid grid-cols-6 gap-3 text-center">
-                  <Info label="Scheduled" value={selectedPayslip.scheduled_days || 0} />
-                  <Info label="Worked" value={selectedPayslip.days_worked || 0} />
+                  <Info
+                    label="Scheduled"
+                    value={selectedPayslip.scheduled_days || 0}
+                  />
+                  <Info
+                    label="Worked"
+                    value={selectedPayslip.days_worked || 0}
+                  />
                   <Info label="RD/OFF" value={selectedPayslip.rest_days || 0} />
-                  <Info label="Absent" value={selectedPayslip.absent_days || 0} />
-                  <Info label="Late" value={`${selectedPayslip.late_minutes || 0} min`} />
-                  <Info label="UT" value={`${selectedPayslip.undertime_minutes || 0} min`} />
+                  <Info
+                    label="Absent"
+                    value={selectedPayslip.absent_days || 0}
+                  />
+                  <Info
+                    label="Late"
+                    value={`${selectedPayslip.late_minutes || 0} min`}
+                  />
+                  <Info
+                    label="UT"
+                    value={`${selectedPayslip.undertime_minutes || 0} min`}
+                  />
                 </div>
               </div>
 
               <div className="mt-8 grid grid-cols-2 gap-8 text-sm">
                 <div>
-                  <h3 className="border-b pb-2 font-black">Earnings Breakdown</h3>
-                  <Row label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
-                  <Row label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
-                  <Row label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
-                  <Row label="Allowance / Bonus" value={formatMoney(selectedPayslip.allowance)} />
-                  <Row label="Gross Pay" value={formatMoney(selectedPayslip.gross_pay)} strong />
+                  <h3 className="border-b pb-2 font-black">
+                    Earnings Breakdown
+                  </h3>
+                  <Row
+                    label="Basic Pay"
+                    value={formatMoney(selectedPayslip.basic_pay)}
+                  />
+                  <Row
+                    label="Holiday Pay"
+                    value={formatMoney(selectedPayslip.holiday_pay)}
+                  />
+                  <Row
+                    label="OT Pay"
+                    value={formatMoney(selectedPayslip.ot_pay)}
+                  />
+
+                  {payslipAdjustments
+                    .filter((item) => item.adjustment_direction === "Earning")
+                    .map((item) => (
+                      <Row
+                        key={item.id}
+                        label={item.adjustment_type}
+                        value={formatMoney(item.amount)}
+                      />
+                    ))}
+
+                  {payslipAdjustments.filter(
+                    (item) => item.adjustment_direction === "Earning"
+                  ).length === 0 && (
+                    <Row label="Allowance / Bonus" value={formatMoney(0)} />
+                  )}
+
+                  <Row
+                    label="Gross Pay"
+                    value={formatMoney(selectedPayslip.gross_pay)}
+                    strong
+                  />
                 </div>
 
                 <div>
-                  <h3 className="border-b pb-2 font-black">Deductions Breakdown</h3>
-                  <Row label="Late Deduction" value={formatMoney(selectedPayslip.late_deduction)} />
-                  <Row label="Undertime Deduction" value={formatMoney(selectedPayslip.undertime_deduction)} />
-                  <Row label="Absent Deduction" value={formatMoney(selectedPayslip.absent_deduction)} />
-                  <Row label="Manual Deductions" value={formatMoney(selectedPayslip.manual_deduction)} />
-                  <Row label="Total Deductions" value={formatMoney(selectedPayslip.total_deductions)} strong />
+                  <h3 className="border-b pb-2 font-black">
+                    Deductions Breakdown
+                  </h3>
+                  <Row
+                    label="Late Deduction"
+                    value={formatMoney(selectedPayslip.late_deduction)}
+                  />
+                  <Row
+                    label="Undertime Deduction"
+                    value={formatMoney(selectedPayslip.undertime_deduction)}
+                  />
+                  <Row
+                    label="Absent Deduction"
+                    value={formatMoney(selectedPayslip.absent_deduction)}
+                  />
+
+                  {payslipAdjustments
+                    .filter((item) => item.adjustment_direction === "Deduction")
+                    .map((item) => (
+                      <Row
+                        key={item.id}
+                        label={item.adjustment_type}
+                        value={formatMoney(item.amount)}
+                      />
+                    ))}
+
+                  <Row
+                    label="Manual Deductions"
+                    value={formatMoney(selectedPayslip.manual_deduction)}
+                  />
+
+                  <Row
+                    label="Total Deductions"
+                    value={formatMoney(selectedPayslip.total_deductions)}
+                    strong
+                  />
                 </div>
               </div>
 
               <div className="mt-8 rounded-xl border-2 border-black p-4 text-center">
                 <p className="text-sm font-bold">NET PAY</p>
-                <p className="text-3xl font-black">{formatMoney(selectedPayslip.net_pay)}</p>
+                <p className="text-3xl font-black">
+                  {formatMoney(selectedPayslip.net_pay)}
+                </p>
               </div>
 
               <div className="mt-10 grid grid-cols-2 gap-10 text-center text-sm">
                 <div className="border-t border-black pt-2">
                   {settings.authorized_signatory || "Authorized Signatory"}
                 </div>
-                <div className="border-t border-black pt-2">Employee Signature</div>
+                <div className="border-t border-black pt-2">
+                  Employee Signature
+                </div>
               </div>
 
               <p className="mt-8 text-center text-xs">
-                {settings.payslip_footer || "This is a system-generated payslip."}
+                {settings.payslip_footer ||
+                  "This is a system-generated payslip."}
               </p>
             </div>
 
