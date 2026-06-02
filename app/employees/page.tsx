@@ -10,6 +10,7 @@ type Employee = {
   employee_no: string;
   first_name: string;
   last_name: string;
+  email: string;
   department: string;
   position: string;
   employment_status: string;
@@ -35,6 +36,7 @@ export default function EmployeesPage() {
   const [employeeNo, setEmployeeNo] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
   const [position, setPosition] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState("Active");
@@ -61,12 +63,11 @@ export default function EmployeesPage() {
   const rateTypes = ["Daily", "Weekly", "Monthly"];
 
   /// FUNCTIONS
-  const formatMoney = (value: any) => {
-    return `₱${Number(value || 0).toLocaleString("en-PH", {
+  const formatMoney = (value: any) =>
+    `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  };
 
   const getValue = (row: any, keys: string[]) => {
     for (const key of keys) {
@@ -78,9 +79,8 @@ export default function EmployeesPage() {
     return "";
   };
 
-  const cleanMoney = (value: any) => {
-    return Number(String(value || "").replace("₱", "").replace(/,/g, "").trim()) || 0;
-  };
+  const cleanMoney = (value: any) =>
+    Number(String(value || "").replace("₱", "").replace(/,/g, "").trim()) || 0;
 
   const cleanDate = (value: any) => {
     if (!value) return null;
@@ -89,7 +89,9 @@ export default function EmployeesPage() {
       const date = XLSX.SSF.parse_date_code(value);
       if (!date) return null;
 
-      return `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`;
+      return `${date.y}-${String(date.m).padStart(2, "0")}-${String(
+        date.d
+      ).padStart(2, "0")}`;
     }
 
     const parsed = new Date(value);
@@ -113,10 +115,25 @@ export default function EmployeesPage() {
   };
 
   const getDropdownData = async () => {
-    const { data: departmentsData } = await supabase.from("departments").select("*").order("name");
-    const { data: positionsData } = await supabase.from("positions").select("*").order("name");
-    const { data: statusesData } = await supabase.from("employment_statuses").select("*").order("name");
-    const { data: typesData } = await supabase.from("employment_types").select("*").order("name");
+    const { data: departmentsData } = await supabase
+      .from("departments")
+      .select("*")
+      .order("name");
+
+    const { data: positionsData } = await supabase
+      .from("positions")
+      .select("*")
+      .order("name");
+
+    const { data: statusesData } = await supabase
+      .from("employment_statuses")
+      .select("*")
+      .order("name");
+
+    const { data: typesData } = await supabase
+      .from("employment_types")
+      .select("*")
+      .order("name");
 
     setDepartments(departmentsData || []);
     setPositions(positionsData || []);
@@ -129,6 +146,7 @@ export default function EmployeesPage() {
     setEmployeeNo("");
     setFirstName("");
     setLastName("");
+    setEmail("");
     setDepartment("");
     setPosition("");
     setEmploymentStatus("Active");
@@ -157,6 +175,11 @@ export default function EmployeesPage() {
       return false;
     }
 
+    if (email.trim() && !email.includes("@")) {
+      setFormError("Please enter a valid email address.");
+      return false;
+    }
+
     setFormError("");
     return true;
   };
@@ -171,6 +194,7 @@ export default function EmployeesPage() {
       employee_no: employeeNo.trim() || `EMP-${Date.now()}`,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
+      email: email.trim(),
       department,
       position,
       employment_status: employmentStatus,
@@ -210,6 +234,7 @@ export default function EmployeesPage() {
     setEmployeeNo(employee.employee_no || "");
     setFirstName(employee.first_name || "");
     setLastName(employee.last_name || "");
+    setEmail(employee.email || "");
     setDepartment(employee.department || "");
     setPosition(employee.position || "");
     setEmploymentStatus(employee.employment_status || "Active");
@@ -220,14 +245,21 @@ export default function EmployeesPage() {
     setBasicRate(String(employee.basic_rate || employee.daily_rate || ""));
     setPayrollActive(employee.payroll_active === false ? "No" : "Yes");
     setPayrollNotes(employee.payroll_notes || "");
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const deleteEmployee = async (employeeNoValue: string) => {
-    const confirmDelete = confirm("Are you sure you want to permanently delete this employee?");
+    const confirmDelete = confirm(
+      "Are you sure you want to permanently delete this employee?"
+    );
+
     if (!confirmDelete) return;
 
-    const { error } = await supabase.from("employees").delete().eq("employee_no", employeeNoValue);
+    const { error } = await supabase
+      .from("employees")
+      .delete()
+      .eq("employee_no", employeeNoValue);
 
     if (error) {
       console.log("DELETE EMPLOYEE ERROR:", error.message);
@@ -251,10 +283,17 @@ export default function EmployeesPage() {
 
     const cleanedRows = rawRows
       .map((row: any, index: number) => {
-        const first = String(getValue(row, ["First Name", "first_name", "FirstName"])).trim();
-        const last = String(getValue(row, ["Last Name", "last_name", "LastName"])).trim();
+        const first = String(
+          getValue(row, ["First Name", "first_name", "FirstName"])
+        ).trim();
 
-        const fullName = String(getValue(row, ["Name", "Employee Name", "Full Name"])).trim();
+        const last = String(
+          getValue(row, ["Last Name", "last_name", "LastName"])
+        ).trim();
+
+        const fullName = String(
+          getValue(row, ["Name", "Employee Name", "Full Name"])
+        ).trim();
 
         let firstNameValue = first;
         let lastNameValue = last;
@@ -266,39 +305,54 @@ export default function EmployeesPage() {
         }
 
         const employeeNoValue =
-          String(getValue(row, ["Employee No", "Employee Number", "Employee ID", "ID"])).trim() ||
-          `EMP-${Date.now()}-${index}`;
+          String(
+            getValue(row, ["Employee No", "Employee Number", "Employee ID", "ID"])
+          ).trim() || `EMP-${Date.now()}-${index}`;
 
         const rateTypeValue =
           String(getValue(row, ["Rate Type", "rate_type"])).trim() || "Daily";
 
         const basicRateValue = cleanMoney(
-          getValue(row, ["Basic Rate", "basic_rate", "Daily Rate", "daily_rate", "Rate"])
+          getValue(row, [
+            "Basic Rate",
+            "basic_rate",
+            "Daily Rate",
+            "daily_rate",
+            "Rate",
+          ])
         );
 
         return {
           employee_no: employeeNoValue,
           first_name: firstNameValue,
           last_name: lastNameValue,
+          email: String(getValue(row, ["Email", "email", "Email Address"])).trim(),
           department: String(getValue(row, ["Department", "department"])).trim(),
           position: String(getValue(row, ["Position", "position"])).trim(),
           employment_status:
-            String(getValue(row, ["Status", "Employment Status", "employment_status"])).trim() ||
-            "Active",
+            String(
+              getValue(row, ["Status", "Employment Status", "employment_status"])
+            ).trim() || "Active",
           employment_type:
-            String(getValue(row, ["Employment Type", "employment_type"])).trim() || "Regular",
-          contact_number: String(getValue(row, ["Contact", "Contact Number", "contact_number"])).trim(),
+            String(getValue(row, ["Employment Type", "employment_type"])).trim() ||
+            "Regular",
+          contact_number: String(
+            getValue(row, ["Contact", "Contact Number", "contact_number"])
+          ).trim(),
           hire_date:
-  cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])) ||
-  "2026-06-02",
+            cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])) ||
+            "2026-06-02",
           daily_rate: basicRateValue,
           rate_type: rateTypes.includes(rateTypeValue) ? rateTypeValue : "Daily",
           basic_rate: basicRateValue,
           payroll_active:
-            String(getValue(row, ["Payroll Active", "payroll_active"])).toLowerCase() === "no"
+            String(getValue(row, ["Payroll Active", "payroll_active"])).toLowerCase() ===
+            "no"
               ? false
               : true,
-          payroll_notes: String(getValue(row, ["Payroll Notes", "Notes", "payroll_notes"])).trim(),
+          payroll_notes: String(
+            getValue(row, ["Payroll Notes", "Notes", "payroll_notes"])
+          ).trim(),
           created_at: new Date().toISOString(),
         };
       })
@@ -315,10 +369,9 @@ export default function EmployeesPage() {
 
     setIsImporting(true);
 
-    const { error } = await supabase
-  .from("employees")
-  .insert(previewRows);
+    const { error } = await supabase.from("employees").insert(previewRows);
 
+    setIsImporting(false);
 
     if (error) {
       console.log("IMPORT EMPLOYEES ERROR:", error.message);
@@ -341,9 +394,15 @@ export default function EmployeesPage() {
   /// CALCULATIONS
   const totalEmployees = employees.length;
 
-  const activeEmployees = employees.filter((emp) => emp.employment_status === "Active").length;
+  const activeEmployees = employees.filter(
+    (emp) => emp.employment_status === "Active"
+  ).length;
 
-  const payrollActiveCount = employees.filter((emp) => emp.payroll_active !== false).length;
+  const payrollActiveCount = employees.filter(
+    (emp) => emp.payroll_active !== false
+  ).length;
+
+  const emailReadyCount = employees.filter((emp) => emp.email).length;
 
   const totalMonthlyPayrollEstimate = employees.reduce((sum, emp) => {
     const rate = Number(emp.basic_rate || emp.daily_rate || 0);
@@ -357,12 +416,15 @@ export default function EmployeesPage() {
 
   const filteredEmployees = useMemo(() => {
     return employees.filter((emp) => {
-      const search = `${emp.employee_no} ${emp.first_name} ${emp.last_name} ${emp.department} ${emp.position} ${emp.employment_status} ${emp.rate_type}`
+      const search = `${emp.employee_no} ${emp.first_name} ${emp.last_name} ${emp.email} ${emp.department} ${emp.position} ${emp.employment_status} ${emp.rate_type}`
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
 
-      const matchesDepartment = departmentFilter === "ALL" || emp.department === departmentFilter;
-      const matchesStatus = statusFilter === "ALL" || emp.employment_status === statusFilter;
+      const matchesDepartment =
+        departmentFilter === "ALL" || emp.department === departmentFilter;
+
+      const matchesStatus =
+        statusFilter === "ALL" || emp.employment_status === statusFilter;
 
       return search && matchesDepartment && matchesStatus;
     });
@@ -378,16 +440,19 @@ export default function EmployeesPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
             Workforce
           </p>
+
           <h1 className="mt-2 text-4xl font-black">Employee Masterlist</h1>
+
           <p className="mt-2 text-sm text-slate-400">
-            Manage employee records, payroll profile, rates, and import bulk employee data.
+            Manage employee records, email, payroll profile, rates, and bulk imports.
           </p>
         </section>
 
-        <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard title="Total Employees" value={totalEmployees} />
           <SummaryCard title="Active Employees" value={activeEmployees} color="text-emerald-400" />
           <SummaryCard title="Payroll Active" value={payrollActiveCount} color="text-blue-400" />
+          <SummaryCard title="With Email" value={emailReadyCount} color="text-purple-400" />
           <SummaryCard
             title="Est. Monthly Payroll"
             value={formatMoney(totalMonthlyPayrollEstimate)}
@@ -395,67 +460,92 @@ export default function EmployeesPage() {
           />
         </section>
 
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[520px_minmax(0,1fr)]">
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-2xl font-black">
-              {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
-            </h2>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-black">
+                  {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Employee details, contact, and payroll profile.
+                </p>
+              </div>
+
+              {editingEmployeeNo && (
+                <span className="rounded-full border border-blue-500/40 px-3 py-1 text-xs font-black text-blue-400">
+                  Editing
+                </span>
+              )}
+            </div>
 
             {formError && (
-              <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
+              <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
                 {formError}
               </p>
             )}
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-6 space-y-6">
+              <FormBlock title="Personal Details">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input label="Employee No" value={employeeNo} setValue={setEmployeeNo} placeholder="Auto if blank" />
+                  <Input label="Email" type="email" value={email} setValue={setEmail} placeholder="employee@email.com" />
+                  <Input label="First Name *" value={firstName} setValue={setFirstName} />
+                  <Input label="Last Name *" value={lastName} setValue={setLastName} />
+                  <Input label="Contact Number" value={contactNumber} setValue={setContactNumber} />
+                  <Input label="Hire Date" type="date" value={hireDate} setValue={setHireDate} />
+                </div>
+              </FormBlock>
+
+              <FormBlock title="Work Assignment">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Select label="Department *" value={department} setValue={setDepartment} options={departments.map((d) => d.name)} />
+                  <Select label="Position *" value={position} setValue={setPosition} options={positions.map((p) => p.name)} />
+                  <Select label="Status *" value={employmentStatus} setValue={setEmploymentStatus} options={employmentStatuses.map((s) => s.name)} />
+                  <Select label="Employment Type *" value={employmentType} setValue={setEmploymentType} options={employmentTypes.map((t) => t.name)} />
+                </div>
+              </FormBlock>
+
+              <FormBlock title="Payroll Profile">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Select label="Rate Type *" value={rateType} setValue={setRateType} options={rateTypes} />
+                  <Input label="Basic Rate *" type="number" value={basicRate} setValue={setBasicRate} />
+                  <Select label="Payroll Active" value={payrollActive} setValue={setPayrollActive} options={["Yes", "No"]} />
+                </div>
+
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-slate-300">
+                    Payroll Notes
+                  </label>
+                  <textarea
+                    value={payrollNotes}
+                    onChange={(e) => setPayrollNotes(e.target.value)}
+                    rows={3}
+                    className="mt-2 w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+              </FormBlock>
+
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Input label="Employee No" value={employeeNo} setValue={setEmployeeNo} placeholder="Auto if blank" />
-                <Input label="Contact Number" value={contactNumber} setValue={setContactNumber} />
-                <Input label="First Name *" value={firstName} setValue={setFirstName} />
-                <Input label="Last Name *" value={lastName} setValue={setLastName} />
-              </div>
+                <button
+                  onClick={saveEmployee}
+                  disabled={isSaving}
+                  className="rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+                >
+                  {isSaving
+                    ? "Saving..."
+                    : editingEmployeeNo
+                    ? "Update Employee"
+                    : "Save Employee"}
+                </button>
 
-              <Select label="Department *" value={department} setValue={setDepartment} options={departments.map((d) => d.name)} />
-              <Select label="Position *" value={position} setValue={setPosition} options={positions.map((p) => p.name)} />
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Select label="Status *" value={employmentStatus} setValue={setEmploymentStatus} options={employmentStatuses.map((s) => s.name)} />
-                <Select label="Employment Type *" value={employmentType} setValue={setEmploymentType} options={employmentTypes.map((t) => t.name)} />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Select label="Rate Type *" value={rateType} setValue={setRateType} options={rateTypes} />
-                <Input label="Basic Rate *" type="number" value={basicRate} setValue={setBasicRate} />
-                <Input label="Hire Date" type="date" value={hireDate} setValue={setHireDate} />
-                <Select label="Payroll Active" value={payrollActive} setValue={setPayrollActive} options={["Yes", "No"]} />
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-slate-300">Payroll Notes</label>
-                <textarea
-                  value={payrollNotes}
-                  onChange={(e) => setPayrollNotes(e.target.value)}
-                  rows={3}
-                  className="mt-2 w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                />
-              </div>
-
-              <button
-                onClick={saveEmployee}
-                disabled={isSaving}
-                className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
-              >
-                {isSaving ? "Saving..." : editingEmployeeNo ? "Update Employee" : "Save Employee"}
-              </button>
-
-              {editingEmployeeNo && (
                 <button
                   onClick={clearForm}
-                  className="w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                  className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
                 >
-                  Cancel Edit
+                  {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
                 </button>
-              )}
+              </div>
             </div>
           </div>
 
@@ -463,8 +553,9 @@ export default function EmployeesPage() {
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
               <h2 className="text-2xl font-black">Import Employees</h2>
               <p className="mt-2 text-sm text-slate-400">
-                Upload Excel/CSV. Supported headers: Employee No, First Name, Last Name, Department,
-                Position, Status, Employment Type, Rate Type, Basic Rate, Contact, Hire Date.
+                Supported headers: Employee No, First Name, Last Name, Email,
+                Department, Position, Status, Employment Type, Rate Type, Basic Rate,
+                Contact, Hire Date.
               </p>
 
               <div className="mt-5 flex flex-col gap-3 md:flex-row">
@@ -495,26 +586,33 @@ export default function EmployeesPage() {
 
               {previewRows.length > 0 && (
                 <div className="mt-5 max-h-[260px] overflow-auto rounded-xl border border-slate-800">
-                  <table className="w-full min-w-[1000px] text-sm">
+                  <table className="w-full min-w-[1150px] text-sm">
                     <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                       <tr>
                         <th className="px-4 py-3">Employee No</th>
                         <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Email</th>
                         <th className="px-4 py-3">Department</th>
                         <th className="px-4 py-3">Position</th>
                         <th className="px-4 py-3">Rate Type</th>
                         <th className="px-4 py-3 text-right">Rate</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {previewRows.slice(0, 50).map((row, index) => (
                         <tr key={`${row.employee_no}-${index}`} className="border-t border-slate-800">
                           <td className="px-4 py-3">{row.employee_no}</td>
-                          <td className="px-4 py-3 font-bold">{row.first_name} {row.last_name}</td>
+                          <td className="px-4 py-3 font-bold">
+                            {row.first_name} {row.last_name}
+                          </td>
+                          <td className="px-4 py-3">{row.email || "-"}</td>
                           <td className="px-4 py-3">{row.department}</td>
                           <td className="px-4 py-3">{row.position}</td>
                           <td className="px-4 py-3">{row.rate_type}</td>
-                          <td className="px-4 py-3 text-right">{formatMoney(row.basic_rate)}</td>
+                          <td className="px-4 py-3 text-right">
+                            {formatMoney(row.basic_rate)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -547,7 +645,9 @@ export default function EmployeesPage() {
                   >
                     <option value="ALL">All Departments</option>
                     {departments.map((dept) => (
-                      <option key={dept.id} value={dept.name}>{dept.name}</option>
+                      <option key={dept.id} value={dept.name}>
+                        {dept.name}
+                      </option>
                     ))}
                   </select>
 
@@ -558,17 +658,20 @@ export default function EmployeesPage() {
                   >
                     <option value="ALL">All Status</option>
                     {employmentStatuses.map((status) => (
-                      <option key={status.id} value={status.name}>{status.name}</option>
+                      <option key={status.id} value={status.name}>
+                        {status.name}
+                      </option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div className="mt-5 max-h-[620px] overflow-auto rounded-xl border border-slate-800">
-                <table className="w-full min-w-[1300px] text-sm">
+                <table className="w-full min-w-[1500px] text-sm">
                   <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                     <tr>
                       <th className="px-4 py-3">Employee</th>
+                      <th className="px-4 py-3">Email</th>
                       <th className="px-4 py-3">Department</th>
                       <th className="px-4 py-3">Position</th>
                       <th className="px-4 py-3">Status</th>
@@ -584,22 +687,43 @@ export default function EmployeesPage() {
                     {filteredEmployees.map((emp) => (
                       <tr key={emp.id} className="border-t border-slate-800 hover:bg-slate-800/40">
                         <td className="px-4 py-3">
-                          <p className="font-black">{emp.first_name} {emp.last_name}</p>
+                          <p className="font-black">
+                            {emp.first_name} {emp.last_name}
+                          </p>
                           <p className="text-xs text-slate-500">{emp.employee_no}</p>
                         </td>
+
+                        <td className="px-4 py-3">
+                          {emp.email ? (
+                            <span className="text-slate-300">{emp.email}</span>
+                          ) : (
+                            <span className="text-red-400">No email</span>
+                          )}
+                        </td>
+
                         <td className="px-4 py-3">{emp.department}</td>
                         <td className="px-4 py-3">{emp.position}</td>
                         <td className="px-4 py-3">{emp.employment_status}</td>
                         <td className="px-4 py-3">{emp.employment_type}</td>
-                        <td className="px-4 py-3 text-amber-400">{emp.rate_type || "Daily"}</td>
-                        <td className="px-4 py-3 text-right font-bold">{formatMoney(emp.basic_rate || emp.daily_rate)}</td>
+                        <td className="px-4 py-3 text-amber-400">
+                          {emp.rate_type || "Daily"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold">
+                          {formatMoney(emp.basic_rate || emp.daily_rate)}
+                        </td>
+
                         <td className="px-4 py-3">
                           {emp.payroll_active === false ? (
-                            <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">Inactive</span>
+                            <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
+                              Inactive
+                            </span>
                           ) : (
-                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">Active</span>
+                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                              Active
+                            </span>
                           )}
                         </td>
+
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                             <button
@@ -608,6 +732,7 @@ export default function EmployeesPage() {
                             >
                               Edit
                             </button>
+
                             <button
                               onClick={() => deleteEmployee(emp.employee_no)}
                               className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
@@ -621,7 +746,7 @@ export default function EmployeesPage() {
 
                     {filteredEmployees.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
+                        <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
                           No employees found.
                         </td>
                       </tr>
@@ -646,7 +771,24 @@ function SummaryCard({ title, value, color = "text-white" }: any) {
   );
 }
 
-function Input({ label, value, setValue, type = "text", placeholder = "" }: any) {
+function FormBlock({ title, children }: any) {
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+      <h3 className="mb-4 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function Input({
+  label,
+  value,
+  setValue,
+  type = "text",
+  placeholder = "",
+}: any) {
   return (
     <div>
       <label className="text-sm font-semibold text-slate-300">{label}</label>
@@ -673,7 +815,9 @@ function Select({ label, value, setValue, options }: any) {
       >
         <option value="">Select</option>
         {options.map((option: string) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>
+            {option}
+          </option>
         ))}
       </select>
     </div>
