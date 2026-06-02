@@ -22,14 +22,14 @@ export default function PayrollPage() {
     {
       title: "Payroll Settings",
       subtitle: "Manage payroll rules, holidays, leave, benefits, and OT.",
-      href: "/finance/payroll-manager",
+      href: "/finance/payroll/settings",
       status: "Ready",
       accent: "border-amber-500/40",
     },
     {
       title: "Payslips",
       subtitle: "Print employee payslips after payroll approval.",
-      href: "#",
+      href: "/finance/payroll/payslips",
       status: "Coming Soon",
       accent: "border-purple-500/40",
     },

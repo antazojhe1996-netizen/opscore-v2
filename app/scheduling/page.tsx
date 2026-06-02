@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "../lib/supabase";
+import * as XLSX from "xlsx";
 
 type Employee = {
   id: string;
@@ -29,6 +30,18 @@ type ShiftTemplate = {
   color: string | null;
 };
 
+type ScheduleImportPreviewRow = {
+  employee_no: string;
+  excel_name: string;
+  matched_employee_id?: string;
+  matched_employee_name: string;
+  day: string;
+  shift: string;
+  matched: boolean;
+  valid_shift: boolean;
+  remarks: string;
+};
+
 export default function SchedulingPage() {
   /// STATES
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -44,7 +57,13 @@ export default function SchedulingPage() {
   const [hcRules, setHcRules] = useState<any>(null);
   const [roomsSold, setRoomsSold] = useState(1);
   const [eventAddons, setEventAddons] = useState<any[]>([]);
+
+  const [scheduleImportPreview, setScheduleImportPreview] = useState<ScheduleImportPreviewRow[]>([]);
+  const [scheduleImportStatus, setScheduleImportStatus] = useState("");
+  const [importingSchedule, setImportingSchedule] = useState(false);
+
   const todayColumnRef = useRef<HTMLDivElement | null>(null);
+  const scheduleFileRef = useRef<HTMLInputElement | null>(null);
 
   /// DATA
   const defaultShifts: ShiftTemplate[] = [
@@ -54,6 +73,86 @@ export default function SchedulingPage() {
     { id: 4, shift_name: "GY Shift", start_time: "23:00", end_time: "08:00", color: "yellow" },
     { id: 5, shift_name: "OFF", start_time: null, end_time: null, color: "gray" },
   ];
+
+  /// HELPERS
+  const normalizeName = (name: string) =>
+    String(name || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const normalizeShiftName = (value: string) => {
+    const clean = String(value || "").trim().toLowerCase();
+
+    if (!clean || clean === "off" || clean === "rd" || clean === "rest day") return "OFF";
+    if (clean === "am" || clean.includes("am")) return "AM Shift";
+    if (clean === "pm" || clean.includes("pm")) return "PM Shift";
+    if (clean === "mid" || clean.includes("mid")) return "Mid Shift";
+    if (clean === "gy" || clean.includes("grave") || clean.includes("night")) return "GY Shift";
+
+    return String(value || "OFF").trim();
+  };
+
+  const parseExcelDate = (value: any) => {
+    if (!value) return "";
+
+    if (typeof value === "number") {
+      const parsed = XLSX.SSF.parse_date_code(value);
+      if (!parsed) return "";
+      return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
+    }
+
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return String(value).trim();
+
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const getCellValue = (row: any, keys: string[]) => {
+    for (const key of keys) {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
+        return row[key];
+      }
+    }
+
+    return "";
+  };
+
+  const findEmployeeForImport = (employeeNo: string, excelName: string) => {
+    const cleanEmployeeNo = String(employeeNo || "").trim().toLowerCase();
+    const cleanName = normalizeName(excelName);
+
+    if (cleanEmployeeNo) {
+      const idMatch = employees.find(
+        (emp) => String(emp.employee_no || "").trim().toLowerCase() === cleanEmployeeNo
+      );
+
+      if (idMatch) return idMatch;
+    }
+
+    if (!cleanName) return null;
+
+    const exactMatch = employees.find((emp) => {
+      const full = normalizeName(`${emp.first_name} ${emp.last_name}`);
+      const first = normalizeName(emp.first_name);
+      return full === cleanName || first === cleanName;
+    });
+
+    if (exactMatch) return exactMatch;
+
+    const partialMatches = employees.filter((emp) => {
+      const full = normalizeName(`${emp.first_name} ${emp.last_name}`);
+      return full.includes(cleanName) || cleanName.includes(full);
+    });
+
+    if (partialMatches.length === 1) return partialMatches[0];
+
+    return null;
+  };
 
   /// FUNCTIONS
   const formatDateKey = (date: Date) => {
@@ -344,6 +443,118 @@ export default function SchedulingPage() {
     setTimeout(() => setSaveStatus("idle"), 1300);
   };
 
+  const previewScheduleImport = async (file: File) => {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    const rows: any[] = XLSX.utils.sheet_to_json(sheet, {
+      defval: "",
+    });
+
+    const preview: ScheduleImportPreviewRow[] = rows
+      .map((row) => {
+        const employeeNo = String(
+          getCellValue(row, ["Employee No", "Employee ID", "Biometrics ID", "Enroll No", "ID"])
+        ).trim();
+
+        const excelName = String(
+          getCellValue(row, ["Employee Name", "Name", "Employee"])
+        ).trim();
+
+        const day = parseExcelDate(
+          getCellValue(row, ["Date", "Day", "Schedule Date"])
+        );
+
+        const rawShift = String(
+          getCellValue(row, ["Shift", "Schedule", "Shift Name"])
+        ).trim();
+
+        const shift = normalizeShiftName(rawShift);
+        const employee = findEmployeeForImport(employeeNo, excelName);
+
+        const validShift =
+          shift === "OFF" || shifts.some((item) => item.shift_name === shift);
+
+        let remarks = "Ready";
+        if (!employee) remarks = "Employee not found";
+        else if (!day) remarks = "Missing date";
+        else if (!validShift) remarks = "Shift not found";
+
+        return {
+          employee_no: employeeNo,
+          excel_name: excelName,
+          matched_employee_id: employee?.id,
+          matched_employee_name: employee
+            ? `${employee.first_name} ${employee.last_name}`
+            : "",
+          day,
+          shift,
+          matched: !!employee && !!day && validShift,
+          valid_shift: validShift,
+          remarks,
+        };
+      })
+      .filter((row) => row.employee_no || row.excel_name || row.day || row.shift);
+
+    setScheduleImportPreview(preview);
+
+    const matched = preview.filter((row) => row.matched).length;
+    const missing = preview.length - matched;
+
+    setScheduleImportStatus(
+      `Preview loaded. Rows: ${preview.length}. Ready: ${matched}. Issues: ${missing}.`
+    );
+  };
+
+  const confirmScheduleImport = async () => {
+    const readyRows = scheduleImportPreview.filter(
+      (row) => row.matched && row.matched_employee_id
+    );
+
+    if (readyRows.length === 0) {
+      alert("No valid schedule rows to import.");
+      return;
+    }
+
+    const confirmImport = confirm(`Import ${readyRows.length} schedule rows?`);
+    if (!confirmImport) return;
+
+    setImportingSchedule(true);
+    setSaveStatus("saving");
+
+    const rowsToSave = readyRows.map((row) => ({
+      employee_id: row.matched_employee_id!,
+      day: row.day,
+      shift: row.shift,
+    }));
+
+    const { error } = await supabase.from("schedules").upsert(rowsToSave, {
+      onConflict: "employee_id,day",
+    });
+
+    setImportingSchedule(false);
+
+    if (error) {
+      console.log("IMPORT SCHEDULE ERROR:", error);
+      alert(error.message);
+      setSaveStatus("idle");
+      return;
+    }
+
+    await getSchedules();
+
+    setScheduleImportStatus(`Imported ${rowsToSave.length} schedule row(s).`);
+    setScheduleImportPreview([]);
+    setSaveStatus("saved");
+    setTimeout(() => setSaveStatus("idle"), 1300);
+  };
+
+  const clearScheduleImportPreview = () => {
+    setScheduleImportPreview([]);
+    setScheduleImportStatus("");
+  };
+
   const moveDate = (direction: "prev" | "next") => {
     const newDate = new Date(currentDate);
 
@@ -567,6 +778,9 @@ export default function SchedulingPage() {
   const understaffedDays = coverageGap.filter((gap) => selectedDepartment !== "ALL" && gap < 0).length;
   const overstaffedDays = coverageGap.filter((gap) => selectedDepartment !== "ALL" && gap > 0).length;
 
+  const importReadyCount = scheduleImportPreview.filter((row) => row.matched).length;
+  const importIssueCount = scheduleImportPreview.length - importReadyCount;
+
   const tableGridColumns =
     viewMode === "weekly"
       ? `260px repeat(${visibleDays.length}, minmax(135px, 1fr))`
@@ -588,7 +802,7 @@ export default function SchedulingPage() {
             </p>
             <h1 className="mt-2 text-4xl font-black">Scheduling</h1>
             <p className="mt-2 max-w-4xl text-sm text-slate-400">
-              Manage schedules, monitor required headcount, protect approved leave, and prepare attendance data for payroll.
+              Manage schedules, import Excel schedule files, monitor required headcount, and prepare attendance data for payroll.
             </p>
           </div>
 
@@ -610,6 +824,84 @@ export default function SchedulingPage() {
           <SummaryCard title="Overstaffed" value={overstaffedDays} color="text-amber-400" />
           <SummaryCard title="Unscheduled" value={unscheduledEmployees} color="text-blue-400" />
         </section>
+
+        {scheduleImportStatus && (
+          <section className="mb-8 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-sm text-blue-300">
+            {scheduleImportStatus}
+          </section>
+        )}
+
+        {scheduleImportPreview.length > 0 && (
+          <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900 p-6">
+            <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 className="text-2xl font-black">Schedule Import Preview</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Rows: {scheduleImportPreview.length} • Ready: {importReadyCount} • Issues: {importIssueCount}
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={clearScheduleImportPreview}
+                  className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                >
+                  Clear Preview
+                </button>
+
+                <button
+                  onClick={confirmScheduleImport}
+                  disabled={importingSchedule}
+                  className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-300 disabled:opacity-50"
+                >
+                  {importingSchedule ? "Importing..." : "Confirm Import"}
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[360px] overflow-auto rounded-2xl border border-slate-800">
+              <table className="w-full min-w-[1100px] text-sm">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Employee No</th>
+                    <th className="px-4 py-3">Excel Name</th>
+                    <th className="px-4 py-3">Matched Employee</th>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Shift</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Remarks</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {scheduleImportPreview.map((row, index) => (
+                    <tr key={index} className="border-t border-slate-800">
+                      <td className="px-4 py-3">{row.employee_no || "-"}</td>
+                      <td className="px-4 py-3 font-bold">{row.excel_name || "-"}</td>
+                      <td className="px-4 py-3 font-bold text-emerald-300">
+                        {row.matched_employee_name || "-"}
+                      </td>
+                      <td className="px-4 py-3">{row.day || "-"}</td>
+                      <td className="px-4 py-3">{row.shift}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black ${
+                            row.matched
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : "bg-red-500/10 text-red-400"
+                          }`}
+                        >
+                          {row.matched ? "Ready" : "Issue"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">{row.remarks}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -660,6 +952,25 @@ export default function SchedulingPage() {
               <button onClick={goToToday} className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold hover:bg-slate-700">
                 Today
               </button>
+
+              <button
+                onClick={() => scheduleFileRef.current?.click()}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black hover:bg-emerald-500"
+              >
+                Import Schedule
+              </button>
+
+              <input
+                ref={scheduleFileRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) previewScheduleImport(file);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
 
               <button
                 onClick={copyLastWeekSchedule}
