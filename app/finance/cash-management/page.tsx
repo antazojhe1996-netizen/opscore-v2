@@ -13,15 +13,15 @@ export default function CashManagementPage() {
   const [employees, setEmployees] = useState<any[]>([]);
 
   /// STATES - DRAWER
+  const today = new Date().toISOString().split("T")[0];
+
   const [drawerHolder, setDrawerHolder] = useState("");
   const [openingFloat, setOpeningFloat] = useState("");
   const [drawerRemarks, setDrawerRemarks] = useState("");
   const [actualClosingCash, setActualClosingCash] = useState("");
   const [closeRemarks, setCloseRemarks] = useState("");
 
-  /// STATES - FORM
-  const today = new Date().toISOString().split("T")[0];
-
+  /// STATES - CASH MOVEMENT FORM
   const [businessDate, setBusinessDate] = useState(today);
   const [movementType, setMovementType] = useState("Cash In");
   const [source, setSource] = useState("Room Sales");
@@ -36,6 +36,7 @@ export default function CashManagementPage() {
   const [dateFilter, setDateFilter] = useState(today);
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
+  const [holderFilter, setHolderFilter] = useState("AUTO");
   const [searchTerm, setSearchTerm] = useState("");
 
   /// STATES - SYSTEM
@@ -69,11 +70,21 @@ export default function CashManagementPage() {
   /// CALCULATIONS - ACTIVE DRAWER
   const activeDrawer = drawers.find((drawer) => drawer.status === "OPEN");
 
-  /// CALCULATIONS - FILTERED MOVEMENTS
-  const filteredMovements = useMemo(() => {
-    return movements.filter((item) => {
-      const matchesDate = dateFilter ? item.business_date === dateFilter : true;
+  const effectiveHolderFilter =
+    holderFilter === "AUTO" ? activeDrawer?.holder_name || "ALL" : holderFilter;
 
+  /// CALCULATIONS - BASE MOVEMENTS
+  const drawerScopedMovements = useMemo(() => {
+    if (activeDrawer) {
+      return movements.filter((item) => item.cash_drawer_id === activeDrawer.id);
+    }
+
+    return movements.filter((item) => item.business_date === dateFilter);
+  }, [movements, activeDrawer, dateFilter]);
+
+  /// CALCULATIONS - LEDGER FILTERED MOVEMENTS
+  const filteredMovements = useMemo(() => {
+    return drawerScopedMovements.filter((item) => {
       const matchesType =
         typeFilter === "ALL" ? true : item.movement_type === typeFilter;
 
@@ -81,6 +92,13 @@ export default function CashManagementPage() {
         paymentFilter === "ALL"
           ? true
           : (item.payment_type || "Cash") === paymentFilter;
+
+      const matchesHolder =
+        effectiveHolderFilter === "ALL"
+          ? true
+          : item.from_person === effectiveHolderFilter ||
+            item.to_person === effectiveHolderFilter ||
+            item.encoded_by === effectiveHolderFilter;
 
       const search = searchTerm.toLowerCase();
 
@@ -91,12 +109,18 @@ export default function CashManagementPage() {
         String(item.encoded_by || "").toLowerCase().includes(search) ||
         String(item.remarks || "").toLowerCase().includes(search);
 
-      return matchesDate && matchesType && matchesPayment && matchesSearch;
+      return matchesType && matchesPayment && matchesHolder && matchesSearch;
     });
-  }, [movements, dateFilter, typeFilter, paymentFilter, searchTerm]);
+  }, [
+    drawerScopedMovements,
+    typeFilter,
+    paymentFilter,
+    effectiveHolderFilter,
+    searchTerm,
+  ]);
 
   /// CALCULATIONS - CASH ONLY MOVEMENTS
-  const cashOnlyMovements = filteredMovements.filter(
+  const cashOnlyMovements = drawerScopedMovements.filter(
     (item) => (item.payment_type || "Cash") === "Cash"
   );
 
@@ -126,11 +150,11 @@ export default function CashManagementPage() {
   const cashOnHand = cashInTotal - cashOutTotal;
 
   /// CALCULATIONS - DIGITAL / NON-CASH FUNDS
-  const gcashTotal = filteredMovements
+  const gcashTotal = drawerScopedMovements
     .filter((item) => (item.payment_type || "Cash") === "GCash")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const bankTotal = filteredMovements
+  const bankTotal = drawerScopedMovements
     .filter(
       (item) =>
         (item.payment_type || "Cash") === "Bank" ||
@@ -138,7 +162,7 @@ export default function CashManagementPage() {
     )
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const terminalTotal = filteredMovements
+  const terminalTotal = drawerScopedMovements
     .filter((item) => (item.payment_type || "Cash") === "Terminal")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -155,21 +179,15 @@ export default function CashManagementPage() {
         item.movement_type === "Opening Float" ||
         item.movement_type === "Cash In"
       ) {
-        if (toName) {
-          balances[toName] = (balances[toName] || 0) + value;
-        }
+        if (toName) balances[toName] = (balances[toName] || 0) + value;
       }
 
       if (item.movement_type === "Cash Out") {
-        if (fromName) {
-          balances[fromName] = (balances[fromName] || 0) - value;
-        }
+        if (fromName) balances[fromName] = (balances[fromName] || 0) - value;
       }
 
       if (item.movement_type === "Remittance") {
-        if (fromName) {
-          balances[fromName] = (balances[fromName] || 0) - value;
-        }
+        if (fromName) balances[fromName] = (balances[fromName] || 0) - value;
 
         if (
           toName &&
@@ -181,9 +199,7 @@ export default function CashManagementPage() {
       }
 
       if (item.movement_type === "Adjustment") {
-        if (toName && value > 0) {
-          balances[toName] = (balances[toName] || 0) + value;
-        }
+        if (toName && value > 0) balances[toName] = (balances[toName] || 0) + value;
 
         if (fromName && value < 0) {
           balances[fromName] = (balances[fromName] || 0) - Math.abs(value);
@@ -196,6 +212,10 @@ export default function CashManagementPage() {
       .filter((item) => Math.abs(item.balance) > 0)
       .sort((a, b) => b.balance - a.balance);
   }, [cashOnlyMovements]);
+
+  const activeDrawerCash =
+    holderBalances.find((holder) => holder.name === activeDrawer?.holder_name)
+      ?.balance || 0;
 
   /// CALCULATIONS - PENDING MANUAL CASH EXPENSES
   const pendingManualCashExpenses = manualExpenses.filter((expense) => {
@@ -213,7 +233,6 @@ export default function CashManagementPage() {
     0
   );
 
-  /// CALCULATIONS - RELEASED REQUESTS ALERT
   const pendingReleasedExpenses = expenseRequests
     .filter((item) => item.status === "RELEASED")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -224,6 +243,11 @@ export default function CashManagementPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  };
+
+  const formatDateTime = (value: any) => {
+    if (!value) return "-";
+    return String(value).slice(0, 16).replace("T", " ");
   };
 
   const getMovementStyle = (type: string) => {
@@ -315,7 +339,7 @@ export default function CashManagementPage() {
     setEmployees(data || []);
   };
 
-  /// FUNCTIONS - RESET FORM
+  /// FUNCTIONS - RESET
   const resetForm = () => {
     setBusinessDate(today);
     setMovementType("Cash In");
@@ -335,6 +359,484 @@ export default function CashManagementPage() {
     setActualClosingCash("");
     setCloseRemarks("");
   };
+
+  /// FUNCTIONS - PDF / PRINT REPORT
+const printDrawerReport = (drawer: any, customSummary?: any) => {
+  const holderName = customSummary?.holder_name || drawer.holder_name;
+  const openedAt = drawer.opened_at;
+  const closedAt = customSummary?.closed_at || drawer.closed_at;
+  const status = customSummary?.status || drawer.status;
+
+  const openingFloat = Number(
+    customSummary?.opening_float ?? drawer.opening_float ?? 0
+  );
+
+  const expectedCash = Number(
+    customSummary?.expected_cash ?? drawer.expected_cash ?? activeDrawerCash
+  );
+
+  const actualCash = Number(
+    customSummary?.actual_cash ?? drawer.actual_cash ?? 0
+  );
+
+  const variance = Number(
+    customSummary?.variance ?? drawer.variance ?? actualCash - expectedCash
+  );
+
+  const reportMovements = movements.filter(
+    (item) => item.cash_drawer_id === drawer.id
+  );
+
+  const salesRows = reportMovements.filter(
+    (item) =>
+      item.movement_type === "Cash In" ||
+      item.source === "Room Sales" ||
+      item.source === "Restaurant Sales" ||
+      item.source === "Apartment Collection"
+  );
+
+  const expenseRows = reportMovements.filter(
+    (item) =>
+      item.movement_type === "Cash Out" ||
+      item.source === "Manual Cash Expense" ||
+      item.source === "Expense Release" ||
+      item.source === "Owner Withdrawal" ||
+      item.source === "Bank Deposit"
+  );
+
+  const cashSales = salesRows
+    .filter((item) => (item.payment_type || "Cash") === "Cash")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const gcashSales = salesRows
+    .filter((item) => (item.payment_type || "Cash") === "GCash")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const bankSales = salesRows
+    .filter((item) => (item.payment_type || "Cash") === "Bank")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const terminalSales = salesRows
+    .filter((item) => (item.payment_type || "Cash") === "Terminal")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const totalSales = cashSales + gcashSales + bankSales + terminalSales;
+
+  const totalExpenses = expenseRows.reduce(
+    (sum, item) => sum + Math.abs(Number(item.amount || 0)),
+    0
+  );
+
+  const varianceStatus =
+    variance < 0 ? "SHORT" : variance > 0 ? "OVER" : "BALANCED";
+
+  const varianceColor =
+    variance < 0 ? "#b91c1c" : variance > 0 ? "#047857" : "#111827";
+
+  const salesTable = salesRows
+    .map(
+      (item, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item.business_date || "-"}</td>
+          <td>${item.source || "-"}</td>
+          <td>${item.payment_type || "Cash"}</td>
+          <td>${item.encoded_by || "-"}</td>
+          <td class="right">${formatMoney(item.amount)}</td>
+          <td>${item.remarks || "-"}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const expenseTable = expenseRows
+    .map(
+      (item, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item.business_date || "-"}</td>
+          <td>${item.source || "-"}</td>
+          <td>${item.payment_type || "Cash"}</td>
+          <td>${item.from_person || "-"}</td>
+          <td class="right">${formatMoney(Math.abs(Number(item.amount || 0)))}</td>
+          <td>${item.remarks || "-"}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const html = `
+    <html>
+      <head>
+        <title>Executive Cash Report</title>
+
+        <style>
+          body {
+            margin: 0;
+            padding: 30px;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #111827;
+            background: #ffffff;
+          }
+
+          .print-btn {
+            margin-bottom: 18px;
+            padding: 10px 16px;
+            border: none;
+            background: #111827;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+          }
+
+          .report {
+            max-width: 1120px;
+            margin: 0 auto;
+          }
+
+          .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 3px solid #111827;
+            padding-bottom: 14px;
+            margin-bottom: 18px;
+          }
+
+          h1 {
+            margin: 0;
+            font-size: 25px;
+            letter-spacing: .3px;
+          }
+
+          h2 {
+            margin: 0;
+            font-size: 18px;
+            text-transform: uppercase;
+          }
+
+          .muted {
+            margin-top: 4px;
+            font-size: 11px;
+            color: #6b7280;
+          }
+
+          .right {
+            text-align: right;
+          }
+
+          .summary {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 18px;
+          }
+
+          .summary-card {
+            border: 1px solid #d1d5db;
+            padding: 10px;
+            min-height: 66px;
+          }
+
+          .label {
+            font-size: 9px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+          }
+
+          .value {
+            margin-top: 6px;
+            font-size: 15px;
+            font-weight: bold;
+          }
+
+          .section {
+            margin-top: 20px;
+          }
+
+          .section-title {
+            background: #111827;
+            color: #ffffff;
+            padding: 8px 10px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10.5px;
+          }
+
+          th {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 7px;
+            text-align: left;
+            text-transform: uppercase;
+            font-size: 9px;
+          }
+
+          td {
+            border: 1px solid #d1d5db;
+            padding: 7px;
+            vertical-align: top;
+          }
+
+          .total td {
+            background: #f9fafb;
+            font-weight: bold;
+          }
+
+          .recon td {
+            font-size: 12px;
+          }
+
+          .variance {
+            font-size: 15px;
+            font-weight: bold;
+            color: ${varianceColor};
+          }
+
+          .remarks-box {
+            border: 1px solid #d1d5db;
+            min-height: 55px;
+            padding: 10px;
+            font-size: 11px;
+          }
+
+          .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 45px;
+            margin-top: 58px;
+          }
+
+          .signature {
+            border-top: 1px solid #111827;
+            padding-top: 7px;
+            text-align: center;
+            font-size: 11px;
+          }
+
+          .footer {
+            margin-top: 25px;
+            padding-top: 10px;
+            border-top: 1px solid #d1d5db;
+            display: flex;
+            justify-content: space-between;
+            color: #6b7280;
+            font-size: 10px;
+          }
+
+          @media print {
+            .print-btn {
+              display: none;
+            }
+
+            body {
+              padding: 0;
+            }
+
+            @page {
+              size: A4 landscape;
+              margin: 12mm;
+            }
+          }
+        </style>
+      </head>
+
+      <body>
+        <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+
+        <div class="report">
+          <div class="header">
+            <div>
+              <h1>Vincent Resort Hotel</h1>
+              <div class="muted">Executive Cash, Sales, and Expense Report</div>
+              <div class="muted">Generated: ${formatDateTime(new Date().toISOString())}</div>
+            </div>
+
+            <div class="right">
+              <h2>Daily Executive Report</h2>
+              <div class="muted">Drawer Holder: ${holderName || "-"}</div>
+              <div class="muted">Status: ${status}</div>
+            </div>
+          </div>
+
+          <div class="summary">
+            <div class="summary-card">
+              <div class="label">Opening Float</div>
+              <div class="value">${formatMoney(openingFloat)}</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Total Sales</div>
+              <div class="value">${formatMoney(totalSales)}</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Total Expenses</div>
+              <div class="value">${formatMoney(totalExpenses)}</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Expected Cash</div>
+              <div class="value">${formatMoney(expectedCash)}</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Variance</div>
+              <div class="value" style="color:${varianceColor};">${formatMoney(variance)}</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Report Details</div>
+            <table>
+              <tr>
+                <td><b>Opened:</b> ${formatDateTime(openedAt)}</td>
+                <td><b>Closed:</b> ${formatDateTime(closedAt)}</td>
+                <td><b>Variance Status:</b> <span class="variance">${varianceStatus}</span></td>
+                <td><b>Actual Cash Counted:</b> ${formatMoney(actualCash)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Sales Report</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Date</th>
+                  <th>Source</th>
+                  <th>Payment</th>
+                  <th>Encoded By</th>
+                  <th class="right">Amount</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  salesTable ||
+                  `<tr><td colspan="7" style="text-align:center;">No sales records found.</td></tr>`
+                }
+
+                <tr class="total">
+                  <td colspan="5">Cash Sales</td>
+                  <td class="right">${formatMoney(cashSales)}</td>
+                  <td></td>
+                </tr>
+
+                <tr class="total">
+                  <td colspan="5">GCash / Bank / Terminal Sales</td>
+                  <td class="right">${formatMoney(gcashSales + bankSales + terminalSales)}</td>
+                  <td></td>
+                </tr>
+
+                <tr class="total">
+                  <td colspan="5">Total Sales</td>
+                  <td class="right">${formatMoney(totalSales)}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Expense Report</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Date</th>
+                  <th>Source</th>
+                  <th>Payment</th>
+                  <th>Released By</th>
+                  <th class="right">Amount</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  expenseTable ||
+                  `<tr><td colspan="7" style="text-align:center;">No expense records found.</td></tr>`
+                }
+
+                <tr class="total">
+                  <td colspan="5">Total Expenses / Cash Releases</td>
+                  <td class="right">${formatMoney(totalExpenses)}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Cash Reconciliation</div>
+            <table class="recon">
+              <tr>
+                <td>Opening Float</td>
+                <td class="right">${formatMoney(openingFloat)}</td>
+              </tr>
+              <tr>
+                <td>Add: Cash Sales</td>
+                <td class="right">${formatMoney(cashSales)}</td>
+              </tr>
+              <tr>
+                <td>Less: Cash Expenses / Releases</td>
+                <td class="right">(${formatMoney(totalExpenses)})</td>
+              </tr>
+              <tr class="total">
+                <td>Expected Cash</td>
+                <td class="right">${formatMoney(expectedCash)}</td>
+              </tr>
+              <tr>
+                <td>Actual Cash Counted</td>
+                <td class="right">${formatMoney(actualCash)}</td>
+              </tr>
+              <tr class="total">
+                <td>Variance - ${varianceStatus}</td>
+                <td class="right variance">${formatMoney(variance)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Management Remarks</div>
+            <div class="remarks-box">
+              ${customSummary?.remarks || drawer.remarks || "No remarks provided."}
+            </div>
+          </div>
+
+          <div class="signatures">
+            <div class="signature">Prepared By / Cashier</div>
+            <div class="signature">Checked By / Supervisor</div>
+            <div class="signature">Verified By / Finance</div>
+          </div>
+
+          <div class="footer">
+            <span>OpsCore Executive Report</span>
+            <span>System-generated document for management review.</span>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank", "width=1200,height=850");
+
+  if (!printWindow) {
+    alert("Popup blocked. Please allow popups for this site.");
+    return;
+  }
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+};
 
   /// FUNCTIONS - OPEN DRAWER
   const openDrawer = async () => {
@@ -395,6 +897,7 @@ export default function CashManagementPage() {
 
     resetDrawerForm();
     setShowOpenDrawer(false);
+    setHolderFilter("AUTO");
     getDrawers();
     getCashMovements();
   };
@@ -413,11 +916,9 @@ export default function CashManagementPage() {
       return;
     }
 
-    const drawerExpectedCash = holderBalances.find(
-      (holder) => holder.name === activeDrawer.holder_name
-    )?.balance || 0;
-
+    const drawerExpectedCash = activeDrawerCash;
     const drawerVariance = Number(actualClosingCash || 0) - drawerExpectedCash;
+    const closedAt = new Date().toISOString();
 
     setIsSaving(true);
 
@@ -425,7 +926,7 @@ export default function CashManagementPage() {
       .from("finance_cash_drawers")
       .update({
         status: "CLOSED",
-        closed_at: new Date().toISOString(),
+        closed_at: closedAt,
         expected_cash: drawerExpectedCash,
         actual_cash: Number(actualClosingCash || 0),
         variance: drawerVariance,
@@ -441,6 +942,15 @@ export default function CashManagementPage() {
       return;
     }
 
+    printDrawerReport(activeDrawer, {
+      ...activeDrawer,
+      closed_at: closedAt,
+      status: "CLOSED",
+      expected_cash: drawerExpectedCash,
+      actual_cash: Number(actualClosingCash || 0),
+      variance: drawerVariance,
+    });
+
     resetDrawerForm();
     setShowCloseDrawer(false);
     getDrawers();
@@ -450,17 +960,8 @@ export default function CashManagementPage() {
   const saveMovement = async () => {
     if (isSaving) return;
 
-    if (
-      !businessDate ||
-      !movementType ||
-      !source ||
-      !paymentType ||
-      !amount ||
-      !encodedBy.trim()
-    ) {
-      alert(
-        "Please complete date, type, source, payment type, amount, and encoded by."
-      );
+    if (!businessDate || !movementType || !source || !paymentType || !amount) {
+      alert("Please complete date, type, source, payment type, and amount.");
       return;
     }
 
@@ -480,6 +981,8 @@ export default function CashManagementPage() {
       paymentType === "Cash" && !toPerson.trim()
         ? activeDrawer?.holder_name || ""
         : toPerson.trim();
+
+    const autoEncoded = encodedBy.trim() || activeDrawer?.holder_name || "System";
 
     if (
       paymentType === "Cash" &&
@@ -514,7 +1017,7 @@ export default function CashManagementPage() {
       amount: amountValue,
       from_person: autoFrom,
       to_person: autoTo,
-      encoded_by: encodedBy.trim(),
+      encoded_by: autoEncoded,
       remarks: remarks.trim(),
       cash_drawer_id: activeDrawer?.id || null,
     });
@@ -640,15 +1143,22 @@ export default function CashManagementPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
               Finance Control
             </p>
-
             <h1 className="mt-2 text-3xl font-bold">Cash Management</h1>
-
             <p className="mt-2 text-sm text-slate-400">
-              Open drawer, track cash movements, clear manual cash expenses, and close drawer with variance.
+              Open drawer, track shift cash movements, clear manual expenses, and print drawer reports.
             </p>
           </div>
 
           <div className="flex gap-2">
+            {activeDrawer && (
+              <button
+                onClick={() => printDrawerReport(activeDrawer)}
+                className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold hover:bg-slate-600"
+              >
+                Print Report
+              </button>
+            )}
+
             {!activeDrawer && (
               <button
                 onClick={() => setShowOpenDrawer(true)}
@@ -674,7 +1184,7 @@ export default function CashManagementPage() {
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
               <SummaryCard title="Active Drawer Holder" value={activeDrawer.holder_name} color="text-amber-400" />
               <SummaryCard title="Opening Float" value={formatMoney(activeDrawer.opening_float)} color="text-blue-400" />
-              <SummaryCard title="Drawer Cash" value={formatMoney(holderBalances.find((holder) => holder.name === activeDrawer.holder_name)?.balance || 0)} color="text-emerald-400" />
+              <SummaryCard title="Drawer Cash" value={formatMoney(activeDrawerCash)} color="text-emerald-400" />
               <SummaryCard title="Status" value="OPEN" color="text-emerald-400" />
             </div>
           ) : (
@@ -730,7 +1240,7 @@ export default function CashManagementPage() {
                 <input value={toPerson} onChange={(e) => setToPerson(e.target.value)} placeholder={activeDrawer ? `To: ${activeDrawer.holder_name}` : "To / Received by / Holder"} list="employee-list" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
               )}
 
-              <input value={encodedBy} onChange={(e) => setEncodedBy(e.target.value)} placeholder="Encoded by" list="employee-list" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+              <input value={encodedBy} onChange={(e) => setEncodedBy(e.target.value)} placeholder={activeDrawer ? `Encoded by: ${activeDrawer.holder_name}` : "Encoded by"} list="employee-list" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
               <datalist id="employee-list">
                 {employees.map((employee) => (
@@ -749,8 +1259,18 @@ export default function CashManagementPage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
             <h2 className="text-xl font-bold">Cash Movement Ledger</h2>
 
-            <div className="my-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div className="my-5 grid grid-cols-1 gap-3 md:grid-cols-5">
               <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ colorScheme: "dark" }} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+
+              <select value={holderFilter} onChange={(e) => setHolderFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
+                <option value="AUTO">Auto Holder</option>
+                <option value="ALL">All Holders</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`}>
+                    {employee.first_name} {employee.last_name}
+                  </option>
+                ))}
+              </select>
 
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
                 <option value="ALL">All Types</option>
@@ -866,7 +1386,7 @@ export default function CashManagementPage() {
           <h2 className="text-xl font-bold">Drawer History</h2>
 
           <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[1000px] text-sm">
               <thead className="bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Holder</th>
@@ -877,6 +1397,7 @@ export default function CashManagementPage() {
                   <th className="px-4 py-3 text-right">Actual</th>
                   <th className="px-4 py-3 text-right">Variance</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">PDF</th>
                 </tr>
               </thead>
 
@@ -884,13 +1405,18 @@ export default function CashManagementPage() {
                 {drawers.map((drawer) => (
                   <tr key={drawer.id} className="border-t border-slate-800 text-slate-200">
                     <td className="px-4 py-3">{drawer.holder_name}</td>
-                    <td className="px-4 py-3">{drawer.opened_at?.slice(0, 16).replace("T", " ")}</td>
-                    <td className="px-4 py-3">{drawer.closed_at ? drawer.closed_at.slice(0, 16).replace("T", " ") : "-"}</td>
+                    <td className="px-4 py-3">{formatDateTime(drawer.opened_at)}</td>
+                    <td className="px-4 py-3">{formatDateTime(drawer.closed_at)}</td>
                     <td className="px-4 py-3 text-right">{formatMoney(drawer.opening_float)}</td>
                     <td className="px-4 py-3 text-right">{formatMoney(drawer.expected_cash)}</td>
                     <td className="px-4 py-3 text-right">{formatMoney(drawer.actual_cash)}</td>
                     <td className={`px-4 py-3 text-right font-semibold ${Number(drawer.variance || 0) < 0 ? "text-red-400" : "text-emerald-400"}`}>{formatMoney(drawer.variance)}</td>
                     <td className="px-4 py-3">{drawer.status}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => printDrawerReport(drawer)} className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:bg-blue-500">
+                        Print PDF
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -924,7 +1450,7 @@ export default function CashManagementPage() {
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
               <p className="text-sm text-slate-300">Expected Drawer Cash</p>
               <h3 className="mt-2 text-2xl font-bold text-amber-400">
-                {formatMoney(holderBalances.find((holder) => holder.name === activeDrawer.holder_name)?.balance || 0)}
+                {formatMoney(activeDrawerCash)}
               </h3>
             </div>
 
