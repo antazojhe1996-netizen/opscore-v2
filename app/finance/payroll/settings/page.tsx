@@ -52,6 +52,8 @@ export default function PayrollSettingsPage() {
       description:
         "Approved leave is unpaid but not counted as absent unless KPI threshold is exceeded.",
       fields: [
+
+        
         {
           key: "leave_enabled",
           label: "Leave Enabled",
@@ -75,8 +77,46 @@ export default function PayrollSettingsPage() {
           label: "Default Leave Credits",
           type: "number",
         },
+
+        
       ],
+      
     },
+    {
+  title: "Attendance Deductions",
+  description:
+    "Automatic payroll deductions from attendance records.",
+  fields: [
+    {
+      key: "late_deduction_enabled",
+      label: "Late Deduction Enabled",
+      type: "select",
+      options: ["Yes", "No"],
+    },
+    {
+      key: "late_grace_minutes",
+      label: "Late Grace Minutes",
+      type: "number",
+    },
+    {
+      key: "undertime_deduction_enabled",
+      label: "Undertime Deduction Enabled",
+      type: "select",
+      options: ["Yes", "No"],
+    },
+    {
+      key: "undertime_grace_minutes",
+      label: "Undertime Grace Minutes",
+      type: "number",
+    },
+    {
+      key: "absent_deduction_enabled",
+      label: "Absent Deduction Enabled",
+      type: "select",
+      options: ["Yes", "No"],
+    },
+  ],
+},
     {
       title: "Employee KPI Leave Threshold",
       description:
@@ -698,9 +738,12 @@ function HolidayTable({
                     Delete
                   </button>
                 </div>
+                
               </td>
             </tr>
           ))}
+
+          
 
           {holidays.length === 0 && (
             <tr>
