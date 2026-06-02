@@ -15,14 +15,14 @@ export default function PayrollPage() {
     {
       title: "Payroll Manager",
       subtitle: "Approve OT, payroll exceptions, and payroll release.",
-      href: "/finance/payroll/payroll-management",
+      href: "/finance/payroll/manager",
       status: "Ready",
       accent: "border-blue-500/40",
     },
     {
       title: "Payroll Settings",
       subtitle: "Manage payroll rules, holidays, leave, benefits, and OT.",
-      href: "/finance/payroll/settings",
+      href: "/finance/payroll-manager",
       status: "Ready",
       accent: "border-amber-500/40",
     },
