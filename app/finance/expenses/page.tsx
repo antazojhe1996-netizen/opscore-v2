@@ -9,13 +9,13 @@ export default function ExpensesPage() {
   /// STATES - DATABASE DATA
   const [expenses, setExpenses] = useState<any[]>([]);
   const [expenseRequests, setExpenseRequests] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [importPreview, setImportPreview] = useState<any[]>([]);
 
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [paymentMethodsData, setPaymentMethodsData] = useState<any[]>([]);
   const [expenseAreasData, setExpenseAreasData] = useState<any[]>([]);
   const [expenseSourcesData, setExpenseSourcesData] = useState<any[]>([]);
-  
 
   /// STATES - MANUAL EXPENSE FORM
   const today = new Date().toISOString().split("T")[0];
@@ -29,6 +29,8 @@ export default function ExpensesPage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [remarks, setRemarks] = useState("");
 
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [deductToPayroll, setDeductToPayroll] = useState("Yes");
 
   /// STATES - FILTERS
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,24 +50,55 @@ export default function ExpensesPage() {
   const expenseAreas = expenseAreasData.map((item) => item.name);
   const expenseSources = expenseSourcesData.map((item) => item.name);
 
+  const isCashAdvance =
+    category.toLowerCase().includes("cash advance") ||
+    description.toLowerCase().includes("cash advance");
+
   const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
   ];
 
   /// CALCULATIONS - DATE
   const currentYear = new Date().getFullYear();
   const now = new Date();
+
+  /// FUNCTIONS - FORMATTERS
+  const formatCurrency = (value: any) =>
+    `₱${Number(value || 0).toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const cleanNumber = (value: any) => {
+    if (!value) return 0;
+
+    return Number(
+      String(value)
+        .replace("₱", "")
+        .replace(/,/g, "")
+        .trim()
+    );
+  };
+
+  const formatExcelDate = (value: any) => {
+    if (!value) return "";
+
+    if (typeof value === "number") {
+      const date = XLSX.SSF.parse_date_code(value);
+      if (!date) return "";
+
+      return `${date.y}-${String(date.m).padStart(2, "0")}-${String(
+        date.d
+      ).padStart(2, "0")}`;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString().split("T")[0];
+    }
+
+    return String(value).split("T")[0];
+  };
 
   /// CALCULATIONS - SOURCE HELPERS
   const getExpenseSourceType = (expense: any) => {
@@ -74,13 +107,29 @@ export default function ExpensesPage() {
     return "Manual Entry";
   };
 
-  const requestExpenseTotal = expenses
-    .filter((expense) => getExpenseSourceType(expense) === "Expense Request")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const getSourceBadgeStyle = (sourceType: string) => {
+    if (sourceType === "Expense Request") return "bg-blue-500/10 text-blue-400";
+    if (sourceType === "Imported") return "bg-purple-500/10 text-purple-400";
+    return "bg-emerald-500/10 text-emerald-400";
+  };
 
-  const manualExpenseTotal = expenses
-    .filter((expense) => getExpenseSourceType(expense) === "Manual Entry")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const getPayrollBadge = (expense: any) => {
+    if (!expense.deduct_to_payroll) return null;
+
+    if (expense.payroll_adjustment_id) {
+      return (
+        <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+          Payroll Linked
+        </span>
+      );
+    }
+
+    return (
+      <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
+        Payroll Pending
+      </span>
+    );
+  };
 
   /// CALCULATIONS - SUMMARY CARDS
   const totalExpenses = expenses.reduce(
@@ -95,7 +144,6 @@ export default function ExpensesPage() {
   const thisMonthExpenses = expenses
     .filter((expense) => {
       const date = new Date(expense.expense_date + "T00:00:00");
-
       return (
         date.getFullYear() === now.getFullYear() &&
         date.getMonth() === now.getMonth()
@@ -103,18 +151,30 @@ export default function ExpensesPage() {
     })
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
+  const requestExpenseTotal = expenses
+    .filter((expense) => getExpenseSourceType(expense) === "Expense Request")
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const manualExpenseTotal = expenses
+    .filter((expense) => getExpenseSourceType(expense) === "Manual Entry")
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const cashAdvanceTotal = expenses
+    .filter((expense) => expense.deduct_to_payroll)
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const pendingRequests = expenseRequests.filter(
+    (request) => request.status === "PENDING"
+  );
+
+  const pendingRequestAmount = pendingRequests.reduce(
+    (sum, request) => sum + Number(request.amount || 0),
+    0
+  );
+
   const pendingLiquidationAmount = expenseRequests
     .filter((request) => request.status === "RELEASED")
     .reduce((sum, request) => sum + Number(request.amount || 0), 0);
-
-  const highestExpense =
-    expenses.length > 0
-      ? expenses.reduce((highest, expense) =>
-          Number(expense.amount || 0) > Number(highest.amount || 0)
-            ? expense
-            : highest
-        )
-      : null;
 
   /// CALCULATIONS - MONTHLY CATEGORY SUMMARY
   const monthlyCategorySummary = monthNames.map((month, monthIndex) => {
@@ -147,6 +207,7 @@ export default function ExpensesPage() {
         String(expense.category || "").toLowerCase().includes(search) ||
         String(expense.department || "").toLowerCase().includes(search) ||
         String(expense.description || "").toLowerCase().includes(search) ||
+        String(expense.employee_name || "").toLowerCase().includes(search) ||
         String(expense.source || "").toLowerCase().includes(search) ||
         String(expense.payment_method || "").toLowerCase().includes(search);
 
@@ -159,9 +220,7 @@ export default function ExpensesPage() {
         categoryFilter === "ALL" ? true : expense.category === categoryFilter;
 
       const matchesDepartment =
-        departmentFilter === "ALL"
-          ? true
-          : expense.department === departmentFilter;
+        departmentFilter === "ALL" ? true : expense.department === departmentFilter;
 
       return matchesSearch && matchesSource && matchesCategory && matchesDepartment;
     });
@@ -189,67 +248,6 @@ export default function ExpensesPage() {
       : String(bValue || "").localeCompare(String(aValue || ""));
   });
 
-  const pendingRequests = expenseRequests.filter(
-  (request) => request.status === "PENDING"
-);
-
-const pendingRequestAmount = pendingRequests.reduce(
-  (sum, request) => sum + Number(request.amount || 0),
-  0
-);
-
-  /// FUNCTIONS - FORMATTERS
-  const formatCurrency = (value: any) => {
-    return `₱${Number(value || 0).toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
-
-  const cleanNumber = (value: any) => {
-    if (!value) return 0;
-
-    return Number(
-      String(value)
-        .replace("₱", "")
-        .replace(/,/g, "")
-        .trim()
-    );
-  };
-
-  const formatExcelDate = (value: any) => {
-    if (!value) return "";
-
-    if (typeof value === "number") {
-      const date = XLSX.SSF.parse_date_code(value);
-      if (!date) return "";
-
-      const year = date.y;
-      const month = String(date.m).padStart(2, "0");
-      const day = String(date.d).padStart(2, "0");
-
-      return `${year}-${month}-${day}`;
-    }
-
-    if (value instanceof Date) {
-      return value.toISOString().split("T")[0];
-    }
-
-    return String(value).split("T")[0];
-  };
-
-  const getSourceBadgeStyle = (sourceType: string) => {
-    if (sourceType === "Expense Request") {
-      return "bg-blue-500/10 text-blue-400";
-    }
-
-    if (sourceType === "Imported") {
-      return "bg-purple-500/10 text-purple-400";
-    }
-
-    return "bg-emerald-500/10 text-emerald-400";
-  };
-
   /// FUNCTIONS - TABLE SORTING
   const requestSort = (key: string) => {
     setSortConfig((current) => ({
@@ -266,50 +264,49 @@ const pendingRequestAmount = pendingRequests.reduce(
 
   /// FUNCTIONS - GET DATA
   const getFinanceSettings = async () => {
-    const { data: categoriesData, error: categoriesError } = await supabase
+    const { data: categoriesData } = await supabase
       .from("finance_expense_categories")
       .select("*")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
-    if (categoriesError) {
-      console.log("GET EXPENSE CATEGORIES ERROR:", categoriesError);
-    }
-
-    const { data: paymentsData, error: paymentsError } = await supabase
+    const { data: paymentsData } = await supabase
       .from("finance_payment_methods")
       .select("*")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
-    if (paymentsError) {
-      console.log("GET PAYMENT METHODS ERROR:", paymentsError);
-    }
-
-    const { data: areasData, error: areasError } = await supabase
+    const { data: areasData } = await supabase
       .from("finance_expense_areas")
       .select("*")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
-    if (areasError) {
-      console.log("GET EXPENSE AREAS ERROR:", areasError);
-    }
-
-    const { data: sourcesData, error: sourcesError } = await supabase
+    const { data: sourcesData } = await supabase
       .from("finance_expense_sources")
       .select("*")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
-    if (sourcesError) {
-      console.log("GET EXPENSE SOURCES ERROR:", sourcesError);
-    }
-
     setExpenseCategories(categoriesData || []);
     setPaymentMethodsData(paymentsData || []);
     setExpenseAreasData(areasData || []);
     setExpenseSourcesData(sourcesData || []);
+  };
+
+  const getEmployees = async () => {
+    const { data, error } = await supabase
+      .from("employees")
+      .select("*")
+      .eq("payroll_active", true)
+      .order("first_name", { ascending: true });
+
+    if (error) {
+      console.log("GET EMPLOYEES ERROR:", error);
+      return;
+    }
+
+    setEmployees(data || []);
   };
 
   const getExpenses = async () => {
@@ -340,6 +337,23 @@ const pendingRequestAmount = pendingRequests.reduce(
     setExpenseRequests(data || []);
   };
 
+  const getNextDraftPayrollPeriod = async () => {
+    const { data, error } = await supabase
+      .from("payroll_periods")
+      .select("*")
+      .eq("status", "Draft")
+      .order("start_date", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.log("GET DRAFT PAYROLL PERIOD ERROR:", error);
+      return null;
+    }
+
+    return data;
+  };
+
   /// FUNCTIONS - RESET FORM
   const resetManualExpenseForm = () => {
     setExpenseDate(today);
@@ -350,6 +364,8 @@ const pendingRequestAmount = pendingRequests.reduce(
     setAmount("");
     setPaymentMethod("");
     setRemarks("");
+    setSelectedEmployeeId("");
+    setDeductToPayroll("Yes");
   };
 
   /// FUNCTIONS - ADD MANUAL EXPENSE
@@ -374,38 +390,129 @@ const pendingRequestAmount = pendingRequests.reduce(
       return;
     }
 
-    const { error } = await supabase.from("expenses").insert([
-      {
-        expense_date: expenseDate,
-        category,
-        department: expenseArea,
-        description,
-        source,
-        amount: amountValue,
-        payment_method: paymentMethod,
-        remarks,
-      },
-    ]);
+    if (isCashAdvance && deductToPayroll === "Yes" && !selectedEmployeeId) {
+      alert("Select employee for cash advance payroll deduction.");
+      return;
+    }
 
-    if (error) {
-      console.log("ADD EXPENSE ERROR:", error);
+    const selectedEmployee = employees.find(
+      (employee) => employee.id === selectedEmployeeId
+    );
+
+    const expensePayload = {
+      expense_date: expenseDate,
+      category,
+      department: expenseArea,
+      description,
+      source,
+      amount: amountValue,
+      payment_method: paymentMethod,
+      remarks,
+      employee_id: isCashAdvance ? selectedEmployeeId || null : null,
+      employee_name:
+        isCashAdvance && selectedEmployee
+          ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+          : null,
+      deduct_to_payroll: isCashAdvance && deductToPayroll === "Yes",
+    };
+
+    const { data: expenseData, error: expenseError } = await supabase
+      .from("expenses")
+      .insert(expensePayload)
+      .select()
+      .single();
+
+    if (expenseError) {
+      console.log("ADD EXPENSE ERROR:", expenseError);
       alert("Failed to save expense.");
       return;
     }
 
+    if (isCashAdvance && deductToPayroll === "Yes" && selectedEmployee) {
+      const draftPeriod = await getNextDraftPayrollPeriod();
+
+      if (!draftPeriod) {
+        alert(
+          "Expense saved, but no Draft payroll period found. Create a Draft payroll period first before auto payroll deduction."
+        );
+
+        resetManualExpenseForm();
+        getExpenses();
+        return;
+      }
+
+      const { data: adjustmentData, error: adjustmentError } = await supabase
+        .from("payroll_adjustments")
+        .insert({
+          period_id: draftPeriod.id,
+          employee_id: selectedEmployee.id,
+          employee_name: `${selectedEmployee.first_name} ${selectedEmployee.last_name}`,
+          adjustment_type: "Cash Advance",
+          adjustment_direction: "Deduction",
+          amount: amountValue,
+          remarks:
+            remarks ||
+            `Cash advance from Expenses on ${expenseDate}. Source: ${source}.`,
+          source_module: "Expenses",
+          source_id: expenseData.id,
+          payroll_deducted: false,
+        })
+        .select()
+        .single();
+
+     if (adjustmentError) {
+  console.log("CREATE PAYROLL ADJUSTMENT ERROR:", adjustmentError);
+
+  alert(
+    `Expense saved, but failed to create payroll deduction.\n\n${adjustmentError.message}`
+  );
+
+  resetManualExpenseForm();
+  getExpenses();
+  return;
+}
+      await supabase
+        .from("expenses")
+        .update({
+          payroll_adjustment_id: adjustmentData.id,
+        })
+        .eq("id", expenseData.id);
+    }
+
     resetManualExpenseForm();
     getExpenses();
+
+    alert(
+      isCashAdvance && deductToPayroll === "Yes"
+        ? "Cash advance saved and linked to payroll deduction."
+        : "Expense saved."
+    );
   };
 
   /// FUNCTIONS - DELETE EXPENSE
-  const deleteExpense = async (id: string) => {
+  const deleteExpense = async (expense: any) => {
     const confirmDelete = confirm(
-      "Are you sure you want to delete this expense?"
+      expense.payroll_adjustment_id
+        ? "Delete this expense and its linked payroll deduction?"
+        : "Are you sure you want to delete this expense?"
     );
 
     if (!confirmDelete) return;
 
-    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (expense.payroll_adjustment_id) {
+      const { error: adjustmentError } = await supabase
+        .from("payroll_adjustments")
+        .delete()
+        .eq("id", expense.payroll_adjustment_id);
+
+      if (adjustmentError) {
+        console.log("DELETE LINKED PAYROLL ADJUSTMENT ERROR:", adjustmentError);
+        alert("Failed to delete linked payroll deduction.");
+        return;
+      }
+    }
+
+    const { error } = await supabase.from("expenses").delete().eq("id", expense.id);
 
     if (error) {
       console.log("DELETE EXPENSE ERROR:", error);
@@ -416,7 +523,7 @@ const pendingRequestAmount = pendingRequests.reduce(
     getExpenses();
   };
 
-    /// FUNCTIONS - EXPORT EXPENSES
+  /// FUNCTIONS - EXPORT EXPENSES
   const exportExpenses = () => {
     if (expenses.length === 0) {
       alert("No expenses to export.");
@@ -427,11 +534,14 @@ const pendingRequestAmount = pendingRequests.reduce(
       Date: expense.expense_date,
       Category: expense.category,
       Expense_Area: expense.department,
+      Employee: expense.employee_name || "",
       Description: expense.description,
       Source: expense.source || "",
       Source_Type: getExpenseSourceType(expense),
       Amount: Number(expense.amount || 0),
       Payment_Method: expense.payment_method,
+      Deduct_To_Payroll: expense.deduct_to_payroll ? "Yes" : "No",
+      Payroll_Adjustment_ID: expense.payroll_adjustment_id || "",
       Remarks: expense.remarks || "",
     }));
 
@@ -539,6 +649,7 @@ const pendingRequestAmount = pendingRequests.reduce(
     getExpenses();
     getExpenseRequests();
     getFinanceSettings();
+    getEmployees();
   }, []);
 
   /// UI
@@ -553,7 +664,8 @@ const pendingRequestAmount = pendingRequests.reduce(
           </p>
           <h1 className="mt-2 text-3xl font-bold">Expenses Ledger</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Review manual expenses, imported expenses, and posted expense requests in one official ledger.
+            Review manual expenses, imported expenses, employee cash advances,
+            and posted expense requests in one official ledger.
           </p>
         </div>
 
@@ -576,11 +688,11 @@ const pendingRequestAmount = pendingRequests.reduce(
             color="text-emerald-400"
           />
 
-           <SummaryCard
-          title="Pending Requests"
-          value={`${pendingRequests.length} / ${formatCurrency(pendingRequestAmount)}`}
-          color="text-amber-400"
-        />
+          <SummaryCard
+            title="Cash Advance"
+            value={formatCurrency(cashAdvanceTotal)}
+            color="text-purple-400"
+          />
 
           <SummaryCard
             title="Pending Liquidation"
@@ -590,38 +702,37 @@ const pendingRequestAmount = pendingRequests.reduce(
         </section>
 
         {pendingRequests.length > 0 && (
-  <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <h2 className="text-lg font-bold text-amber-400">
-          Pending Expense Requests
-        </h2>
-        <p className="mt-1 text-sm text-slate-300">
-          {pendingRequests.length} request(s) waiting for approval with total amount of{" "}
-          <span className="font-semibold text-white">
-            {formatCurrency(pendingRequestAmount)}
-          </span>
-          .
-        </p>
-      </div>
+          <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-amber-400">
+                  Pending Expense Requests
+                </h2>
+                <p className="mt-1 text-sm text-slate-300">
+                  {pendingRequests.length} request(s) waiting for approval with total amount of{" "}
+                  <span className="font-semibold text-white">
+                    {formatCurrency(pendingRequestAmount)}
+                  </span>
+                  .
+                </p>
+              </div>
 
-      <a
-        href="/finance/expense-requests"
-        className="w-fit rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
-      >
-        Review Requests →
-      </a>
-    </div>
-  </section>
-)}
+              <a
+                href="/finance/expense-requests"
+                className="w-fit rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
+              >
+                Review Requests →
+              </a>
+            </div>
+          </section>
+        )}
 
-       
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
           <section className="self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
             <h2 className="text-xl font-bold">Manual Expense Entry</h2>
             <p className="mt-1 text-sm text-slate-400">
               Use this for expenses that did not go through the request workflow.
+              Cash Advance can auto-create payroll deduction.
             </p>
 
             <div className="mt-5 space-y-4">
@@ -635,7 +746,12 @@ const pendingRequestAmount = pendingRequests.reduce(
 
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => {
+                  setCategory(e.target.value);
+                  if (e.target.value.toLowerCase().includes("cash advance")) {
+                    setDeductToPayroll("Yes");
+                  }
+                }}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               >
                 <option value="">Select expense category</option>
@@ -645,6 +761,44 @@ const pendingRequestAmount = pendingRequests.reduce(
                   </option>
                 ))}
               </select>
+
+              {isCashAdvance && (
+                <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4">
+                  <p className="mb-3 text-sm font-bold text-purple-300">
+                    Employee Cash Advance
+                  </p>
+
+                  <div className="space-y-3">
+                    <select
+                      value={selectedEmployeeId}
+                      onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                    >
+                      <option value="">Select employee</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.first_name} {employee.last_name} —{" "}
+                          {employee.department}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={deductToPayroll}
+                      onChange={(e) => setDeductToPayroll(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                    >
+                      <option value="Yes">Deduct to next Draft Payroll</option>
+                      <option value="No">Record expense only</option>
+                    </select>
+
+                    <p className="text-xs text-slate-400">
+                      If enabled, this will automatically create a Cash Advance
+                      deduction in the next Draft payroll period.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <select
                 value={expenseArea}
@@ -663,7 +817,11 @@ const pendingRequestAmount = pendingRequests.reduce(
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Description"
+                placeholder={
+                  isCashAdvance
+                    ? "Example: Cash advance released by front desk"
+                    : "Description"
+                }
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               />
 
@@ -724,7 +882,8 @@ const pendingRequestAmount = pendingRequests.reduce(
               <div>
                 <h2 className="text-xl font-bold">Official Expense Ledger</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Click table headers to sort. Use filters to separate requests, manual entries, and imports.
+                  Click table headers to sort. Use filters to separate requests,
+                  manual entries, and imports.
                 </p>
               </div>
 
@@ -783,16 +942,17 @@ const pendingRequestAmount = pendingRequests.reduce(
             </div>
 
             <div className="max-h-[640px] max-w-full overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1180px] table-fixed border-collapse text-sm">
+              <table className="w-full min-w-[1380px] table-fixed border-collapse text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-950">
                   <tr className="border-b border-slate-800 text-left text-slate-400">
                     {[
                       ["expense_date", "Date", "w-[120px]"],
-                      ["department", "Area", "w-[150px]"],
-                      ["category", "Category", "w-[150px]"],
+                      ["department", "Area", "w-[140px]"],
+                      ["category", "Category", "w-[160px]"],
+                      ["employee_name", "Employee", "w-[180px]"],
                       ["description", "Description", "w-[260px]"],
                       ["amount", "Amount", "w-[130px]"],
-                      ["source", "Source", "w-[160px]"],
+                      ["source", "Source", "w-[150px]"],
                       ["payment_method", "Payment", "w-[130px]"],
                     ].map(([key, label, width]) => (
                       <th
@@ -809,6 +969,9 @@ const pendingRequestAmount = pendingRequests.reduce(
                       </th>
                     ))}
 
+                    <th className="w-[150px] whitespace-nowrap px-4 py-3">
+                      Payroll
+                    </th>
                     <th className="w-[100px] whitespace-nowrap px-4 py-3">
                       Actions
                     </th>
@@ -834,6 +997,10 @@ const pendingRequestAmount = pendingRequests.reduce(
 
                         <td className="truncate px-4 py-3">
                           {expense.category || "-"}
+                        </td>
+
+                        <td className="truncate px-4 py-3">
+                          {expense.employee_name || "-"}
                         </td>
 
                         <td className="break-words px-4 py-3">
@@ -864,8 +1031,12 @@ const pendingRequestAmount = pendingRequests.reduce(
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-3">
+                          {getPayrollBadge(expense) || "-"}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-3">
                           <button
-                            onClick={() => deleteExpense(expense.id)}
+                            onClick={() => deleteExpense(expense)}
                             className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
                           >
                             Delete
@@ -877,10 +1048,7 @@ const pendingRequestAmount = pendingRequests.reduce(
 
                   {sortedExpenses.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={8}
-                        className="py-12 text-center text-slate-500"
-                      >
+                      <td colSpan={10} className="py-12 text-center text-slate-500">
                         No expenses found.
                       </td>
                     </tr>
@@ -1033,10 +1201,7 @@ const pendingRequestAmount = pendingRequests.reduce(
 
                 {importPreview.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="h-[450px] text-center text-slate-500"
-                    >
+                    <td colSpan={6} className="h-[450px] text-center text-slate-500">
                       Upload Excel/CSV to preview expenses.
                     </td>
                   </tr>
@@ -1055,7 +1220,9 @@ function SummaryCard({ title, value, color }: any) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
       <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>{value}</h2>
+      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>
+        {value}
+      </h2>
     </div>
   );
 }
