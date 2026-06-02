@@ -24,7 +24,7 @@ export default function PayrollRegisterPage() {
 
   const [selectedPayslipId, setSelectedPayslipId] = useState("");
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<any>(null);
-  const [deductionLogs, setDeductionLogs] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -46,13 +46,41 @@ export default function PayrollRegisterPage() {
       maximumFractionDigits: 2,
     })}`;
 
+  const normalize = (value: any) => String(value || "").trim().toLowerCase();
+
+  const isRestDay = (entry: any) => {
+    const combined = `${entry.status || ""} ${entry.schedule || ""} ${
+      entry.shift || ""
+    } ${entry.scheduled_shift || ""} ${entry.shift_name || ""}`.toLowerCase();
+
+    return (
+      combined.includes("rest") ||
+      combined.includes("rd") ||
+      combined.includes("off")
+    );
+  };
+
+  const isAbsent = (entry: any) => normalize(entry.status) === "absent";
+
+  const hasActualTime = (entry: any) => Boolean(entry.time_in || entry.time_out);
+
+  const getScheduleLabel = (entry: any) =>
+    entry.scheduled_shift ||
+    entry.shift ||
+    entry.schedule ||
+    entry.shift_name ||
+    "-";
+
+  const getActualLabel = (entry: any) => {
+    if (!entry.time_in && !entry.time_out) return "No time entry";
+    return `${entry.time_in || "-"} - ${entry.time_out || "-"}`;
+  };
+
   const mapSettings = (rows: any[] = []) => {
     const mapped: Record<string, string> = {};
-
     rows.forEach((item: any) => {
       mapped[item.setting_key] = item.setting_value;
     });
-
     return mapped;
   };
 
@@ -70,7 +98,6 @@ export default function PayrollRegisterPage() {
 
   const getSettings = async () => {
     const { data, error } = await supabase.from("payroll_settings").select("*");
-
     if (error) return console.log("GET SETTINGS ERROR:", error.message);
 
     const mapped = mapSettings(data || []);
@@ -177,8 +204,15 @@ export default function PayrollRegisterPage() {
 
     setIsSaving(true);
 
-    await supabase.from("payroll_records").delete().eq("period_id", selectedPeriodId);
-    await supabase.from("payroll_adjustments").delete().eq("period_id", selectedPeriodId);
+    await supabase
+      .from("payroll_records")
+      .delete()
+      .eq("period_id", selectedPeriodId);
+
+    await supabase
+      .from("payroll_adjustments")
+      .delete()
+      .eq("period_id", selectedPeriodId);
 
     const { error } = await supabase
       .from("payroll_periods")
@@ -197,43 +231,56 @@ export default function PayrollRegisterPage() {
     setAdjustments([]);
     setSelectedPayslipId("");
     setSelectedAuditRecord(null);
-    setDeductionLogs([]);
+    setAuditLogs([]);
 
     await getPeriods();
     alert("Payroll period deleted.");
   };
 
-  const getAttendanceSummary = async (employeeId: string) => {
+  const getAttendanceRows = async (employeeId: string) => {
+    if (!selectedPeriod) return [];
+
     const { data, error } = await supabase
       .from("attendance_entries")
       .select("*")
       .eq("employee_id", employeeId)
-      .gte("attendance_date", selectedPeriod?.start_date)
-      .lte("attendance_date", selectedPeriod?.end_date);
+      .gte("attendance_date", selectedPeriod.start_date)
+      .lte("attendance_date", selectedPeriod.end_date)
+      .order("attendance_date", { ascending: true });
 
     if (error) {
-      console.log("ATTENDANCE SUMMARY ERROR:", error.message);
-
-      return {
-        daysWorked: 0,
-        lateMinutes: 0,
-        undertimeMinutes: 0,
-        absentDays: 0,
-        otMinutes: 0,
-      };
+      console.log("GET ATTENDANCE ROWS ERROR:", error.message);
+      return [];
     }
 
-    const rows = data || [];
+    return data || [];
+  };
+
+  const getAttendanceSummary = async (employeeId: string) => {
+    const rows = await getAttendanceRows(employeeId);
+
+    const workRows = rows.filter((row) => !isRestDay(row));
+    const restRows = rows.filter((row) => isRestDay(row));
 
     return {
-      daysWorked: rows.filter((row) => row.status !== "Absent").length,
-      lateMinutes: rows.reduce((sum, row) => sum + Number(row.late_minutes || 0), 0),
-      undertimeMinutes: rows.reduce(
+      scheduledDays: workRows.length,
+      restDays: restRows.length,
+      daysWorked: workRows.filter((row) => !isAbsent(row) && hasActualTime(row))
+        .length,
+      lateMinutes: workRows.reduce(
+        (sum, row) => sum + Number(row.late_minutes || 0),
+        0
+      ),
+      undertimeMinutes: workRows.reduce(
         (sum, row) => sum + Number(row.undertime_minutes || 0),
         0
       ),
-      absentDays: rows.filter((row) => row.status === "Absent").length,
-      otMinutes: rows.reduce((sum, row) => sum + Number(row.ot_minutes || 0), 0),
+      absentDays: workRows.filter((row) => isAbsent(row) || !hasActualTime(row))
+        .length,
+      otMinutes: workRows.reduce(
+        (sum, row) => sum + Number(row.ot_minutes || 0),
+        0
+      ),
     };
   };
 
@@ -287,7 +334,6 @@ export default function PayrollRegisterPage() {
       absentEnabled && rateType === "Monthly" ? absentDays * dailyRate : 0;
 
     const otPay = otHours * hourlyRate * otMultiplier;
-
     const holidayPay = holidayEnabled ? Number(base.holiday_pay || 0) : 0;
 
     const manualEarnings = employeeAdjustments
@@ -304,17 +350,6 @@ export default function PayrollRegisterPage() {
       lateDeduction + undertimeDeduction + absentDeduction + manualDeductions;
 
     const netPay = grossPay - totalDeductions;
-
-console.log("COMPUTED:", {
-  employee: base.employee_name,
-  rateType,
-  absentEnabled,
-  absentDays,
-  absentDeduction,
-  totalDeductions,
-  netPay,
-});
-
 
     return {
       ...base,
@@ -353,13 +388,10 @@ console.log("COMPUTED:", {
 
     const latestSettings = await fetchLatestSettings();
 
-    console.log("LATEST SETTINGS:", latestSettings);
-console.log(
-  "ABSENT SETTING:",
-  latestSettings.absent_deduction_enabled
-);
-
-    await supabase.from("payroll_records").delete().eq("period_id", selectedPeriodId);
+    await supabase
+      .from("payroll_records")
+      .delete()
+      .eq("period_id", selectedPeriodId);
 
     const generated = await Promise.all(
       employees.map(async (employee) => {
@@ -377,11 +409,11 @@ console.log(
           department: employee.department,
           position: employee.position,
           rate_type:
-            employee.rate_type ||
-            latestSettings.default_rate_type ||
-            "Daily",
+            employee.rate_type || latestSettings.default_rate_type || "Daily",
           basic_rate: Number(employee.basic_rate || employee.daily_rate || 0),
 
+          scheduled_days: attendance.scheduledDays,
+          rest_days: attendance.restDays,
           days_worked: attendance.daysWorked,
           weeks_worked: 0,
           late_minutes: attendance.lateMinutes,
@@ -396,25 +428,22 @@ console.log(
       })
     );
 
-    const { error } = await supabase
-  .from("payroll_records")
-  .insert(generated);
+    const { error } = await supabase.from("payroll_records").insert(generated);
 
-setIsSaving(false);
+    setIsSaving(false);
 
-if (error) {
-  alert("Failed to generate payroll.");
-  return console.log("GENERATE PAYROLL ERROR:", error.message);
-}
+    if (error) {
+      alert("Failed to generate payroll.");
+      return console.log("GENERATE PAYROLL ERROR:", error.message);
+    }
 
-await getRecords(selectedPeriodId);
+    await getRecords(selectedPeriodId);
 
-// RESET OLD PAYSLIP VIEW
-setSelectedPayslipId("");
-setSelectedAuditRecord(null);
-setDeductionLogs([]);
+    setSelectedPayslipId("");
+    setSelectedAuditRecord(null);
+    setAuditLogs([]);
 
-alert("Payroll generated.");
+    alert("Payroll generated using latest schedule-aware attendance logic.");
   };
 
   const addAdjustment = async () => {
@@ -458,7 +487,7 @@ alert("Payroll generated.");
     alert("Adjustment saved. Click Generate again to apply.");
   };
 
-  const getEmployeeDeductionLogs = async (record: any) => {
+  const getEmployeeAuditLogs = async (record: any) => {
     if (!selectedPeriod) return [];
 
     const activeSettings = await fetchLatestSettings();
@@ -478,80 +507,67 @@ alert("Payroll generated.");
     const dailyRate = rateType === "Monthly" ? basicRate / 26 : basicRate;
     const minuteRate = dailyRate / paidHours / 60;
 
-    const { data: attendanceData, error } = await supabase
-      .from("attendance_entries")
-      .select("*")
-      .eq("employee_id", record.employee_id)
-      .gte("attendance_date", selectedPeriod.start_date)
-      .lte("attendance_date", selectedPeriod.end_date)
-      .order("attendance_date", { ascending: true });
+    const attendanceData = await getAttendanceRows(record.employee_id);
 
-    if (error) {
-      console.log("GET DEDUCTION LOGS ERROR:", error.message);
-      return [];
-    }
-
-    const attendanceLogs = (attendanceData || []).flatMap((entry: any) => {
-      const items: any[] = [];
-
+    const attendanceLogs = (attendanceData || []).map((entry: any) => {
+      const restDay = isRestDay(entry);
+      const absent = isAbsent(entry) || (!restDay && !hasActualTime(entry));
       const lateMinutes = Number(entry.late_minutes || 0);
       const undertimeMinutes = Number(entry.undertime_minutes || 0);
+      const otMinutes = Number(entry.ot_minutes || 0);
 
-      const schedule =
-        entry.scheduled_shift ||
-        entry.shift ||
-        entry.schedule ||
-        entry.shift_name ||
-        "-";
+      const lateAmount =
+        lateEnabled && lateMinutes > lateGrace ? lateMinutes * minuteRate : 0;
 
-      const actual = `${entry.time_in || "-"} - ${entry.time_out || "-"}`;
+      const undertimeAmount =
+        undertimeEnabled && undertimeMinutes > undertimeGrace
+          ? undertimeMinutes * minuteRate
+          : 0;
 
-      if (lateEnabled && lateMinutes > lateGrace) {
-        items.push({
-          date: entry.attendance_date,
-          schedule,
-          actual,
-          type: "Late",
-          details: `${lateMinutes} minutes late`,
-          amount: lateMinutes * minuteRate,
-        });
-      }
+      const absentAmount =
+        absentEnabled && rateType === "Monthly" && absent ? dailyRate : 0;
 
-      if (undertimeEnabled && undertimeMinutes > undertimeGrace) {
-        items.push({
-          date: entry.attendance_date,
-          schedule,
-          actual,
-          type: "Undertime",
-          details: `${undertimeMinutes} minutes undertime`,
-          amount: undertimeMinutes * minuteRate,
-        });
-      }
+      let issue = "OK";
+      const issueParts: string[] = [];
 
-      if (absentEnabled && entry.status === "Absent" && rateType === "Monthly") {
-        items.push({
-          date: entry.attendance_date,
-          schedule,
-          actual: "No time entry",
-          type: "Absent",
-          details: "Absent deduction for monthly employee",
-          amount: dailyRate,
-        });
-      }
+      if (restDay) issueParts.push("Rest Day / Off");
+      if (!restDay && absent) issueParts.push("Absent from scheduled work day");
+      if (lateMinutes > 0) issueParts.push(`${lateMinutes} mins late`);
+      if (undertimeMinutes > 0) issueParts.push(`${undertimeMinutes} mins undertime`);
+      if (otMinutes > 0) issueParts.push(`${otMinutes} mins OT`);
 
-      return items;
+      if (issueParts.length > 0) issue = issueParts.join(" • ");
+
+      return {
+        date: entry.attendance_date,
+        schedule: getScheduleLabel(entry),
+        actual: getActualLabel(entry),
+        status: entry.status || (restDay ? "RD/OFF" : "No Status"),
+        issue,
+        lateAmount,
+        undertimeAmount,
+        absentAmount,
+        totalAmount: lateAmount + undertimeAmount + absentAmount,
+        isDeduction: lateAmount + undertimeAmount + absentAmount > 0,
+      };
     });
 
     const manualLogs = adjustments
       .filter((item) => item.employee_id === record.employee_id)
-      .filter((item) => item.adjustment_direction === "Deduction")
       .map((item) => ({
         date: item.created_at?.slice(0, 10) || "-",
         schedule: "Manual",
         actual: "Manual adjustment",
-        type: item.adjustment_type,
-        details: item.remarks || item.adjustment_direction,
-        amount: Number(item.amount || 0),
+        status: item.adjustment_direction,
+        issue: `${item.adjustment_type} • ${item.remarks || "No remarks"}`,
+        lateAmount: 0,
+        undertimeAmount: 0,
+        absentAmount: 0,
+        totalAmount:
+          item.adjustment_direction === "Deduction"
+            ? Number(item.amount || 0)
+            : 0,
+        isDeduction: item.adjustment_direction === "Deduction",
       }));
 
     return [...attendanceLogs, ...manualLogs];
@@ -561,18 +577,18 @@ alert("Payroll generated.");
     setSelectedAuditRecord(record);
     setSelectedPayslipId(record.id);
 
-    const logs = await getEmployeeDeductionLogs(record);
-    setDeductionLogs(logs);
+    const logs = await getEmployeeAuditLogs(record);
+    setAuditLogs(logs);
   };
 
   const approvePayroll = async () => {
     if (!selectedPeriodId) return;
 
-    const highAlerts = auditAlerts.filter((alert) => alert.severity === "High");
+    const highAlerts = managerAlerts.filter((alert) => alert.severity === "High");
 
     if (highAlerts.length > 0) {
       const proceed = confirm(
-        `There are ${highAlerts.length} high payroll audit alert/s. Approve anyway?`
+        `There are ${highAlerts.length} high manager audit alert/s. Approve anyway?`
       );
 
       if (!proceed) return;
@@ -637,10 +653,13 @@ alert("Payroll generated.");
     0
   );
 
-  const auditAlerts = records.flatMap((record) => {
+  const managerAlerts = records.flatMap((record) => {
     const alerts: any[] = [];
 
+    const scheduledDays = Number(record.scheduled_days || 0);
+    const restDays = Number(record.rest_days || 0);
     const daysWorked = Number(record.days_worked || 0);
+    const absentDays = Number(record.absent_days || 0);
     const lateMinutes = Number(record.late_minutes || 0);
     const undertimeMinutes = Number(record.undertime_minutes || 0);
     const otMinutes = Number(record.ot_minutes || 0);
@@ -648,13 +667,31 @@ alert("Payroll generated.");
     const basicPay = Number(record.basic_pay || 0);
     const totalDeduction = Number(record.total_deductions || 0);
 
-    if (daysWorked === 0 && Number(record.absent_days || 0) === 0) {
+    if (scheduledDays === 0 && daysWorked === 0 && absentDays === 0) {
       alerts.push({
         employee: record.employee_name,
-        type: "No Attendance Summary",
+        type: "No Schedule / Attendance Summary",
         message:
-          "No present or absent count found. Check attendance import or employee matching.",
+          "No scheduled work day, worked day, or absent day found. Check schedule and attendance matching.",
         severity: "High",
+      });
+    }
+
+    if (restDays > 2) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "More Than 2 Rest Days",
+        message: `${restDays} rest/off days detected in this payroll period. Review schedule setup.`,
+        severity: "Medium",
+      });
+    }
+
+    if (absentDays > 0) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "Scheduled Absence",
+        message: `${absentDays} scheduled work day/s with no valid attendance.`,
+        severity: "Medium",
       });
     }
 
@@ -671,7 +708,7 @@ alert("Payroll generated.");
       alerts.push({
         employee: record.employee_name,
         type: "High Late Minutes",
-        message: `${lateMinutes} minutes late. Review attendance logs.`,
+        message: `${lateMinutes} minutes late. Review employee audit tab.`,
         severity: "Medium",
       });
     }
@@ -680,7 +717,7 @@ alert("Payroll generated.");
       alerts.push({
         employee: record.employee_name,
         type: "High Undertime",
-        message: `${undertimeMinutes} minutes undertime. Review attendance logs.`,
+        message: `${undertimeMinutes} minutes undertime. Review employee audit tab.`,
         severity: "Medium",
       });
     }
@@ -719,7 +756,8 @@ alert("Payroll generated.");
             </p>
             <h1 className="mt-2 text-4xl font-black">Payroll Register</h1>
             <p className="mt-2 max-w-5xl text-sm text-slate-400">
-              Generate payroll from latest attendance and latest payroll settings.
+              Schedule-aware payroll with manager audit, per-employee attendance
+              audit, manual adjustments, and detailed payslip preview.
             </p>
           </div>
 
@@ -732,48 +770,47 @@ alert("Payroll generated.");
           </button>
         </section>
 
-        <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard title="Employees" value={records.length} />
-          <SummaryCard title="Audit Alerts" value={auditAlerts.length} color="text-amber-400" />
+          <SummaryCard title="Manager Alerts" value={managerAlerts.length} color="text-amber-400" />
           <SummaryCard title="Gross Pay" value={formatMoney(totalGross)} color="text-blue-400" />
           <SummaryCard title="Deductions" value={formatMoney(totalDeductions)} color="text-red-400" />
           <SummaryCard title="Net Pay" value={formatMoney(totalNet)} color="text-emerald-400" />
         </section>
 
-        <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-2xl font-black">1. Payroll Period</h2>
+        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-xl font-black">1. Payroll Period</h2>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-4 space-y-3">
               <input
                 value={periodName}
                 onChange={(e) => setPeriodName(e.target.value)}
                 placeholder="June 1-15, 2026"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               />
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   style={{ colorScheme: "dark" }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 />
-
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   style={{ colorScheme: "dark" }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 />
               </div>
 
               <button
                 onClick={createPeriod}
                 disabled={isSaving}
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black hover:bg-blue-500 disabled:opacity-50"
+                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-black hover:bg-blue-500 disabled:opacity-50"
               >
                 Create Period
               </button>
@@ -781,7 +818,7 @@ alert("Payroll generated.");
               <select
                 value={selectedPeriodId}
                 onChange={(e) => setSelectedPeriodId(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               >
                 <option value="">Select payroll period</option>
                 {periods.map((period) => (
@@ -791,19 +828,19 @@ alert("Payroll generated.");
                 ))}
               </select>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={generatePayroll}
                   disabled={isSaving || !selectedPeriodId}
-                  className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
                 >
-                  {isSaving ? "Generating..." : "Generate"}
+                  Generate
                 </button>
 
                 <button
                   onClick={deletePeriod}
                   disabled={isSaving || !selectedPeriodId}
-                  className="rounded-xl bg-red-600 px-4 py-3 text-sm font-black hover:bg-red-500 disabled:opacity-50"
+                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black hover:bg-red-500 disabled:opacity-50"
                 >
                   Delete
                 </button>
@@ -811,17 +848,21 @@ alert("Payroll generated.");
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-2xl font-black">2. Manual Adjustments</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              For resto unpaid, cash advance, salary loan, allowance, bonus, or other adjustment only.
-            </p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="flex flex-col gap-1 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 className="text-xl font-black">2. Manual Adjustment</h2>
+                <p className="text-xs text-slate-400">
+                  Resto unpaid, cash advance, salary loan, allowance, bonus.
+                </p>
+              </div>
+            </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-2"
               >
                 <option value="">Select employee</option>
                 {employees.map((employee) => (
@@ -834,7 +875,7 @@ alert("Payroll generated.");
               <select
                 value={adjustmentType}
                 onChange={(e) => setAdjustmentType(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               >
                 {[...deductionTypes, ...earningTypes].map((type) => (
                   <option key={type}>{type}</option>
@@ -846,33 +887,93 @@ alert("Payroll generated.");
                 value={adjustmentAmount}
                 onChange={(e) => setAdjustmentAmount(e.target.value)}
                 placeholder="Amount"
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-              />
-
-              <input
-                value={adjustmentRemarks}
-                onChange={(e) => setAdjustmentRemarks(e.target.value)}
-                placeholder="Remarks"
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               />
 
               <button
                 onClick={addAdjustment}
                 disabled={isSaving || !selectedPeriodId}
-                className="rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50 md:col-span-2"
+                className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
               >
-                Save Adjustment
+                Save
               </button>
+
+              <input
+                value={adjustmentRemarks}
+                onChange={(e) => setAdjustmentRemarks(e.target.value)}
+                placeholder="Remarks"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-5"
+              />
             </div>
           </div>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-amber-400">
+                3. Manager AI Audit
+              </h2>
+              <p className="text-sm text-slate-400">
+                Employees that need checking before payroll approval.
+              </p>
+            </div>
+
+            <div className="rounded-full border border-amber-500/40 px-4 py-2 text-sm font-black text-amber-400">
+              {managerAlerts.length} item/s to check
+            </div>
+          </div>
+
+          <div className="mt-4 max-h-72 overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[950px] text-sm">
+              <thead className="bg-slate-950 text-left text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Issue</th>
+                  <th className="px-4 py-3">Details</th>
+                  <th className="px-4 py-3">Severity</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {managerAlerts.map((alert, index) => (
+                  <tr key={index} className="border-t border-slate-800">
+                    <td className="px-4 py-3 font-black">{alert.employee}</td>
+                    <td className="px-4 py-3 text-amber-400">{alert.type}</td>
+                    <td className="px-4 py-3 text-slate-300">{alert.message}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-black ${
+                          alert.severity === "High"
+                            ? "bg-red-500/10 text-red-400"
+                            : "bg-amber-500/10 text-amber-400"
+                        }`}
+                      >
+                        {alert.severity}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+
+                {managerAlerts.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
+                      No manager audit alerts.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="text-2xl font-black">Payroll Review</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Click View Audit to see deduction date, schedule, actual attendance, reason, and amount.
+              <h2 className="text-xl font-black">4. Payroll Review</h2>
+              <p className="text-sm text-slate-400">
+                Click View Audit to see date, schedule, actual attendance, issue,
+                and deduction.
               </p>
             </div>
 
@@ -880,16 +981,18 @@ alert("Payroll generated.");
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search employee..."
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none xl:w-80"
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm outline-none xl:w-80"
             />
           </div>
 
-          <div className="mt-5 max-h-[650px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1450px] text-sm">
+          <div className="mt-4 max-h-[650px] overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[1550px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3 text-right">Sched</th>
                   <th className="px-4 py-3 text-right">Worked</th>
+                  <th className="px-4 py-3 text-right">RD/OFF</th>
                   <th className="px-4 py-3 text-right">Absent</th>
                   <th className="px-4 py-3 text-right">Late</th>
                   <th className="px-4 py-3 text-right">UT</th>
@@ -910,22 +1013,49 @@ alert("Payroll generated.");
                     Number(record.absent_deduction || 0);
 
                   return (
-                    <tr key={record.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                    <tr
+                      key={record.id}
+                      className="border-t border-slate-800 hover:bg-slate-800/40"
+                    >
                       <td className="px-4 py-3">
                         <p className="font-black">{record.employee_name}</p>
                         <p className="text-xs text-slate-500">
                           {record.department} • {record.position}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-right">{record.days_worked}</td>
-                      <td className="px-4 py-3 text-right">{record.absent_days}</td>
-                      <td className="px-4 py-3 text-right">{record.late_minutes} min</td>
-                      <td className="px-4 py-3 text-right">{record.undertime_minutes} min</td>
-                      <td className="px-4 py-3 text-right">{Number(record.ot_minutes || 0)} min</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(record.basic_pay)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatMoney(record.net_pay)}</td>
+                      <td className="px-4 py-3 text-right">
+                        {record.scheduled_days || 0}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {record.days_worked || 0}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {record.rest_days || 0}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {record.absent_days || 0}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {record.late_minutes || 0} min
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {record.undertime_minutes || 0} min
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {Number(record.ot_minutes || 0)} min
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatMoney(record.basic_pay)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {formatMoney(autoDeduction)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {formatMoney(record.manual_deduction)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                        {formatMoney(record.net_pay)}
+                      </td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => openEmployeeAudit(record)}
@@ -940,7 +1070,7 @@ alert("Payroll generated.");
 
                 {filteredRecords.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-14 text-center text-slate-500">
+                    <td colSpan={13} className="px-4 py-14 text-center text-slate-500">
                       No payroll records. Select period then click Generate.
                     </td>
                   </tr>
@@ -951,53 +1081,66 @@ alert("Payroll generated.");
         </section>
 
         {selectedAuditRecord && (
-          <section className="mb-8 rounded-3xl border border-blue-500/30 bg-blue-500/5 p-6">
+          <section className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-5">
             <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-2xl font-black text-blue-400">
-                  Employee Deduction Audit
+                <h2 className="text-xl font-black text-blue-400">
+                  5. Employee Complete Audit
                 </h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  {selectedAuditRecord.employee_name} • {selectedAuditRecord.department} • {selectedAuditRecord.position}
+                <p className="text-sm text-slate-400">
+                  {selectedAuditRecord.employee_name} •{" "}
+                  {selectedAuditRecord.department} • {selectedAuditRecord.position}
                 </p>
               </div>
 
               <div className="rounded-full border border-blue-500/40 px-4 py-2 text-sm font-black text-blue-400">
-                {deductionLogs.length} deduction log/s
+                {auditLogs.filter((log) => log.isDeduction).length} deduction item/s
               </div>
             </div>
 
-            <div className="mt-5 overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1100px] text-sm">
+            <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1300px] text-sm">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Schedule</th>
                     <th className="px-4 py-3">Actual Attendance</th>
-                    <th className="px-4 py-3">Deduction Type</th>
-                    <th className="px-4 py-3">Reason</th>
-                    <th className="px-4 py-3 text-right">Amount</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Issue / Evidence</th>
+                    <th className="px-4 py-3 text-right">Late Ded.</th>
+                    <th className="px-4 py-3 text-right">UT Ded.</th>
+                    <th className="px-4 py-3 text-right">Absent Ded.</th>
+                    <th className="px-4 py-3 text-right">Total Ded.</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {deductionLogs.map((log, index) => (
+                  {auditLogs.map((log, index) => (
                     <tr key={index} className="border-t border-slate-800">
                       <td className="px-4 py-3 font-bold">{log.date}</td>
                       <td className="px-4 py-3">{log.schedule}</td>
                       <td className="px-4 py-3">{log.actual}</td>
-                      <td className="px-4 py-3 text-amber-400">{log.type}</td>
-                      <td className="px-4 py-3 text-slate-300">{log.details}</td>
+                      <td className="px-4 py-3">{log.status}</td>
+                      <td className="px-4 py-3 text-slate-300">{log.issue}</td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {formatMoney(log.lateAmount)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {formatMoney(log.undertimeAmount)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {formatMoney(log.absentAmount)}
+                      </td>
                       <td className="px-4 py-3 text-right font-black text-red-400">
-                        {formatMoney(log.amount)}
+                        {formatMoney(log.totalAmount)}
                       </td>
                     </tr>
                   ))}
 
-                  {deductionLogs.length === 0 && (
+                  {auditLogs.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
-                        No deduction logs found for this employee.
+                      <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
+                        No audit logs found for this employee.
                       </td>
                     </tr>
                   )}
@@ -1008,8 +1151,8 @@ alert("Payroll generated.");
         )}
 
         {selectedPayslip && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-2xl font-black">Detailed Payslip Preview</h2>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-xl font-black">6. Detailed Payslip Preview</h2>
 
             <div className="mt-5 bg-white p-8 text-black">
               <div className="text-center">
@@ -1027,12 +1170,13 @@ alert("Payroll generated.");
 
               <div className="mt-8 rounded-xl border border-slate-300 p-4 text-sm">
                 <h3 className="mb-3 font-black">Attendance Summary</h3>
-                <div className="grid grid-cols-5 gap-3 text-center">
-                  <Info label="Days Worked" value={selectedPayslip.days_worked} />
-                  <Info label="Absent" value={selectedPayslip.absent_days} />
-                  <Info label="Late" value={`${selectedPayslip.late_minutes} min`} />
-                  <Info label="Undertime" value={`${selectedPayslip.undertime_minutes} min`} />
-                  <Info label="OT" value={`${Number(selectedPayslip.ot_minutes || 0)} min`} />
+                <div className="grid grid-cols-6 gap-3 text-center">
+                  <Info label="Scheduled" value={selectedPayslip.scheduled_days || 0} />
+                  <Info label="Worked" value={selectedPayslip.days_worked || 0} />
+                  <Info label="RD/OFF" value={selectedPayslip.rest_days || 0} />
+                  <Info label="Absent" value={selectedPayslip.absent_days || 0} />
+                  <Info label="Late" value={`${selectedPayslip.late_minutes || 0} min`} />
+                  <Info label="UT" value={`${selectedPayslip.undertime_minutes || 0} min`} />
                 </div>
               </div>
 
