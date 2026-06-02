@@ -43,7 +43,17 @@ export default function Sidebar() {
           >
             {item.label}
           </Link>
+
+
+
         ))}
+
+                <Link
+            href="/finance/payroll"
+            className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
+          >
+            Payroll
+          </Link>
       </nav>
 
       {/* FOOTER */}
