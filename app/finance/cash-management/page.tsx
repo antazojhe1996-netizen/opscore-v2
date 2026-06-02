@@ -214,8 +214,7 @@ export default function CashManagementPage() {
   }, [cashOnlyMovements]);
 
   const activeDrawerCash =
-    holderBalances.find((holder) => holder.name === activeDrawer?.holder_name)
-      ?.balance || 0;
+  cashInTotal - cashOutTotal - remittanceTotal;
 
   /// CALCULATIONS - PENDING MANUAL CASH EXPENSES
   const pendingManualCashExpenses = manualExpenses.filter((expense) => {
@@ -1411,7 +1410,7 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
               <SummaryCard title="Active Drawer Holder" value={activeDrawer.holder_name} color="text-amber-400" />
               <SummaryCard title="Opening Float" value={formatMoney(activeDrawer.opening_float)} color="text-blue-400" />
-              <SummaryCard title="Drawer Cash" value={formatMoney(activeDrawerCash)} color="text-emerald-400" />
+              <SummaryCard title="Drawer Cash" value={formatMoney(activeDrawer.opening_float)} color="text-emerald-400" />
               <SummaryCard title="Status" value="OPEN" color="text-emerald-400" />
             </div>
           ) : (
