@@ -26,15 +26,16 @@ export default function FinancePage() {
   };
 
   const getRevenueLink = (name: string) => {
-  const slug = name.toLowerCase().replaceAll(" ", "-");
+    const slug = name.toLowerCase().replaceAll(" ", "-");
 
-  if (slug === "hotel-rooms") return "/finance/room-sales";
-  if (slug === "restaurant") return "/finance/restaurant-import";
-  if (slug === "apartment") return "/finance/apartment";
-  if (slug === "sports-bar") return "/finance/sports-bar-sales";
+    if (slug === "hotel-rooms") return "/finance/room-sales";
+    if (slug === "restaurant") return "/finance/restaurant-import";
+    if (slug === "apartment") return "/finance/apartment";
+    if (slug === "sports-bar") return "/finance/sports-bar-sales";
 
-  return `/finance/revenue/${slug}`;
-};
+    return `/finance/revenue/${slug}`;
+  };
+
   useEffect(() => {
     getRevenueSources();
   }, []);
@@ -46,10 +47,12 @@ export default function FinancePage() {
 
       <main className="flex-1 p-8">
         <section>
-          <h1 className="text-3xl font-bold">Finance</h1>
-
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            OPSCORE Finance
+          </p>
+          <h1 className="mt-2 text-3xl font-bold">Finance</h1>
           <p className="mt-2 text-slate-400">
-            Monitor revenue, expenses, and profit across hotel operations.
+            Monitor revenue, expenses, approvals, cash control, and reports.
           </p>
         </section>
 
@@ -57,18 +60,53 @@ export default function FinancePage() {
           <SummaryCard title="Total Revenue" value="₱0.00" color="text-emerald-400" />
           <SummaryCard title="Total Expenses" value="₱0.00" color="text-red-400" />
           <SummaryCard title="Net Profit" value="₱0.00" color="text-yellow-400" />
-          <SummaryCard title="Profit Margin" value="0%" color="text-blue-400" />
+          <SummaryCard title="Cash Variance" value="₱0.00" color="text-blue-400" />
         </section>
 
         <section className="mt-8">
-          <h2 className="text-lg font-bold text-slate-200">Revenue Sources</h2>
+          <SectionHeader
+            title="Finance Control"
+            description="Approval, expense control, cash release, and accountability tools."
+          />
+
+          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <FinanceLink
+              href="/finance/expense-requests"
+              title="Expense Requests"
+              description="Request, approve, release, and liquidate operational expenses."
+              action="Open Requests →"
+              highlight
+            />
+
+            <FinanceLink
+              href="/finance/expenses"
+              title="Expense Recording"
+              description="Encode actual expenses, import history, export reports, and review spending."
+              action="Open Expenses →"
+            />
+
+            <FinanceLink
+              href="/finance/cash-management"
+              title="Cash Management"
+              description="Track opening float, cash releases, expected cash, actual cash, and variance."
+              action="Open Cash Management →"
+              muted
+            />
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <SectionHeader
+            title="Revenue Sources"
+            description="Sales and collection modules by business area."
+          />
 
           <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
             {revenueSources.map((source) => (
               <Link
                 key={source.id}
                 href={getRevenueLink(source.name)}
-                className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-yellow-400 hover:bg-slate-800"
+                className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-emerald-400 hover:bg-slate-800"
               >
                 <h3 className="text-xl font-bold">{source.name}</h3>
 
@@ -76,7 +114,7 @@ export default function FinancePage() {
                   Manage {source.name} revenue records and sales tracking.
                 </p>
 
-                <p className="mt-6 text-sm font-semibold text-yellow-400">
+                <p className="mt-6 text-sm font-semibold text-emerald-400">
                   Open {source.name} →
                 </p>
               </Link>
@@ -91,16 +129,12 @@ export default function FinancePage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-lg font-bold text-slate-200">Expense & Reports</h2>
+          <SectionHeader
+            title="Reports & Settings"
+            description="Management reports and configurable finance rules."
+          />
 
           <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <FinanceLink
-              href="/finance/expenses"
-              title="Expenses"
-              description="Encode daily expenses by category, department, and payment method."
-              action="Open Expenses →"
-            />
-
             <FinanceLink
               href="/finance/reports"
               title="Finance Reports"
@@ -111,13 +145,22 @@ export default function FinancePage() {
             <FinanceLink
               href="/finance/settings"
               title="Finance Settings"
-              description="Configure revenue sources, expense categories, payment methods, and departments."
+              description="Configure revenue sources, expense categories, payment methods, and workflow rules."
               action="Open Settings →"
               muted
             />
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function SectionHeader({ title, description }: any) {
+  return (
+    <div>
+      <h2 className="text-lg font-bold text-slate-200">{title}</h2>
+      <p className="mt-1 text-sm text-slate-400">{description}</p>
     </div>
   );
 }
@@ -131,12 +174,21 @@ function SummaryCard({ title, value, color }: any) {
   );
 }
 
-function FinanceLink({ href, title, description, action, muted }: any) {
+function FinanceLink({
+  href,
+  title,
+  description,
+  action,
+  muted,
+  highlight,
+}: any) {
   return (
     <Link
       href={href}
       className={`rounded-2xl border bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:bg-slate-800 ${
-        muted
+        highlight
+          ? "border-amber-500/60 hover:border-amber-400"
+          : muted
           ? "border-slate-800 hover:border-slate-500"
           : "border-slate-800 hover:border-yellow-400"
       }`}
@@ -147,7 +199,11 @@ function FinanceLink({ href, title, description, action, muted }: any) {
 
       <p
         className={`mt-6 text-sm font-semibold ${
-          muted ? "text-slate-300" : "text-yellow-400"
+          highlight
+            ? "text-amber-400"
+            : muted
+            ? "text-slate-300"
+            : "text-yellow-400"
         }`}
       >
         {action}
