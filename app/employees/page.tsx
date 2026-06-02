@@ -288,7 +288,9 @@ export default function EmployeesPage() {
           employment_type:
             String(getValue(row, ["Employment Type", "employment_type"])).trim() || "Regular",
           contact_number: String(getValue(row, ["Contact", "Contact Number", "contact_number"])).trim(),
-          hire_date: cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])),
+          hire_date:
+  cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])) ||
+  "2026-06-02",
           daily_rate: basicRateValue,
           rate_type: rateTypes.includes(rateTypeValue) ? rateTypeValue : "Daily",
           basic_rate: basicRateValue,
@@ -313,11 +315,10 @@ export default function EmployeesPage() {
 
     setIsImporting(true);
 
-    const { error } = await supabase.from("employees").upsert(previewRows, {
-      onConflict: "employee_no",
-    });
+    const { error } = await supabase
+  .from("employees")
+  .insert(previewRows);
 
-    setIsImporting(false);
 
     if (error) {
       console.log("IMPORT EMPLOYEES ERROR:", error.message);
