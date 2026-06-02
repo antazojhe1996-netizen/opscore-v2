@@ -11,6 +11,7 @@ export default function PayrollRegisterPage() {
   const [periods, setPeriods] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [adjustments, setAdjustments] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
 
   const [periodName, setPeriodName] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -50,6 +51,11 @@ export default function PayrollRegisterPage() {
 
   const normalize = (value: any) => String(value || "").trim().toLowerCase();
 
+  const normalizeDate = (value: any) => {
+    if (!value) return "";
+    return String(value).slice(0, 10);
+  };
+
   const isRestDay = (entry: any) => {
     const combined = `${entry.status || ""} ${entry.schedule || ""} ${
       entry.shift || ""
@@ -78,11 +84,8 @@ export default function PayrollRegisterPage() {
     return `${entry.time_in || "-"} - ${entry.time_out || "-"}`;
   };
 
-  const getAuditKey = (log: any, index: number) => {
-    return `${selectedPeriodId}-${selectedAuditRecord?.employee_id || ""}-${
-      log.date
-    }-${log.issue}-${index}`;
-  };
+  const getAuditKey = (log: any, index: number) =>
+    `${selectedPeriodId}-${selectedAuditRecord?.employee_id || ""}-${log.date}-${log.issue}-${index}`;
 
   const toggleAuditCheck = (key: string) => {
     setCheckedAuditItems((prev) =>
@@ -92,11 +95,9 @@ export default function PayrollRegisterPage() {
 
   const mapSettings = (rows: any[] = []) => {
     const mapped: Record<string, string> = {};
-
     rows.forEach((item: any) => {
       mapped[item.setting_key] = item.setting_value;
     });
-
     return mapped;
   };
 
@@ -114,11 +115,8 @@ export default function PayrollRegisterPage() {
 
   const getSettings = async () => {
     const { data, error } = await supabase.from("payroll_settings").select("*");
-
     if (error) return console.log("GET SETTINGS ERROR:", error.message);
-
-    const mapped = mapSettings(data || []);
-    setSettings(mapped);
+    setSettings(mapSettings(data || []));
   };
 
   const fetchLatestSettings = async () => {
@@ -131,6 +129,28 @@ export default function PayrollRegisterPage() {
 
     const mapped = mapSettings(data || []);
     setSettings(mapped);
+    return mapped;
+  };
+
+  const getHolidays = async () => {
+    const { data, error } = await supabase
+      .from("payroll_holidays")
+      .select("*")
+      .eq("is_active", true);
+
+    if (error) {
+      console.log("GET HOLIDAYS ERROR:", error.message);
+      return [];
+    }
+
+    const mapped = (data || []).map((holiday) => ({
+      ...holiday,
+      holiday_date: normalizeDate(holiday.holiday_date),
+    }));
+
+    console.log("PAYROLL HOLIDAYS:", mapped);
+
+    setHolidays(mapped);
     return mapped;
   };
 
@@ -214,24 +234,15 @@ export default function PayrollRegisterPage() {
     const selected = periods.find((period) => period.id === selectedPeriodId);
 
     const confirmDelete = confirm(
-      `Delete payroll period "${
-        selected?.period_name || "selected period"
-      }"? This will also delete its payroll records and manual adjustments.`
+      `Delete payroll period "${selected?.period_name || "selected period"}"? This will also delete its payroll records and manual adjustments.`
     );
 
     if (!confirmDelete) return;
 
     setIsSaving(true);
 
-    await supabase
-      .from("payroll_records")
-      .delete()
-      .eq("period_id", selectedPeriodId);
-
-    await supabase
-      .from("payroll_adjustments")
-      .delete()
-      .eq("period_id", selectedPeriodId);
+    await supabase.from("payroll_records").delete().eq("period_id", selectedPeriodId);
+    await supabase.from("payroll_adjustments").delete().eq("period_id", selectedPeriodId);
 
     const { error } = await supabase
       .from("payroll_periods")
@@ -286,37 +297,32 @@ export default function PayrollRegisterPage() {
     return {
       scheduledDays: workRows.length,
       restDays: restRows.length,
-      daysWorked: workRows.filter((row) => !isAbsent(row) && hasActualTime(row))
-        .length,
-      lateMinutes: workRows.reduce(
-        (sum, row) => sum + Number(row.late_minutes || 0),
-        0
-      ),
+      daysWorked: workRows.filter((row) => !isAbsent(row) && hasActualTime(row)).length,
+      lateMinutes: workRows.reduce((sum, row) => sum + Number(row.late_minutes || 0), 0),
       undertimeMinutes: workRows.reduce(
         (sum, row) => sum + Number(row.undertime_minutes || 0),
         0
       ),
-      absentDays: workRows.filter((row) => isAbsent(row) || !hasActualTime(row))
-        .length,
-      otMinutes: workRows.reduce(
-        (sum, row) => sum + Number(row.ot_minutes || 0),
-        0
-      ),
+      absentDays: workRows.filter((row) => isAbsent(row) || !hasActualTime(row)).length,
+      otMinutes: workRows.reduce((sum, row) => sum + Number(row.ot_minutes || 0), 0),
+      holidayWorkedDates: workRows
+        .filter((row) => hasActualTime(row))
+        .map((row) => normalizeDate(row.attendance_date)),
     };
   };
 
   const computeRecord = (
     base: any,
     employeeAdjustments: any[] = [],
-    activeSettings: Record<string, string> = settings
+    activeSettings: Record<string, string> = settings,
+    activeHolidays: any[] = holidays
   ) => {
     const paidHours = Number(activeSettings.paid_hours || 8);
     const lateGrace = Number(activeSettings.late_grace_minutes || 15);
     const undertimeGrace = Number(activeSettings.undertime_grace_minutes || 0);
 
     const lateEnabled = activeSettings.late_deduction_enabled === "Yes";
-    const undertimeEnabled =
-      activeSettings.undertime_deduction_enabled === "Yes";
+    const undertimeEnabled = activeSettings.undertime_deduction_enabled === "Yes";
     const absentEnabled = activeSettings.absent_deduction_enabled === "Yes";
     const holidayEnabled = activeSettings.holiday_pay_enabled === "Yes";
 
@@ -355,7 +361,28 @@ export default function PayrollRegisterPage() {
       absentEnabled && rateType === "Monthly" ? absentDays * dailyRate : 0;
 
     const otPay = otHours * hourlyRate * otMultiplier;
-    const holidayPay = holidayEnabled ? Number(base.holiday_pay || 0) : 0;
+
+    const holidayWorkedDates = (base.holiday_worked_dates || []).map(normalizeDate);
+
+    const matchedHolidays = activeHolidays.filter((holiday) =>
+      holidayWorkedDates.includes(normalizeDate(holiday.holiday_date))
+    );
+
+    const holidayPay = holidayEnabled
+      ? matchedHolidays.reduce((sum, holiday) => {
+          const multiplier = Number(holiday.multiplier || 1);
+          return sum + dailyRate * Math.max(multiplier - 1, 0);
+        }, 0)
+      : 0;
+
+    console.log("HOLIDAY PAY CHECK:", {
+      employee: base.employee_name,
+      holidayEnabled,
+      holidayWorkedDates,
+      activeHolidays,
+      matchedHolidays,
+      holidayPay,
+    });
 
     const manualEarnings = employeeAdjustments
       .filter((item) => item.adjustment_direction === "Earning")
@@ -408,11 +435,9 @@ export default function PayrollRegisterPage() {
     setIsSaving(true);
 
     const latestSettings = await fetchLatestSettings();
+    const latestHolidays = await getHolidays();
 
-    await supabase
-      .from("payroll_records")
-      .delete()
-      .eq("period_id", selectedPeriodId);
+    await supabase.from("payroll_records").delete().eq("period_id", selectedPeriodId);
 
     const generated = await Promise.all(
       employees.map(async (employee) => {
@@ -429,8 +454,7 @@ export default function PayrollRegisterPage() {
           employee_name: `${employee.first_name} ${employee.last_name}`,
           department: employee.department,
           position: employee.position,
-          rate_type:
-            employee.rate_type || latestSettings.default_rate_type || "Daily",
+          rate_type: employee.rate_type || latestSettings.default_rate_type || "Daily",
           basic_rate: Number(employee.basic_rate || employee.daily_rate || 0),
 
           scheduled_days: attendance.scheduledDays,
@@ -441,11 +465,12 @@ export default function PayrollRegisterPage() {
           undertime_minutes: attendance.undertimeMinutes,
           absent_days: attendance.absentDays,
           ot_minutes: attendance.otMinutes,
+          holiday_worked_dates: attendance.holidayWorkedDates,
 
           remarks: "",
         };
 
-        return computeRecord(base, employeeAdjustments, latestSettings);
+        return computeRecord(base, employeeAdjustments, latestSettings, latestHolidays);
       })
     );
 
@@ -466,7 +491,7 @@ export default function PayrollRegisterPage() {
     setPayslipAdjustments([]);
     setCheckedAuditItems([]);
 
-    alert("Payroll generated using latest schedule-aware attendance logic.");
+    alert("Payroll generated using latest holiday payroll logic.");
   };
 
   const addAdjustment = async () => {
@@ -550,8 +575,7 @@ export default function PayrollRegisterPage() {
     const undertimeGrace = Number(activeSettings.undertime_grace_minutes || 0);
 
     const lateEnabled = activeSettings.late_deduction_enabled === "Yes";
-    const undertimeEnabled =
-      activeSettings.undertime_deduction_enabled === "Yes";
+    const undertimeEnabled = activeSettings.undertime_deduction_enabled === "Yes";
     const absentEnabled = activeSettings.absent_deduction_enabled === "Yes";
 
     const basicRate = Number(record.basic_rate || 0);
@@ -586,14 +610,13 @@ export default function PayrollRegisterPage() {
       if (restDay) issueParts.push("Rest Day / Off");
       if (!restDay && absent) issueParts.push("Absent from scheduled work day");
       if (lateMinutes > 0) issueParts.push(`${lateMinutes} mins late`);
-      if (undertimeMinutes > 0)
-        issueParts.push(`${undertimeMinutes} mins undertime`);
+      if (undertimeMinutes > 0) issueParts.push(`${undertimeMinutes} mins undertime`);
       if (otMinutes > 0) issueParts.push(`${otMinutes} mins OT`);
 
       if (issueParts.length > 0) issue = issueParts.join(" • ");
 
       return {
-        date: entry.attendance_date,
+        date: normalizeDate(entry.attendance_date),
         schedule: getScheduleLabel(entry),
         actual: getActualLabel(entry),
         status: entry.status || (restDay ? "RD/OFF" : "No Status"),
@@ -609,7 +632,7 @@ export default function PayrollRegisterPage() {
     const manualLogs = adjustments
       .filter((item) => item.employee_id === record.employee_id)
       .map((item) => ({
-        date: item.created_at?.slice(0, 10) || "-",
+        date: normalizeDate(item.created_at) || "-",
         schedule: "Manual",
         actual: "Manual adjustment",
         status: item.adjustment_direction,
@@ -618,9 +641,7 @@ export default function PayrollRegisterPage() {
         undertimeAmount: 0,
         absentAmount: 0,
         totalAmount:
-          item.adjustment_direction === "Deduction"
-            ? Number(item.amount || 0)
-            : 0,
+          item.adjustment_direction === "Deduction" ? Number(item.amount || 0) : 0,
         isDeduction: item.adjustment_direction === "Deduction",
       }));
 
@@ -644,9 +665,7 @@ export default function PayrollRegisterPage() {
   const approvePayroll = async () => {
     if (!selectedPeriodId) return;
 
-    const highAlerts = managerAlerts.filter(
-      (alert) => alert.severity === "High"
-    );
+    const highAlerts = managerAlerts.filter((alert) => alert.severity === "High");
 
     if (highAlerts.length > 0) {
       const proceed = confirm(
@@ -677,6 +696,7 @@ export default function PayrollRegisterPage() {
   useEffect(() => {
     getEmployees();
     getSettings();
+    getHolidays();
     getPeriods();
   }, []);
 
@@ -688,9 +708,7 @@ export default function PayrollRegisterPage() {
   }, [selectedPeriodId]);
 
   /// CALCULATIONS
-  const selectedPeriod = periods.find(
-    (period) => period.id === selectedPeriodId
-  );
+  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
 
   const filteredRecords = useMemo(() => {
     return records.filter((record) =>
@@ -700,9 +718,7 @@ export default function PayrollRegisterPage() {
     );
   }, [records, searchTerm]);
 
-  const selectedPayslip = records.find(
-    (record) => record.id === selectedPayslipId
-  );
+  const selectedPayslip = records.find((record) => record.id === selectedPayslipId);
 
   const totalGross = records.reduce(
     (sum, record) => sum + Number(record.gross_pay || 0),
@@ -797,6 +813,15 @@ export default function PayrollRegisterPage() {
       });
     }
 
+    if (Number(record.holiday_pay || 0) > 0) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "Holiday Pay Detected",
+        message: `${formatMoney(record.holiday_pay)} holiday pay included.`,
+        severity: "Medium",
+      });
+    }
+
     if (totalDeduction > basicPay * 0.5 && basicPay > 0) {
       alerts.push({
         employee: record.employee_name,
@@ -822,8 +847,8 @@ export default function PayrollRegisterPage() {
             </p>
             <h1 className="mt-2 text-4xl font-black">Payroll Register</h1>
             <p className="mt-2 max-w-5xl text-sm text-slate-400">
-              Schedule-aware payroll with manager audit, per-employee attendance
-              audit, manual adjustments, and detailed payslip preview.
+              Schedule-aware payroll with manager audit, holiday pay, manual
+              adjustments, and detailed payslip preview.
             </p>
           </div>
 
@@ -838,26 +863,10 @@ export default function PayrollRegisterPage() {
 
         <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard title="Employees" value={records.length} />
-          <SummaryCard
-            title="Manager Alerts"
-            value={managerAlerts.length}
-            color="text-amber-400"
-          />
-          <SummaryCard
-            title="Gross Pay"
-            value={formatMoney(totalGross)}
-            color="text-blue-400"
-          />
-          <SummaryCard
-            title="Deductions"
-            value={formatMoney(totalDeductions)}
-            color="text-red-400"
-          />
-          <SummaryCard
-            title="Net Pay"
-            value={formatMoney(totalNet)}
-            color="text-emerald-400"
-          />
+          <SummaryCard title="Manager Alerts" value={managerAlerts.length} color="text-amber-400" />
+          <SummaryCard title="Gross Pay" value={formatMoney(totalGross)} color="text-blue-400" />
+          <SummaryCard title="Deductions" value={formatMoney(totalDeductions)} color="text-red-400" />
+          <SummaryCard title="Net Pay" value={formatMoney(totalNet)} color="text-emerald-400" />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -1001,19 +1010,11 @@ export default function PayrollRegisterPage() {
                   <tbody>
                     {adjustments.map((item) => (
                       <tr key={item.id} className="border-t border-slate-800">
-                        <td className="px-3 py-2 font-bold">
-                          {item.employee_name}
-                        </td>
+                        <td className="px-3 py-2 font-bold">{item.employee_name}</td>
                         <td className="px-3 py-2">{item.adjustment_type}</td>
-                        <td className="px-3 py-2">
-                          {item.adjustment_direction}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {formatMoney(item.amount)}
-                        </td>
-                        <td className="px-3 py-2 text-slate-400">
-                          {item.remarks || "-"}
-                        </td>
+                        <td className="px-3 py-2">{item.adjustment_direction}</td>
+                        <td className="px-3 py-2 text-right">{formatMoney(item.amount)}</td>
+                        <td className="px-3 py-2 text-slate-400">{item.remarks || "-"}</td>
                         <td className="px-3 py-2">
                           <button
                             onClick={() => deleteAdjustment(item.id)}
@@ -1027,10 +1028,7 @@ export default function PayrollRegisterPage() {
 
                     {adjustments.length === 0 && (
                       <tr>
-                        <td
-                          colSpan={6}
-                          className="px-3 py-6 text-center text-slate-500"
-                        >
+                        <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
                           No manual adjustments yet.
                         </td>
                       </tr>
@@ -1074,9 +1072,7 @@ export default function PayrollRegisterPage() {
                   <tr key={index} className="border-t border-slate-800">
                     <td className="px-4 py-3 font-black">{alert.employee}</td>
                     <td className="px-4 py-3 text-amber-400">{alert.type}</td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {alert.message}
-                    </td>
+                    <td className="px-4 py-3 text-slate-300">{alert.message}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -1093,10 +1089,7 @@ export default function PayrollRegisterPage() {
 
                 {managerAlerts.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-4 py-10 text-center text-slate-500"
-                    >
+                    <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
                       No manager audit alerts.
                     </td>
                   </tr>
@@ -1137,6 +1130,7 @@ export default function PayrollRegisterPage() {
                   <th className="px-4 py-3 text-right">UT</th>
                   <th className="px-4 py-3 text-right">OT</th>
                   <th className="px-4 py-3 text-right">Basic</th>
+                  <th className="px-4 py-3 text-right">Holiday</th>
                   <th className="px-4 py-3 text-right">Auto Ded.</th>
                   <th className="px-4 py-3 text-right">Manual Ded.</th>
                   <th className="px-4 py-3 text-right">Net Pay</th>
@@ -1162,39 +1156,18 @@ export default function PayrollRegisterPage() {
                           {record.department} • {record.position}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        {record.scheduled_days || 0}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {record.days_worked || 0}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {record.rest_days || 0}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {record.absent_days || 0}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {record.late_minutes || 0} min
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {record.undertime_minutes || 0} min
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {Number(record.ot_minutes || 0)} min
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {formatMoney(record.basic_pay)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(autoDeduction)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(record.manual_deduction)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">
-                        {formatMoney(record.net_pay)}
-                      </td>
+                      <td className="px-4 py-3 text-right">{record.scheduled_days || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.days_worked || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.rest_days || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.absent_days || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.late_minutes || 0} min</td>
+                      <td className="px-4 py-3 text-right">{record.undertime_minutes || 0} min</td>
+                      <td className="px-4 py-3 text-right">{Number(record.ot_minutes || 0)} min</td>
+                      <td className="px-4 py-3 text-right">{formatMoney(record.basic_pay)}</td>
+                      <td className="px-4 py-3 text-right text-blue-400">{formatMoney(record.holiday_pay)}</td>
+                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
+                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatMoney(record.net_pay)}</td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => openEmployeeAudit(record)}
@@ -1209,10 +1182,7 @@ export default function PayrollRegisterPage() {
 
                 {filteredRecords.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={13}
-                      className="px-4 py-14 text-center text-slate-500"
-                    >
+                    <td colSpan={14} className="px-4 py-14 text-center text-slate-500">
                       No payroll records. Select period then click Generate.
                     </td>
                   </tr>
@@ -1231,14 +1201,12 @@ export default function PayrollRegisterPage() {
                 </h2>
                 <p className="text-sm text-slate-400">
                   {selectedAuditRecord.employee_name} •{" "}
-                  {selectedAuditRecord.department} •{" "}
-                  {selectedAuditRecord.position}
+                  {selectedAuditRecord.department} • {selectedAuditRecord.position}
                 </p>
               </div>
 
               <div className="rounded-full border border-blue-500/40 px-4 py-2 text-sm font-black text-blue-400">
-                {auditLogs.filter((log) => log.isDeduction).length} deduction
-                item/s
+                {auditLogs.filter((log) => log.isDeduction).length} deduction item/s
               </div>
             </div>
 
@@ -1287,31 +1255,18 @@ export default function PayrollRegisterPage() {
                         <td className="px-4 py-3">{log.schedule}</td>
                         <td className="px-4 py-3">{log.actual}</td>
                         <td className="px-4 py-3">{log.status}</td>
-                        <td className="px-4 py-3 text-slate-300">
-                          {log.issue}
-                        </td>
-                        <td className="px-4 py-3 text-right text-red-400">
-                          {formatMoney(log.lateAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-red-400">
-                          {formatMoney(log.undertimeAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-red-400">
-                          {formatMoney(log.absentAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-black text-red-400">
-                          {formatMoney(log.totalAmount)}
-                        </td>
+                        <td className="px-4 py-3 text-slate-300">{log.issue}</td>
+                        <td className="px-4 py-3 text-right text-red-400">{formatMoney(log.lateAmount)}</td>
+                        <td className="px-4 py-3 text-right text-red-400">{formatMoney(log.undertimeAmount)}</td>
+                        <td className="px-4 py-3 text-right text-red-400">{formatMoney(log.absentAmount)}</td>
+                        <td className="px-4 py-3 text-right font-black text-red-400">{formatMoney(log.totalAmount)}</td>
                       </tr>
                     );
                   })}
 
                   {auditLogs.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={10}
-                        className="px-4 py-10 text-center text-slate-500"
-                      >
+                      <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
                         No audit logs found for this employee.
                       </td>
                     </tr>
@@ -1335,10 +1290,7 @@ export default function PayrollRegisterPage() {
 
               <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
                 <Info label="Employee" value={selectedPayslip.employee_name} />
-                <Info
-                  label="Employee No."
-                  value={selectedPayslip.employee_no || "-"}
-                />
+                <Info label="Employee No." value={selectedPayslip.employee_no || "-"} />
                 <Info label="Department" value={selectedPayslip.department} />
                 <Info label="Position" value={selectedPayslip.position} />
               </div>
@@ -1346,47 +1298,21 @@ export default function PayrollRegisterPage() {
               <div className="mt-8 rounded-xl border border-slate-300 p-4 text-sm">
                 <h3 className="mb-3 font-black">Attendance Summary</h3>
                 <div className="grid grid-cols-6 gap-3 text-center">
-                  <Info
-                    label="Scheduled"
-                    value={selectedPayslip.scheduled_days || 0}
-                  />
-                  <Info
-                    label="Worked"
-                    value={selectedPayslip.days_worked || 0}
-                  />
+                  <Info label="Scheduled" value={selectedPayslip.scheduled_days || 0} />
+                  <Info label="Worked" value={selectedPayslip.days_worked || 0} />
                   <Info label="RD/OFF" value={selectedPayslip.rest_days || 0} />
-                  <Info
-                    label="Absent"
-                    value={selectedPayslip.absent_days || 0}
-                  />
-                  <Info
-                    label="Late"
-                    value={`${selectedPayslip.late_minutes || 0} min`}
-                  />
-                  <Info
-                    label="UT"
-                    value={`${selectedPayslip.undertime_minutes || 0} min`}
-                  />
+                  <Info label="Absent" value={selectedPayslip.absent_days || 0} />
+                  <Info label="Late" value={`${selectedPayslip.late_minutes || 0} min`} />
+                  <Info label="UT" value={`${selectedPayslip.undertime_minutes || 0} min`} />
                 </div>
               </div>
 
               <div className="mt-8 grid grid-cols-2 gap-8 text-sm">
                 <div>
-                  <h3 className="border-b pb-2 font-black">
-                    Earnings Breakdown
-                  </h3>
-                  <Row
-                    label="Basic Pay"
-                    value={formatMoney(selectedPayslip.basic_pay)}
-                  />
-                  <Row
-                    label="Holiday Pay"
-                    value={formatMoney(selectedPayslip.holiday_pay)}
-                  />
-                  <Row
-                    label="OT Pay"
-                    value={formatMoney(selectedPayslip.ot_pay)}
-                  />
+                  <h3 className="border-b pb-2 font-black">Earnings Breakdown</h3>
+                  <Row label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
+                  <Row label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
+                  <Row label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
 
                   {payslipAdjustments
                     .filter((item) => item.adjustment_direction === "Earning")
@@ -1404,29 +1330,14 @@ export default function PayrollRegisterPage() {
                     <Row label="Allowance / Bonus" value={formatMoney(0)} />
                   )}
 
-                  <Row
-                    label="Gross Pay"
-                    value={formatMoney(selectedPayslip.gross_pay)}
-                    strong
-                  />
+                  <Row label="Gross Pay" value={formatMoney(selectedPayslip.gross_pay)} strong />
                 </div>
 
                 <div>
-                  <h3 className="border-b pb-2 font-black">
-                    Deductions Breakdown
-                  </h3>
-                  <Row
-                    label="Late Deduction"
-                    value={formatMoney(selectedPayslip.late_deduction)}
-                  />
-                  <Row
-                    label="Undertime Deduction"
-                    value={formatMoney(selectedPayslip.undertime_deduction)}
-                  />
-                  <Row
-                    label="Absent Deduction"
-                    value={formatMoney(selectedPayslip.absent_deduction)}
-                  />
+                  <h3 className="border-b pb-2 font-black">Deductions Breakdown</h3>
+                  <Row label="Late Deduction" value={formatMoney(selectedPayslip.late_deduction)} />
+                  <Row label="Undertime Deduction" value={formatMoney(selectedPayslip.undertime_deduction)} />
+                  <Row label="Absent Deduction" value={formatMoney(selectedPayslip.absent_deduction)} />
 
                   {payslipAdjustments
                     .filter((item) => item.adjustment_direction === "Deduction")
@@ -1438,38 +1349,25 @@ export default function PayrollRegisterPage() {
                       />
                     ))}
 
-                  <Row
-                    label="Manual Deductions"
-                    value={formatMoney(selectedPayslip.manual_deduction)}
-                  />
-
-                  <Row
-                    label="Total Deductions"
-                    value={formatMoney(selectedPayslip.total_deductions)}
-                    strong
-                  />
+                  <Row label="Manual Deductions" value={formatMoney(selectedPayslip.manual_deduction)} />
+                  <Row label="Total Deductions" value={formatMoney(selectedPayslip.total_deductions)} strong />
                 </div>
               </div>
 
               <div className="mt-8 rounded-xl border-2 border-black p-4 text-center">
                 <p className="text-sm font-bold">NET PAY</p>
-                <p className="text-3xl font-black">
-                  {formatMoney(selectedPayslip.net_pay)}
-                </p>
+                <p className="text-3xl font-black">{formatMoney(selectedPayslip.net_pay)}</p>
               </div>
 
               <div className="mt-10 grid grid-cols-2 gap-10 text-center text-sm">
                 <div className="border-t border-black pt-2">
                   {settings.authorized_signatory || "Authorized Signatory"}
                 </div>
-                <div className="border-t border-black pt-2">
-                  Employee Signature
-                </div>
+                <div className="border-t border-black pt-2">Employee Signature</div>
               </div>
 
               <p className="mt-8 text-center text-xs">
-                {settings.payslip_footer ||
-                  "This is a system-generated payslip."}
+                {settings.payslip_footer || "This is a system-generated payslip."}
               </p>
             </div>
 
