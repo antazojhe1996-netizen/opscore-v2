@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import * as XLSX from "xlsx";
 
 export default function ExpensesPage() {
-  /// STATES
+  /// STATES - DATABASE DATA
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [expenseRequests, setExpenseRequests] = useState<any[]>([]);
   const [importPreview, setImportPreview] = useState<any[]>([]);
+
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [paymentMethodsData, setPaymentMethodsData] = useState<any[]>([]);
   const [expenseAreasData, setExpenseAreasData] = useState<any[]>([]);
   const [expenseSourcesData, setExpenseSourcesData] = useState<any[]>([]);
 
+  /// STATES - MANUAL EXPENSE FORM
   const today = new Date().toISOString().split("T")[0];
 
   const [expenseDate, setExpenseDate] = useState(today);
@@ -25,12 +28,19 @@ export default function ExpensesPage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [remarks, setRemarks] = useState("");
 
+  /// STATES - FILTERS
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [departmentFilter, setDepartmentFilter] = useState("ALL");
+
+  /// STATES - SORTING
   const [sortConfig, setSortConfig] = useState({
     key: "expense_date",
     direction: "desc",
   });
 
-  /// DATA
+  /// DATA - SETTINGS LISTS
   const categories = expenseCategories.map((item) => item.name);
   const paymentMethods = paymentMethodsData.map((item) => item.name);
   const expenseAreas = expenseAreasData.map((item) => item.name);
@@ -51,9 +61,26 @@ export default function ExpensesPage() {
     "December",
   ];
 
-  /// CALCULATIONS
+  /// CALCULATIONS - DATE
   const currentYear = new Date().getFullYear();
+  const now = new Date();
 
+  /// CALCULATIONS - SOURCE HELPERS
+  const getExpenseSourceType = (expense: any) => {
+    if (expense.source === "Expense Request") return "Expense Request";
+    if (expense.source === "Imported") return "Imported";
+    return "Manual Entry";
+  };
+
+  const requestExpenseTotal = expenses
+    .filter((expense) => getExpenseSourceType(expense) === "Expense Request")
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const manualExpenseTotal = expenses
+    .filter((expense) => getExpenseSourceType(expense) === "Manual Entry")
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  /// CALCULATIONS - SUMMARY CARDS
   const totalExpenses = expenses.reduce(
     (sum, expense) => sum + Number(expense.amount || 0),
     0
@@ -66,7 +93,6 @@ export default function ExpensesPage() {
   const thisMonthExpenses = expenses
     .filter((expense) => {
       const date = new Date(expense.expense_date + "T00:00:00");
-      const now = new Date();
 
       return (
         date.getFullYear() === now.getFullYear() &&
@@ -74,6 +100,10 @@ export default function ExpensesPage() {
       );
     })
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const pendingLiquidationAmount = expenseRequests
+    .filter((request) => request.status === "RELEASED")
+    .reduce((sum, request) => sum + Number(request.amount || 0), 0);
 
   const highestExpense =
     expenses.length > 0
@@ -84,6 +114,7 @@ export default function ExpensesPage() {
         )
       : null;
 
+  /// CALCULATIONS - MONTHLY CATEGORY SUMMARY
   const monthlyCategorySummary = monthNames.map((month, monthIndex) => {
     const row: any = { month };
 
@@ -104,7 +135,38 @@ export default function ExpensesPage() {
     return row;
   });
 
-  const sortedExpenses = [...expenses].sort((a, b) => {
+  /// CALCULATIONS - FILTERED EXPENSES
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      const search = searchTerm.toLowerCase();
+
+      const matchesSearch =
+        String(expense.expense_date || "").toLowerCase().includes(search) ||
+        String(expense.category || "").toLowerCase().includes(search) ||
+        String(expense.department || "").toLowerCase().includes(search) ||
+        String(expense.description || "").toLowerCase().includes(search) ||
+        String(expense.source || "").toLowerCase().includes(search) ||
+        String(expense.payment_method || "").toLowerCase().includes(search);
+
+      const sourceType = getExpenseSourceType(expense);
+
+      const matchesSource =
+        sourceFilter === "ALL" ? true : sourceType === sourceFilter;
+
+      const matchesCategory =
+        categoryFilter === "ALL" ? true : expense.category === categoryFilter;
+
+      const matchesDepartment =
+        departmentFilter === "ALL"
+          ? true
+          : expense.department === departmentFilter;
+
+      return matchesSearch && matchesSource && matchesCategory && matchesDepartment;
+    });
+  }, [expenses, searchTerm, sourceFilter, categoryFilter, departmentFilter]);
+
+  /// CALCULATIONS - SORTED EXPENSES
+  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
     const aValue = a[sortConfig.key];
     const bValue = b[sortConfig.key];
 
@@ -125,7 +187,7 @@ export default function ExpensesPage() {
       : String(bValue || "").localeCompare(String(aValue || ""));
   });
 
-  /// FUNCTIONS
+  /// FUNCTIONS - FORMATTERS
   const formatCurrency = (value: any) => {
     return `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
@@ -165,6 +227,19 @@ export default function ExpensesPage() {
     return String(value).split("T")[0];
   };
 
+  const getSourceBadgeStyle = (sourceType: string) => {
+    if (sourceType === "Expense Request") {
+      return "bg-blue-500/10 text-blue-400";
+    }
+
+    if (sourceType === "Imported") {
+      return "bg-purple-500/10 text-purple-400";
+    }
+
+    return "bg-emerald-500/10 text-emerald-400";
+  };
+
+  /// FUNCTIONS - TABLE SORTING
   const requestSort = (key: string) => {
     setSortConfig((current) => ({
       key,
@@ -178,6 +253,7 @@ export default function ExpensesPage() {
     return sortConfig.direction === "asc" ? "↑" : "↓";
   };
 
+  /// FUNCTIONS - GET DATA
   const getFinanceSettings = async () => {
     const { data: categoriesData, error: categoriesError } = await supabase
       .from("finance_expense_categories")
@@ -239,6 +315,33 @@ export default function ExpensesPage() {
     setExpenses(data || []);
   };
 
+  const getExpenseRequests = async () => {
+    const { data, error } = await supabase
+      .from("expense_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("GET EXPENSE REQUESTS ERROR:", error);
+      return;
+    }
+
+    setExpenseRequests(data || []);
+  };
+
+  /// FUNCTIONS - RESET FORM
+  const resetManualExpenseForm = () => {
+    setExpenseDate(today);
+    setCategory("");
+    setExpenseArea("");
+    setDescription("");
+    setSource("");
+    setAmount("");
+    setPaymentMethod("");
+    setRemarks("");
+  };
+
+  /// FUNCTIONS - ADD MANUAL EXPENSE
   const addExpense = async () => {
     if (
       !expenseDate ||
@@ -279,19 +382,12 @@ export default function ExpensesPage() {
       return;
     }
 
-    setExpenseDate(today);
-    setCategory("");
-    setExpenseArea("");
-    setDescription("");
-    setSource("");
-    setAmount("");
-    setPaymentMethod("");
-    setRemarks("");
-
+    resetManualExpenseForm();
     getExpenses();
   };
 
-  const deleteExpense = async (id: number) => {
+  /// FUNCTIONS - DELETE EXPENSE
+  const deleteExpense = async (id: string) => {
     const confirmDelete = confirm(
       "Are you sure you want to delete this expense?"
     );
@@ -302,12 +398,14 @@ export default function ExpensesPage() {
 
     if (error) {
       console.log("DELETE EXPENSE ERROR:", error);
+      alert("Failed to delete expense.");
       return;
     }
 
     getExpenses();
   };
 
+    /// FUNCTIONS - EXPORT EXPENSES
   const exportExpenses = () => {
     if (expenses.length === 0) {
       alert("No expenses to export.");
@@ -320,6 +418,7 @@ export default function ExpensesPage() {
       Expense_Area: expense.department,
       Description: expense.description,
       Source: expense.source || "",
+      Source_Type: getExpenseSourceType(expense),
       Amount: Number(expense.amount || 0),
       Payment_Method: expense.payment_method,
       Remarks: expense.remarks || "",
@@ -340,7 +439,7 @@ export default function ExpensesPage() {
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(expenseRows),
-      "Expense History"
+      "Expense Ledger"
     );
 
     XLSX.utils.book_append_sheet(
@@ -351,10 +450,11 @@ export default function ExpensesPage() {
 
     XLSX.writeFile(
       workbook,
-      `Expenses_Report_${new Date().toISOString().split("T")[0]}.xlsx`
+      `Expenses_Ledger_${new Date().toISOString().split("T")[0]}.xlsx`
     );
   };
 
+  /// FUNCTIONS - IMPORT EXPENSES
   const handleImportFile = async (event: any) => {
     const file = event.target.files[0];
 
@@ -385,7 +485,7 @@ export default function ExpensesPage() {
           row.supplier ||
           row.Vendor ||
           row.vendor ||
-          "",
+          "Imported",
         amount: cleanNumber(row.Amount || row.amount),
         payment_method:
           row.Payment ||
@@ -393,7 +493,7 @@ export default function ExpensesPage() {
           row["Payment Method"] ||
           row.payment_method ||
           "",
-        remarks: row.Remarks || row.remarks || "",
+        remarks: row.Remarks || row.remarks || "Imported expense",
       }))
       .filter((row) => row.expense_date && row.amount > 0);
 
@@ -423,8 +523,10 @@ export default function ExpensesPage() {
     getExpenses();
   };
 
+  /// EFFECTS
   useEffect(() => {
     getExpenses();
+    getExpenseRequests();
     getFinanceSettings();
   }, []);
 
@@ -435,52 +537,49 @@ export default function ExpensesPage() {
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Expenses</h1>
-          <p className="text-sm text-slate-400">
-            Encode, review, import, and export hotel expenses.
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            Finance Ledger
+          </p>
+          <h1 className="mt-2 text-3xl font-bold">Expenses Ledger</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Review manual expenses, imported expenses, and posted expense requests in one official ledger.
           </p>
         </div>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <p className="text-sm text-slate-400">Total Expenses</p>
-            <h2 className="mt-2 break-words text-2xl font-bold">
-              {formatCurrency(totalExpenses)}
-            </h2>
-          </div>
+          <SummaryCard
+            title="This Month Expenses"
+            value={formatCurrency(thisMonthExpenses)}
+            color="text-red-400"
+          />
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <p className="text-sm text-slate-400">Today&apos;s Expenses</p>
-            <h2 className="mt-2 break-words text-2xl font-bold">
-              {formatCurrency(todayExpenses)}
-            </h2>
-          </div>
+          <SummaryCard
+            title="Expense Requests"
+            value={formatCurrency(requestExpenseTotal)}
+            color="text-blue-400"
+          />
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <p className="text-sm text-slate-400">This Month</p>
-            <h2 className="mt-2 break-words text-2xl font-bold">
-              {formatCurrency(thisMonthExpenses)}
-            </h2>
-          </div>
+          <SummaryCard
+            title="Manual Expenses"
+            value={formatCurrency(manualExpenseTotal)}
+            color="text-emerald-400"
+          />
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <p className="text-sm text-slate-400">Highest Expense</p>
-            <h2 className="mt-2 break-words text-2xl font-bold">
-              {highestExpense
-                ? formatCurrency(highestExpense.amount)
-                : "₱0.00"}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {highestExpense?.category || "No data"}
-            </p>
-          </div>
+          <SummaryCard
+            title="Pending Liquidation"
+            value={formatCurrency(pendingLiquidationAmount)}
+            color="text-amber-400"
+          />
         </section>
 
-        <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
           <section className="self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="mb-6 text-xl font-bold">Add Expense</h2>
+            <h2 className="text-xl font-bold">Manual Expense Entry</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Use this for expenses that did not go through the request workflow.
+            </p>
 
-            <div className="space-y-4">
+            <div className="mt-5 space-y-4">
               <input
                 type="date"
                 value={expenseDate}
@@ -494,10 +593,7 @@ export default function ExpensesPage() {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               >
-                <option value="" disabled>
-                  Select expense category
-                </option>
-
+                <option value="">Select expense category</option>
                 {categories.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -510,10 +606,7 @@ export default function ExpensesPage() {
                 onChange={(e) => setExpenseArea(e.target.value)}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               >
-                <option value="" disabled>
-                  Select expense area
-                </option>
-
+                <option value="">Select expense area</option>
                 {expenseAreas.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -534,10 +627,7 @@ export default function ExpensesPage() {
                 onChange={(e) => setSource(e.target.value)}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               >
-                <option value="" disabled>
-                  Select source / supplier
-                </option>
-
+                <option value="">Select source / supplier</option>
                 {expenseSources.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -559,10 +649,7 @@ export default function ExpensesPage() {
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               >
-                <option value="" disabled>
-                  Select payment method
-                </option>
-
+                <option value="">Select payment method</option>
                 {paymentMethods.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -580,19 +667,19 @@ export default function ExpensesPage() {
 
               <button
                 onClick={addExpense}
-                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500"
               >
-                Save Expense
+                Save Manual Expense
               </button>
             </div>
           </section>
 
           <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Expense History</h2>
+                <h2 className="text-xl font-bold">Official Expense Ledger</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Click table headers to sort records.
+                  Click table headers to sort. Use filters to separate requests, manual entries, and imports.
                 </p>
               </div>
 
@@ -604,17 +691,63 @@ export default function ExpensesPage() {
               </button>
             </div>
 
-            <div className="max-h-[560px] max-w-full overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1020px] table-fixed border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-900">
+            <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search ledger..."
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+              />
+
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="ALL">All Sources</option>
+                <option value="Expense Request">Expense Request</option>
+                <option value="Manual Entry">Manual Entry</option>
+                <option value="Imported">Imported</option>
+              </select>
+
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="ALL">All Categories</option>
+                {categories.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="ALL">All Areas</option>
+                {expenseAreas.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="max-h-[640px] max-w-full overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1180px] table-fixed border-collapse text-sm">
+                <thead className="sticky top-0 z-10 bg-slate-950">
                   <tr className="border-b border-slate-800 text-left text-slate-400">
                     {[
                       ["expense_date", "Date", "w-[120px]"],
-                      ["category", "Category", "w-[140px]"],
-                      ["department", "Expense Area", "w-[150px]"],
-                      ["description", "Description", "w-[220px]"],
-                      ["source", "Source", "w-[160px]"],
+                      ["department", "Area", "w-[150px]"],
+                      ["category", "Category", "w-[150px]"],
+                      ["description", "Description", "w-[260px]"],
                       ["amount", "Amount", "w-[130px]"],
+                      ["source", "Source", "w-[160px]"],
                       ["payment_method", "Payment", "w-[130px]"],
                     ].map(([key, label, width]) => (
                       <th
@@ -638,50 +771,72 @@ export default function ExpensesPage() {
                 </thead>
 
                 <tbody>
-                  {sortedExpenses.map((expense) => (
-                    <tr
-                      key={expense.id}
-                      className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
-                    >
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {expense.expense_date}
-                      </td>
-                      <td className="truncate px-4 py-3">
-                        {expense.category || "-"}
-                      </td>
-                      <td className="truncate px-4 py-3">
-                        {expense.department || "-"}
-                      </td>
-                      <td className="break-words px-4 py-3">
-                        {expense.description || "-"}
-                      </td>
-                      <td className="truncate px-4 py-3">
-                        {expense.source || "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                        {formatCurrency(expense.amount)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {expense.payment_method || "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <button
-                          onClick={() => deleteExpense(expense.id)}
-                          className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedExpenses.map((expense) => {
+                    const sourceType = getExpenseSourceType(expense);
+
+                    return (
+                      <tr
+                        key={expense.id}
+                        className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
+                      >
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {expense.expense_date}
+                        </td>
+
+                        <td className="truncate px-4 py-3">
+                          {expense.department || "-"}
+                        </td>
+
+                        <td className="truncate px-4 py-3">
+                          {expense.category || "-"}
+                        </td>
+
+                        <td className="break-words px-4 py-3">
+                          <p>{expense.description || "-"}</p>
+                          {expense.remarks && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {expense.remarks}
+                            </p>
+                          )}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold">
+                          {formatCurrency(expense.amount)}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getSourceBadgeStyle(
+                              sourceType
+                            )}`}
+                          >
+                            {sourceType}
+                          </span>
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {expense.payment_method || "-"}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <button
+                            onClick={() => deleteExpense(expense.id)}
+                            className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {sortedExpenses.length === 0 && (
                     <tr>
                       <td
                         colSpan={8}
-                        className="py-8 text-center text-slate-500"
+                        className="py-12 text-center text-slate-500"
                       >
-                        No expenses encoded yet.
+                        No expenses found.
                       </td>
                     </tr>
                   )}
@@ -689,18 +844,16 @@ export default function ExpensesPage() {
               </table>
             </div>
           </section>
-        </div>
+        </section>
 
         <section className="mt-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <h2 className="mb-4 text-xl font-bold">
-            Monthly Expenses by Category
-          </h2>
+          <h2 className="mb-4 text-xl font-bold">Monthly Expenses by Category</h2>
 
           <div className="max-w-full overflow-x-auto rounded-xl border border-slate-800">
             <table className="min-w-[1400px] border-collapse text-sm">
-              <thead className="bg-slate-900">
+              <thead className="bg-slate-950">
                 <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-900 px-4 py-3">
+                  <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-950 px-4 py-3">
                     Month
                   </th>
 
@@ -742,10 +895,7 @@ export default function ExpensesPage() {
                     );
 
                     return (
-                      <td
-                        key={cat}
-                        className="whitespace-nowrap px-4 py-3 font-bold"
-                      >
+                      <td key={cat} className="whitespace-nowrap px-4 py-3 font-bold">
                         {formatCurrency(total)}
                       </td>
                     );
@@ -761,7 +911,7 @@ export default function ExpensesPage() {
             <div>
               <h2 className="text-xl font-bold">Import Expenses</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Upload Excel or CSV, review preview, then save.
+                Upload Excel or CSV, review preview, then save to the ledger.
               </p>
             </div>
 
@@ -793,11 +943,11 @@ export default function ExpensesPage() {
 
           <div className="h-[520px] overflow-auto rounded-xl border border-slate-800">
             <table className="w-full min-w-[920px] table-fixed border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-900">
+              <thead className="sticky top-0 z-10 bg-slate-950">
                 <tr className="border-b border-slate-800 text-left text-slate-400">
                   <th className="w-[120px] px-4 py-3">Date</th>
                   <th className="w-[160px] px-4 py-3">Category</th>
-                  <th className="w-[160px] px-4 py-3">Expense Area</th>
+                  <th className="w-[160px] px-4 py-3">Area</th>
                   <th className="w-[220px] px-4 py-3">Description</th>
                   <th className="w-[160px] px-4 py-3">Source</th>
                   <th className="w-[140px] px-4 py-3">Amount</th>
@@ -813,18 +963,23 @@ export default function ExpensesPage() {
                     <td className="whitespace-nowrap px-4 py-3">
                       {expense.expense_date}
                     </td>
+
                     <td className="truncate px-4 py-3">
                       {expense.category || "-"}
                     </td>
+
                     <td className="truncate px-4 py-3">
                       {expense.department || "-"}
                     </td>
+
                     <td className="break-words px-4 py-3">
                       {expense.description || "-"}
                     </td>
+
                     <td className="truncate px-4 py-3">
                       {expense.source || "-"}
                     </td>
+
                     <td className="whitespace-nowrap px-4 py-3 font-semibold">
                       {formatCurrency(expense.amount)}
                     </td>
@@ -846,6 +1001,16 @@ export default function ExpensesPage() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+/// COMPONENT - SUMMARY CARD
+function SummaryCard({ title, value, color }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+      <p className="text-sm text-slate-400">{title}</p>
+      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>{value}</h2>
     </div>
   );
 }
