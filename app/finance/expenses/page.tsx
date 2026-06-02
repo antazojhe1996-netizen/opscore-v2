@@ -15,6 +15,7 @@ export default function ExpensesPage() {
   const [paymentMethodsData, setPaymentMethodsData] = useState<any[]>([]);
   const [expenseAreasData, setExpenseAreasData] = useState<any[]>([]);
   const [expenseSourcesData, setExpenseSourcesData] = useState<any[]>([]);
+  
 
   /// STATES - MANUAL EXPENSE FORM
   const today = new Date().toISOString().split("T")[0];
@@ -27,6 +28,7 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [remarks, setRemarks] = useState("");
+
 
   /// STATES - FILTERS
   const [searchTerm, setSearchTerm] = useState("");
@@ -186,6 +188,15 @@ export default function ExpensesPage() {
       ? String(aValue || "").localeCompare(String(bValue || ""))
       : String(bValue || "").localeCompare(String(aValue || ""));
   });
+
+  const pendingRequests = expenseRequests.filter(
+  (request) => request.status === "PENDING"
+);
+
+const pendingRequestAmount = pendingRequests.reduce(
+  (sum, request) => sum + Number(request.amount || 0),
+  0
+);
 
   /// FUNCTIONS - FORMATTERS
   const formatCurrency = (value: any) => {
@@ -546,7 +557,7 @@ export default function ExpensesPage() {
           </p>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard
             title="This Month Expenses"
             value={formatCurrency(thisMonthExpenses)}
@@ -565,12 +576,46 @@ export default function ExpensesPage() {
             color="text-emerald-400"
           />
 
+           <SummaryCard
+          title="Pending Requests"
+          value={`${pendingRequests.length} / ${formatCurrency(pendingRequestAmount)}`}
+          color="text-amber-400"
+        />
+
           <SummaryCard
             title="Pending Liquidation"
             value={formatCurrency(pendingLiquidationAmount)}
             color="text-amber-400"
           />
         </section>
+
+        {pendingRequests.length > 0 && (
+  <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 className="text-lg font-bold text-amber-400">
+          Pending Expense Requests
+        </h2>
+        <p className="mt-1 text-sm text-slate-300">
+          {pendingRequests.length} request(s) waiting for approval with total amount of{" "}
+          <span className="font-semibold text-white">
+            {formatCurrency(pendingRequestAmount)}
+          </span>
+          .
+        </p>
+      </div>
+
+      <a
+        href="/finance/expense-requests"
+        className="w-fit rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
+      >
+        Review Requests →
+      </a>
+    </div>
+  </section>
+)}
+
+       
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
           <section className="self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
