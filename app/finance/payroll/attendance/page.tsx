@@ -833,16 +833,16 @@ const computeEntry = (
           </div>
 
          <button
-  onClick={saveAttendance}
-  disabled={isSaving}
-  className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
->
-  {isSaving
-    ? "Saving..."
-    : payrollReady
-    ? "Save Payroll-Ready Attendance"
-    : "Save with Issues"}
-</button>
+            onClick={saveAttendance}
+            disabled={isSaving}
+            className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+          >
+            {isSaving
+              ? "Saving..."
+              : payrollReady
+              ? "Save Payroll-Ready Attendance"
+              : "Save with Issues"}
+          </button>
         </section>
 
         <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
