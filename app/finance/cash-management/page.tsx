@@ -404,52 +404,70 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
       item.source === "Bank Deposit"
   );
 
-  const cashSales = salesRows
-    .filter((item) => (item.payment_type || "Cash") === "Cash")
+  const salesByPayment = (payment: string) =>
+    salesRows
+      .filter((item) => (item.payment_type || "Cash") === payment)
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const salesBySource = (sourceName: string) =>
+    salesRows
+      .filter((item) => item.source === sourceName)
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const expensesBySource = (sourceName: string) =>
+    expenseRows
+      .filter((item) => item.source === sourceName)
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+  const cashSales = salesByPayment("Cash");
+  const gcashSales = salesByPayment("GCash");
+  const bankSales = salesByPayment("Bank");
+  const terminalSales = salesByPayment("Terminal");
+
+  const roomSales = salesBySource("Room Sales");
+  const restaurantSales = salesBySource("Restaurant Sales");
+  const apartmentSales = salesBySource("Apartment Collection");
+  const otherSales = salesRows
+    .filter(
+      (item) =>
+        !["Room Sales", "Restaurant Sales", "Apartment Collection"].includes(
+          item.source
+        )
+    )
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const gcashSales = salesRows
-    .filter((item) => (item.payment_type || "Cash") === "GCash")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-  const bankSales = salesRows
-    .filter((item) => (item.payment_type || "Cash") === "Bank")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-  const terminalSales = salesRows
-    .filter((item) => (item.payment_type || "Cash") === "Terminal")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const manualCashExpenses = expensesBySource("Manual Cash Expense");
+  const expenseRelease = expensesBySource("Expense Release");
+  const ownerWithdrawal = expensesBySource("Owner Withdrawal");
+  const bankDeposit = expensesBySource("Bank Deposit");
+  const otherExpenses = expenseRows
+    .filter(
+      (item) =>
+        ![
+          "Manual Cash Expense",
+          "Expense Release",
+          "Owner Withdrawal",
+          "Bank Deposit",
+        ].includes(item.source)
+    )
+    .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
   const totalSales = cashSales + gcashSales + bankSales + terminalSales;
 
-  const totalExpenses = expenseRows.reduce(
-    (sum, item) => sum + Math.abs(Number(item.amount || 0)),
-    0
-  );
+  const totalExpenses =
+    manualCashExpenses +
+    expenseRelease +
+    ownerWithdrawal +
+    bankDeposit +
+    otherExpenses;
 
   const varianceStatus =
     variance < 0 ? "SHORT" : variance > 0 ? "OVER" : "BALANCED";
 
-  const varianceColor =
-    variance < 0 ? "#b91c1c" : variance > 0 ? "#047857" : "#111827";
+  const reportDate =
+    reportMovements[0]?.business_date || today || new Date().toISOString().split("T")[0];
 
-  const salesTable = salesRows
-    .map(
-      (item, index) => `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${item.business_date || "-"}</td>
-          <td>${item.source || "-"}</td>
-          <td>${item.payment_type || "Cash"}</td>
-          <td>${item.encoded_by || "-"}</td>
-          <td class="right">${formatMoney(item.amount)}</td>
-          <td>${item.remarks || "-"}</td>
-        </tr>
-      `
-    )
-    .join("");
-
-  const expenseTable = expenseRows
+  const salesTableRows = salesRows
     .map(
       (item, index) => `
         <tr>
@@ -458,7 +476,27 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
           <td>${item.source || "-"}</td>
           <td>${item.payment_type || "Cash"}</td>
           <td>${item.from_person || "-"}</td>
-          <td class="right">${formatMoney(Math.abs(Number(item.amount || 0)))}</td>
+          <td>${item.to_person || "-"}</td>
+          <td>${item.encoded_by || "-"}</td>
+          <td class="amount">${formatMoney(item.amount)}</td>
+          <td>${item.remarks || "-"}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const expenseTableRows = expenseRows
+    .map(
+      (item, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item.business_date || "-"}</td>
+          <td>${item.source || "-"}</td>
+          <td>${item.payment_type || "Cash"}</td>
+          <td>${item.from_person || "-"}</td>
+          <td>${item.to_person || "-"}</td>
+          <td>${item.encoded_by || "-"}</td>
+          <td class="amount">${formatMoney(Math.abs(Number(item.amount || 0)))}</td>
           <td>${item.remarks || "-"}</td>
         </tr>
       `
@@ -468,162 +506,200 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
   const html = `
     <html>
       <head>
-        <title>Executive Cash Report</title>
+        <title>Daily Executive Finance Report</title>
 
         <style>
+          * {
+            box-sizing: border-box;
+          }
+
           body {
             margin: 0;
-            padding: 30px;
+            padding: 0;
             font-family: Arial, Helvetica, sans-serif;
             color: #111827;
-            background: #ffffff;
+            background: #f3f4f6;
           }
 
           .print-btn {
-            margin-bottom: 18px;
-            padding: 10px 16px;
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 999;
             border: none;
+            border-radius: 6px;
             background: #111827;
             color: white;
+            padding: 10px 16px;
             font-weight: bold;
             cursor: pointer;
           }
 
-          .report {
-            max-width: 1120px;
-            margin: 0 auto;
+          .page {
+            width: 297mm;
+            min-height: 210mm;
+            margin: 18px auto;
+            padding: 18mm;
+            background: white;
+            page-break-after: always;
+          }
+
+          .page:last-child {
+            page-break-after: auto;
           }
 
           .header {
             display: flex;
             justify-content: space-between;
+            align-items: flex-start;
             border-bottom: 3px solid #111827;
             padding-bottom: 14px;
             margin-bottom: 18px;
           }
 
-          h1 {
-            margin: 0;
-            font-size: 25px;
-            letter-spacing: .3px;
+          .hotel-title {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
           }
 
-          h2 {
-            margin: 0;
+          .report-title {
             font-size: 18px;
+            font-weight: 800;
             text-transform: uppercase;
+            text-align: right;
           }
 
           .muted {
             margin-top: 4px;
-            font-size: 11px;
             color: #6b7280;
+            font-size: 11px;
           }
 
-          .right {
-            text-align: right;
+          .section {
+            margin-top: 18px;
           }
 
-          .summary {
+          .section-title {
+            border-bottom: 2px solid #111827;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+
+          .info-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-            margin-bottom: 18px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
           }
 
-          .summary-card {
+          .info-box {
             border: 1px solid #d1d5db;
             padding: 10px;
-            min-height: 66px;
           }
 
           .label {
             font-size: 9px;
             color: #6b7280;
             text-transform: uppercase;
-            letter-spacing: .07em;
+            letter-spacing: 0.08em;
           }
 
           .value {
-            margin-top: 6px;
-            font-size: 15px;
-            font-weight: bold;
+            margin-top: 5px;
+            font-size: 14px;
+            font-weight: 800;
           }
 
-          .section {
-            margin-top: 20px;
-          }
-
-          .section-title {
-            background: #111827;
-            color: #ffffff;
-            padding: 8px 10px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: .08em;
+          .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
           }
 
           table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 10.5px;
+            font-size: 11px;
           }
 
-          th {
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
-            padding: 7px;
-            text-align: left;
-            text-transform: uppercase;
-            font-size: 9px;
-          }
-
+          th,
           td {
             border: 1px solid #d1d5db;
-            padding: 7px;
+            padding: 7px 8px;
             vertical-align: top;
           }
 
-          .total td {
+          th {
+            background: #111827;
+            color: #ffffff;
+            text-align: left;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+
+          .summary-table td:first-child {
+            color: #374151;
+          }
+
+          .amount {
+            text-align: right;
+            white-space: nowrap;
+            font-weight: 700;
+          }
+
+          .total-row td {
             background: #f9fafb;
-            font-weight: bold;
+            font-weight: 800;
           }
 
-          .recon td {
-            font-size: 12px;
+          .grand-row td {
+            background: #111827;
+            color: white;
+            font-size: 13px;
+            font-weight: 800;
           }
 
-          .variance {
-            font-size: 15px;
-            font-weight: bold;
-            color: ${varianceColor};
+          .variance-balanced {
+            color: #111827;
+          }
+
+          .variance-short {
+            color: #b91c1c;
+          }
+
+          .variance-over {
+            color: #047857;
           }
 
           .remarks-box {
             border: 1px solid #d1d5db;
-            min-height: 55px;
+            min-height: 58px;
             padding: 10px;
             font-size: 11px;
           }
 
-          .signatures {
+          .signature-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 45px;
-            margin-top: 58px;
+            gap: 50px;
+            margin-top: 54px;
           }
 
           .signature {
             border-top: 1px solid #111827;
-            padding-top: 7px;
+            padding-top: 8px;
             text-align: center;
             font-size: 11px;
           }
 
           .footer {
-            margin-top: 25px;
-            padding-top: 10px;
+            margin-top: 20px;
+            padding-top: 8px;
             border-top: 1px solid #d1d5db;
             display: flex;
             justify-content: space-between;
@@ -631,18 +707,37 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
             font-size: 10px;
           }
 
+          .page-label {
+            text-align: right;
+            color: #6b7280;
+            font-size: 10px;
+            margin-top: 12px;
+          }
+
           @media print {
+            body {
+              background: white;
+            }
+
             .print-btn {
               display: none;
             }
 
-            body {
-              padding: 0;
+            .page {
+              margin: 0;
+              width: auto;
+              min-height: auto;
+              box-shadow: none;
+              page-break-after: always;
+            }
+
+            .page:last-child {
+              page-break-after: auto;
             }
 
             @page {
               size: A4 landscape;
-              margin: 12mm;
+              margin: 10mm;
             }
           }
         </style>
@@ -651,62 +746,194 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
       <body>
         <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
 
-        <div class="report">
+        <!-- PAGE 1: EXECUTIVE SUMMARY -->
+        <section class="page">
           <div class="header">
             <div>
-              <h1>Vincent Resort Hotel</h1>
-              <div class="muted">Executive Cash, Sales, and Expense Report</div>
+              <div class="hotel-title">Vincent Resort Hotel</div>
+              <div class="muted">Operations Finance Control</div>
               <div class="muted">Generated: ${formatDateTime(new Date().toISOString())}</div>
             </div>
 
-            <div class="right">
-              <h2>Daily Executive Report</h2>
-              <div class="muted">Drawer Holder: ${holderName || "-"}</div>
-              <div class="muted">Status: ${status}</div>
-            </div>
-          </div>
-
-          <div class="summary">
-            <div class="summary-card">
-              <div class="label">Opening Float</div>
-              <div class="value">${formatMoney(openingFloat)}</div>
-            </div>
-
-            <div class="summary-card">
-              <div class="label">Total Sales</div>
-              <div class="value">${formatMoney(totalSales)}</div>
-            </div>
-
-            <div class="summary-card">
-              <div class="label">Total Expenses</div>
-              <div class="value">${formatMoney(totalExpenses)}</div>
-            </div>
-
-            <div class="summary-card">
-              <div class="label">Expected Cash</div>
-              <div class="value">${formatMoney(expectedCash)}</div>
-            </div>
-
-            <div class="summary-card">
-              <div class="label">Variance</div>
-              <div class="value" style="color:${varianceColor};">${formatMoney(variance)}</div>
+            <div>
+              <div class="report-title">Front Desk Finance Report</div>
+              <div class="muted">Business Date: ${reportDate}</div>
+              <div class="muted">Report Status: ${status}</div>
             </div>
           </div>
 
           <div class="section">
-            <div class="section-title">Report Details</div>
-            <table>
-              <tr>
-                <td><b>Opened:</b> ${formatDateTime(openedAt)}</td>
-                <td><b>Closed:</b> ${formatDateTime(closedAt)}</td>
-                <td><b>Variance Status:</b> <span class="variance">${varianceStatus}</span></td>
-                <td><b>Actual Cash Counted:</b> ${formatMoney(actualCash)}</td>
-              </tr>
-            </table>
+            <div class="section-title">Report Information</div>
+            <div class="info-grid">
+              <div class="info-box">
+                <div class="label">Drawer Holder</div>
+                <div class="value">${holderName || "-"}</div>
+              </div>
+              <div class="info-box">
+                <div class="label">Opened</div>
+                <div class="value">${formatDateTime(openedAt)}</div>
+              </div>
+              <div class="info-box">
+                <div class="label">Closed</div>
+                <div class="value">${formatDateTime(closedAt)}</div>
+              </div>
+              <div class="info-box">
+                <div class="label">Variance Status</div>
+                <div class="value">${varianceStatus}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section two-col">
+            <div>
+              <div class="section-title">Cash Reconciliation</div>
+              <table class="summary-table">
+                <tr>
+                  <td>Opening Float</td>
+                  <td class="amount">${formatMoney(openingFloat)}</td>
+                </tr>
+                <tr>
+                  <td>Add: Cash Sales</td>
+                  <td class="amount">${formatMoney(cashSales)}</td>
+                </tr>
+                <tr>
+                  <td>Less: Cash Expenses / Releases</td>
+                  <td class="amount">(${formatMoney(totalExpenses)})</td>
+                </tr>
+                <tr class="total-row">
+                  <td>Expected Cash</td>
+                  <td class="amount">${formatMoney(expectedCash)}</td>
+                </tr>
+                <tr>
+                  <td>Actual Cash Counted</td>
+                  <td class="amount">${formatMoney(actualCash)}</td>
+                </tr>
+                <tr class="grand-row">
+                  <td>Variance - ${varianceStatus}</td>
+                  <td class="amount">${formatMoney(variance)}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div>
+              <div class="section-title">Collection Summary</div>
+              <table class="summary-table">
+                <tr>
+                  <td>Cash Sales</td>
+                  <td class="amount">${formatMoney(cashSales)}</td>
+                </tr>
+                <tr>
+                  <td>GCash Sales</td>
+                  <td class="amount">${formatMoney(gcashSales)}</td>
+                </tr>
+                <tr>
+                  <td>Bank Transfer</td>
+                  <td class="amount">${formatMoney(bankSales)}</td>
+                </tr>
+                <tr>
+                  <td>Terminal / Card</td>
+                  <td class="amount">${formatMoney(terminalSales)}</td>
+                </tr>
+                <tr class="grand-row">
+                  <td>Total Sales</td>
+                  <td class="amount">${formatMoney(totalSales)}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div class="section two-col">
+            <div>
+              <div class="section-title">Sales Summary</div>
+              <table class="summary-table">
+                <tr>
+                  <td>Room Sales</td>
+                  <td class="amount">${formatMoney(roomSales)}</td>
+                </tr>
+                <tr>
+                  <td>Restaurant Sales</td>
+                  <td class="amount">${formatMoney(restaurantSales)}</td>
+                </tr>
+                <tr>
+                  <td>Apartment Collection</td>
+                  <td class="amount">${formatMoney(apartmentSales)}</td>
+                </tr>
+                <tr>
+                  <td>Other Sales</td>
+                  <td class="amount">${formatMoney(otherSales)}</td>
+                </tr>
+                <tr class="grand-row">
+                  <td>Total Sales</td>
+                  <td class="amount">${formatMoney(totalSales)}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div>
+              <div class="section-title">Expense Summary</div>
+              <table class="summary-table">
+                <tr>
+                  <td>Manual Cash Expenses</td>
+                  <td class="amount">${formatMoney(manualCashExpenses)}</td>
+                </tr>
+                <tr>
+                  <td>Expense Releases</td>
+                  <td class="amount">${formatMoney(expenseRelease)}</td>
+                </tr>
+                <tr>
+                  <td>Owner Withdrawal</td>
+                  <td class="amount">${formatMoney(ownerWithdrawal)}</td>
+                </tr>
+                <tr>
+                  <td>Bank Deposit</td>
+                  <td class="amount">${formatMoney(bankDeposit)}</td>
+                </tr>
+                <tr>
+                  <td>Other Expenses</td>
+                  <td class="amount">${formatMoney(otherExpenses)}</td>
+                </tr>
+                <tr class="grand-row">
+                  <td>Total Expenses</td>
+                  <td class="amount">${formatMoney(totalExpenses)}</td>
+                </tr>
+              </table>
+            </div>
           </div>
 
           <div class="section">
-            <div class="section-title">Sales Report</div>
+            <div class="section-title">Frontdesk Remarks</div>
+            <div class="remarks-box">
+              ${customSummary?.remarks || drawer.remarks || "No remarks provided."}
+            </div>
+          </div>
+
+          <div class="signature-grid">
+            <div class="signature">Prepared By / Cashier</div>
+            <div class="signature">Checked By / Supervisor</div>
+            <div class="signature">Verified By / Finance</div>
+          </div>
+
+          <div class="footer">
+            <span>OpsCore Executive Finance Report</span>
+            <span>Page 1 - Executive Summary</span>
+          </div>
+        </section>
+
+        <!-- PAGE 2: SALES DETAILS -->
+        <section class="page">
+          <div class="header">
+            <div>
+              <div class="hotel-title">Vincent Resort Hotel</div>
+              <div class="muted">Sales Transaction Details</div>
+            </div>
+            <div>
+              <div class="report-title">Sales Report</div>
+              <div class="muted">Business Date: ${reportDate}</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Sales Details</div>
             <table>
               <thead>
                 <tr>
@@ -714,40 +941,48 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
                   <th>Date</th>
                   <th>Source</th>
                   <th>Payment</th>
+                  <th>From</th>
+                  <th>Received By</th>
                   <th>Encoded By</th>
-                  <th class="right">Amount</th>
+                  <th>Amount</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 ${
-                  salesTable ||
-                  `<tr><td colspan="7" style="text-align:center;">No sales records found.</td></tr>`
+                  salesTableRows ||
+                  `<tr><td colspan="9" style="text-align:center;">No sales records found.</td></tr>`
                 }
-
-                <tr class="total">
-                  <td colspan="5">Cash Sales</td>
-                  <td class="right">${formatMoney(cashSales)}</td>
-                  <td></td>
-                </tr>
-
-                <tr class="total">
-                  <td colspan="5">GCash / Bank / Terminal Sales</td>
-                  <td class="right">${formatMoney(gcashSales + bankSales + terminalSales)}</td>
-                  <td></td>
-                </tr>
-
-                <tr class="total">
-                  <td colspan="5">Total Sales</td>
-                  <td class="right">${formatMoney(totalSales)}</td>
+                <tr class="grand-row">
+                  <td colspan="7">Total Sales</td>
+                  <td class="amount">${formatMoney(totalSales)}</td>
                   <td></td>
                 </tr>
               </tbody>
             </table>
           </div>
 
+          <div class="footer">
+            <span>OpsCore Executive Finance Report</span>
+            <span>Page 2 - Sales Details</span>
+          </div>
+        </section>
+
+        <!-- PAGE 3: EXPENSE DETAILS -->
+        <section class="page">
+          <div class="header">
+            <div>
+              <div class="hotel-title">Vincent Resort Hotel</div>
+              <div class="muted">Expense Transaction Details</div>
+            </div>
+            <div>
+              <div class="report-title">Expense Report</div>
+              <div class="muted">Business Date: ${reportDate}</div>
+            </div>
+          </div>
+
           <div class="section">
-            <div class="section-title">Expense Report</div>
+            <div class="section-title">Expense Details</div>
             <table>
               <thead>
                 <tr>
@@ -756,73 +991,31 @@ const printDrawerReport = (drawer: any, customSummary?: any) => {
                   <th>Source</th>
                   <th>Payment</th>
                   <th>Released By</th>
-                  <th class="right">Amount</th>
+                  <th>Received By</th>
+                  <th>Encoded By</th>
+                  <th>Amount</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 ${
-                  expenseTable ||
-                  `<tr><td colspan="7" style="text-align:center;">No expense records found.</td></tr>`
+                  expenseTableRows ||
+                  `<tr><td colspan="9" style="text-align:center;">No expense records found.</td></tr>`
                 }
-
-                <tr class="total">
-                  <td colspan="5">Total Expenses / Cash Releases</td>
-                  <td class="right">${formatMoney(totalExpenses)}</td>
+                <tr class="grand-row">
+                  <td colspan="7">Total Expenses</td>
+                  <td class="amount">${formatMoney(totalExpenses)}</td>
                   <td></td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div class="section">
-            <div class="section-title">Cash Reconciliation</div>
-            <table class="recon">
-              <tr>
-                <td>Opening Float</td>
-                <td class="right">${formatMoney(openingFloat)}</td>
-              </tr>
-              <tr>
-                <td>Add: Cash Sales</td>
-                <td class="right">${formatMoney(cashSales)}</td>
-              </tr>
-              <tr>
-                <td>Less: Cash Expenses / Releases</td>
-                <td class="right">(${formatMoney(totalExpenses)})</td>
-              </tr>
-              <tr class="total">
-                <td>Expected Cash</td>
-                <td class="right">${formatMoney(expectedCash)}</td>
-              </tr>
-              <tr>
-                <td>Actual Cash Counted</td>
-                <td class="right">${formatMoney(actualCash)}</td>
-              </tr>
-              <tr class="total">
-                <td>Variance - ${varianceStatus}</td>
-                <td class="right variance">${formatMoney(variance)}</td>
-              </tr>
-            </table>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Management Remarks</div>
-            <div class="remarks-box">
-              ${customSummary?.remarks || drawer.remarks || "No remarks provided."}
-            </div>
-          </div>
-
-          <div class="signatures">
-            <div class="signature">Prepared By / Cashier</div>
-            <div class="signature">Checked By / Supervisor</div>
-            <div class="signature">Verified By / Finance</div>
-          </div>
-
           <div class="footer">
-            <span>OpsCore Executive Report</span>
-            <span>System-generated document for management review.</span>
+            <span>OpsCore Executive Finance Report</span>
+            <span>Page 3 - Expense Details</span>
           </div>
-        </div>
+        </section>
       </body>
     </html>
   `;
