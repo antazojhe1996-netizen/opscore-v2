@@ -149,6 +149,14 @@ export default function FinancePage() {
               action="Open Settings →"
               muted
             />
+
+            <FinanceLink
+  href="/finance/bills"
+  title="Bills Monitoring"
+  description="Track monthly utility bills, due dates, outstanding balances, and automatically create expense records when paid."
+  action="Open Bills →"
+/>
+
           </div>
         </section>
       </main>

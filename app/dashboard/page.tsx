@@ -30,6 +30,7 @@ import { supabase } from "@/app/lib/supabase";
 type RangeType = "daily" | "weekly" | "monthly" | "yearly";
 
 export default function ExecutiveDashboardPage() {
+  /// STATES
   const [rangeType, setRangeType] = useState<RangeType>("monthly");
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
   const [hotelReservations, setHotelReservations] = useState<any[]>([]);
@@ -40,7 +41,9 @@ export default function ExecutiveDashboardPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [hcRules, setHcRules] = useState<any>(null);
+  const [bills, setBills] = useState<any[]>([]);
 
+  /// DATA
   const todayKey = new Date().toISOString().slice(0, 10);
 
   const formatPeso = (value: number) =>
@@ -78,6 +81,7 @@ export default function ExecutiveDashboardPage() {
     return Number(amount || 0);
   };
 
+  /// FUNCTIONS
   const getRowsFromTables = async (tableNames: string[]) => {
     for (const tableName of tableNames) {
       const { data, error } = await supabase.from(tableName).select("*");
@@ -108,6 +112,11 @@ export default function ExecutiveDashboardPage() {
 
     const { data: expensesData } = await supabase.from("expenses").select("*");
 
+    const { data: billsData } = await supabase
+      .from("finance_bills")
+      .select("*")
+      .order("due_date", { ascending: true });
+
     const { data: eventsData } = await supabase
       .from("event_addons")
       .select("*")
@@ -127,16 +136,13 @@ export default function ExecutiveDashboardPage() {
     setHotelReservations(hotelReservationsData || []);
     setRestaurantSales(restaurantSalesData || []);
     setExpenses(expensesData || []);
+    setBills(billsData || []);
     setEvents(eventsData || []);
     setSchedules(schedulesData || []);
     setEmployees(employeesData || []);
     setLeaveRequests(leavesData || []);
     setHcRules(hcData?.setting_data || null);
   };
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
 
   const getLatestFinanceDate = () => {
     const dates = [...hotelReservations, ...restaurantSales, ...expenses]
@@ -179,6 +185,22 @@ export default function ExecutiveDashboardPage() {
       .filter((row) => isWithinRange(getDateValue(row)))
       .reduce((sum, row) => sum + getAmountValue(row), 0);
 
+  const getDaysLeft = (dueDateValue: string | null) => {
+    if (!dueDateValue) return null;
+
+    const due = new Date(`${dueDateValue}T00:00:00`);
+    const now = new Date(`${todayKey}T00:00:00`);
+    const diff = due.getTime() - now.getTime();
+
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  /// EFFECTS
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  /// CALCULATIONS
   const filteredReservations = hotelReservations.filter((row) =>
     isWithinRange(getDateValue(row))
   );
@@ -208,6 +230,23 @@ export default function ExecutiveDashboardPage() {
   const roomsSoldToday = Number(todayOccupancy?.rooms_sold || 0);
   const availableRoomsToday = Number(todayOccupancy?.available_rooms || 0);
   const occupancyToday = Number(todayOccupancy?.occupancy || 0);
+
+  const unpaidBills = bills.filter((bill) => bill.status !== "Paid" && bill.status !== "Cancelled");
+
+  const overdueBills = unpaidBills.filter((bill) => {
+    const daysLeft = getDaysLeft(bill.due_date);
+    return daysLeft !== null && daysLeft < 0;
+  });
+
+  const upcomingBills = unpaidBills.filter((bill) => {
+    const daysLeft = getDaysLeft(bill.due_date);
+    return daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
+  });
+
+  const outstandingBills = unpaidBills.reduce(
+    (sum, bill) => sum + Number(bill.amount || 0),
+    0
+  );
 
   const todayEvents = events.filter(
     (event) => String(event.event_date) === todayKey
@@ -299,6 +338,30 @@ export default function ExecutiveDashboardPage() {
     (leave) => String(leave.status || "").toLowerCase() === "pending"
   );
 
+  const activeEmployees = employees.filter((emp) => {
+    const status = String(emp.employment_status || emp.status || "").toLowerCase();
+    return status !== "resigned" && status !== "inactive";
+  });
+
+  const resignedEmployees = employees.filter((emp) => {
+    const status = String(emp.employment_status || emp.status || "").toLowerCase();
+    return status === "resigned" || status === "inactive";
+  });
+
+  const departmentCounts = activeEmployees.reduce(
+    (acc: Record<string, number>, emp) => {
+      const dept = emp.department || "Unassigned";
+      acc[dept] = (acc[dept] || 0) + 1;
+      return acc;
+    },
+    {}
+  );
+
+  const topDepartments = Object.entries(departmentCounts)
+    .map(([department, count]) => ({ department, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
   const criticalDepartments = departmentStatus.filter((dept) => dept.gap < 0);
 
   const revenueSources = [
@@ -311,32 +374,41 @@ export default function ExecutiveDashboardPage() {
     totalRevenue > 0 ? Math.round((topSource.value / totalRevenue) * 100) : 0;
 
   const criticalAlerts = [
+    ...(overdueBills.length > 0
+      ? [`${overdueBills.length} overdue bill(s) need payment review.`]
+      : []),
+    ...(upcomingBills.length > 0
+      ? [`${upcomingBills.length} bill(s) due within 7 days.`]
+      : []),
     ...(outstandingBalance > 0
       ? [
           `${unpaidReservations.length} unpaid reservation(s) with ${formatPeso(
             outstandingBalance
-          )} outstanding balance`,
+          )} outstanding balance.`,
         ]
       : []),
     ...criticalDepartments.map(
-      (dept) => `${dept.department} short by ${Math.abs(dept.gap)} staff`
+      (dept) => `${dept.department} short by ${Math.abs(dept.gap)} staff.`
     ),
     ...(pendingLeaves.length > 0
-      ? [`${pendingLeaves.length} leave request(s) pending approval`]
+      ? [`${pendingLeaves.length} leave request(s) pending approval.`]
       : []),
     ...(todayEvents.length > 0
       ? todayEvents.map(
           (event) =>
-            `${event.event_name} today with ${event.expected_pax || 0} pax`
+            `${event.event_name} today with ${event.expected_pax || 0} pax.`
         )
       : []),
-    ...(netProfit < 0 ? ["Expenses are higher than revenue"] : []),
-    ...(occupancyToday < 40 ? [`Room occupancy is low at ${occupancyToday}%`] : []),
+    ...(netProfit < 0 ? ["Expenses are higher than revenue."] : []),
+    ...(occupancyToday < 40 ? [`Room occupancy is low at ${occupancyToday}%.`] : []),
   ];
 
   const recommendations = [
+    ...(overdueBills.length > 0
+      ? ["Prioritize overdue bills before additional cash releases."]
+      : []),
     ...(outstandingBalance > 0
-      ? [`Review unpaid reservations and update Cloudbeds balances.`]
+      ? ["Review unpaid reservations and update balances."]
       : []),
     ...(hcGapToday < 0
       ? [`Fill staffing gap of ${Math.abs(hcGapToday)} staff for today's operation.`]
@@ -357,6 +429,7 @@ export default function ExecutiveDashboardPage() {
     100 -
       (netProfit < 0 ? 30 : 0) -
       (outstandingBalance > 0 ? 15 : 0) -
+      (overdueBills.length > 0 ? 15 : 0) -
       (profitMargin < 20 ? 10 : 0)
   );
 
@@ -459,16 +532,17 @@ export default function ExecutiveDashboardPage() {
     occupancy: Number(row.occupancy || 0),
   }));
 
+  /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
       <main className="flex-1 p-8">
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Executive Dashboard</h1>
             <p className="mt-2 text-slate-400">
-              Business health, sales, expenses, unpaid balances, staffing, and alerts.
+              Income, expenses, profit, bills, occupancy, and operation health.
             </p>
           </div>
 
@@ -498,63 +572,18 @@ export default function ExecutiveDashboardPage() {
         </div>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <KpiCard icon={<Hotel size={22} />} title="Room Sales" value={formatPeso(roomRevenue)} />
-          <KpiCard icon={<Utensils size={22} />} title="Restaurant Revenue" value={formatPeso(restaurantRevenue)} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Outstanding Balance" value={formatPeso(outstandingBalance)} danger={outstandingBalance > 0} subtitle={`${unpaidReservations.length} unpaid reservation(s)`} />
+          <KpiCard icon={<DollarSign size={22} />} title="Total Revenue" value={formatPeso(totalRevenue)} success />
           <KpiCard icon={<Receipt size={22} />} title="Expenses" value={formatPeso(totalExpenses)} danger />
           <KpiCard icon={<DollarSign size={22} />} title="Net Profit" value={formatPeso(netProfit)} success={netProfit >= 0} danger={netProfit < 0} subtitle={`${profitMargin}% margin`} />
-        </section>
-
-        <section className={`mb-6 rounded-2xl border p-6 ${statusStyle}`}>
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
-                <Brain size={18} /> Executive Briefing
-              </p>
-
-              <h2 className="mt-2 text-3xl font-black">
-                Business Status: {businessStatus}
-              </h2>
-
-              <p className="mt-2 text-sm">
-                Current business health score is based on finance, operations,
-                and workforce indicators.
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-950/60 p-6 text-center">
-              <p className="text-sm text-slate-400">Business Health Score</p>
-              <h3 className="mt-2 text-5xl font-black text-white">
-                {businessHealthScore}
-              </h3>
-              <p className="text-xs text-slate-500">out of 100</p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <ScoreCard title="Finance" value={financeScore} />
-            <ScoreCard title="Operations" value={operationsScore} />
-            <ScoreCard title="Workforce" value={workforceScore} />
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <BriefingBox title="Top Issues" items={criticalAlerts} empty="No major issue detected." />
-            <BriefingBox title="Recommended Actions" items={recommendations} empty="Maintain current operation and continue monitoring." />
-          </div>
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <MiniChartCard title="Room Occupancy" value={`${occupancyToday}%`} subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`} icon={<TrendingUp size={22} />} data={miniOccupancyTrend} dataKey="occupancy" />
-          <KpiCard icon={<Users size={22} />} title="Required HC Today" value={requiredHCToday} />
-          <KpiCard icon={<Users size={22} />} title="Scheduled HC Today" value={scheduledHCToday} />
-          <KpiCard icon={hcGapToday < 0 ? <TrendingDown size={22} /> : <TrendingUp size={22} />} title="HC Gap" value={hcGapToday > 0 ? `+${hcGapToday}` : hcGapToday} success={hcGapToday >= 0} danger={hcGapToday < 0} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Bills Outstanding" value={formatPeso(outstandingBills)} danger={outstandingBills > 0} subtitle={`${overdueBills.length} overdue • ${upcomingBills.length} due soon`} />
+          <KpiCard icon={<Hotel size={22} />} title="Occupancy" value={`${occupancyToday}%`} subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`} />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
             <h2 className="text-xl font-bold">Revenue vs Expenses Trend</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Sales, expenses, and profit based on selected range.
+              Top graph for owner review. Based on selected range.
             </p>
 
             <div className="mt-6 h-[340px]">
@@ -574,7 +603,6 @@ export default function ExecutiveDashboardPage() {
                       formatter={(value: any) => formatPeso(Number(value))}
                     />
                     <Legend verticalAlign="top" height={35} />
-
                     <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#3b82f6" strokeWidth={3} fill="#3b82f6" fillOpacity={0.18} />
                     <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" strokeWidth={3} fill="#ef4444" fillOpacity={0.12} />
                     <Area type="monotone" dataKey="profit" name="Profit" stroke="#22c55e" strokeWidth={3} fill="#22c55e" fillOpacity={0.15} />
@@ -588,67 +616,114 @@ export default function ExecutiveDashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <h2 className="text-xl font-bold">Revenue Intelligence</h2>
+          <section className={`rounded-2xl border p-6 xl:col-span-2 ${statusStyle}`}>
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
+              <Brain size={18} /> Executive Briefing
+            </p>
 
-            <div className="mt-5 space-y-3">
-              {revenueSources.map((item, index) => {
-                const share =
-                  totalRevenue > 0
-                    ? Math.round((item.value / totalRevenue) * 100)
-                    : 0;
-
-                return (
-                  <div
-                    key={item.name}
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
-                  >
-                    <div>
-                      <p className="font-semibold">
-                        #{index + 1} • {item.name}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {share}% contribution
-                      </p>
-                    </div>
-
-                    <p className="font-bold text-white">
-                      {formatPeso(item.value)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-5">
-              <p className="text-sm text-red-300">Unpaid Monitor</p>
-              <h3 className="mt-2 text-2xl font-bold text-red-300">
-                {formatPeso(outstandingBalance)}
-              </h3>
-              <p className="mt-1 text-xs text-red-200">
-                {unpaidReservations.length} reservation(s) need review.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6">
-            <h2 className="flex items-center gap-2 text-xl font-bold text-red-300">
-              <AlertTriangle size={22} /> Critical Alerts
+            <h2 className="mt-2 text-3xl font-black">
+              {businessStatus}
             </h2>
 
-            <div className="mt-4 space-y-3">
-              {criticalAlerts.length > 0 ? (
-                criticalAlerts.slice(0, 6).map((alert, index) => (
-                  <div key={index} className="rounded-xl border border-red-500/20 bg-slate-950 p-3 text-sm text-red-300">
-                    ⚠ {alert}
+            <div className="mt-4 rounded-2xl bg-slate-950/60 p-5 text-center">
+              <p className="text-sm text-slate-400">Business Health Score</p>
+              <h3 className="mt-2 text-5xl font-black text-white">
+                {businessHealthScore}
+              </h3>
+              <p className="text-xs text-slate-500">out of 100</p>
+            </div>
+
+            <div className="mt-5">
+              <BriefingBox
+                title="Critical Alerts"
+                items={criticalAlerts}
+                empty="No major issue detected."
+              />
+            </div>
+
+            <div className="mt-4">
+              <BriefingBox
+                title="Recommended Actions"
+                items={recommendations}
+                empty="Maintain current operation and continue monitoring."
+              />
+            </div>
+          </section>
+        </section>
+
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <KpiCard icon={<Hotel size={22} />} title="Room Sales" value={formatPeso(roomRevenue)} />
+          <KpiCard icon={<Utensils size={22} />} title="Restaurant Revenue" value={formatPeso(restaurantRevenue)} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Outstanding Guest Balance" value={formatPeso(outstandingBalance)} danger={outstandingBalance > 0} subtitle={`${unpaidReservations.length} unpaid reservation(s)`} />
+          <MiniChartCard title="Room Occupancy Trend" value={`${occupancyToday}%`} subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`} icon={<TrendingUp size={22} />} data={miniOccupancyTrend} dataKey="occupancy" />
+        </section>
+
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              <Users size={22} /> Employee Details
+            </h2>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <MiniStat title="Active Employees" value={activeEmployees.length} />
+              <MiniStat title="Inactive / Resigned" value={resignedEmployees.length} />
+              <MiniStat title="Scheduled Today" value={scheduledHCToday} />
+              <MiniStat title="Pending Leaves" value={pendingLeaves.length} />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <p className="text-sm font-bold text-slate-300">
+                Department Headcount
+              </p>
+
+              {topDepartments.length > 0 ? (
+                topDepartments.map((dept) => (
+                  <div
+                    key={dept.department}
+                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                  >
+                    <p className="text-sm font-semibold">{dept.department}</p>
+                    <p className="font-bold text-yellow-400">{dept.count}</p>
                   </div>
                 ))
               ) : (
-                <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-300">
-                  ✅ Operations healthy. No critical alerts.
-                </div>
+                <p className="text-sm text-slate-500">No employee data found.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              <Users size={22} /> Workforce Coverage
+            </h2>
+
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              <MiniStat title="Required" value={requiredHCToday} />
+              <MiniStat title="Scheduled" value={scheduledHCToday} />
+              <MiniStat title="Gap" value={hcGapToday > 0 ? `+${hcGapToday}` : hcGapToday} danger={hcGapToday < 0} />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {departmentStatus.length > 0 ? (
+                departmentStatus.slice(0, 6).map((dept) => (
+                  <div
+                    key={dept.department}
+                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-semibold">{dept.department}</p>
+                      <p className="text-xs text-slate-500">
+                        Required {dept.required} • Scheduled {dept.scheduled}
+                      </p>
+                    </div>
+
+                    <p className={dept.gap < 0 ? "font-bold text-red-400" : "font-bold text-green-400"}>
+                      {dept.gap > 0 ? `+${dept.gap}` : dept.gap}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">No workforce rule data found.</p>
               )}
             </div>
           </div>
@@ -660,7 +735,7 @@ export default function ExecutiveDashboardPage() {
 
             <div className="mt-4 space-y-3">
               {upcomingEvents.length > 0 ? (
-                upcomingEvents.slice(0, 5).map((event) => (
+                upcomingEvents.slice(0, 6).map((event) => (
                   <div key={event.id} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 p-4">
                     <div>
                       <p className="font-semibold">{event.event_name}</p>
@@ -719,22 +794,6 @@ function KpiCard({
       <h2 className="text-2xl font-bold">{value}</h2>
 
       {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
-    </div>
-  );
-}
-
-function ScoreCard({ title, value }: { title: string; value: number }) {
-  const color =
-    value >= 85
-      ? "text-green-400"
-      : value >= 70
-      ? "text-yellow-400"
-      : "text-red-400";
-
-  return (
-    <div className="rounded-xl bg-slate-950/60 p-4">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h3 className={`mt-1 text-2xl font-black ${color}`}>{value}/100</h3>
     </div>
   );
 }
@@ -812,6 +871,25 @@ function MiniChartCard({
           </ResponsiveContainer>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MiniStat({
+  title,
+  value,
+  danger,
+}: {
+  title: string;
+  value: any;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-xs text-slate-500">{title}</p>
+      <h3 className={danger ? "mt-1 text-2xl font-black text-red-400" : "mt-1 text-2xl font-black text-white"}>
+        {value}
+      </h3>
     </div>
   );
 }
