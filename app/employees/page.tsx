@@ -34,6 +34,26 @@ type Employee = {
   payroll_notes: string;
   hire_date: string;
   contact_number: string;
+
+  sss_no?: string;
+  philhealth_no?: string;
+  pagibig_no?: string;
+  tin_no?: string;
+
+  birth_date?: string;
+  gender?: string;
+  civil_status?: string;
+  address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_number?: string;
+  emergency_contact_relationship?: string;
+
+  has_resume?: boolean;
+  has_valid_id?: boolean;
+  has_contract?: boolean;
+  has_nbi_clearance?: boolean;
+  has_medical?: boolean;
+  has_training_records?: boolean;
 };
 
 export default function EmployeesPage() {
@@ -56,6 +76,27 @@ export default function EmployeesPage() {
   const [contactNumber, setContactNumber] = useState("");
   const [hireDate, setHireDate] = useState("");
 
+  const [birthDate, setBirthDate] = useState("");
+  const [gender, setGender] = useState("");
+  const [civilStatus, setCivilStatus] = useState("");
+  const [address, setAddress] = useState("");
+
+  const [emergencyContactName, setEmergencyContactName] = useState("");
+  const [emergencyContactNumber, setEmergencyContactNumber] = useState("");
+  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState("");
+
+  const [sssNo, setSssNo] = useState("");
+  const [philhealthNo, setPhilhealthNo] = useState("");
+  const [pagibigNo, setPagibigNo] = useState("");
+  const [tinNo, setTinNo] = useState("");
+
+  const [hasResume, setHasResume] = useState("No");
+  const [hasValidId, setHasValidId] = useState("No");
+  const [hasContract, setHasContract] = useState("No");
+  const [hasNbiClearance, setHasNbiClearance] = useState("No");
+  const [hasMedical, setHasMedical] = useState("No");
+  const [hasTrainingRecords, setHasTrainingRecords] = useState("No");
+
   const [rateType, setRateType] = useState("Daily");
   const [basicRate, setBasicRate] = useState("");
   const [payrollActive, setPayrollActive] = useState("Yes");
@@ -73,6 +114,9 @@ export default function EmployeesPage() {
 
   /// DATA
   const rateTypes = ["Daily", "Weekly", "Monthly"];
+  const genderOptions = ["Male", "Female", "Prefer not to say"];
+  const civilStatusOptions = ["Single", "Married", "Widowed", "Separated"];
+  const yesNoOptions = ["Yes", "No"];
 
   /// FUNCTIONS
   const formatMoney = (value: any) =>
@@ -165,6 +209,23 @@ export default function EmployeesPage() {
     setEmploymentType("");
     setContactNumber("");
     setHireDate("");
+    setBirthDate("");
+    setGender("");
+    setCivilStatus("");
+    setAddress("");
+    setEmergencyContactName("");
+    setEmergencyContactNumber("");
+    setEmergencyContactRelationship("");
+    setSssNo("");
+    setPhilhealthNo("");
+    setPagibigNo("");
+    setTinNo("");
+    setHasResume("No");
+    setHasValidId("No");
+    setHasContract("No");
+    setHasNbiClearance("No");
+    setHasMedical("No");
+    setHasTrainingRecords("No");
     setRateType("Daily");
     setBasicRate("");
     setPayrollActive("Yes");
@@ -218,6 +279,23 @@ export default function EmployeesPage() {
       employment_type: employmentType,
       contact_number: contactNumber.trim(),
       hire_date: hireDate || null,
+      birth_date: birthDate || null,
+      gender,
+      civil_status: civilStatus,
+      address: address.trim(),
+      emergency_contact_name: emergencyContactName.trim(),
+      emergency_contact_number: emergencyContactNumber.trim(),
+      emergency_contact_relationship: emergencyContactRelationship.trim(),
+      sss_no: sssNo.trim(),
+      philhealth_no: philhealthNo.trim(),
+      pagibig_no: pagibigNo.trim(),
+      tin_no: tinNo.trim(),
+      has_resume: hasResume === "Yes",
+      has_valid_id: hasValidId === "Yes",
+      has_contract: hasContract === "Yes",
+      has_nbi_clearance: hasNbiClearance === "Yes",
+      has_medical: hasMedical === "Yes",
+      has_training_records: hasTrainingRecords === "Yes",
       daily_rate: Number(basicRate || 0),
       rate_type: rateType,
       basic_rate: Number(basicRate || 0),
@@ -261,6 +339,23 @@ export default function EmployeesPage() {
     setEmploymentType(employee.employment_type || "");
     setContactNumber(employee.contact_number || "");
     setHireDate(employee.hire_date || "");
+    setBirthDate(employee.birth_date || "");
+    setGender(employee.gender || "");
+    setCivilStatus(employee.civil_status || "");
+    setAddress(employee.address || "");
+    setEmergencyContactName(employee.emergency_contact_name || "");
+    setEmergencyContactNumber(employee.emergency_contact_number || "");
+    setEmergencyContactRelationship(employee.emergency_contact_relationship || "");
+    setSssNo(employee.sss_no || "");
+    setPhilhealthNo(employee.philhealth_no || "");
+    setPagibigNo(employee.pagibig_no || "");
+    setTinNo(employee.tin_no || "");
+    setHasResume(employee.has_resume ? "Yes" : "No");
+    setHasValidId(employee.has_valid_id ? "Yes" : "No");
+    setHasContract(employee.has_contract ? "Yes" : "No");
+    setHasNbiClearance(employee.has_nbi_clearance ? "Yes" : "No");
+    setHasMedical(employee.has_medical ? "Yes" : "No");
+    setHasTrainingRecords(employee.has_training_records ? "Yes" : "No");
     setRateType(employee.rate_type || "Daily");
     setBasicRate(String(employee.basic_rate || employee.daily_rate || ""));
     setPayrollActive(employee.payroll_active === false ? "No" : "Yes");
@@ -391,6 +486,46 @@ export default function EmployeesPage() {
           hire_date:
             cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])) ||
             null,
+          birth_date:
+            cleanDate(getValue(row, ["Birth Date", "Birthday", "birth_date"])) ||
+            null,
+          gender: String(getValue(row, ["Gender", "gender"])).trim(),
+          civil_status: String(
+            getValue(row, ["Civil Status", "civil_status"])
+          ).trim(),
+          address: String(getValue(row, ["Address", "address"])).trim(),
+          emergency_contact_name: String(
+            getValue(row, ["Emergency Contact Name", "emergency_contact_name"])
+          ).trim(),
+          emergency_contact_number: String(
+            getValue(row, ["Emergency Contact Number", "emergency_contact_number"])
+          ).trim(),
+          emergency_contact_relationship: String(
+            getValue(row, [
+              "Emergency Contact Relationship",
+              "emergency_contact_relationship",
+            ])
+          ).trim(),
+          sss_no: String(getValue(row, ["SSS No", "SSS", "sss_no"])).trim(),
+          philhealth_no: String(
+            getValue(row, ["PhilHealth No", "PhilHealth", "philhealth_no"])
+          ).trim(),
+          pagibig_no: String(
+            getValue(row, ["Pag-IBIG No", "PagIBIG", "pagibig_no"])
+          ).trim(),
+          tin_no: String(getValue(row, ["TIN No", "TIN", "tin_no"])).trim(),
+          has_resume:
+            String(getValue(row, ["Has Resume", "Resume"])).toLowerCase() === "yes",
+          has_valid_id:
+            String(getValue(row, ["Has Valid ID", "Valid ID"])).toLowerCase() === "yes",
+          has_contract:
+            String(getValue(row, ["Has Contract", "Contract"])).toLowerCase() === "yes",
+          has_nbi_clearance:
+            String(getValue(row, ["Has NBI", "NBI Clearance"])).toLowerCase() === "yes",
+          has_medical:
+            String(getValue(row, ["Has Medical", "Medical"])).toLowerCase() === "yes",
+          has_training_records:
+            String(getValue(row, ["Has Training Records", "Training Records"])).toLowerCase() === "yes",
           daily_rate: basicRateValue,
           rate_type: rateTypes.includes(rateTypeValue) ? rateTypeValue : "Daily",
           basic_rate: basicRateValue,
@@ -450,6 +585,23 @@ export default function EmployeesPage() {
       "Payroll Active": emp.payroll_active === false ? "No" : "Yes",
       "Contact Number": emp.contact_number,
       "Hire Date": emp.hire_date,
+      "Birth Date": emp.birth_date,
+      Gender: emp.gender,
+      "Civil Status": emp.civil_status,
+      Address: emp.address,
+      "Emergency Contact Name": emp.emergency_contact_name,
+      "Emergency Contact Number": emp.emergency_contact_number,
+      "Emergency Contact Relationship": emp.emergency_contact_relationship,
+      "SSS No": emp.sss_no,
+      "PhilHealth No": emp.philhealth_no,
+      "Pag-IBIG No": emp.pagibig_no,
+      "TIN No": emp.tin_no,
+      "Has Resume": emp.has_resume ? "Yes" : "No",
+      "Has Valid ID": emp.has_valid_id ? "Yes" : "No",
+      "Has Contract": emp.has_contract ? "Yes" : "No",
+      "Has NBI Clearance": emp.has_nbi_clearance ? "Yes" : "No",
+      "Has Medical": emp.has_medical ? "Yes" : "No",
+      "Has Training Records": emp.has_training_records ? "Yes" : "No",
       Notes: emp.payroll_notes,
     }));
 
@@ -490,6 +642,20 @@ export default function EmployeesPage() {
 
   const missingEmailCount = activeEmployeeRows.filter((emp) => !emp.email).length;
 
+  const incomplete201Count = activeEmployeeRows.filter(
+    (emp) =>
+      !emp.contact_number ||
+      !emp.hire_date ||
+      !emp.emergency_contact_name ||
+      !emp.emergency_contact_number ||
+      !emp.has_valid_id ||
+      !emp.has_contract
+  ).length;
+
+  const missingGovInfoCount = activeEmployeeRows.filter(
+    (emp) => !emp.sss_no || !emp.philhealth_no || !emp.pagibig_no || !emp.tin_no
+  ).length;
+
   const totalMonthlyPayrollEstimate = activeEmployeeRows.reduce((sum, emp) => {
     const rate = Number(emp.basic_rate || emp.daily_rate || 0);
 
@@ -520,7 +686,13 @@ export default function EmployeesPage() {
       !emp.department ||
       !emp.position ||
       !emp.employment_type ||
-      !emp.basic_rate
+      !emp.basic_rate ||
+      !emp.contact_number ||
+      !emp.hire_date ||
+      !emp.emergency_contact_name ||
+      !emp.emergency_contact_number ||
+      !emp.has_valid_id ||
+      !emp.has_contract
   );
 
   const filteredEmployees = useMemo(() => {
@@ -562,11 +734,12 @@ export default function EmployeesPage() {
           </button>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
           <KpiCard icon={<Users size={22} />} title="Total Employees" value={totalEmployees} />
           <KpiCard icon={<BadgeCheck size={22} />} title="Active Employees" value={activeEmployees} success />
           <KpiCard icon={<Briefcase size={22} />} title="Payroll Active" value={payrollActiveCount} />
           <KpiCard icon={<Mail size={22} />} title="Missing Email" value={missingEmailCount} danger={missingEmailCount > 0} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Incomplete 201" value={incomplete201Count} danger={incomplete201Count > 0} />
           <KpiCard icon={<DollarSignIcon />} title="Est. Monthly Payroll" value={formatMoney(totalMonthlyPayrollEstimate)} />
         </section>
 
@@ -604,6 +777,38 @@ export default function EmployeesPage() {
                   <Input label="Last Name *" value={lastName} setValue={setLastName} />
                   <Input label="Contact Number" value={contactNumber} setValue={setContactNumber} />
                   <Input label="Hire Date" type="date" value={hireDate} setValue={setHireDate} />
+                  <Input label="Birth Date" type="date" value={birthDate} setValue={setBirthDate} />
+                  <Select label="Gender" value={gender} setValue={setGender} options={genderOptions} />
+                  <Select label="Civil Status" value={civilStatus} setValue={setCivilStatus} options={civilStatusOptions} />
+                  <Input label="Address" value={address} setValue={setAddress} />
+                </div>
+              </FormPanel>
+
+              <FormPanel title="Government Information">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input label="SSS No." value={sssNo} setValue={setSssNo} />
+                  <Input label="PhilHealth No." value={philhealthNo} setValue={setPhilhealthNo} />
+                  <Input label="Pag-IBIG No." value={pagibigNo} setValue={setPagibigNo} />
+                  <Input label="TIN No." value={tinNo} setValue={setTinNo} />
+                </div>
+              </FormPanel>
+
+              <FormPanel title="Emergency Contact">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input label="Contact Person" value={emergencyContactName} setValue={setEmergencyContactName} />
+                  <Input label="Contact Number" value={emergencyContactNumber} setValue={setEmergencyContactNumber} />
+                  <Input label="Relationship" value={emergencyContactRelationship} setValue={setEmergencyContactRelationship} />
+                </div>
+              </FormPanel>
+
+              <FormPanel title="201 File Checklist">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <Select label="Resume / Bio Data" value={hasResume} setValue={setHasResume} options={yesNoOptions} />
+                  <Select label="Valid ID" value={hasValidId} setValue={setHasValidId} options={yesNoOptions} />
+                  <Select label="Employment Contract" value={hasContract} setValue={setHasContract} options={yesNoOptions} />
+                  <Select label="NBI Clearance" value={hasNbiClearance} setValue={setHasNbiClearance} options={yesNoOptions} />
+                  <Select label="Medical / Health Cert" value={hasMedical} setValue={setHasMedical} options={yesNoOptions} />
+                  <Select label="Training Records" value={hasTrainingRecords} setValue={setHasTrainingRecords} options={yesNoOptions} />
                 </div>
               </FormPanel>
 
@@ -640,6 +845,7 @@ export default function EmployeesPage() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <MiniStat title="Archived Employees" value={archivedEmployees} />
                   <MiniStat title="Records With Issues" value={employeesWithIssues.length} danger={employeesWithIssues.length > 0} />
+                  <MiniStat title="Missing Gov Info" value={missingGovInfoCount} danger={missingGovInfoCount > 0} />
                 </div>
 
                 <div className="mt-4 space-y-2">
@@ -722,7 +928,8 @@ export default function EmployeesPage() {
               </p>
               <p className="mt-2 text-xs leading-6 text-slate-500">
                 Employee No, First Name, Last Name, Email, Department, Position,
-                Status, Employment Type, Rate Type, Basic Rate, Contact, Hire Date.
+                Status, Employment Type, Rate Type, Basic Rate, Contact, Hire Date,
+                SSS No, PhilHealth No, Pag-IBIG No, TIN No, Emergency Contact.
               </p>
             </div>
 
@@ -815,7 +1022,7 @@ export default function EmployeesPage() {
           </div>
 
           <div className="max-h-[680px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1500px] text-sm">
+            <table className="w-full min-w-[1900px] text-sm">
               <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
@@ -827,6 +1034,8 @@ export default function EmployeesPage() {
                   <th className="px-4 py-3">Rate Type</th>
                   <th className="px-4 py-3 text-right">Basic Rate</th>
                   <th className="px-4 py-3">Payroll</th>
+                  <th className="px-4 py-3">Gov IDs</th>
+                  <th className="px-4 py-3">201 File</th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
@@ -885,6 +1094,30 @@ export default function EmployeesPage() {
                       </td>
 
                       <td className="px-4 py-3">
+                        {emp.sss_no && emp.philhealth_no && emp.pagibig_no && emp.tin_no ? (
+                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                            Complete
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-bold text-yellow-300">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {emp.has_valid_id && emp.has_contract ? (
+                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                            Ready
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
+                            Incomplete
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={() => editEmployee(emp)}
@@ -917,7 +1150,7 @@ export default function EmployeesPage() {
                 {filteredEmployees.length === 0 && (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={12}
                       className="px-4 py-12 text-center text-slate-500"
                     >
                       No employees found.
