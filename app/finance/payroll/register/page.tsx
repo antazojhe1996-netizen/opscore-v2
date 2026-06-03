@@ -1,11 +1,22 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Brain,
+  CheckCircle2,
+  DollarSign,
+  FileCheck,
+  Printer,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
 export default function PayrollRegisterPage() {
-  /// STATES
   const [employees, setEmployees] = useState<any[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [periods, setPeriods] = useState<any[]>([]);
@@ -32,7 +43,6 @@ export default function PayrollRegisterPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  /// DATA
   const deductionTypes = [
     "Resto Unpaid",
     "Cash Advance",
@@ -42,7 +52,6 @@ export default function PayrollRegisterPage() {
 
   const earningTypes = ["Allowance", "Bonus", "Incentive"];
 
-  /// FUNCTIONS
   const formatMoney = (value: any) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
@@ -69,7 +78,6 @@ export default function PayrollRegisterPage() {
   };
 
   const isAbsent = (entry: any) => normalize(entry.status) === "absent";
-
   const hasActualTime = (entry: any) => Boolean(entry.time_in || entry.time_out);
 
   const getScheduleLabel = (entry: any) =>
@@ -148,8 +156,6 @@ export default function PayrollRegisterPage() {
       holiday_date: normalizeDate(holiday.holiday_date),
     }));
 
-    console.log("PAYROLL HOLIDAYS:", mapped);
-
     setHolidays(mapped);
     return mapped;
   };
@@ -190,6 +196,8 @@ export default function PayrollRegisterPage() {
     if (error) return console.log("GET ADJUSTMENTS ERROR:", error.message);
     setAdjustments(data || []);
   };
+
+  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
 
   const createPeriod = async () => {
     if (!periodName.trim() || !startDate || !endDate) {
@@ -266,7 +274,6 @@ export default function PayrollRegisterPage() {
     setCheckedAuditItems([]);
 
     await getPeriods();
-    alert("Payroll period deleted.");
   };
 
   const getAttendanceRows = async (employeeId: string) => {
@@ -299,10 +306,7 @@ export default function PayrollRegisterPage() {
       restDays: restRows.length,
       daysWorked: workRows.filter((row) => !isAbsent(row) && hasActualTime(row)).length,
       lateMinutes: workRows.reduce((sum, row) => sum + Number(row.late_minutes || 0), 0),
-      undertimeMinutes: workRows.reduce(
-        (sum, row) => sum + Number(row.undertime_minutes || 0),
-        0
-      ),
+      undertimeMinutes: workRows.reduce((sum, row) => sum + Number(row.undertime_minutes || 0), 0),
       absentDays: workRows.filter((row) => isAbsent(row) || !hasActualTime(row)).length,
       otMinutes: workRows.reduce((sum, row) => sum + Number(row.ot_minutes || 0), 0),
       holidayWorkedDates: workRows
@@ -375,15 +379,6 @@ export default function PayrollRegisterPage() {
         }, 0)
       : 0;
 
-    console.log("HOLIDAY PAY CHECK:", {
-      employee: base.employee_name,
-      holidayEnabled,
-      holidayWorkedDates,
-      activeHolidays,
-      matchedHolidays,
-      holidayPay,
-    });
-
     const manualEarnings = employeeAdjustments
       .filter((item) => item.adjustment_direction === "Earning")
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -401,6 +396,7 @@ export default function PayrollRegisterPage() {
 
     return {
       ...base,
+      status: "Draft",
       basic_pay: basicPay,
       holiday_pay: holidayPay,
       ot_pay: otPay,
@@ -412,6 +408,7 @@ export default function PayrollRegisterPage() {
       total_deductions: totalDeductions,
       gross_pay: grossPay,
       net_pay: netPay,
+      period_label: selectedPeriod?.period_name || "Payroll Period",
     };
   };
 
@@ -491,7 +488,7 @@ export default function PayrollRegisterPage() {
     setPayslipAdjustments([]);
     setCheckedAuditItems([]);
 
-    alert("Payroll generated using latest holiday payroll logic.");
+    alert("Payroll generated.");
   };
 
   const addAdjustment = async () => {
@@ -517,6 +514,7 @@ export default function PayrollRegisterPage() {
       adjustment_direction: direction,
       amount: Number(adjustmentAmount || 0),
       remarks: adjustmentRemarks,
+      status: "Pending",
     });
 
     setIsSaving(false);
@@ -675,24 +673,41 @@ export default function PayrollRegisterPage() {
       if (!proceed) return;
     }
 
-    const confirmApprove = confirm("Approve this payroll period?");
+    const confirmApprove = confirm(
+      "Approve this payroll period and send records to Payroll Manager for release?"
+    );
+
     if (!confirmApprove) return;
 
-    const { error } = await supabase
+    const { error: periodError } = await supabase
       .from("payroll_periods")
       .update({ status: "Approved" })
       .eq("id", selectedPeriodId);
 
-    if (error) {
-      alert("Failed to approve payroll.");
-      return console.log("APPROVE ERROR:", error.message);
+    if (periodError) {
+      alert("Failed to approve payroll period.");
+      return console.log("APPROVE PERIOD ERROR:", periodError.message);
+    }
+
+    const { error: recordsError } = await supabase
+      .from("payroll_records")
+      .update({
+        status: "For Approval",
+        period_label: selectedPeriod?.period_name || "Payroll Period",
+      })
+      .eq("period_id", selectedPeriodId);
+
+    if (recordsError) {
+      alert("Payroll period approved, but records failed to send to Payroll Manager.");
+      return console.log("APPROVE RECORDS ERROR:", recordsError.message);
     }
 
     await getPeriods();
-    alert("Payroll approved.");
+    await getRecords(selectedPeriodId);
+
+    alert("Payroll approved and sent to Payroll Manager.");
   };
 
-  /// EFFECTS
   useEffect(() => {
     getEmployees();
     getSettings();
@@ -706,9 +721,6 @@ export default function PayrollRegisterPage() {
       getAdjustments(selectedPeriodId);
     }
   }, [selectedPeriodId]);
-
-  /// CALCULATIONS
-  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
 
   const filteredRecords = useMemo(() => {
     return records.filter((record) =>
@@ -763,7 +775,7 @@ export default function PayrollRegisterPage() {
       alerts.push({
         employee: record.employee_name,
         type: "More Than 2 Rest Days",
-        message: `${restDays} rest/off days detected in this payroll period. Review schedule setup.`,
+        message: `${restDays} rest/off days detected in this payroll period.`,
         severity: "Medium",
       });
     }
@@ -790,7 +802,7 @@ export default function PayrollRegisterPage() {
       alerts.push({
         employee: record.employee_name,
         type: "High Late Minutes",
-        message: `${lateMinutes} minutes late. Review employee audit tab.`,
+        message: `${lateMinutes} minutes late.`,
         severity: "Medium",
       });
     }
@@ -799,7 +811,7 @@ export default function PayrollRegisterPage() {
       alerts.push({
         employee: record.employee_name,
         type: "High Undertime",
-        message: `${undertimeMinutes} minutes undertime. Review employee audit tab.`,
+        message: `${undertimeMinutes} minutes undertime.`,
         severity: "Medium",
       });
     }
@@ -808,7 +820,7 @@ export default function PayrollRegisterPage() {
       alerts.push({
         employee: record.employee_name,
         type: "OT Needs Approval",
-        message: `${otMinutes} OT minutes detected. Confirm approval before release.`,
+        message: `${otMinutes} OT minutes detected.`,
         severity: "Medium",
       });
     }
@@ -834,60 +846,91 @@ export default function PayrollRegisterPage() {
     return alerts;
   });
 
-  /// UI
+  const highAlertCount = managerAlerts.filter(
+    (alert) => alert.severity === "High"
+  ).length;
+
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-              Payroll
-            </p>
-            <h1 className="mt-2 text-4xl font-black">Payroll Register</h1>
-            <p className="mt-2 max-w-5xl text-sm text-slate-400">
-              Schedule-aware payroll with manager audit, holiday pay, manual
-              adjustments, and detailed payslip preview.
+            <h1 className="text-3xl font-bold">Payroll Register</h1>
+            <p className="mt-2 text-slate-400">
+              Generate payroll from attendance, review deductions, audit employees, and send payroll to manager for release.
             </p>
           </div>
 
           <button
             onClick={approvePayroll}
             disabled={!selectedPeriodId || records.length === 0}
-            className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+            className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
           >
-            Approve Payroll
+            Approve & Send to Manager
           </button>
+        </div>
+
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+          <KpiCard icon={<Users size={22} />} title="Employees" value={records.length} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Manager Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
+          <KpiCard icon={<DollarSign size={22} />} title="Gross Pay" value={formatMoney(totalGross)} />
+          <KpiCard icon={<Trash2 size={22} />} title="Deductions" value={formatMoney(totalDeductions)} danger={totalDeductions > 0} />
+          <KpiCard icon={<CheckCircle2 size={22} />} title="Net Pay" value={formatMoney(totalNet)} success />
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard title="Employees" value={records.length} />
-          <SummaryCard title="Manager Alerts" value={managerAlerts.length} color="text-amber-400" />
-          <SummaryCard title="Gross Pay" value={formatMoney(totalGross)} color="text-blue-400" />
-          <SummaryCard title="Deductions" value={formatMoney(totalDeductions)} color="text-red-400" />
-          <SummaryCard title="Net Pay" value={formatMoney(totalNet)} color="text-emerald-400" />
+        <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
+          <h2 className="flex items-center gap-2 text-xl font-bold text-yellow-300">
+            <Brain size={22} /> AI Payroll Audit
+          </h2>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {managerAlerts.length > 0 ? (
+              managerAlerts.slice(0, 8).map((alert, index) => (
+                <div
+                  key={index}
+                  className={`rounded-xl border p-4 text-sm ${
+                    alert.severity === "High"
+                      ? "border-red-500/20 bg-red-500/10 text-red-200"
+                      : "border-yellow-500/20 bg-slate-950/70 text-yellow-200"
+                  }`}
+                >
+                  <p className="font-bold">{alert.employee}</p>
+                  <p className="mt-1">{alert.type}</p>
+                  <p className="mt-1 text-xs opacity-80">{alert.message}</p>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
+                ✅ No payroll audit alerts.
+              </div>
+            )}
+          </div>
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h2 className="text-xl font-black">1. Payroll Period</h2>
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
+            <h2 className="text-xl font-bold">Payroll Period</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Create, select, generate, or delete payroll period.
+            </p>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-5 space-y-3">
               <input
                 value={periodName}
                 onChange={(e) => setPeriodName(e.target.value)}
                 placeholder="June 1-15, 2026"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               />
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   style={{ colorScheme: "dark" }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 />
 
                 <input
@@ -895,14 +938,14 @@ export default function PayrollRegisterPage() {
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   style={{ colorScheme: "dark" }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 />
               </div>
 
               <button
                 onClick={createPeriod}
                 disabled={isSaving}
-                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-black hover:bg-blue-500 disabled:opacity-50"
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black hover:bg-blue-500 disabled:opacity-50"
               >
                 Create Period
               </button>
@@ -910,7 +953,7 @@ export default function PayrollRegisterPage() {
               <select
                 value={selectedPeriodId}
                 onChange={(e) => setSelectedPeriodId(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               >
                 <option value="">Select payroll period</option>
                 {periods.map((period) => (
@@ -920,11 +963,11 @@ export default function PayrollRegisterPage() {
                 ))}
               </select>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={generatePayroll}
                   disabled={isSaving || !selectedPeriodId}
-                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
+                  className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
                 >
                   Generate
                 </button>
@@ -932,26 +975,37 @@ export default function PayrollRegisterPage() {
                 <button
                   onClick={deletePeriod}
                   disabled={isSaving || !selectedPeriodId}
-                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black hover:bg-red-500 disabled:opacity-50"
+                  className="rounded-xl bg-red-600 px-4 py-3 text-sm font-black hover:bg-red-500 disabled:opacity-50"
                 >
                   Delete
                 </button>
               </div>
+
+              {selectedPeriod && (
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
+                  <p className="font-bold">{selectedPeriod.period_name}</p>
+                  <p className="mt-1 text-slate-400">
+                    {selectedPeriod.start_date} to {selectedPeriod.end_date}
+                  </p>
+                  <p className="mt-1 text-yellow-400">
+                    Status: {selectedPeriod.status}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h2 className="text-xl font-black">2. Manual Adjustment</h2>
-            <p className="text-xs text-slate-400">
-              Add or delete resto unpaid, cash advance, salary loan, allowance,
-              bonus, or other adjustments.
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+            <h2 className="text-xl font-bold">Manual Adjustments</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Add cash advance, resto unpaid, salary loan, allowance, bonus, or incentive.
             </p>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-5">
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-2"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-2"
               >
                 <option value="">Select employee</option>
                 {employees.map((employee) => (
@@ -964,7 +1018,7 @@ export default function PayrollRegisterPage() {
               <select
                 value={adjustmentType}
                 onChange={(e) => setAdjustmentType(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               >
                 {[...deductionTypes, ...earningTypes].map((type) => (
                   <option key={type}>{type}</option>
@@ -976,13 +1030,13 @@ export default function PayrollRegisterPage() {
                 value={adjustmentAmount}
                 onChange={(e) => setAdjustmentAmount(e.target.value)}
                 placeholder="Amount"
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               />
 
               <button
                 onClick={addAdjustment}
                 disabled={isSaving || !selectedPeriodId}
-                className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+                className="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
               >
                 Save
               </button>
@@ -991,133 +1045,76 @@ export default function PayrollRegisterPage() {
                 value={adjustmentRemarks}
                 onChange={(e) => setAdjustmentRemarks(e.target.value)}
                 placeholder="Remarks"
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-5"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-5"
               />
-
-              <div className="max-h-44 overflow-auto rounded-xl border border-slate-800 md:col-span-5">
-                <table className="w-full min-w-[800px] text-xs">
-                  <thead className="bg-slate-950 text-left text-slate-400">
-                    <tr>
-                      <th className="px-3 py-2">Employee</th>
-                      <th className="px-3 py-2">Type</th>
-                      <th className="px-3 py-2">Direction</th>
-                      <th className="px-3 py-2 text-right">Amount</th>
-                      <th className="px-3 py-2">Remarks</th>
-                      <th className="px-3 py-2">Action</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {adjustments.map((item) => (
-                      <tr key={item.id} className="border-t border-slate-800">
-                        <td className="px-3 py-2 font-bold">{item.employee_name}</td>
-                        <td className="px-3 py-2">{item.adjustment_type}</td>
-                        <td className="px-3 py-2">{item.adjustment_direction}</td>
-                        <td className="px-3 py-2 text-right">{formatMoney(item.amount)}</td>
-                        <td className="px-3 py-2 text-slate-400">{item.remarks || "-"}</td>
-                        <td className="px-3 py-2">
-                          <button
-                            onClick={() => deleteAdjustment(item.id)}
-                            className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-
-                    {adjustments.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
-                          No manual adjustments yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-          <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-xl font-black text-amber-400">
-                3. Manager AI Audit
-              </h2>
-              <p className="text-sm text-slate-400">
-                Employees that need checking before payroll approval.
-              </p>
             </div>
 
-            <div className="rounded-full border border-amber-500/40 px-4 py-2 text-sm font-black text-amber-400">
-              {managerAlerts.length} item/s to check
-            </div>
-          </div>
-
-          <div className="mt-4 max-h-72 overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[950px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Issue</th>
-                  <th className="px-4 py-3">Details</th>
-                  <th className="px-4 py-3">Severity</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {managerAlerts.map((alert, index) => (
-                  <tr key={index} className="border-t border-slate-800">
-                    <td className="px-4 py-3 font-black">{alert.employee}</td>
-                    <td className="px-4 py-3 text-amber-400">{alert.type}</td>
-                    <td className="px-4 py-3 text-slate-300">{alert.message}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black ${
-                          alert.severity === "High"
-                            ? "bg-red-500/10 text-red-400"
-                            : "bg-amber-500/10 text-amber-400"
-                        }`}
-                      >
-                        {alert.severity}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-
-                {managerAlerts.length === 0 && (
+            <div className="mt-5 max-h-48 overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[800px] text-xs">
+                <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
-                      No manager audit alerts.
-                    </td>
+                    <th className="px-3 py-2">Employee</th>
+                    <th className="px-3 py-2">Type</th>
+                    <th className="px-3 py-2">Direction</th>
+                    <th className="px-3 py-2 text-right">Amount</th>
+                    <th className="px-3 py-2">Remarks</th>
+                    <th className="px-3 py-2">Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {adjustments.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-800">
+                      <td className="px-3 py-2 font-bold">{item.employee_name}</td>
+                      <td className="px-3 py-2">{item.adjustment_type}</td>
+                      <td className="px-3 py-2">{item.adjustment_direction}</td>
+                      <td className="px-3 py-2 text-right">{formatMoney(item.amount)}</td>
+                      <td className="px-3 py-2 text-slate-400">{item.remarks || "-"}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          onClick={() => deleteAdjustment(item.id)}
+                          className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {adjustments.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                        No manual adjustments yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="text-xl font-black">4. Payroll Review</h2>
-              <p className="text-sm text-slate-400">
-                Click View Audit to see date, schedule, actual attendance, issue,
-                and deduction.
+              <h2 className="text-xl font-bold">Payroll Review</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Review computed payroll before approval and release.
               </p>
             </div>
 
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search employee..."
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm outline-none xl:w-80"
-            />
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-3 text-slate-500" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search employee..."
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none xl:w-80"
+              />
+            </div>
           </div>
 
-          <div className="mt-4 max-h-[650px] overflow-auto rounded-xl border border-slate-800">
+          <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
             <table className="w-full min-w-[1550px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
                 <tr>
@@ -1193,15 +1190,14 @@ export default function PayrollRegisterPage() {
         </section>
 
         {selectedAuditRecord && (
-          <section className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-5">
-            <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <section className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-6">
+            <div className="mb-5 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-black text-blue-400">
-                  5. Employee Complete Audit
+                <h2 className="text-xl font-bold text-blue-400">
+                  Employee Complete Audit
                 </h2>
                 <p className="text-sm text-slate-400">
-                  {selectedAuditRecord.employee_name} •{" "}
-                  {selectedAuditRecord.department} • {selectedAuditRecord.position}
+                  {selectedAuditRecord.employee_name} • {selectedAuditRecord.department} • {selectedAuditRecord.position}
                 </p>
               </div>
 
@@ -1210,7 +1206,7 @@ export default function PayrollRegisterPage() {
               </div>
             </div>
 
-            <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
+            <div className="overflow-auto rounded-xl border border-slate-800">
               <table className="w-full min-w-[1400px] text-sm">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
@@ -1278,10 +1274,19 @@ export default function PayrollRegisterPage() {
         )}
 
         {selectedPayslip && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h2 className="text-xl font-black">6. Detailed Payslip Preview</h2>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-xl font-bold">Detailed Payslip Preview</h2>
 
-            <div className="mt-5 bg-white p-8 text-black">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+              >
+                <Printer size={16} /> Print / Save as PDF
+              </button>
+            </div>
+
+            <div className="bg-white p-8 text-black">
               <div className="text-center">
                 <h1 className="text-2xl font-black">VINCENT RESORT HOTEL</h1>
                 <p className="text-sm">PAYSLIP</p>
@@ -1370,13 +1375,6 @@ export default function PayrollRegisterPage() {
                 {settings.payslip_footer || "This is a system-generated payslip."}
               </p>
             </div>
-
-            <button
-              onClick={() => window.print()}
-              className="mt-5 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300"
-            >
-              Print / Save as PDF
-            </button>
           </section>
         )}
       </main>
@@ -1384,11 +1382,36 @@ export default function PayrollRegisterPage() {
   );
 }
 
-function SummaryCard({ title, value, color = "text-white" }: any) {
+function KpiCard({
+  icon,
+  title,
+  value,
+  success,
+  danger,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: any;
+  success?: boolean;
+  danger?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 text-2xl font-black ${color}`}>{value}</h2>
+    <div
+      className={`rounded-2xl border p-5 ${
+        danger
+          ? "border-red-500/20 bg-red-500/10"
+          : success
+          ? "border-green-500/20 bg-green-500/10"
+          : "border-slate-800 bg-slate-900"
+      }`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+          {icon}
+        </div>
+        <p className="text-sm text-slate-400">{title}</p>
+      </div>
+      <h2 className="text-2xl font-bold">{value}</h2>
     </div>
   );
 }

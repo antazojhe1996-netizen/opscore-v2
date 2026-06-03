@@ -1,23 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type React from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Brain,
+  CalendarDays,
+  CheckCircle2,
+  Download,
+  Search,
+  UserRound,
+  XCircle,
+} from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "../lib/supabase";
+import * as XLSX from "xlsx";
 
 export default function LeaveManagementPage() {
   /// STATES
   const [employees, setEmployees] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveSettings, setLeaveSettings] = useState<any[]>([]);
+  const [leaveCredits, setLeaveCredits] = useState<any[]>([]);
 
   const [statusFilter, setStatusFilter] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
   const [employeeNo, setEmployeeNo] = useState("");
   const [leaveType, setLeaveType] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
 
-  /// CALCULATIONS
+  /// DATA
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const currentMonthKey = todayKey.slice(0, 7);
+
+  /// FUNCTIONS
   const calculateDays = () => {
     if (!startDate || !endDate) return 0;
 
@@ -27,18 +45,10 @@ export default function LeaveManagementPage() {
     if (end < start) return 0;
 
     return (
-      Math.floor(
-        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-      ) + 1
+      Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
     );
   };
 
-  const filteredLeaveRequests =
-    statusFilter === "All"
-      ? leaveRequests
-      : leaveRequests.filter((leave) => leave.status === statusFilter);
-
-  /// FUNCTIONS
   const getEmployees = async () => {
     const { data, error } = await supabase
       .from("employees")
@@ -50,7 +60,17 @@ export default function LeaveManagementPage() {
       return;
     }
 
-    setEmployees(data || []);
+    const activeEmployees = (data || []).filter((emp) => {
+      const status = String(emp.employment_status || "").toLowerCase();
+      return (
+        status !== "resigned" &&
+        status !== "terminated" &&
+        status !== "inactive" &&
+        status !== "awol"
+      );
+    });
+
+    setEmployees(activeEmployees);
   };
 
   const getLeaveRequests = async () => {
@@ -84,6 +104,33 @@ export default function LeaveManagementPage() {
     if (data && data.length > 0 && !leaveType) {
       setLeaveType(data[0].leave_type);
     }
+  };
+
+  const getLeaveCredits = async () => {
+    const { data, error } = await supabase
+      .from("employee_leave_credits")
+      .select("*");
+
+    if (error) {
+      console.log("GET LEAVE CREDITS ERROR:", error);
+      return;
+    }
+
+    setLeaveCredits(data || []);
+  };
+
+  const getEmployee = (employeeId: any) => {
+    return employees.find(
+      (emp) =>
+        String(emp.id) === String(employeeId) ||
+        String(emp.employee_no) === String(employeeId)
+    );
+  };
+
+  const getEmployeeName = (employeeId: any) => {
+    const employee = getEmployee(employeeId);
+    if (!employee) return "Unknown Employee";
+    return `${employee.first_name} ${employee.last_name}`;
   };
 
   const submitLeave = async () => {
@@ -125,18 +172,17 @@ export default function LeaveManagementPage() {
     getLeaveRequests();
   };
 
-const updateStatus = async (id: number, status: string) => {
-  const leaveRequest = leaveRequests.find((leave) => leave.id === id);
+  const updateStatus = async (id: number, status: string) => {
+    const leaveRequest = leaveRequests.find((leave) => leave.id === id);
 
-  if (!leaveRequest) {
-    alert("Leave request not found.");
-    return;
-  }
+    if (!leaveRequest) {
+      alert("Leave request not found.");
+      return;
+    }
 
     if (status === "Approved") {
       const leavePolicy = leaveSettings.find(
         (setting) => setting.leave_type === leaveRequest.leave_type
-        
       );
 
       const shouldDeductCredits = leavePolicy?.requires_credits === true;
@@ -193,19 +239,65 @@ const updateStatus = async (id: number, status: string) => {
     }
 
     getLeaveRequests();
+    getLeaveCredits();
   };
 
-  const deleteLeave = async (id: number) => {
-    const confirmDelete = confirm(
-      "Are you sure you want to delete this leave request?"
+  const cancelApproval = async (leave: any) => {
+    const confirmed = confirm(
+      "Cancel this approved leave? If credits were deducted, they will be restored."
     );
 
-    if (!confirmDelete) return;
+    if (!confirmed) return;
+
+    const leavePolicy = leaveSettings.find(
+      (setting) => setting.leave_type === leave.leave_type
+    );
+
+    const shouldRestoreCredits = leavePolicy?.requires_credits === true;
+
+    if (shouldRestoreCredits) {
+      const { data: creditData, error: creditError } = await supabase
+        .from("employee_leave_credits")
+        .select("*")
+        .eq("employee_no", leave.employee_id)
+        .eq("leave_type", leave.leave_type)
+        .single();
+
+      if (!creditError && creditData) {
+        const leaveDays = Number(leave.days || 0);
+        const remainingCredits = Number(creditData.remaining_credits || 0);
+        const usedCredits = Number(creditData.used_credits || 0);
+
+        await supabase
+          .from("employee_leave_credits")
+          .update({
+            used_credits: Math.max(usedCredits - leaveDays, 0),
+            remaining_credits: remainingCredits + leaveDays,
+          })
+          .eq("id", creditData.id);
+      }
+    }
 
     const { error } = await supabase
       .from("leave_requests")
-      .delete()
-      .eq("id", id);
+      .update({ status: "Pending" })
+      .eq("id", leave.id);
+
+    if (error) {
+      console.log("CANCEL APPROVAL ERROR:", error);
+      alert("Failed to cancel approval.");
+      return;
+    }
+
+    getLeaveRequests();
+    getLeaveCredits();
+  };
+
+  const deleteLeave = async (id: number) => {
+    const confirmDelete = confirm("Delete this leave request?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase.from("leave_requests").delete().eq("id", id);
 
     if (error) {
       console.log("DELETE LEAVE ERROR:", error);
@@ -215,172 +307,326 @@ const updateStatus = async (id: number, status: string) => {
     getLeaveRequests();
   };
 
-  const getEmployeeName = (employeeId: any) => {
-  const employee = employees.find(
-    (emp) =>
-      String(emp.id) === String(employeeId) ||
-      String(emp.employee_no) === String(employeeId)
-  );
-
-  if (!employee) return "Unknown Employee";
-
-  return `${employee.first_name} ${employee.last_name}`;
-};  
-
   const statusStyle = (status: string) => {
-    if (status === "Approved") {
-      return "bg-green-500/20 text-green-400 border-green-500/30";
-    }
-
-    if (status === "Rejected") {
-      return "bg-red-500/20 text-red-400 border-red-500/30";
-    }
-
+    if (status === "Approved") return "bg-green-500/20 text-green-400 border-green-500/30";
+    if (status === "Rejected") return "bg-red-500/20 text-red-400 border-red-500/30";
     return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
   };
 
+  const exportLeaveReport = () => {
+    const rows = filteredLeaveRequests.map((leave) => ({
+      Employee: getEmployeeName(leave.employee_id),
+      Type: leave.leave_type,
+      "Start Date": leave.start_date,
+      "End Date": leave.end_date,
+      Days: leave.days,
+      Status: leave.status,
+      Reason: leave.reason,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leave Report");
+    XLSX.writeFile(workbook, "opscore_leave_report.xlsx");
+  };
+
+  /// EFFECTS
   useEffect(() => {
     getEmployees();
     getLeaveRequests();
     getLeaveSettings();
+    getLeaveCredits();
   }, []);
+
+  /// CALCULATIONS
+  const filteredLeaveRequests = useMemo(() => {
+    return leaveRequests.filter((leave) => {
+      const employeeName = getEmployeeName(leave.employee_id).toLowerCase();
+
+      const matchesStatus =
+        statusFilter === "All" || leave.status === statusFilter;
+
+      const matchesSearch =
+        employeeName.includes(searchTerm.toLowerCase()) ||
+        String(leave.leave_type || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(leave.reason || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [leaveRequests, statusFilter, searchTerm, employees]);
+
+  const pendingCount = leaveRequests.filter(
+    (leave) => leave.status === "Pending"
+  ).length;
+
+  const approvedThisMonth = leaveRequests.filter(
+    (leave) =>
+      leave.status === "Approved" &&
+      String(leave.start_date || "").startsWith(currentMonthKey)
+  ).length;
+
+  const employeesOnLeaveToday = leaveRequests.filter(
+    (leave) =>
+      leave.status === "Approved" &&
+      todayKey >= String(leave.start_date) &&
+      todayKey <= String(leave.end_date)
+  );
+
+  const leaveDaysThisMonth = leaveRequests
+    .filter(
+      (leave) =>
+        leave.status === "Approved" &&
+        String(leave.start_date || "").startsWith(currentMonthKey)
+    )
+    .reduce((sum, leave) => sum + Number(leave.days || 0), 0);
+
+  const pendingOlderThan3Days = leaveRequests.filter((leave) => {
+    if (leave.status !== "Pending" || !leave.created_at) return false;
+
+    const created = new Date(leave.created_at);
+    const today = new Date(todayKey);
+    const diff = Math.floor(
+      (today.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    return diff >= 3;
+  });
+
+  const upcomingLeaves = leaveRequests
+    .filter(
+      (leave) =>
+        leave.status === "Approved" &&
+        String(leave.start_date) >= todayKey
+    )
+    .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+    .slice(0, 6);
+
+  const lowCreditEmployees = leaveCredits.filter(
+    (credit) => Number(credit.remaining_credits || 0) <= 2
+  );
+
+  const aiNotifications = [
+    ...(pendingCount > 0
+      ? [`${pendingCount} leave request(s) pending approval.`]
+      : []),
+    ...(pendingOlderThan3Days.length > 0
+      ? [`${pendingOlderThan3Days.length} pending request(s) are waiting for 3+ days.`]
+      : []),
+    ...(employeesOnLeaveToday.length > 0
+      ? [`${employeesOnLeaveToday.length} employee(s) are on approved leave today.`]
+      : []),
+    ...(lowCreditEmployees.length > 0
+      ? [`${lowCreditEmployees.length} leave credit record(s) are low or nearly exhausted.`]
+      : []),
+  ];
+
+  const selectedEmployeeCredits = leaveCredits.filter(
+    (credit) => String(credit.employee_no) === String(employeeNo)
+  );
 
   /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="flex-1 p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Leave Management</h1>
-          <p className="text-sm text-slate-400">
-            Submit, approve, and monitor employee leave requests.
-          </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Leave Management</h1>
+            <p className="mt-2 text-slate-400">
+              Submit, approve, monitor credits, and sync approved leaves with scheduling.
+            </p>
+          </div>
+
+          <button
+            onClick={exportLeaveReport}
+            className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+          >
+            <Download size={16} /> Export Leave Report
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="mb-6 text-2xl font-bold">Submit Leave Request</h2>
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <KpiCard icon={<AlertTriangle size={22} />} title="Pending Requests" value={pendingCount} danger={pendingCount > 0} />
+          <KpiCard icon={<CheckCircle2 size={22} />} title="Approved This Month" value={approvedThisMonth} success />
+          <KpiCard icon={<UserRound size={22} />} title="On Leave Today" value={employeesOnLeaveToday.length} danger={employeesOnLeaveToday.length > 0} />
+          <KpiCard icon={<CalendarDays size={22} />} title="Leave Days This Month" value={leaveDaysThisMonth} />
+        </section>
 
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm text-slate-400">
-                  Employee
-                </label>
+        <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
+          <h2 className="flex items-center gap-2 text-xl font-bold text-yellow-300">
+            <Brain size={22} /> AI Leave Notifications
+          </h2>
 
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {aiNotifications.length > 0 ? (
+              aiNotifications.map((note, index) => (
+                <div
+                  key={index}
+                  className="rounded-xl border border-yellow-500/20 bg-slate-950/70 p-4 text-sm text-yellow-200"
+                >
+                  ⚠ {note}
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
+                ✅ No leave alerts. Leave operations are currently healthy.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+            <h2 className="text-xl font-bold">Submit Leave Request</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Approved leave will automatically block scheduling.
+            </p>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Employee">
                 <select
                   value={employeeNo}
                   onChange={(e) => setEmployeeNo(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 >
                   <option value="">Select employee</option>
-
                   {employees.map((employee) => (
-                    <option
-                    key={employee.id}
-                    value={employee.id}
-                    className="bg-slate-950 text-white"
-                  >
+                    <option key={employee.id} value={employee.id}>
                       {employee.first_name} {employee.last_name}
                     </option>
                   ))}
                 </select>
-              </div>
+              </Field>
 
-              <div>
-                <label className="mb-1 block text-sm text-slate-400">
-                  Leave Type
-                </label>
-
+              <Field label="Leave Type">
                 <select
                   value={leaveType}
                   onChange={(e) => setLeaveType(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 >
                   {leaveSettings.length === 0 && (
                     <option value="">No enabled leave types</option>
                   )}
 
                   {leaveSettings.map((leave) => (
-                    <option
-                      key={leave.id}
-                      value={leave.leave_type}
-                      className="bg-slate-950 text-white"
-                    >
+                    <option key={leave.id} value={leave.leave_type}>
                       {leave.leave_type}
                     </option>
                   ))}
                 </select>
-              </div>
+              </Field>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-sm text-slate-400">
-                    Start Date
-                  </label>
-
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    style={{ colorScheme: "dark" }}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm text-slate-400">
-                    End Date
-                  </label>
-
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    style={{ colorScheme: "dark" }}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm text-slate-400">
-                  Reason
-                </label>
-
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  rows={4}
-                  placeholder="Enter reason..."
-                  className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+              <Field label="Start Date">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 />
-              </div>
+              </Field>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                Total Days:{" "}
-                <span className="font-semibold text-white">
-                  {calculateDays()}
-                </span>
-              </div>
+              <Field label="End Date">
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+              </Field>
 
+              <div className="md:col-span-2">
+                <Field label="Reason">
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={3}
+                    placeholder="Enter reason..."
+                    className="w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <MiniStat title="Total Days" value={calculateDays()} />
               <button
                 onClick={submitLeave}
-                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
+                className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
               >
                 Submit Leave
               </button>
             </div>
-          </section>
+          </div>
 
-          <section className="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Leave Requests</h2>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
+            <h2 className="text-xl font-bold">Leave Credits Summary</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Shows selected employee credits when available.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              {selectedEmployeeCredits.length > 0 ? (
+                selectedEmployeeCredits.map((credit) => (
+                  <div
+                    key={credit.id}
+                    className="rounded-xl border border-slate-800 bg-slate-950 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold">{credit.leave_type}</p>
+                      <p
+                        className={
+                          Number(credit.remaining_credits || 0) <= 2
+                            ? "font-black text-red-400"
+                            : "font-black text-green-400"
+                        }
+                      >
+                        {credit.remaining_credits || 0} left
+                      </p>
+                    </div>
+
+                    <p className="mt-2 text-xs text-slate-500">
+                      Used: {credit.used_credits || 0} • Total:{" "}
+                      {credit.total_credits || credit.credits || "-"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
+                  Select an employee to view leave credits.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Leave Requests</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Review approvals, rejections, and leave history.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search leave..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none"
+                />
+              </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-white outline-none"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm outline-none"
               >
                 <option value="All">All</option>
                 <option value="Pending">Pending</option>
@@ -388,101 +634,172 @@ const updateStatus = async (id: number, status: string) => {
                 <option value="Rejected">Rejected</option>
               </select>
             </div>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-slate-800 text-left text-slate-400">
-                    <th className="py-3 pr-4">Employee</th>
-                    <th className="py-3 pr-4">Type</th>
-                    <th className="py-3 pr-4">Date Range</th>
-                    <th className="py-3 pr-4">Days</th>
-                    <th className="py-3 pr-4">Status</th>
-                    <th className="py-3 pr-4">Actions</th>
-                  </tr>
-                </thead>
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[1100px] text-sm">
+              <thead className="bg-slate-950 text-left text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Date Range</th>
+                  <th className="px-4 py-3">Days</th>
+                  <th className="px-4 py-3">Reason</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Actions</th>
+                </tr>
+              </thead>
 
-                <tbody>
-                  {filteredLeaveRequests.map((leave) => (
-                    <tr
-                      key={leave.id}
-                      className="border-b border-slate-800/70 text-slate-200"
-                    >
-                      <td className="py-3 pr-4">
-                        {getEmployeeName(leave.employee_id)}
-                      </td>
-
-                      <td className="py-3 pr-4">{leave.leave_type}</td>
-
-                      <td className="py-3 pr-4">
-                        {leave.start_date} to {leave.end_date}
-                      </td>
-
-                      <td className="py-3 pr-4">{leave.days}</td>
-
-                      <td className="py-3 pr-4">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
-                            leave.status
-                          )}`}
-                        >
-                          {leave.status}
-                        </span>
-                      </td>
-
-                      <td className="py-3 pr-4">
-                        <div className="flex gap-2">
-                          {leave.status === "Pending" && (
-                            <>
-                              <button
-                                onClick={() =>
-                                  updateStatus(leave.id, "Approved")
-                                }
-                                className="rounded-lg bg-green-600 px-3 py-1 text-xs font-semibold hover:bg-green-500"
-                              >
-                                Approve
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  updateStatus(leave.id, "Rejected")
-                                }
-                                className="rounded-lg bg-red-600 px-3 py-1 text-xs font-semibold hover:bg-red-500"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-
-                          {leave.status !== "Pending" && (
-                            <button
-                              onClick={() => deleteLeave(leave.id)}
-                              className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filteredLeaveRequests.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="py-8 text-center text-slate-500"
+              <tbody>
+                {filteredLeaveRequests.map((leave) => (
+                  <tr
+                    key={leave.id}
+                    className="border-t border-slate-800 hover:bg-slate-800/40"
+                  >
+                    <td className="px-4 py-3 font-bold">
+                      {getEmployeeName(leave.employee_id)}
+                    </td>
+                    <td className="px-4 py-3">{leave.leave_type}</td>
+                    <td className="px-4 py-3">
+                      {leave.start_date} to {leave.end_date}
+                    </td>
+                    <td className="px-4 py-3">{leave.days}</td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {leave.reason || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-bold ${statusStyle(
+                          leave.status
+                        )}`}
                       >
-                        No leave requests found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+                        {leave.status}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {leave.status === "Pending" && (
+                          <>
+                            <button
+                              onClick={() => updateStatus(leave.id, "Approved")}
+                              className="rounded-lg bg-green-600 px-3 py-1 text-xs font-bold hover:bg-green-500"
+                            >
+                              Approve
+                            </button>
+
+                            <button
+                              onClick={() => updateStatus(leave.id, "Rejected")}
+                              className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                        {leave.status === "Approved" && (
+                          <button
+                            onClick={() => cancelApproval(leave)}
+                            className="rounded-lg bg-yellow-600 px-3 py-1 text-xs font-bold hover:bg-yellow-500"
+                          >
+                            Cancel Approval
+                          </button>
+                        )}
+
+                        {leave.status !== "Approved" && (
+                          <button
+                            onClick={() => deleteLeave(leave.id)}
+                            className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredLeaveRequests.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-12 text-center text-slate-500"
+                    >
+                      No leave requests found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
+    </div>
+  );
+}
+
+function KpiCard({
+  icon,
+  title,
+  value,
+  success,
+  danger,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: any;
+  success?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 ${
+        danger
+          ? "border-red-500/20 bg-red-500/10"
+          : success
+          ? "border-green-500/20 bg-green-500/10"
+          : "border-slate-800 bg-slate-900"
+      }`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+          {icon}
+        </div>
+        <p className="text-sm text-slate-400">{title}</p>
+      </div>
+      <h2 className="text-2xl font-bold">{value}</h2>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-semibold text-slate-300">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function MiniStat({
+  title,
+  value,
+}: {
+  title: string;
+  value: any;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-xs text-slate-500">{title}</p>
+      <h3 className="mt-1 text-2xl font-black text-white">{value}</h3>
     </div>
   );
 }
