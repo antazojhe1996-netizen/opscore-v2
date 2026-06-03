@@ -99,32 +99,29 @@ export default function PayrollRegisterPage() {
   const showTax = isSettingEnabled(settings, "withholding_tax_enabled");
 
   const getGovernmentDeductionTotal = (record: any) =>
-    Number(record?.sss_deduction || 0) +
-    Number(record?.philhealth_deduction || 0) +
-    Number(record?.pagibig_deduction || 0) +
-    Number(record?.tax_deduction || 0);
+    Number(record.sss_deduction || 0) +
+    Number(record.philhealth_deduction || 0) +
+    Number(record.pagibig_deduction || 0) +
+    Number(record.tax_deduction || 0);
 
   const getAutoDeductionTotal = (record: any) =>
-    Number(record?.late_deduction || 0) +
-    Number(record?.undertime_deduction || 0) +
-    Number(record?.absent_deduction || 0);
+    Number(record.late_deduction || 0) +
+    Number(record.undertime_deduction || 0) +
+    Number(record.absent_deduction || 0);
 
   const getDisplayedTotalDeductions = (record: any) => {
-    if (!record) return 0;
-
     const rebuiltTotal =
       getAutoDeductionTotal(record) +
-      Number(record?.manual_deduction || 0) +
-      Number(record?.balance_deduction || 0) +
+      Number(record.manual_deduction || 0) +
+      Number(record.balance_deduction || 0) +
       getGovernmentDeductionTotal(record);
 
-    const savedTotal = Number(record?.total_deductions || 0);
-
+    const savedTotal = Number(record.total_deductions || 0);
     return Math.max(savedTotal, rebuiltTotal);
   };
 
   const getDisplayedNetPay = (record: any) =>
-    Number(record?.gross_pay || 0) - getDisplayedTotalDeductions(record);
+    Number(record.gross_pay || 0) - getDisplayedTotalDeductions(record);
 
   const getDisplayedReleaseAmount = (record: any) =>
     Math.max(getDisplayedNetPay(record), 0);
@@ -583,7 +580,7 @@ export default function PayrollRegisterPage() {
     const governmentEnabled = isGovernmentEnabled(activeSettings);
 
     // Phase 2-ready fields.
-    // For Vincent Phase 1, these stay 0 unless enabled and computation tables are added later.
+    // Production-safe for Vincent Phase 1: keep at 0 until actual government formulas are added.
     const sssDeduction =
       governmentEnabled && isSettingEnabled(activeSettings, "sss_enabled") ? 0 : 0;
 
@@ -1028,7 +1025,9 @@ export default function PayrollRegisterPage() {
     const activeRecord = freshRecord || record;
 
     setRecords((prev) =>
-      prev.map((item) => (String(item.id) === String(activeRecord.id) ? activeRecord : item))
+      prev.map((item) =>
+        String(item.id) === String(activeRecord.id) ? activeRecord : item
+      )
     );
 
     setSelectedAuditRecord(activeRecord);
@@ -1158,12 +1157,6 @@ Status will become: For Approval`;
       getRecords(selectedPeriodId);
       getAdjustments(selectedPeriodId);
       setSelectedRecordIds([]);
-      setSelectedPayslipId("");
-      setSelectedPayslip(null);
-      setSelectedAuditRecord(null);
-      setAuditLogs([]);
-      setPayslipAdjustments([]);
-      setCheckedAuditItems([]);
     }
   }, [selectedPeriodId]);
 
@@ -1174,7 +1167,6 @@ Status will become: For Approval`;
         .includes(searchTerm.toLowerCase())
     );
   }, [records, searchTerm]);
-
 
   const totalGross = records.reduce(
     (sum, record) => sum + Number(record.gross_pay || 0),
@@ -2302,13 +2294,13 @@ Status will become: For Approval`;
 
                     <table className="w-full">
                       <tbody>
-                        <PayslipLine label="Basic Pay" value={formatMoney(selectedPayslip?.basic_pay)} />
-                        <PayslipLine label="Holiday Pay" value={formatMoney(selectedPayslip?.holiday_pay)} />
-                        <PayslipLine label="OT Pay" value={formatMoney(selectedPayslip?.ot_pay)} />
-                        <PayslipLine label="Allowance / Bonus" value={formatMoney(selectedPayslip?.allowance)} />
+                        <PayslipLine label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
+                        <PayslipLine label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
+                        <PayslipLine label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
+                        <PayslipLine label="Allowance / Bonus" value={formatMoney(selectedPayslip.allowance)} />
                         <PayslipLine
                           label="Gross Pay"
-                          value={formatMoney(selectedPayslip?.gross_pay)}
+                          value={formatMoney(selectedPayslip.gross_pay)}
                           strong
                         />
                       </tbody>
