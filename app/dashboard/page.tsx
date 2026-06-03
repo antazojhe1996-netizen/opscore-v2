@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Brain,
-  CalendarDays,
   DollarSign,
   Hotel,
   Receipt,
@@ -13,6 +12,7 @@ import {
   TrendingUp,
   Utensils,
   Users,
+  Wallet,
 } from "lucide-react";
 import {
   Area,
@@ -42,6 +42,7 @@ export default function ExecutiveDashboardPage() {
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [hcRules, setHcRules] = useState<any>(null);
   const [bills, setBills] = useState<any[]>([]);
+  const [cashDrawers, setCashDrawers] = useState<any[]>([]);
 
   /// DATA
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -61,6 +62,8 @@ export default function ExecutiveDashboardPage() {
         row.transaction_date ||
         row.expense_date ||
         row.event_date ||
+        row.drawer_date ||
+        row.opened_at ||
         row.created_at ||
         ""
     ).slice(0, 10);
@@ -80,6 +83,52 @@ export default function ExecutiveDashboardPage() {
 
     return Number(amount || 0);
   };
+
+  const getDrawerExpectedCash = (drawer: any) =>
+    Number(
+      drawer.expected_cash ??
+        drawer.expected_amount ??
+        drawer.expected_total ??
+        drawer.system_cash ??
+        drawer.total_expected ??
+        drawer.cash_expected ??
+        0
+    );
+
+  const getDrawerActualCash = (drawer: any) =>
+    Number(
+      drawer.actual_cash ??
+        drawer.actual_amount ??
+        drawer.actual_total ??
+        drawer.counted_cash ??
+        drawer.cash_count ??
+        drawer.total_actual ??
+        0
+    );
+
+  const getDrawerVariance = (drawer: any) => {
+    const savedVariance =
+      drawer.variance ??
+      drawer.cash_variance ??
+      drawer.drawer_variance ??
+      drawer.difference;
+
+    if (savedVariance !== undefined && savedVariance !== null) {
+      return Number(savedVariance || 0);
+    }
+
+    return getDrawerActualCash(drawer) - getDrawerExpectedCash(drawer);
+  };
+
+  const getDrawerStatus = (drawer: any) =>
+    String(drawer.status || drawer.drawer_status || "").toLowerCase();
+
+  const getDrawerCashier = (drawer: any) =>
+    drawer.cashier_name ||
+    drawer.cashier ||
+    drawer.employee_name ||
+    drawer.opened_by ||
+    "Cashier";
 
   /// FUNCTIONS
   const getRowsFromTables = async (tableNames: string[]) => {
@@ -117,6 +166,13 @@ export default function ExecutiveDashboardPage() {
       .select("*")
       .order("due_date", { ascending: true });
 
+    const drawerData = await getRowsFromTables([
+      "finance_cash_drawers",
+      "cash_drawers",
+      "finance_cash_management",
+      "cash_management",
+    ]);
+
     const { data: eventsData } = await supabase
       .from("event_addons")
       .select("*")
@@ -137,6 +193,7 @@ export default function ExecutiveDashboardPage() {
     setRestaurantSales(restaurantSalesData || []);
     setExpenses(expensesData || []);
     setBills(billsData || []);
+    setCashDrawers(drawerData || []);
     setEvents(eventsData || []);
     setSchedules(schedulesData || []);
     setEmployees(employeesData || []);
@@ -231,7 +288,9 @@ export default function ExecutiveDashboardPage() {
   const availableRoomsToday = Number(todayOccupancy?.available_rooms || 0);
   const occupancyToday = Number(todayOccupancy?.occupancy || 0);
 
-  const unpaidBills = bills.filter((bill) => bill.status !== "Paid" && bill.status !== "Cancelled");
+  const unpaidBills = bills.filter(
+    (bill) => bill.status !== "Paid" && bill.status !== "Cancelled"
+  );
 
   const overdueBills = unpaidBills.filter((bill) => {
     const daysLeft = getDaysLeft(bill.due_date);
@@ -250,10 +309,6 @@ export default function ExecutiveDashboardPage() {
 
   const todayEvents = events.filter(
     (event) => String(event.event_date) === todayKey
-  );
-
-  const upcomingEvents = events.filter(
-    (event) => String(event.event_date) >= todayKey
   );
 
   const getRequiredHCByDepartment = () => {
@@ -373,12 +428,52 @@ export default function ExecutiveDashboardPage() {
   const topShare =
     totalRevenue > 0 ? Math.round((topSource.value / totalRevenue) * 100) : 0;
 
+  const openDrawers = cashDrawers.filter((drawer) => {
+    const status = getDrawerStatus(drawer);
+    return status === "open" || status === "active" || status === "pending";
+  });
+
+  const closedDrawers = cashDrawers.filter((drawer) => {
+    const status = getDrawerStatus(drawer);
+    return status === "closed" || status === "completed";
+  });
+
+  const drawerRowsForSummary =
+    openDrawers.length > 0 ? openDrawers : cashDrawers.filter((drawer) => isWithinRange(getDateValue(drawer)));
+
+  const expectedCash = drawerRowsForSummary.reduce(
+    (sum, drawer) => sum + getDrawerExpectedCash(drawer),
+    0
+  );
+
+  const actualCash = drawerRowsForSummary.reduce(
+    (sum, drawer) => sum + getDrawerActualCash(drawer),
+    0
+  );
+
+  const totalVariance = drawerRowsForSummary.reduce(
+    (sum, drawer) => sum + getDrawerVariance(drawer),
+    0
+  );
+
+  const drawerAlerts = drawerRowsForSummary.filter(
+    (drawer) =>
+      Math.abs(getDrawerVariance(drawer)) > 0 ||
+      ["open", "active", "pending"].includes(getDrawerStatus(drawer))
+  );
+
   const criticalAlerts = [
     ...(overdueBills.length > 0
       ? [`${overdueBills.length} overdue bill(s) need payment review.`]
       : []),
     ...(upcomingBills.length > 0
       ? [`${upcomingBills.length} bill(s) due within 7 days.`]
+      : []),
+    ...(Math.abs(totalVariance) > 0
+      ? [`Cash drawer variance detected: ${formatPeso(totalVariance)}.`]
+      : []),
+    ...(openDrawers.length > 0
+      ? [`${openDrawers.length} cash drawer(s) still open.`]
       : []),
     ...(outstandingBalance > 0
       ? [
@@ -407,6 +502,12 @@ export default function ExecutiveDashboardPage() {
     ...(overdueBills.length > 0
       ? ["Prioritize overdue bills before additional cash releases."]
       : []),
+    ...(Math.abs(totalVariance) > 0
+      ? ["Review cash drawer variance before closing daily report."]
+      : []),
+    ...(openDrawers.length > 0
+      ? ["Follow up pending cash drawer closures."]
+      : []),
     ...(outstandingBalance > 0
       ? ["Review unpaid reservations and update balances."]
       : []),
@@ -430,6 +531,7 @@ export default function ExecutiveDashboardPage() {
       (netProfit < 0 ? 30 : 0) -
       (outstandingBalance > 0 ? 15 : 0) -
       (overdueBills.length > 0 ? 15 : 0) -
+      (Math.abs(totalVariance) > 0 ? 10 : 0) -
       (profitMargin < 20 ? 10 : 0)
   );
 
@@ -542,7 +644,7 @@ export default function ExecutiveDashboardPage() {
           <div>
             <h1 className="text-3xl font-bold">Executive Dashboard</h1>
             <p className="mt-2 text-slate-400">
-              Income, expenses, profit, bills, occupancy, and operation health.
+              Income, expenses, profit, bills, cash drawer, occupancy, and operation health.
             </p>
           </div>
 
@@ -621,9 +723,7 @@ export default function ExecutiveDashboardPage() {
               <Brain size={18} /> Executive Briefing
             </p>
 
-            <h2 className="mt-2 text-3xl font-black">
-              {businessStatus}
-            </h2>
+            <h2 className="mt-2 text-3xl font-black">{businessStatus}</h2>
 
             <div className="mt-4 rounded-2xl bg-slate-950/60 p-5 text-center">
               <p className="text-sm text-slate-400">Business Health Score</p>
@@ -730,25 +830,61 @@ export default function ExecutiveDashboardPage() {
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="flex items-center gap-2 text-xl font-bold">
-              <CalendarDays size={22} /> Upcoming Events
+              <Wallet size={22} /> Cash Drawer Summary
             </h2>
 
-            <div className="mt-4 space-y-3">
-              {upcomingEvents.length > 0 ? (
-                upcomingEvents.slice(0, 6).map((event) => (
-                  <div key={event.id} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 p-4">
-                    <div>
-                      <p className="font-semibold">{event.event_name}</p>
-                      <p className="text-xs text-slate-400">{event.event_date}</p>
-                    </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <MiniStat title="Open Drawers" value={openDrawers.length} danger={openDrawers.length > 0} />
+              <MiniStat title="Closed Drawers" value={closedDrawers.length} />
+              <MiniStat title="Expected Cash" value={formatPeso(expectedCash)} />
+              <MiniStat title="Variance" value={formatPeso(totalVariance)} danger={totalVariance < 0 || totalVariance > 0} />
+            </div>
 
-                    <p className="font-bold text-green-400">
-                      {event.expected_pax || 0} pax
-                    </p>
-                  </div>
-                ))
+            <div className="mt-5 space-y-3">
+              {drawerAlerts.length > 0 ? (
+                drawerAlerts.slice(0, 5).map((drawer) => {
+                  const variance = getDrawerVariance(drawer);
+                  const status = getDrawerStatus(drawer);
+
+                  return (
+                    <div
+                      key={drawer.id}
+                      className={`rounded-xl border p-4 ${
+                        Math.abs(variance) > 0
+                          ? "border-red-500/20 bg-red-500/10"
+                          : "border-amber-500/20 bg-amber-500/10"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{getDrawerCashier(drawer)}</p>
+                          <p className="text-xs text-slate-400">
+                            Status: {status || "No status"} • {getDateValue(drawer) || "No date"}
+                          </p>
+                        </div>
+
+                        <p
+                          className={
+                            Math.abs(variance) > 0
+                              ? "font-bold text-red-300"
+                              : "font-bold text-amber-300"
+                          }
+                        >
+                          {formatPeso(variance)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                <p className="text-sm text-slate-500">No upcoming events.</p>
+                <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4">
+                  <p className="font-semibold text-green-300">
+                    ✅ All cash drawers balanced
+                  </p>
+                  <p className="mt-1 text-xs text-green-200">
+                    No open drawers or variance detected.
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -887,7 +1023,13 @@ function MiniStat({
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
       <p className="text-xs text-slate-500">{title}</p>
-      <h3 className={danger ? "mt-1 text-2xl font-black text-red-400" : "mt-1 text-2xl font-black text-white"}>
+      <h3
+        className={
+          danger
+            ? "mt-1 text-2xl font-black text-red-400"
+            : "mt-1 text-2xl font-black text-white"
+        }
+      >
         {value}
       </h3>
     </div>

@@ -1,6 +1,18 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  BadgeCheck,
+  Briefcase,
+  FileSpreadsheet,
+  Mail,
+  Pencil,
+  Search,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import * as XLSX from "xlsx";
@@ -180,6 +192,11 @@ export default function EmployeesPage() {
       return false;
     }
 
+    if (Number(basicRate || 0) <= 0) {
+      setFormError("Basic rate must be greater than zero.");
+      return false;
+    }
+
     setFormError("");
     return true;
   };
@@ -209,7 +226,10 @@ export default function EmployeesPage() {
     };
 
     const query = editingEmployeeNo
-      ? supabase.from("employees").update(payload).eq("employee_no", editingEmployeeNo)
+      ? supabase
+          .from("employees")
+          .update(payload)
+          .eq("employee_no", editingEmployeeNo)
       : supabase.from("employees").insert({
           ...payload,
           created_at: new Date().toISOString(),
@@ -249,21 +269,48 @@ export default function EmployeesPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const deleteEmployee = async (employeeNoValue: string) => {
-    const confirmDelete = confirm(
-      "Are you sure you want to permanently delete this employee?"
+  const archiveEmployee = async (employee: Employee) => {
+    const confirmArchive = confirm(
+      `Archive ${employee.first_name} ${employee.last_name}? This will keep history but remove the employee from active operations.`
     );
 
-    if (!confirmDelete) return;
+    if (!confirmArchive) return;
 
     const { error } = await supabase
       .from("employees")
-      .delete()
-      .eq("employee_no", employeeNoValue);
+      .update({
+        employment_status: "Resigned",
+        payroll_active: false,
+      })
+      .eq("employee_no", employee.employee_no);
 
     if (error) {
-      console.log("DELETE EMPLOYEE ERROR:", error.message);
-      alert("Failed to delete employee.");
+      console.log("ARCHIVE EMPLOYEE ERROR:", error.message);
+      alert("Failed to archive employee.");
+      return;
+    }
+
+    getEmployees();
+  };
+
+  const restoreEmployee = async (employee: Employee) => {
+    const confirmRestore = confirm(
+      `Restore ${employee.first_name} ${employee.last_name} as Active?`
+    );
+
+    if (!confirmRestore) return;
+
+    const { error } = await supabase
+      .from("employees")
+      .update({
+        employment_status: "Active",
+        payroll_active: true,
+      })
+      .eq("employee_no", employee.employee_no);
+
+    if (error) {
+      console.log("RESTORE EMPLOYEE ERROR:", error.message);
+      alert("Failed to restore employee.");
       return;
     }
 
@@ -326,7 +373,9 @@ export default function EmployeesPage() {
           employee_no: employeeNoValue,
           first_name: firstNameValue,
           last_name: lastNameValue,
-          email: String(getValue(row, ["Email", "email", "Email Address"])).trim(),
+          email: String(
+            getValue(row, ["Email", "email", "Email Address"])
+          ).trim(),
           department: String(getValue(row, ["Department", "department"])).trim(),
           position: String(getValue(row, ["Position", "position"])).trim(),
           employment_status:
@@ -341,13 +390,14 @@ export default function EmployeesPage() {
           ).trim(),
           hire_date:
             cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])) ||
-            "2026-06-02",
+            null,
           daily_rate: basicRateValue,
           rate_type: rateTypes.includes(rateTypeValue) ? rateTypeValue : "Daily",
           basic_rate: basicRateValue,
           payroll_active:
-            String(getValue(row, ["Payroll Active", "payroll_active"])).toLowerCase() ===
-            "no"
+            String(
+              getValue(row, ["Payroll Active", "payroll_active"])
+            ).toLowerCase() === "no"
               ? false
               : true,
           payroll_notes: String(
@@ -385,6 +435,31 @@ export default function EmployeesPage() {
     getEmployees();
   };
 
+  const exportEmployees = () => {
+    const exportRows = filteredEmployees.map((emp) => ({
+      "Employee No": emp.employee_no,
+      "First Name": emp.first_name,
+      "Last Name": emp.last_name,
+      Email: emp.email,
+      Department: emp.department,
+      Position: emp.position,
+      Status: emp.employment_status,
+      "Employment Type": emp.employment_type,
+      "Rate Type": emp.rate_type,
+      "Basic Rate": emp.basic_rate || emp.daily_rate || 0,
+      "Payroll Active": emp.payroll_active === false ? "No" : "Yes",
+      "Contact Number": emp.contact_number,
+      "Hire Date": emp.hire_date,
+      Notes: emp.payroll_notes,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "opscore_employees_export.xlsx");
+  };
+
   /// EFFECTS
   useEffect(() => {
     getEmployees();
@@ -392,19 +467,30 @@ export default function EmployeesPage() {
   }, []);
 
   /// CALCULATIONS
+  const inactiveStatuses = ["resigned", "terminated", "inactive", "awol"];
+
+  const activeEmployeeRows = employees.filter(
+    (emp) =>
+      !inactiveStatuses.includes(
+        String(emp.employment_status || "").toLowerCase()
+      )
+  );
+
+  const archivedEmployeeRows = employees.filter((emp) =>
+    inactiveStatuses.includes(String(emp.employment_status || "").toLowerCase())
+  );
+
   const totalEmployees = employees.length;
+  const activeEmployees = activeEmployeeRows.length;
+  const archivedEmployees = archivedEmployeeRows.length;
 
-  const activeEmployees = employees.filter(
-    (emp) => emp.employment_status === "Active"
-  ).length;
-
-  const payrollActiveCount = employees.filter(
+  const payrollActiveCount = activeEmployeeRows.filter(
     (emp) => emp.payroll_active !== false
   ).length;
 
-  const emailReadyCount = employees.filter((emp) => emp.email).length;
+  const missingEmailCount = activeEmployeeRows.filter((emp) => !emp.email).length;
 
-  const totalMonthlyPayrollEstimate = employees.reduce((sum, emp) => {
+  const totalMonthlyPayrollEstimate = activeEmployeeRows.reduce((sum, emp) => {
     const rate = Number(emp.basic_rate || emp.daily_rate || 0);
 
     if ((emp.rate_type || "Daily") === "Daily") return sum + rate * 26;
@@ -413,6 +499,29 @@ export default function EmployeesPage() {
 
     return sum;
   }, 0);
+
+  const departmentCounts = activeEmployeeRows.reduce(
+    (acc: Record<string, number>, emp) => {
+      const dept = emp.department || "Unassigned";
+      acc[dept] = (acc[dept] || 0) + 1;
+      return acc;
+    },
+    {}
+  );
+
+  const topDepartments = Object.entries(departmentCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  const employeesWithIssues = activeEmployeeRows.filter(
+    (emp) =>
+      !emp.email ||
+      !emp.department ||
+      !emp.position ||
+      !emp.employment_type ||
+      !emp.basic_rate
+  );
 
   const filteredEmployees = useMemo(() => {
     return employees.filter((emp) => {
@@ -435,58 +544,59 @@ export default function EmployeesPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-            Workforce
-          </p>
+      <main className="flex-1 p-8">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Employee Masterlist</h1>
+            <p className="mt-2 text-slate-400">
+              Manage employee records, payroll profile, department assignment,
+              and import/export controls.
+            </p>
+          </div>
 
-          <h1 className="mt-2 text-4xl font-black">Employee Masterlist</h1>
+          <button
+            onClick={exportEmployees}
+            className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+          >
+            Export Employees
+          </button>
+        </div>
 
-          <p className="mt-2 text-sm text-slate-400">
-            Manage employee records, email, payroll profile, rates, and bulk imports.
-          </p>
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+          <KpiCard icon={<Users size={22} />} title="Total Employees" value={totalEmployees} />
+          <KpiCard icon={<BadgeCheck size={22} />} title="Active Employees" value={activeEmployees} success />
+          <KpiCard icon={<Briefcase size={22} />} title="Payroll Active" value={payrollActiveCount} />
+          <KpiCard icon={<Mail size={22} />} title="Missing Email" value={missingEmailCount} danger={missingEmailCount > 0} />
+          <KpiCard icon={<DollarSignIcon />} title="Est. Monthly Payroll" value={formatMoney(totalMonthlyPayrollEstimate)} />
         </section>
 
-        <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard title="Total Employees" value={totalEmployees} />
-          <SummaryCard title="Active Employees" value={activeEmployees} color="text-emerald-400" />
-          <SummaryCard title="Payroll Active" value={payrollActiveCount} color="text-blue-400" />
-          <SummaryCard title="With Email" value={emailReadyCount} color="text-purple-400" />
-          <SummaryCard
-            title="Est. Monthly Payroll"
-            value={formatMoney(totalMonthlyPayrollEstimate)}
-            color="text-amber-400"
-          />
-        </section>
-
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[520px_minmax(0,1fr)]">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <div className="flex items-start justify-between gap-4">
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+            <div className="mb-5 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black">
-                  {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
+                <h2 className="flex items-center gap-2 text-xl font-bold">
+                  <UserPlus size={22} /> {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Employee details, contact, and payroll profile.
+                  Required fields are marked with an asterisk.
                 </p>
               </div>
 
               {editingEmployeeNo && (
                 <span className="rounded-full border border-blue-500/40 px-3 py-1 text-xs font-black text-blue-400">
-                  Editing
+                  Editing {editingEmployeeNo}
                 </span>
               )}
             </div>
 
             {formError && (
-              <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
+              <p className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
                 {formError}
               </p>
             )}
 
-            <div className="mt-6 space-y-6">
-              <FormBlock title="Personal Details">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <FormPanel title="Personal Details">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Input label="Employee No" value={employeeNo} setValue={setEmployeeNo} placeholder="Auto if blank" />
                   <Input label="Email" type="email" value={email} setValue={setEmail} placeholder="employee@email.com" />
@@ -495,19 +605,19 @@ export default function EmployeesPage() {
                   <Input label="Contact Number" value={contactNumber} setValue={setContactNumber} />
                   <Input label="Hire Date" type="date" value={hireDate} setValue={setHireDate} />
                 </div>
-              </FormBlock>
+              </FormPanel>
 
-              <FormBlock title="Work Assignment">
+              <FormPanel title="Work Assignment">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Select label="Department *" value={department} setValue={setDepartment} options={departments.map((d) => d.name)} />
                   <Select label="Position *" value={position} setValue={setPosition} options={positions.map((p) => p.name)} />
                   <Select label="Status *" value={employmentStatus} setValue={setEmploymentStatus} options={employmentStatuses.map((s) => s.name)} />
                   <Select label="Employment Type *" value={employmentType} setValue={setEmploymentType} options={employmentTypes.map((t) => t.name)} />
                 </div>
-              </FormBlock>
+              </FormPanel>
 
-              <FormBlock title="Payroll Profile">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormPanel title="Payroll Profile">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <Select label="Rate Type *" value={rateType} setValue={setRateType} options={rateTypes} />
                   <Input label="Basic Rate *" type="number" value={basicRate} setValue={setBasicRate} />
                   <Select label="Payroll Active" value={payrollActive} setValue={setPayrollActive} options={["Yes", "No"]} />
@@ -521,240 +631,301 @@ export default function EmployeesPage() {
                     value={payrollNotes}
                     onChange={(e) => setPayrollNotes(e.target.value)}
                     rows={3}
-                    className="mt-2 w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    className="mt-2 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                   />
                 </div>
-              </FormBlock>
+              </FormPanel>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <button
-                  onClick={saveEmployee}
-                  disabled={isSaving}
-                  className="rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
-                >
-                  {isSaving
-                    ? "Saving..."
-                    : editingEmployeeNo
-                    ? "Update Employee"
-                    : "Save Employee"}
-                </button>
+              <FormPanel title="Employee Health Check">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <MiniStat title="Archived Employees" value={archivedEmployees} />
+                  <MiniStat title="Records With Issues" value={employeesWithIssues.length} danger={employeesWithIssues.length > 0} />
+                </div>
 
-                <button
-                  onClick={clearForm}
-                  className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
-                >
-                  {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
-                </button>
-              </div>
+                <div className="mt-4 space-y-2">
+                  {topDepartments.length > 0 ? (
+                    topDepartments.map((dept) => (
+                      <div
+                        key={dept.name}
+                        className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                      >
+                        <p className="text-sm font-semibold">{dept.name}</p>
+                        <p className="font-bold text-yellow-400">{dept.count}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">No department data found.</p>
+                  )}
+                </div>
+              </FormPanel>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <button
+                onClick={saveEmployee}
+                disabled={isSaving}
+                className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {isSaving
+                  ? "Saving..."
+                  : editingEmployeeNo
+                  ? "Update Employee"
+                  : "Save Employee"}
+              </button>
+
+              <button
+                onClick={clearForm}
+                className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
+              >
+                {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
+              </button>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-              <h2 className="text-2xl font-black">Import Employees</h2>
-              <p className="mt-2 text-sm text-slate-400">
-                Supported headers: Employee No, First Name, Last Name, Email,
-                Department, Position, Status, Employment Type, Rate Type, Basic Rate,
-                Contact, Hire Date.
-              </p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              <FileSpreadsheet size={22} /> Import Employees
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Import Excel/CSV employee records. Preview first before saving.
+            </p>
 
-              <div className="mt-5 flex flex-col gap-3 md:flex-row">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImportFile(file);
-                  }}
-                  className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
-                />
+            <div className="mt-5 space-y-3">
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportFile(file);
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+              />
 
-                <button
-                  onClick={importEmployees}
-                  disabled={isImporting || previewRows.length === 0}
-                  className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {isImporting ? "Importing..." : "Import"}
-                </button>
-              </div>
+              <button
+                onClick={importEmployees}
+                disabled={isImporting || previewRows.length === 0}
+                className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {isImporting ? "Importing..." : "Import Preview Rows"}
+              </button>
 
               {fileName && (
-                <p className="mt-3 text-sm text-slate-400">
-                  Selected file: <span className="font-bold text-white">{fileName}</span>
+                <p className="text-sm text-slate-400">
+                  Selected: <span className="font-bold text-white">{fileName}</span>
                 </p>
               )}
+            </div>
 
-              {previewRows.length > 0 && (
-                <div className="mt-5 max-h-[260px] overflow-auto rounded-xl border border-slate-800">
-                  <table className="w-full min-w-[1150px] text-sm">
-                    <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                      <tr>
-                        <th className="px-4 py-3">Employee No</th>
-                        <th className="px-4 py-3">Name</th>
-                        <th className="px-4 py-3">Email</th>
-                        <th className="px-4 py-3">Department</th>
-                        <th className="px-4 py-3">Position</th>
-                        <th className="px-4 py-3">Rate Type</th>
-                        <th className="px-4 py-3 text-right">Rate</th>
-                      </tr>
-                    </thead>
+            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
+              <p className="text-sm font-bold text-slate-300">
+                Supported headers
+              </p>
+              <p className="mt-2 text-xs leading-6 text-slate-500">
+                Employee No, First Name, Last Name, Email, Department, Position,
+                Status, Employment Type, Rate Type, Basic Rate, Contact, Hire Date.
+              </p>
+            </div>
 
-                    <tbody>
-                      {previewRows.slice(0, 50).map((row, index) => (
-                        <tr key={`${row.employee_no}-${index}`} className="border-t border-slate-800">
-                          <td className="px-4 py-3">{row.employee_no}</td>
-                          <td className="px-4 py-3 font-bold">
-                            {row.first_name} {row.last_name}
-                          </td>
-                          <td className="px-4 py-3">{row.email || "-"}</td>
-                          <td className="px-4 py-3">{row.department}</td>
-                          <td className="px-4 py-3">{row.position}</td>
-                          <td className="px-4 py-3">{row.rate_type}</td>
-                          <td className="px-4 py-3 text-right">
-                            {formatMoney(row.basic_rate)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <h2 className="text-2xl font-black">Employee List</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Payroll-ready employee master data.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search..."
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                  />
-
-                  <select
-                    value={departmentFilter}
-                    onChange={(e) => setDepartmentFilter(e.target.value)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                  >
-                    <option value="ALL">All Departments</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.name}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                  >
-                    <option value="ALL">All Status</option>
-                    {employmentStatuses.map((status) => (
-                      <option key={status.id} value={status.name}>
-                        {status.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-5 max-h-[620px] overflow-auto rounded-xl border border-slate-800">
-                <table className="w-full min-w-[1500px] text-sm">
+            {previewRows.length > 0 && (
+              <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
+                <table className="w-full min-w-[900px] text-sm">
                   <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                     <tr>
-                      <th className="px-4 py-3">Employee</th>
-                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Employee No</th>
+                      <th className="px-4 py-3">Name</th>
                       <th className="px-4 py-3">Department</th>
                       <th className="px-4 py-3">Position</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">Rate Type</th>
-                      <th className="px-4 py-3 text-right">Basic Rate</th>
-                      <th className="px-4 py-3">Payroll</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3 text-right">Rate</th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {filteredEmployees.map((emp) => (
-                      <tr key={emp.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                        <td className="px-4 py-3">
-                          <p className="font-black">
-                            {emp.first_name} {emp.last_name}
-                          </p>
-                          <p className="text-xs text-slate-500">{emp.employee_no}</p>
+                    {previewRows.slice(0, 50).map((row, index) => (
+                      <tr
+                        key={`${row.employee_no}-${index}`}
+                        className="border-t border-slate-800"
+                      >
+                        <td className="px-4 py-3">{row.employee_no}</td>
+                        <td className="px-4 py-3 font-bold">
+                          {row.first_name} {row.last_name}
                         </td>
-
-                        <td className="px-4 py-3">
-                          {emp.email ? (
-                            <span className="text-slate-300">{emp.email}</span>
-                          ) : (
-                            <span className="text-red-400">No email</span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">{emp.department}</td>
-                        <td className="px-4 py-3">{emp.position}</td>
-                        <td className="px-4 py-3">{emp.employment_status}</td>
-                        <td className="px-4 py-3">{emp.employment_type}</td>
-                        <td className="px-4 py-3 text-amber-400">
-                          {emp.rate_type || "Daily"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold">
-                          {formatMoney(emp.basic_rate || emp.daily_rate)}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {emp.payroll_active === false ? (
-                            <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
-                              Inactive
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                              Active
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => editEmployee(emp)}
-                              className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold hover:bg-blue-500"
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              onClick={() => deleteEmployee(emp.employee_no)}
-                              className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                        <td className="px-4 py-3">{row.department}</td>
+                        <td className="px-4 py-3">{row.position}</td>
+                        <td className="px-4 py-3 text-right">
+                          {formatMoney(row.basic_rate)}
                         </td>
                       </tr>
                     ))}
-
-                    {filteredEmployees.length === 0 && (
-                      <tr>
-                        <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
-                          No employees found.
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
-            </section>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Employee List</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Search, filter, edit, export, or archive employee records.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-3 text-slate-500"
+                />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search employee..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none"
+                />
+              </div>
+
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+              >
+                <option value="ALL">All Departments</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+              >
+                <option value="ALL">All Status</option>
+                {employmentStatuses.map((status) => (
+                  <option key={status.id} value={status.name}>
+                    {status.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="max-h-[680px] overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[1500px] text-sm">
+              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Position</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Rate Type</th>
+                  <th className="px-4 py-3 text-right">Basic Rate</th>
+                  <th className="px-4 py-3">Payroll</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredEmployees.map((emp) => {
+                  const isArchived = inactiveStatuses.includes(
+                    String(emp.employment_status || "").toLowerCase()
+                  );
+
+                  return (
+                    <tr
+                      key={emp.id}
+                      className="border-t border-slate-800 hover:bg-slate-800/40"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-black">
+                          {emp.first_name} {emp.last_name}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {emp.employee_no}
+                        </p>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {emp.email ? (
+                          <span className="text-slate-300">{emp.email}</span>
+                        ) : (
+                          <span className="text-red-400">No email</span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">{emp.department}</td>
+                      <td className="px-4 py-3">{emp.position}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={emp.employment_status} />
+                      </td>
+                      <td className="px-4 py-3">{emp.employment_type}</td>
+                      <td className="px-4 py-3 text-yellow-400">
+                        {emp.rate_type || "Daily"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold">
+                        {formatMoney(emp.basic_rate || emp.daily_rate)}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {emp.payroll_active === false ? (
+                          <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
+                            Inactive
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                            Active
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => editEmployee(emp)}
+                            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold hover:bg-blue-500"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+
+                          {isArchived ? (
+                            <button
+                              onClick={() => restoreEmployee(emp)}
+                              className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold hover:bg-emerald-500"
+                            >
+                              Restore
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => archiveEmployee(emp)}
+                              className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600"
+                            >
+                              Archive
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {filteredEmployees.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="px-4 py-12 text-center text-slate-500"
+                    >
+                      No employees found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       </main>
@@ -762,23 +933,89 @@ export default function EmployeesPage() {
   );
 }
 
-function SummaryCard({ title, value, color = "text-white" }: any) {
+function DollarSignIcon() {
+  return <span className="text-xl font-black">₱</span>;
+}
+
+function KpiCard({
+  icon,
+  title,
+  value,
+  subtitle,
+  success,
+  danger,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: any;
+  subtitle?: string;
+  success?: boolean;
+  danger?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 text-2xl font-black ${color}`}>{value}</h2>
+    <div
+      className={`rounded-2xl border p-5 ${
+        danger
+          ? "border-red-500/20 bg-red-500/10"
+          : success
+          ? "border-green-500/20 bg-green-500/10"
+          : "border-slate-800 bg-slate-900"
+      }`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+          {icon}
+        </div>
+
+        <p className="text-sm text-slate-400">{title}</p>
+      </div>
+
+      <h2 className="text-2xl font-bold">{value}</h2>
+
+      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
     </div>
   );
 }
 
-function FormBlock({ title, children }: any) {
+function FormPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+    <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
       <h3 className="mb-4 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
         {title}
       </h3>
       {children}
     </section>
+  );
+}
+
+function MiniStat({
+  title,
+  value,
+  danger,
+}: {
+  title: string;
+  value: any;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-xs text-slate-500">{title}</p>
+      <h3
+        className={
+          danger
+            ? "mt-1 text-2xl font-black text-red-400"
+            : "mt-1 text-2xl font-black text-white"
+        }
+      >
+        {value}
+      </h3>
+    </div>
   );
 }
 
@@ -798,7 +1035,7 @@ function Input({
         placeholder={placeholder}
         onChange={(e) => setValue(e.target.value)}
         style={type === "date" ? { colorScheme: "dark" } : undefined}
-        className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
       />
     </div>
   );
@@ -811,7 +1048,7 @@ function Select({ label, value, setValue, options }: any) {
       <select
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
       >
         <option value="">Select</option>
         {options.map((option: string) => (
@@ -821,5 +1058,27 @@ function Select({ label, value, setValue, options }: any) {
         ))}
       </select>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const normalized = String(status || "").toLowerCase();
+
+  const style =
+    normalized === "active"
+      ? "bg-emerald-500/10 text-emerald-400"
+      : normalized === "probationary"
+      ? "bg-blue-500/10 text-blue-400"
+      : normalized === "resigned" ||
+        normalized === "terminated" ||
+        normalized === "inactive" ||
+        normalized === "awol"
+      ? "bg-red-500/10 text-red-400"
+      : "bg-slate-500/10 text-slate-300";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-bold ${style}`}>
+      {status || "No Status"}
+    </span>
   );
 }
