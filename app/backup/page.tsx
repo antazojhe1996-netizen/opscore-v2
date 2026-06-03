@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Database,
   Download,
   FileSpreadsheet,
   RefreshCcw,
   ShieldCheck,
-  Upload,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
@@ -25,11 +24,6 @@ export default function BackupCenterPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loadingCounts, setLoadingCounts] = useState(false);
   const [exporting, setExporting] = useState("");
-  const [restoring, setRestoring] = useState("");
-  const [selectedRestoreTable, setSelectedRestoreTable] =
-    useState<BackupTable | null>(null);
-
-  const restoreFileRef = useRef<HTMLInputElement | null>(null);
 
   /// DATA
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -62,38 +56,21 @@ export default function BackupCenterPage() {
   const safeSheetName = (name: string) =>
     name.replace(/[\\/?*[\]:]/g, "").slice(0, 31);
 
-  const cleanRestoreRows = (rows: any[]) => {
-    return rows
-      .filter((row) => {
-        const values = Object.values(row || {});
-        return values.some(
-          (value) => value !== undefined && value !== null && String(value).trim() !== ""
-        );
-      })
-      .map((row) => {
-        const cleaned: Record<string, any> = {};
-
-        Object.entries(row).forEach(([key, value]) => {
-          if (key.startsWith("__EMPTY")) return;
-          if (key === "message") return;
-
-          if (value === "") cleaned[key] = null;
-          else cleaned[key] = value;
-        });
-
-        return cleaned;
-      });
-  };
-
   const getRows = async (tableName: string) => {
     const { data, error } = await supabase.from(tableName).select("*");
 
     if (error) {
       console.log(`BACKUP ERROR ${tableName}:`, error.message);
-      return { data: [], error: error.message };
+      return {
+        data: [],
+        error: error.message,
+      };
     }
 
-    return { data: data || [], error: "" };
+    return {
+      data: data || [],
+      error: "",
+    };
   };
 
   const writeWorkbook = (workbook: XLSX.WorkBook, fileName: string) => {
@@ -119,17 +96,33 @@ export default function BackupCenterPage() {
     setExporting(item.key);
 
     const { data, error } = await getRows(item.table);
+
     const workbook = XLSX.utils.book_new();
 
     const rows =
       data.length > 0
         ? data
-        : [{ message: error ? `Table export failed: ${error}` : "No records found." }];
+        : [
+            {
+              message: error
+                ? `Table export failed: ${error}`
+                : "No records found.",
+            },
+          ];
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(item.label));
 
-    writeWorkbook(workbook, `${item.table}_backup_${todayKey}.xlsx`);
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      safeSheetName(item.label)
+    );
+
+    writeWorkbook(
+      workbook,
+      `${item.table}_backup_${todayKey}.xlsx`
+    );
+
     setExporting("");
   };
 
@@ -145,13 +138,28 @@ export default function BackupCenterPage() {
       const rows =
         data.length > 0
           ? data
-          : [{ message: error ? `Table export failed: ${error}` : "No records found." }];
+          : [
+              {
+                message: error
+                  ? `Table export failed: ${error}`
+                  : "No records found.",
+              },
+            ];
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(item.label));
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        safeSheetName(item.label)
+      );
     }
 
-    writeWorkbook(workbook, `opscore_${group.toLowerCase()}_backup_${todayKey}.xlsx`);
+    writeWorkbook(
+      workbook,
+      `opscore_${group.toLowerCase()}_backup_${todayKey}.xlsx`
+    );
+
     setExporting("");
   };
 
@@ -165,6 +173,7 @@ export default function BackupCenterPage() {
     setExporting("ALL");
 
     const workbook = XLSX.utils.book_new();
+
     const summaryRows: any[] = [];
 
     for (const item of backupTables) {
@@ -183,132 +192,29 @@ export default function BackupCenterPage() {
       const rows =
         data.length > 0
           ? data
-          : [{ message: error ? `Table export failed: ${error}` : "No records found." }];
+          : [
+              {
+                message: error
+                  ? `Table export failed: ${error}`
+                  : "No records found.",
+              },
+            ];
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(item.label));
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        safeSheetName(item.label)
+      );
     }
 
     const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Backup Summary");
 
     writeWorkbook(workbook, `opscore_full_backup_${todayKey}.xlsx`);
+
     setExporting("");
-  };
-
-  const openRestorePicker = (item: BackupTable) => {
-    setSelectedRestoreTable(item);
-    restoreFileRef.current?.click();
-  };
-
-  const restoreSingleTable = async (file: File) => {
-    if (!selectedRestoreTable) return;
-
-    const mode = prompt(
-      `Restore ${selectedRestoreTable.label}\n\nType APPEND to add/update rows.\nType REPLACE to delete current table rows first.\n\nRecommended: APPEND`,
-      "APPEND"
-    );
-
-    if (!mode) return;
-
-    const cleanMode = mode.trim().toUpperCase();
-
-    if (cleanMode !== "APPEND" && cleanMode !== "REPLACE") {
-      alert("Invalid restore mode. Type APPEND or REPLACE only.");
-      return;
-    }
-
-    const confirmRestore = confirm(
-      `${cleanMode} restore for ${selectedRestoreTable.label}?\n\nFile: ${file.name}\nTable: ${selectedRestoreTable.table}\n\n${
-        cleanMode === "REPLACE"
-          ? "WARNING: This will delete current rows first before restoring."
-          : "This will upsert/import rows from the backup file."
-      }`
-    );
-
-    if (!confirmRestore) return;
-
-    setRestoring(selectedRestoreTable.key);
-
-    try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-
-      const preferredSheet =
-        workbook.Sheets[safeSheetName(selectedRestoreTable.label)] ||
-        workbook.Sheets[selectedRestoreTable.label] ||
-        workbook.Sheets[workbook.SheetNames[0]];
-
-      const rawRows: any[] = XLSX.utils.sheet_to_json(preferredSheet, {
-        defval: "",
-      });
-
-      const rows = cleanRestoreRows(rawRows);
-
-      if (rows.length === 0) {
-        alert("No valid rows found in backup file.");
-        setRestoring("");
-        return;
-      }
-
-      if (cleanMode === "REPLACE") {
-        const confirmedText = prompt(
-          `Final safety check.\n\nType RESTORE to continue replacing ${selectedRestoreTable.table}.`
-        );
-
-        if (confirmedText !== "RESTORE") {
-          alert("Restore cancelled.");
-          setRestoring("");
-          return;
-        }
-
-        const { error: deleteError } = await supabase
-          .from(selectedRestoreTable.table)
-          .delete()
-          .neq("id", "__never_match__");
-
-        if (deleteError) {
-          console.log("RESTORE DELETE ERROR:", deleteError.message);
-          alert(`Failed to clear table.\n\n${deleteError.message}`);
-          setRestoring("");
-          return;
-        }
-      }
-
-      const chunkSize = 500;
-      let imported = 0;
-
-      for (let i = 0; i < rows.length; i += chunkSize) {
-        const chunk = rows.slice(i, i + chunkSize);
-
-        const { error } = await supabase
-          .from(selectedRestoreTable.table)
-          .upsert(chunk);
-
-        if (error) {
-          console.log("RESTORE UPSERT ERROR:", error);
-          alert(
-            `Restore stopped after ${imported} row(s).\n\n${error.message}`
-          );
-          setRestoring("");
-          return;
-        }
-
-        imported += chunk.length;
-      }
-
-      alert(
-        `${selectedRestoreTable.label} restored successfully.\n\nRows imported: ${imported}\nMode: ${cleanMode}`
-      );
-
-      await loadCounts();
-    } catch (error: any) {
-      console.log("RESTORE FILE ERROR:", error);
-      alert(`Restore failed.\n\n${error?.message || "Unknown error"}`);
-    }
-
-    setRestoring("");
-    setSelectedRestoreTable(null);
   };
 
   /// EFFECTS
@@ -327,18 +233,6 @@ export default function BackupCenterPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <input
-        ref={restoreFileRef}
-        type="file"
-        accept=".xlsx,.xls,.csv"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) restoreSingleTable(file);
-          e.target.value = "";
-        }}
-      />
-
       <main className="min-w-0 flex-1 overflow-x-hidden p-8">
         <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -349,15 +243,15 @@ export default function BackupCenterPage() {
             <h1 className="mt-2 text-4xl font-black">Backup Center</h1>
 
             <p className="mt-2 max-w-5xl text-sm text-slate-400">
-              Export and restore critical OPSCORE data before imports, payroll
-              processing, deployments, or major edits.
+              Export critical OPSCORE data before imports, payroll processing,
+              deployments, or major edits.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <button
               onClick={loadCounts}
-              disabled={loadingCounts || !!exporting || !!restoring}
+              disabled={loadingCounts || !!exporting}
               className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
             >
               <RefreshCcw size={16} />
@@ -366,7 +260,7 @@ export default function BackupCenterPage() {
 
             <button
               onClick={exportAll}
-              disabled={!!exporting || !!restoring}
+              disabled={!!exporting}
               className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
             >
               <Download size={16} />
@@ -376,16 +270,30 @@ export default function BackupCenterPage() {
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <SummaryCard icon={<Database size={24} />} title="Backup Tables" value={backupTables.length} />
-          <SummaryCard icon={<FileSpreadsheet size={24} />} title="Total Records" value={totalRecords} />
-          <SummaryCard icon={<ShieldCheck size={24} />} title="Backup Date" value={todayKey} />
+          <SummaryCard
+            icon={<Database size={24} />}
+            title="Backup Tables"
+            value={backupTables.length}
+          />
+
+          <SummaryCard
+            icon={<FileSpreadsheet size={24} />}
+            title="Total Records"
+            value={totalRecords}
+          />
+
+          <SummaryCard
+            icon={<ShieldCheck size={24} />}
+            title="Backup Date"
+            value={todayKey}
+          />
         </section>
 
         <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5">
-          <p className="font-black text-yellow-300">Restore safety rule</p>
+          <p className="font-black text-yellow-300">Recommended usage</p>
           <p className="mt-1 text-sm text-yellow-100/80">
-            Use APPEND for normal recovery. Use REPLACE only after exporting a fresh full backup.
-            REPLACE asks for a second confirmation.
+            Run Full Backup before uploading attendance, generating payroll,
+            importing schedules, or editing live data.
           </p>
         </section>
 
@@ -411,7 +319,7 @@ export default function BackupCenterPage() {
 
                 <button
                   onClick={() => exportGroup(group)}
-                  disabled={!!exporting || !!restoring}
+                  disabled={!!exporting}
                   className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
                 >
                   {exporting === group ? "Exporting..." : `Export ${group}`}
@@ -434,24 +342,13 @@ export default function BackupCenterPage() {
                       Table: {item.table}
                     </p>
 
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => exportSingleTable(item)}
-                        disabled={!!exporting || !!restoring}
-                        className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-                      >
-                        {exporting === item.key ? "Exporting..." : "Export"}
-                      </button>
-
-                      <button
-                        onClick={() => openRestorePicker(item)}
-                        disabled={!!exporting || !!restoring}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50"
-                      >
-                        <Upload size={15} />
-                        {restoring === item.key ? "Restoring..." : "Restore"}
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => exportSingleTable(item)}
+                      disabled={!!exporting}
+                      className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                    >
+                      {exporting === item.key ? "Exporting..." : "Export"}
+                    </button>
                   </div>
                 ))}
               </div>

@@ -69,6 +69,7 @@ export default function AttendancePage() {
   const [importStatus, setImportStatus] = useState("");
   const [importPreview, setImportPreview] = useState<ImportPreviewRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [lockedPayrollPeriods, setLockedPayrollPeriods] = useState<any[]>([]);
 
 /// HELPERS
 const normalizeName = (name: string) =>
@@ -402,7 +403,7 @@ const computeEntry = (
     const { data } = await supabase
       .from("leave_requests")
       .select("*")
-      .eq("status", "Approved")
+      .ilike("status", "approved")
       .lte("start_date", endDate)
       .gte("end_date", startDate);
 
@@ -431,6 +432,23 @@ const computeEntry = (
     setEntries(data || []);
   };
 
+  const getLockedPayrollPeriods = async () => {
+    const { data, error } = await supabase
+      .from("payroll_periods")
+      .select("*")
+      .eq("attendance_locked", true)
+      .lte("start_date", endDate)
+      .gte("end_date", startDate);
+
+    if (error) {
+      console.log("GET LOCKED PAYROLL PERIODS ERROR:", error.message);
+      setLockedPayrollPeriods([]);
+      return;
+    }
+
+    setLockedPayrollPeriods(data || []);
+  };
+
   /// ACTIONS
   const updateLocalEntry = (
     employee: Employee,
@@ -438,6 +456,13 @@ const computeEntry = (
     field: string,
     value: string
   ) => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}`
+      );
+      return;
+    }
+
     const existing = getEntry(employee.id, date);
 
     const baseEntry: AttendanceEntry = existing || {
@@ -481,82 +506,275 @@ const computeEntry = (
   };
 
   const previewBiometrics = async (file: File) => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance import is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}`
+      );
+      return;
+    }
+
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer);
+    const workbook = XLSX.read(buffer, { type: "array" });
 
-    const worksheet =
-      workbook.Sheets["Time Entries"] || workbook.Sheets[workbook.SheetNames[0]];
-
-    const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-    const preview: ImportPreviewRow[] = [];
-
-    rows.forEach((row) => {
-      const name = String(
-        getValue(row, ["Name", "Employee", "Employee Name"])
-      ).trim();
-
-      const date = parseExcelDate(getValue(row, ["Date", "Attendance Date"]));
-
-      if (!name || !date) return;
-
-      const employeeNo = String(
-        getValue(row, [
-          "Employee No",
-          "Employee ID",
-          "Enroll No",
-          "User ID",
-          "PIN",
-          "ID",
-        ])
-      ).trim();
-
-      const employee = findEmployeeByEmployeeNoOrName(employeeNo, name);
-
-      const timeIn = parseExcelTime(getValue(row, ["Time In", "In"]));
-      const timeOut = parseExcelTime(getValue(row, ["Time Out", "Out"]));
-
-      const lateMinutes = parseMinutes(
-        getValue(row, ["Late Min", "Late Minutes", "Late"])
+    const parseReportRange = (value: any) => {
+      const text = String(value || "");
+      const match = text.match(
+        /(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/
       );
 
-      const undertimeMinutes = parseMinutes(
-        getValue(row, ["Undertime", "Undertime Min", "UT"])
-      );
+      if (!match) return null;
 
-      const otMinutes = parseOtMinutes(
-        getValue(row, ["OT Hrs", "OT Hours", "OT"])
-      );
+      return {
+        start: match[1],
+        end: match[2],
+      };
+    };
 
-      let status = "Present";
-      if (!timeIn && !timeOut) status = "Absent";
-      if (lateMinutes > 0) status = "Late";
-      if (undertimeMinutes > 0) status = "Undertime";
+    const buildDateFromDayNumber = (dayNumber: any, reportStart: string) => {
+      const day = Number(dayNumber);
+      if (!day || !reportStart) return "";
 
-      preview.push({
-  employee_name: name,
-  employee_id: employee?.id,
+      const start = new Date(`${reportStart}T00:00:00`);
+      const year = start.getFullYear();
+      const startMonth = start.getMonth();
 
-  matched_employee_name: employee
-    ? `${employee.first_name} ${employee.last_name}`
-    : "",
+      let month = startMonth;
 
-  matched_employee_no: employee?.employee_no || "",
+      if (day < start.getDate()) {
+        month = startMonth + 1;
+      }
 
-  attendance_date: date,
-  time_in: timeIn || null,
-  time_out: timeOut || null,
-  late_minutes: lateMinutes,
-  undertime_minutes: undertimeMinutes,
-  ot_minutes: otMinutes,
-  status,
-  matched: !!employee,
+      const built = new Date(year, month, day);
+      return built.toISOString().slice(0, 10);
+    };
 
-  remarks: employee
-    ? "Ready to import"
-    : "Employee not found",
-}); // closes preview.push
+    const normalizeTimeList = (value: any) => {
+      const text = String(value || "").trim();
+      if (!text) return [];
 
-}); // closes rows.forEach
+      return text
+        .split(/\s+/)
+        .map((item) => parseExcelTime(item))
+        .filter(Boolean);
+    };
+
+    const buildPreviewFromAttendLogs = () => {
+      const sheet = workbook.Sheets["Attend. Logs"];
+      if (!sheet) return [];
+
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: "",
+      });
+
+      const reportRange =
+        parseReportRange(rows?.[1]?.[2]) ||
+        parseReportRange(rows?.[1]?.[1]) ||
+        parseReportRange(rows?.[1]?.[0]);
+
+      if (!reportRange?.start) return [];
+
+      const previewRows: ImportPreviewRow[] = [];
+
+      // Biometric "Attend. Logs" layout is 4 rows per employee:
+      // Row 1: ID / Name
+      // Row 2: Day numbers
+      // Row 3: Day names
+      // Row 4: Logs, one cell per day, sometimes multiple times separated by line breaks.
+      for (let rowIndex = 2; rowIndex < rows.length; rowIndex += 4) {
+        const idRow = rows[rowIndex] || [];
+        const dayRow = rows[rowIndex + 1] || [];
+        const logRow = rows[rowIndex + 3] || [];
+
+        const employeeNo = String(idRow[2] || "").trim();
+        const employeeName = String(idRow[11] || "").trim();
+
+        if (!employeeNo && !employeeName) continue;
+
+        const employee = findEmployeeByEmployeeNoOrName(employeeNo, employeeName);
+
+        dayRow.slice(0, 7).forEach((dayNumber, dayIndex) => {
+          const attendanceDate = buildDateFromDayNumber(
+            dayNumber,
+            reportRange.start
+          );
+
+          if (!attendanceDate) return;
+          if (attendanceDate < startDate || attendanceDate > endDate) return;
+
+          const times = normalizeTimeList(logRow[dayIndex]);
+
+          // Keep only actual rows with biometric logs.
+          // Payroll missing/absent is still handled by the Attendance Review table.
+          if (times.length === 0) return;
+
+          const timeIn = times[0] || null;
+          const timeOut = times.length > 1 ? times[times.length - 1] : null;
+
+          let status = "Present";
+          if (!timeIn && !timeOut) status = "Absent";
+
+          previewRows.push({
+            employee_name: employeeName,
+            employee_id: employee?.id,
+            matched_employee_name: employee
+              ? `${employee.first_name} ${employee.last_name}`
+              : "",
+            matched_employee_no: employee?.employee_no || employeeNo,
+            attendance_date: attendanceDate,
+            time_in: timeIn,
+            time_out: timeOut,
+            late_minutes: 0,
+            undertime_minutes: 0,
+            ot_minutes: 0,
+            status,
+            matched: !!employee,
+            remarks: employee ? "Ready to import" : "Employee not found",
+          });
+        });
+      }
+
+      return previewRows;
+    };
+
+    const buildPreviewFromAbnormalSheet = () => {
+      const sheet = workbook.Sheets["Abnormal"];
+      if (!sheet) return [];
+
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: "",
+      });
+
+      const previewRows: ImportPreviewRow[] = [];
+
+      rows.slice(4).forEach((row) => {
+        const employeeNo = String(row[0] || "").trim();
+        const employeeName = String(row[1] || "").trim();
+        const date = parseExcelDate(row[3]);
+
+        if (!employeeName || !date) return;
+        if (date < startDate || date > endDate) return;
+
+        const employee = findEmployeeByEmployeeNoOrName(employeeNo, employeeName);
+
+        const rawTimes = [row[4], row[5], row[6], row[7]]
+          .map((value) => parseExcelTime(value))
+          .filter(Boolean);
+
+        const timeIn = rawTimes[0] || null;
+        const timeOut = rawTimes.length > 1 ? rawTimes[rawTimes.length - 1] : null;
+
+        // If there are no actual time logs in Abnormal, skip it. Missing rows are handled by review.
+        if (!timeIn && !timeOut) return;
+
+        const lateMinutes = parseMinutes(row[8]);
+        const undertimeMinutes = parseMinutes(row[9]);
+
+        let status = "Present";
+        if (lateMinutes > 0) status = "Late";
+        if (undertimeMinutes > 0) status = "Undertime";
+
+        previewRows.push({
+          employee_name: employeeName,
+          employee_id: employee?.id,
+          matched_employee_name: employee
+            ? `${employee.first_name} ${employee.last_name}`
+            : "",
+          matched_employee_no: employee?.employee_no || employeeNo,
+          attendance_date: date,
+          time_in: timeIn,
+          time_out: timeOut,
+          late_minutes: lateMinutes,
+          undertime_minutes: undertimeMinutes,
+          ot_minutes: 0,
+          status,
+          matched: !!employee,
+          remarks: employee ? "Ready to import" : "Employee not found",
+        });
+      });
+
+      return previewRows;
+    };
+
+    const buildPreviewFromSimpleSheet = () => {
+      const worksheet =
+        workbook.Sheets["Time Entries"] || workbook.Sheets[workbook.SheetNames[0]];
+
+      const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      const previewRows: ImportPreviewRow[] = [];
+
+      rows.forEach((row) => {
+        const name = String(
+          getValue(row, ["Name", "Employee", "Employee Name"])
+        ).trim();
+
+        const date = parseExcelDate(getValue(row, ["Date", "Attendance Date"]));
+
+        if (!name || !date) return;
+        if (date < startDate || date > endDate) return;
+
+        const employeeNo = String(
+          getValue(row, [
+            "Employee No",
+            "Employee ID",
+            "Biometrics ID",
+            "Enroll No",
+            "User ID",
+            "PIN",
+            "ID",
+          ])
+        ).trim();
+
+        const employee = findEmployeeByEmployeeNoOrName(employeeNo, name);
+
+        const timeIn = parseExcelTime(getValue(row, ["Time In", "In"]));
+        const timeOut = parseExcelTime(getValue(row, ["Time Out", "Out"]));
+
+        const lateMinutes = parseMinutes(
+          getValue(row, ["Late Min", "Late Minutes", "Late"])
+        );
+
+        const undertimeMinutes = parseMinutes(
+          getValue(row, ["Undertime", "Undertime Min", "UT"])
+        );
+
+        const otMinutes = parseOtMinutes(
+          getValue(row, ["OT Hrs", "OT Hours", "OT"])
+        );
+
+        let status = "Present";
+        if (!timeIn && !timeOut) status = "Absent";
+        if (lateMinutes > 0) status = "Late";
+        if (undertimeMinutes > 0) status = "Undertime";
+
+        previewRows.push({
+          employee_name: name,
+          employee_id: employee?.id,
+          matched_employee_name: employee
+            ? `${employee.first_name} ${employee.last_name}`
+            : "",
+          matched_employee_no: employee?.employee_no || "",
+          attendance_date: date,
+          time_in: timeIn || null,
+          time_out: timeOut || null,
+          late_minutes: lateMinutes,
+          undertime_minutes: undertimeMinutes,
+          ot_minutes: otMinutes,
+          status,
+          matched: !!employee,
+          remarks: employee ? "Ready to import" : "Employee not found",
+        });
+      });
+
+      return previewRows;
+    };
+
+    let preview = buildPreviewFromAttendLogs();
+
+    // Fallback only. Usually All Report.xlsx should use Attend. Logs.
+    if (preview.length === 0) preview = buildPreviewFromAbnormalSheet();
+    if (preview.length === 0) preview = buildPreviewFromSimpleSheet();
 
     setImportPreview(preview);
 
@@ -569,6 +787,13 @@ const computeEntry = (
   };
 
   const confirmImportPreview = () => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance import is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}`
+      );
+      return;
+    }
+
     const matchedRows = importPreview.filter(
       (row) => row.matched && row.employee_id
     );
@@ -621,6 +846,13 @@ const computeEntry = (
   };
 
   const markMissingAsAbsent = () => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}`
+      );
+      return;
+    }
+
     if (!selectedEmployee) return;
 
     missingEntryRows.forEach((row) => {
@@ -636,6 +868,13 @@ const computeEntry = (
   };
 
   const saveAttendance = async () => {
+  if (attendanceLocked) {
+    alert(
+      `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}\n\nReopen payroll first before editing attendance.`
+    );
+    return;
+  }
+
   const sourceRows =
     selectedEmployee && attendanceRows.length > 0
       ? attendanceRows.map((row) => ({
@@ -701,6 +940,7 @@ const computeEntry = (
     getSchedules();
     getApprovedLeaves();
     getAttendanceEntries();
+    getLockedPayrollPeriods();
   }, [startDate, endDate]);
 
   /// CALCULATIONS
@@ -810,6 +1050,12 @@ const computeEntry = (
   const payrollReady =
     !!selectedEmployee && attendanceRows.length > 0 && payrollIssueRows.length === 0;
 
+  const attendanceLocked = lockedPayrollPeriods.length > 0;
+
+  const lockedPeriodNames =
+    lockedPayrollPeriods.map((period) => period.period_name).join(", ") ||
+    "Locked payroll period";
+
   const matchedPreviewCount = importPreview.filter((row) => row.matched).length;
   const missingPreviewCount = importPreview.filter((row) => !row.matched).length;
 
@@ -834,16 +1080,27 @@ const computeEntry = (
 
          <button
             onClick={saveAttendance}
-            disabled={isSaving}
+            disabled={isSaving || attendanceLocked}
             className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
           >
-            {isSaving
+            {attendanceLocked
+              ? "Attendance Locked"
+              : isSaving
               ? "Saving..."
               : payrollReady
               ? "Save Payroll-Ready Attendance"
               : "Save with Issues"}
           </button>
         </section>
+
+        {attendanceLocked && (
+          <section className="mb-8 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 text-yellow-200">
+            <p className="font-black">Attendance is locked for this cutoff.</p>
+            <p className="mt-1 text-sm text-yellow-100/80">
+              Payroll was already sent for approval for: {lockedPeriodNames}. Reopen payroll first before editing or importing attendance.
+            </p>
+          </section>
+        )}
 
         <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard title="Days" value={attendanceRows.length} />
@@ -915,6 +1172,7 @@ const computeEntry = (
             <input
               type="file"
               accept=".xlsx,.xls,.csv"
+              disabled={attendanceLocked}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) previewBiometrics(file);
@@ -957,7 +1215,8 @@ const computeEntry = (
               {missingEntryRows.length > 0 && (
                 <button
                   onClick={markMissingAsAbsent}
-                  className="rounded-xl bg-red-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-red-300"
+                  disabled={attendanceLocked}
+                  className="rounded-xl bg-red-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-red-300 disabled:opacity-50"
                 >
                   Mark Missing as Absent
                 </button>
@@ -1045,7 +1304,8 @@ const computeEntry = (
 
                 <button
                   onClick={confirmImportPreview}
-                  className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-300"
+                  disabled={attendanceLocked}
+                  className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-300 disabled:opacity-50"
                 >
                   Confirm Import
                 </button>
@@ -1169,6 +1429,7 @@ const computeEntry = (
                       <input
                         type="time"
                         value={row.entry?.time_in || ""}
+                        disabled={attendanceLocked}
                         onChange={(e) =>
                           updateLocalEntry(
                             row.employee,
@@ -1177,7 +1438,7 @@ const computeEntry = (
                             e.target.value
                           )
                         }
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
                       />
                     </td>
 
@@ -1185,6 +1446,7 @@ const computeEntry = (
                       <input
                         type="time"
                         value={row.entry?.time_out || ""}
+                        disabled={attendanceLocked}
                         onChange={(e) =>
                           updateLocalEntry(
                             row.employee,
@@ -1193,7 +1455,7 @@ const computeEntry = (
                             e.target.value
                           )
                         }
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
                       />
                     </td>
 
@@ -1216,6 +1478,7 @@ const computeEntry = (
                     <td className="px-4 py-3">
                       <input
                         value={row.entry?.remarks || ""}
+                        disabled={attendanceLocked}
                         onChange={(e) =>
                           updateLocalEntry(
                             row.employee,
@@ -1224,7 +1487,7 @@ const computeEntry = (
                             e.target.value
                           )
                         }
-                        className="w-72 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        className="w-72 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
                       />
                     </td>
                   </tr>

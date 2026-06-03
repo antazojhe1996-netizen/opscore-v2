@@ -405,6 +405,8 @@ export default function PayrollRegisterPage() {
         status: "Reopened",
         reopen_reason: reason.trim(),
         reopened_at: new Date().toISOString(),
+        attendance_locked: false,
+        attendance_locked_at: null,
       })
       .eq("id", selectedPeriodId);
 
@@ -1210,7 +1212,8 @@ Net Pay: ${formatMoney(targetNet)}
 
 High Alerts: ${targetHighAlerts.length}
 
-Status will become: For Approval`;
+Status will become: For Approval
+Attendance will be locked for this cutoff.`;
 
     const confirmed = confirm(confirmMessage);
     if (!confirmed) return;
@@ -1227,6 +1230,8 @@ Status will become: For Approval`;
       .from("payroll_periods")
       .update({
         status: mode === "all" ? "Approved" : "Partially Approved",
+        attendance_locked: true,
+        attendance_locked_at: new Date().toISOString(),
       })
       .eq("id", selectedPeriodId);
 
@@ -1253,7 +1258,7 @@ Status will become: For Approval`;
     await getEmployeeBalances();
     setSelectedRecordIds([]);
 
-    alert("Payroll sent to Payroll Manager.");
+    alert("Payroll sent to Payroll Manager. Attendance is now locked for this cutoff.");
   };
 
   useEffect(() => {
@@ -1783,6 +1788,11 @@ Status will become: For Approval`;
                   {selectedPeriod?.needs_regeneration && (
                     <p className="mt-2 flex items-center gap-1 text-xs text-red-400">
                       <AlertTriangle size={12} /> Needs regeneration.
+                    </p>
+                  )}
+                  {selectedPeriod?.attendance_locked && (
+                    <p className="mt-2 flex items-center gap-1 text-xs text-yellow-400">
+                      <Lock size={12} /> Attendance locked for this cutoff. Reopen payroll to unlock.
                     </p>
                   )}
                   {selectedPeriod?.last_generated_at && (

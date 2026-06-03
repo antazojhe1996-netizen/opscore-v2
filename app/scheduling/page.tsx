@@ -51,6 +51,7 @@ type ScheduleImportPreviewRow = {
   shift: string;
   matched: boolean;
   valid_shift: boolean;
+  blocked_by_leave?: boolean;
   remarks: string;
 };
 
@@ -133,6 +134,20 @@ export default function SchedulingPage() {
     }
 
     return "";
+  };
+
+  const hasApprovedLeaveOnDate = (employee: Employee, dayKey: string) => {
+    if (!employee || !dayKey) return false;
+
+    const keys = getEmployeeKeys(employee);
+
+    return approvedLeaves.some((leave) => {
+      const leaveEmployeeId = String(leave.employee_id || "").trim().toLowerCase();
+      const startDate = String(leave.start_date || leave.date || "").slice(0, 10);
+      const endDate = String(leave.end_date || leave.date || "").slice(0, 10);
+
+      return keys.includes(leaveEmployeeId) && dayKey >= startDate && dayKey <= endDate;
+    });
   };
 
   const findEmployeeForImport = (employeeNo: string, excelName: string) => {
@@ -256,7 +271,7 @@ export default function SchedulingPage() {
     const { data, error } = await supabase
       .from("leave_requests")
       .select("*")
-      .eq("status", "Approved");
+      .ilike("status", "approved");
 
     if (error) {
       console.log("LEAVE ERROR:", error.message);
@@ -562,10 +577,14 @@ export default function SchedulingPage() {
         const validShift =
           shift === "OFF" || shifts.some((item) => item.shift_name === shift);
 
+        const blockedByLeave =
+          !!employee && !!day && shift !== "OFF" && hasApprovedLeaveOnDate(employee, day);
+
         let remarks = "Ready";
         if (!employee) remarks = "Employee not found";
         else if (!day) remarks = "Missing date";
         else if (!validShift) remarks = "Shift not found";
+        else if (blockedByLeave) remarks = "Blocked: approved leave on this date";
 
         return {
           employee_no: employeeNo,
@@ -576,8 +595,9 @@ export default function SchedulingPage() {
             : "",
           day,
           shift,
-          matched: !!employee && !!day && validShift,
+          matched: !!employee && !!day && validShift && !blockedByLeave,
           valid_shift: validShift,
+          blocked_by_leave: blockedByLeave,
           remarks,
         };
       })
@@ -731,10 +751,17 @@ export default function SchedulingPage() {
     }
 
     const currentWeekKeys = visibleDays.map((day) => day.key);
+    const visibleEmployeeIds = filteredEmployees.map((employee) => employee.id);
 
-    await supabase.from("schedules").delete().in("day", currentWeekKeys);
+    await supabase
+      .from("schedules")
+      .delete()
+      .in("day", currentWeekKeys)
+      .in("employee_id", visibleEmployeeIds);
 
-    const { error: insertError } = await supabase.from("schedules").insert(newSchedules);
+    const { error: insertError } = await supabase.from("schedules").upsert(newSchedules, {
+      onConflict: "employee_id,day",
+    });
 
     if (insertError) {
       console.log("COPY INSERT ERROR:", insertError.message);
