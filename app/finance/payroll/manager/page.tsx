@@ -17,19 +17,24 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
 export default function PayrollManagerPage() {
+  /// STATES
   const [employees, setEmployees] = useState<any[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
   const [payrollAdjustments, setPayrollAdjustments] = useState<any[]>([]);
+  const [employeeBalances, setEmployeeBalances] = useState<any[]>([]);
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [periodFilter, setPeriodFilter] = useState("All");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  /// HELPERS
   const formatPeso = (value: any) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+
+  const normalizeStatus = (value: any) => String(value || "").trim();
 
   const getRowsFromTables = async (tableNames: string[]) => {
     for (const table of tableNames) {
@@ -38,27 +43,6 @@ export default function PayrollManagerPage() {
     }
 
     return [];
-  };
-
-  const loadData = async () => {
-    const { data: employeesData } = await supabase.from("employees").select("*");
-
-    const records = await getRowsFromTables([
-      "payroll_records",
-      "payroll_register",
-      "payroll_period_records",
-    ]);
-
-    const adjustments = await getRowsFromTables([
-      "payroll_adjustments",
-      "payroll_deductions",
-      "employee_deductions",
-      "cash_advances",
-    ]);
-
-    setEmployees(employeesData || []);
-    setPayrollRecords(records || []);
-    setPayrollAdjustments(adjustments || []);
   };
 
   const getEmployeeName = (record: any) => {
@@ -83,14 +67,49 @@ export default function PayrollManagerPage() {
   const getRecordDeduction = (record: any) =>
     Number(record.total_deductions || record.deductions || record.total_deduction || 0);
 
+  const getReleaseAmount = (record: any) => Math.max(getRecordAmount(record), 0);
+
+  const getCarryForwardAmount = (record: any) =>
+    Math.max(Math.abs(Math.min(getRecordAmount(record), 0)), 0);
+
   const getPeriodLabel = (record: any) =>
     record.period_label || record.payroll_period || record.period_name || "Payroll Period";
 
+  /// DATA LOADERS
+  const loadData = async () => {
+    const { data: employeesData } = await supabase.from("employees").select("*");
+
+    const records = await getRowsFromTables([
+      "payroll_records",
+      "payroll_register",
+      "payroll_period_records",
+    ]);
+
+    const adjustments = await getRowsFromTables([
+      "payroll_adjustments",
+      "payroll_deductions",
+      "employee_deductions",
+      "cash_advances",
+    ]);
+
+    const balances = await getRowsFromTables([
+      "employee_balances",
+    ]);
+
+    setEmployees(employeesData || []);
+    setPayrollRecords(records || []);
+    setPayrollAdjustments(adjustments || []);
+    setEmployeeBalances(balances || []);
+  };
+
+  /// FUNCTIONS
   const createPayrollExpense = async (recordsToRelease: any[]) => {
+    if (recordsToRelease.length === 0) return;
+
     const firstRecord = recordsToRelease[0];
     const periodLabel = getPeriodLabel(firstRecord);
     const totalNetPay = recordsToRelease.reduce(
-      (sum, record) => sum + getRecordAmount(record),
+      (sum, record) => sum + getReleaseAmount(record),
       0
     );
 
@@ -123,27 +142,50 @@ export default function PayrollManagerPage() {
     }
   };
 
-  const releasePayroll = async (mode: "selected" | "all") => {
-    const targetRecords =
-      mode === "all"
-        ? filteredPendingPayroll
-        : filteredPendingPayroll.filter((record) =>
-            selectedRecordIds.includes(String(record.id))
-          );
+  const createCarryForwardBalances = async (recordsToRelease: any[]) => {
+    const negativeRecords = recordsToRelease.filter(
+      (record) => getCarryForwardAmount(record) > 0
+    );
 
+    if (negativeRecords.length === 0) return;
+
+    const balanceRows = negativeRecords.map((record) => ({
+      employee_id: record.employee_id || null,
+      employee_name: getEmployeeName(record),
+      balance_type: "Cash Advance Carry Forward",
+      original_amount: getCarryForwardAmount(record),
+      remaining_balance: getCarryForwardAmount(record),
+      status: "Active",
+      source_module: "Payroll Manager",
+      source_id: record.id,
+      period_id: record.period_id || null,
+      remarks: `Auto carry forward from ${getPeriodLabel(record)}. Net pay was ${formatPeso(getRecordAmount(record))}.`,
+    }));
+
+    const { error } = await supabase.from("employee_balances").insert(balanceRows);
+
+    if (error) {
+      console.log("CREATE CARRY FORWARD BALANCE ERROR:", error.message);
+      alert(
+        "Payroll was released, but carry-forward balance failed to save. Check employee_balances table columns."
+      );
+    }
+  };
+
+  const releasePayrollRecords = async (targetRecords: any[], label: string) => {
     if (targetRecords.length === 0) {
-      alert("No payroll records selected for release.");
+      alert("No approved payroll records selected for release.");
+      return;
+    }
+
+    if (pendingAdjustments.length > 0) {
+      alert(
+        `${pendingAdjustments.length} payroll adjustment(s) are still pending in Payroll Register. Approve/reject them in Register first, then regenerate payroll.`
+      );
       return;
     }
 
     const negativeRecords = targetRecords.filter((record) => getRecordAmount(record) < 0);
-
-    if (negativeRecords.length > 0) {
-      alert(
-        `Cannot release payroll. ${negativeRecords.length} employee(s) have negative net pay. Fix them in Payroll Register first.`
-      );
-      return;
-    }
 
     const totalGross = targetRecords.reduce(
       (sum, record) => sum + getRecordGross(record),
@@ -156,20 +198,28 @@ export default function PayrollManagerPage() {
     );
 
     const totalNet = targetRecords.reduce(
-      (sum, record) => sum + getRecordAmount(record),
+      (sum, record) => sum + getReleaseAmount(record),
+      0
+    );
+
+    const totalCarryForward = targetRecords.reduce(
+      (sum, record) => sum + getCarryForwardAmount(record),
       0
     );
 
     const confirmed = confirm(
       `Release Payroll?
 
-Mode: ${mode === "all" ? "Release All" : "Release Selected"}
+Mode: ${label}
 Employees: ${targetRecords.length}
 Gross Pay: ${formatPeso(totalGross)}
 Deductions: ${formatPeso(totalDeductions)}
-Net Pay: ${formatPeso(totalNet)}
+Release Amount: ${formatPeso(totalNet)}
+Carry Forward: ${formatPeso(totalCarryForward)}
 
-This will create a Payroll expense automatically.`
+Employees with carry forward: ${negativeRecords.length}
+
+This will mark payroll as Released, create a Payroll expense for actual release amount, and save carry-forward balances.`
     );
 
     if (!confirmed) return;
@@ -191,17 +241,42 @@ This will create a Payroll expense automatically.`
 
     if (error) {
       setIsProcessing(false);
-      alert("Failed to release payroll records.");
+      alert("Failed to release payroll.");
       return console.log("RELEASE PAYROLL ERROR:", error.message);
     }
 
+    await Promise.all(
+      targetRecords.map((record) =>
+        supabase
+          .from("payroll_records")
+          .update({
+            paid_amount: getReleaseAmount(record),
+            carry_forward_amount: getCarryForwardAmount(record),
+          })
+          .eq("id", record.id)
+      )
+    );
+
+    await createCarryForwardBalances(targetRecords);
+
     for (const periodId of periodIds) {
       const periodRecords = targetRecords.filter((record) => record.period_id === periodId);
+
       await createPayrollExpense(periodRecords);
+
+      const remainingApproved = payrollRecords.filter(
+        (record) =>
+          record.period_id === periodId &&
+          !targetIds.includes(record.id) &&
+          ["For Approval", "Approved"].includes(normalizeStatus(record.status))
+      );
 
       await supabase
         .from("payroll_periods")
-        .update({ status: "Released", released_at: new Date().toISOString() })
+        .update({
+          status: remainingApproved.length > 0 ? "Partially Released" : "Released",
+          released_at: new Date().toISOString(),
+        })
         .eq("id", periodId);
     }
 
@@ -210,6 +285,24 @@ This will create a Payroll expense automatically.`
     await loadData();
 
     alert("Payroll released and expense entry created.");
+  };
+
+  const releasePayroll = async (mode: "selected" | "all") => {
+    const targetRecords =
+      mode === "all"
+        ? filteredApprovedPayroll
+        : filteredApprovedPayroll.filter((record) =>
+            selectedRecordIds.includes(String(record.id))
+          );
+
+    await releasePayrollRecords(
+      targetRecords,
+      mode === "all" ? "Release All" : "Release Selected"
+    );
+  };
+
+  const releaseSinglePayroll = async (record: any) => {
+    await releasePayrollRecords([record], `Release ${getEmployeeName(record)}`);
   };
 
   const reopenPayroll = async () => {
@@ -274,103 +367,86 @@ This will create a Payroll expense automatically.`
     alert("Payroll reopened. Review Payroll Register before release.");
   };
 
-  const approveAdjustment = async (adjustment: any) => {
-    const confirmed = confirm("Approve this payroll adjustment?");
-    if (!confirmed) return;
-
-    const { error } = await supabase
-      .from("payroll_adjustments")
-      .update({ status: "Approved" })
-      .eq("id", adjustment.id);
-
-    if (error) {
-      alert("Failed to approve adjustment.");
-      return;
-    }
-
-    loadData();
-  };
-
-  const rejectAdjustment = async (adjustment: any) => {
-    const confirmed = confirm("Reject this payroll adjustment?");
-    if (!confirmed) return;
-
-    const { error } = await supabase
-      .from("payroll_adjustments")
-      .update({ status: "Rejected" })
-      .eq("id", adjustment.id);
-
-    if (error) {
-      alert("Failed to reject adjustment.");
-      return;
-    }
-
-    loadData();
-  };
-
+  /// EFFECTS
   useEffect(() => {
     loadData();
   }, []);
 
-  const pendingPayroll = payrollRecords.filter(
-    (record) => String(record.status || "") === "For Approval"
-  );
+  /// CALCULATIONS
+  const approvedPayroll = payrollRecords.filter((record) => {
+    const status = normalizeStatus(record.status);
+    return status === "For Approval" || status === "Approved";
+  });
 
-  const releasedPayroll = payrollRecords.filter(
-    (record) => String(record.status || "") === "Released"
-  );
+  const releasedPayroll = payrollRecords.filter((record) => {
+    const status = normalizeStatus(record.status);
+    return status === "Released" || status === "Paid";
+  });
 
   const pendingAdjustments = payrollAdjustments.filter(
-    (item) => String(item.status || "Pending") === "Pending"
+    (item) => normalizeStatus(item.status || "Pending") === "Pending"
+  );
+
+  const approvedAdjustments = payrollAdjustments.filter(
+    (item) => normalizeStatus(item.status) === "Approved"
+  );
+
+  const rejectedAdjustments = payrollAdjustments.filter(
+    (item) => normalizeStatus(item.status) === "Rejected"
   );
 
   const periodOptions = Array.from(
-    new Set(
-      pendingPayroll
-        .map((record) => getPeriodLabel(record))
-        .filter(Boolean)
-    )
+    new Set(approvedPayroll.map((record) => getPeriodLabel(record)).filter(Boolean))
   );
 
-  const filteredPendingPayroll = pendingPayroll.filter((record) => {
+  const filteredApprovedPayroll = approvedPayroll.filter((record) => {
     const text = `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
 
-    const periodMatch = periodFilter === "All" || getPeriodLabel(record) === periodFilter;
+    const periodMatch =
+      periodFilter === "All" || getPeriodLabel(record) === periodFilter;
 
     return text && periodMatch;
   });
 
-  const negativePayroll = filteredPendingPayroll.filter(
+  const negativePayroll = filteredApprovedPayroll.filter(
     (record) => getRecordAmount(record) < 0
   );
 
-  const readyForRelease = filteredPendingPayroll.filter(
-    (record) => getRecordAmount(record) >= 0
-  );
+  const readyForRelease = filteredApprovedPayroll;
 
-  const totalPendingNet = filteredPendingPayroll.reduce(
-    (sum, record) => sum + getRecordAmount(record),
+  const totalPendingNet = filteredApprovedPayroll.reduce(
+    (sum, record) => sum + getReleaseAmount(record),
     0
   );
 
-  const totalPendingGross = filteredPendingPayroll.reduce(
+  const totalCarryForward = filteredApprovedPayroll.reduce(
+    (sum, record) => sum + getCarryForwardAmount(record),
+    0
+  );
+
+  const totalPendingGross = filteredApprovedPayroll.reduce(
     (sum, record) => sum + getRecordGross(record),
     0
   );
 
-  const totalPendingDeductions = filteredPendingPayroll.reduce(
+  const totalPendingDeductions = filteredApprovedPayroll.reduce(
     (sum, record) => sum + getRecordDeduction(record),
     0
   );
 
-  const selectedRecords = [...filteredPendingPayroll, ...releasedPayroll].filter(
+  const selectedRecords = [...filteredApprovedPayroll, ...releasedPayroll].filter(
     (record) => selectedRecordIds.includes(String(record.id))
   );
 
   const selectedNet = selectedRecords.reduce(
-    (sum, record) => sum + getRecordAmount(record),
+    (sum, record) => sum + getReleaseAmount(record),
+    0
+  );
+
+  const selectedCarryForward = selectedRecords.reduce(
+    (sum, record) => sum + getCarryForwardAmount(record),
     0
   );
 
@@ -379,28 +455,33 @@ This will create a Payroll expense automatically.`
   );
 
   const filteredAdjustments = payrollAdjustments.filter((item) => {
-    const employeeName = getEmployeeName(item);
-    const text = `${employeeName} ${item.type} ${item.category} ${item.adjustment_type} ${item.description} ${item.remarks} ${item.status}`
+    const employeeName = item.employee_name || getEmployeeName(item);
+    return `${employeeName} ${item.type} ${item.category} ${item.adjustment_type} ${item.description} ${item.remarks} ${item.status}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-
-    return text;
   });
 
+  const totalApprovedAdjustmentAmount = approvedAdjustments.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0
+  );
+
   const aiAlerts = [
-    ...(negativePayroll.length > 0
-      ? [`${negativePayroll.length} employee(s) have negative net pay. Release is blocked.`]
-      : []),
     ...(pendingAdjustments.length > 0
-      ? [`${pendingAdjustments.length} payroll adjustment(s) pending approval.`]
+      ? [`${pendingAdjustments.length} pending adjustment(s) still need Register approval before release.`]
+      : []),
+    ...(negativePayroll.length > 0
+      ? [`${negativePayroll.length} employee(s) have negative net pay. They will release as ₱0 with carry-forward balance.`]
       : []),
     ...(readyForRelease.length > 0
       ? [`${readyForRelease.length} payroll record(s) ready for release.`]
       : []),
     ...(totalPendingNet > 0
-      ? [`Pending payroll net amount: ${formatPeso(totalPendingNet)}.`]
+      ? [`Approved payroll net amount: ${formatPeso(totalPendingNet)}.`]
       : []),
   ];
+
+  const releaseBlocked = pendingAdjustments.length > 0;
 
   const toggleSelect = (id: any) => {
     const key = String(id);
@@ -417,6 +498,7 @@ This will create a Payroll expense automatically.`
     setSelectedRecordIds([]);
   };
 
+  /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
@@ -426,13 +508,13 @@ This will create a Payroll expense automatically.`
           <div>
             <h1 className="text-3xl font-bold">Payroll Manager</h1>
             <p className="mt-2 text-slate-400">
-              Batch review, release payroll, block negative net pay, and auto-create payroll expense.
+              Release approved payroll only. CA/deduction approvals must be completed in Payroll Register.
             </p>
           </div>
 
           <div
             className={`rounded-2xl border px-5 py-4 ${
-              negativePayroll.length > 0
+              releaseBlocked
                 ? "border-red-500/30 bg-red-500/10 text-red-300"
                 : "border-green-500/30 bg-green-500/10 text-green-300"
             }`}
@@ -441,7 +523,7 @@ This will create a Payroll expense automatically.`
               Release Status
             </p>
             <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
-              {negativePayroll.length > 0 ? (
+              {releaseBlocked ? (
                 <>
                   <Lock size={18} /> Blocked
                 </>
@@ -455,11 +537,11 @@ This will create a Payroll expense automatically.`
         </div>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <KpiCard icon={<Users size={22} />} title="For Release" value={filteredPendingPayroll.length} danger={filteredPendingPayroll.length > 0} />
-          <KpiCard icon={<DollarSign size={22} />} title="Total Net Pay" value={formatPeso(totalPendingNet)} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Negative Payroll" value={negativePayroll.length} danger={negativePayroll.length > 0} />
-          <KpiCard icon={<Brain size={22} />} title="Pending Adjustments" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Released" value={releasedPayroll.length} success />
+          <KpiCard icon={<Users size={22} />} title="For Release" value={filteredApprovedPayroll.length} danger={filteredApprovedPayroll.length > 0} />
+          <KpiCard icon={<DollarSign size={22} />} title="For Release Amount" value={formatPeso(totalPendingNet)} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Pending Register Approval" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
+          <KpiCard icon={<Brain size={22} />} title="Carry Forward Employees" value={negativePayroll.length} danger={negativePayroll.length > 0} />
+          <KpiCard icon={<CheckCircle2 size={22} />} title="Released Payroll" value={releasedPayroll.length} success />
         </section>
 
         <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
@@ -472,7 +554,7 @@ This will create a Payroll expense automatically.`
               <div
                 key={index}
                 className={`rounded-xl border p-4 text-sm ${
-                  alert.includes("negative")
+                  alert.includes("negative") || alert.includes("pending")
                     ? "border-red-500/20 bg-red-500/10 text-red-200"
                     : "border-yellow-500/20 bg-slate-950/70 text-yellow-200"
                 }`}
@@ -497,8 +579,8 @@ This will create a Payroll expense automatically.`
                   {selectedRecordIds.length} payroll record(s) selected
                 </p>
                 <p className="mt-1 text-xs text-yellow-100/80">
-                  Selected Net Pay: {formatPeso(selectedNet)} • Negative:{" "}
-                  {selectedNegative.length}
+                  Release Amount: {formatPeso(selectedNet)} • Carry Forward:{" "}
+                  {formatPeso(selectedCarryForward)}
                 </p>
               </div>
 
@@ -512,7 +594,10 @@ This will create a Payroll expense automatically.`
 
                 <button
                   onClick={() => releasePayroll("selected")}
-                  disabled={isProcessing || selectedNegative.length > 0}
+                  disabled={
+                    isProcessing ||
+                    pendingAdjustments.length > 0
+                  }
                   className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
                 >
                   <Send size={16} /> Release Selected
@@ -534,9 +619,9 @@ This will create a Payroll expense automatically.`
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Payroll Batch Summary</h2>
+                <h2 className="text-xl font-bold">Payroll Batch Release Summary</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Batch release should be used after Register audit is complete.
+                  Release is allowed only after Register audit and adjustment approval.
                 </p>
               </div>
 
@@ -554,7 +639,7 @@ This will create a Payroll expense automatically.`
                   disabled={
                     isProcessing ||
                     readyForRelease.length === 0 ||
-                    negativePayroll.length > 0
+                    releaseBlocked
                   }
                   className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
                 >
@@ -564,18 +649,32 @@ This will create a Payroll expense automatically.`
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <MiniStat title="Employees" value={filteredPendingPayroll.length} />
+              <MiniStat title="Employees" value={filteredApprovedPayroll.length} />
               <MiniStat title="Gross Pay" value={formatPeso(totalPendingGross)} />
               <MiniStat title="Deductions" value={formatPeso(totalPendingDeductions)} danger />
-              <MiniStat title="Net Pay" value={formatPeso(totalPendingNet)} success />
+              <MiniStat title="Release Amount" value={formatPeso(totalPendingNet)} success />
               <MiniStat title="Ready" value={readyForRelease.length} success />
-              <MiniStat title="Blocked" value={negativePayroll.length} danger={negativePayroll.length > 0} />
+              <MiniStat title="Carry Forward" value={formatPeso(totalCarryForward)} danger={totalCarryForward > 0} />
             </div>
 
-            {negativePayroll.length > 0 && (
+            {pendingAdjustments.length > 0 && (
               <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
                 <p className="font-black text-red-300">
-                  Release blocked due to negative net pay.
+                  Release blocked: pending approvals must be handled in Payroll Register.
+                </p>
+                <p className="mt-1 text-sm text-red-200">
+                  Approve/reject CA, deductions, or adjustments in Register, then generate payroll again before release.
+                </p>
+              </div>
+            )}
+
+            {negativePayroll.length > 0 && (
+              <div className="mt-5 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+                <p className="font-black text-yellow-300">
+                  Carry-forward warning: negative net pay will be released as ₱0.
+                </p>
+                <p className="mt-1 text-sm text-yellow-100/80">
+                  The remaining deduction will be saved to Employee Balances for the next cutoff.
                 </p>
                 <div className="mt-3 space-y-2">
                   {negativePayroll.map((record) => (
@@ -584,8 +683,8 @@ This will create a Payroll expense automatically.`
                       className="flex items-center justify-between rounded-lg bg-slate-950 px-4 py-2 text-sm"
                     >
                       <span>{getEmployeeName(record)}</span>
-                      <span className="font-black text-red-400">
-                        {formatPeso(getRecordAmount(record))}
+                      <span className="font-black text-yellow-300">
+                        Carry Forward {formatPeso(getCarryForwardAmount(record))}
                       </span>
                     </div>
                   ))}
@@ -625,10 +724,10 @@ This will create a Payroll expense automatically.`
         </section>
 
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-bold">Payroll Records For Release</h2>
+          <h2 className="text-xl font-bold">Payroll Release Queue</h2>
 
           <div className="mt-5 max-h-[620px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1250px] text-sm">
+            <table className="w-full min-w-[1400px] text-sm">
               <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Select</th>
@@ -636,13 +735,16 @@ This will create a Payroll expense automatically.`
                   <th className="px-4 py-3">Period</th>
                   <th className="px-4 py-3 text-right">Gross</th>
                   <th className="px-4 py-3 text-right">Deductions</th>
-                  <th className="px-4 py-3 text-right">Net Pay</th>
+                  <th className="px-4 py-3 text-right">Computed Net</th>
+                  <th className="px-4 py-3 text-right">Release</th>
+                  <th className="px-4 py-3 text-right">Carry Forward</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredPendingPayroll.map((record) => (
+                {filteredApprovedPayroll.map((record) => (
                   <tr
                     key={record.id}
                     className={`border-t border-slate-800 hover:bg-slate-800/40 ${
@@ -677,16 +779,83 @@ This will create a Payroll expense automatically.`
                     >
                       {formatPeso(getRecordAmount(record))}
                     </td>
+                    <td className="px-4 py-3 text-right font-black text-emerald-400">
+                      {formatPeso(getReleaseAmount(record))}
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-yellow-300">
+                      {formatPeso(getCarryForwardAmount(record))}
+                    </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={record.status || "For Approval"} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => releaseSinglePayroll(record)}
+                        disabled={
+                          isProcessing ||
+                          releaseBlocked
+                        }
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
+                      >
+                        Release
+                      </button>
                     </td>
                   </tr>
                 ))}
 
-                {filteredPendingPayroll.length === 0 && (
+                {filteredApprovedPayroll.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                      No payroll records waiting for release.
+                    <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
+                      No approved payroll records waiting for release.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Active carry-forward balances created from negative payroll releases.
+          </p>
+
+          <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3 text-right">Original</th>
+                  <th className="px-4 py-3 text-right">Remaining</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Remarks</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {employeeBalances
+                  .filter((item) => String(item.status || "Active") === "Active")
+                  .map((item) => (
+                    <tr key={item.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                      <td className="px-4 py-3 font-bold">{item.employee_name || "Unknown Employee"}</td>
+                      <td className="px-4 py-3">{item.balance_type || "Balance"}</td>
+                      <td className="px-4 py-3 text-right">{formatPeso(item.original_amount)}</td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                        {formatPeso(item.remaining_balance)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={item.status || "Active"} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">{item.remarks || "-"}</td>
+                    </tr>
+                  ))}
+
+                {employeeBalances.filter((item) => String(item.status || "Active") === "Active").length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                      No active employee balances.
                     </td>
                   </tr>
                 )}
@@ -696,7 +865,17 @@ This will create a Payroll expense automatically.`
         </section>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-bold">Payroll Adjustment Review</h2>
+          <h2 className="text-xl font-bold">Register Adjustment Status</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Read-only. Approve or reject adjustments in Payroll Register only.
+          </p>
+
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
+            <MiniStat title="Pending" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
+            <MiniStat title="Approved" value={approvedAdjustments.length} success />
+            <MiniStat title="Rejected" value={rejectedAdjustments.length} />
+            <MiniStat title="Approved Amount" value={formatPeso(totalApprovedAdjustmentAmount)} />
+          </div>
 
           <div className="mt-5 overflow-x-auto rounded-xl border border-slate-800">
             <table className="w-full min-w-[1000px] text-sm">
@@ -707,7 +886,6 @@ This will create a Payroll expense automatically.`
                   <th className="px-4 py-3">Description</th>
                   <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
 
@@ -721,32 +899,12 @@ This will create a Payroll expense automatically.`
                     <td className="px-4 py-3">
                       <StatusBadge status={item.status || "Pending"} />
                     </td>
-                    <td className="px-4 py-3">
-                      {String(item.status || "Pending") === "Pending" ? (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => approveAdjustment(item)}
-                            className="rounded-lg bg-green-600 px-3 py-1 text-xs font-bold hover:bg-green-500"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => rejectAdjustment(item)}
-                            className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-500">Reviewed</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
 
                 {filteredAdjustments.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                    <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
                       No payroll adjustments found.
                     </td>
                   </tr>
@@ -811,12 +969,18 @@ function StatusBadge({ status }: { status: string }) {
   const normalized = String(status || "");
 
   const style =
-    normalized === "Released"
+    normalized === "Active"
+      ? "bg-yellow-500/10 text-yellow-400"
+      : normalized === "Closed"
+      ? "bg-green-500/10 text-green-400"
+      : normalized === "Released" || normalized === "Paid"
       ? "bg-blue-500/10 text-blue-400"
       : normalized === "Approved" || normalized === "For Approval"
       ? "bg-green-500/10 text-green-400"
       : normalized === "Rejected"
       ? "bg-red-500/10 text-red-400"
+      : normalized === "Partially Released"
+      ? "bg-yellow-500/10 text-yellow-400"
       : "bg-yellow-500/10 text-yellow-400";
 
   return (

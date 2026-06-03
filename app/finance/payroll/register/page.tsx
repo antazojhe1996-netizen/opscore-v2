@@ -24,6 +24,7 @@ export default function PayrollRegisterPage() {
   const [periods, setPeriods] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [adjustments, setAdjustments] = useState<any[]>([]);
+  const [employeeBalances, setEmployeeBalances] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
 
   const [periodName, setPeriodName] = useState("");
@@ -70,6 +71,7 @@ export default function PayrollRegisterPage() {
 
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
   const periodStatus = selectedPeriod?.status || "Draft";
+  const payrollIsOutdated = Boolean(selectedPeriod?.needs_regeneration);
 
   const isLocked =
     periodStatus === "Approved" ||
@@ -211,6 +213,41 @@ export default function PayrollRegisterPage() {
     setAdjustments(data || []);
   };
 
+  const getEmployeeBalances = async () => {
+    const { data, error } = await supabase
+      .from("employee_balances")
+      .select("*")
+      .eq("status", "Active")
+      .gt("remaining_balance", 0)
+      .order("employee_name", { ascending: true });
+
+    if (error) {
+      console.log("GET EMPLOYEE BALANCES ERROR:", error.message);
+      setEmployeeBalances([]);
+      return;
+    }
+
+    setEmployeeBalances(data || []);
+  };
+
+  const markPayrollNeedsRegeneration = async () => {
+    if (!selectedPeriodId) return;
+
+    const { error } = await supabase
+      .from("payroll_periods")
+      .update({
+        needs_regeneration: true,
+      })
+      .eq("id", selectedPeriodId);
+
+    if (error) {
+      console.log("MARK NEEDS REGENERATION ERROR:", error.message);
+      return;
+    }
+
+    await getPeriods();
+  };
+
   const createPeriod = async () => {
     if (!periodName.trim() || !startDate || !endDate) {
       alert("Complete payroll period details.");
@@ -340,6 +377,7 @@ export default function PayrollRegisterPage() {
 
     await getPeriods();
     await getRecords(selectedPeriodId);
+    await getEmployeeBalances();
     setSelectedRecordIds([]);
 
     alert("Payroll reopened.");
@@ -382,6 +420,32 @@ export default function PayrollRegisterPage() {
         .filter((row) => hasActualTime(row))
         .map((row) => normalizeDate(row.attendance_date)),
     };
+  };
+
+  const getActiveBalancesForEmployee = (employeeId: string) => {
+    return employeeBalances.filter(
+      (balance) =>
+        String(balance.employee_id) === String(employeeId) &&
+        String(balance.status || "Active") === "Active" &&
+        Number(balance.remaining_balance || 0) > 0
+    );
+  };
+
+  const buildBalanceAdjustments = (employeeId: string) => {
+    return getActiveBalancesForEmployee(employeeId).map((balance) => ({
+      id: `balance-${balance.id}`,
+      employee_id: balance.employee_id,
+      employee_name: balance.employee_name,
+      adjustment_type: balance.balance_type || "Carry Forward Balance",
+      adjustment_direction: "Deduction",
+      amount: Number(balance.remaining_balance || 0),
+      remarks: `Outstanding balance from previous cutoff. Balance ID: ${balance.id}`,
+      status: "Approved",
+      source_module: "Employee Balances",
+      source_id: balance.id,
+      is_employee_balance: true,
+      balance_id: balance.id,
+    }));
   };
 
   const computeRecord = (
@@ -451,29 +515,48 @@ export default function PayrollRegisterPage() {
       .filter((item) => item.adjustment_direction === "Earning")
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
+    const balanceDeduction = Number(base.balance_deductions || 0);
+
     const manualDeductions = employeeAdjustments
-      .filter((item) => item.adjustment_direction === "Deduction")
+      .filter(
+        (item) =>
+          item.adjustment_direction === "Deduction" &&
+          item.source_module !== "Employee Balances"
+      )
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
     const grossPay = basicPay + holidayPay + otPay + manualEarnings;
+
     const totalDeductions =
-      lateDeduction + undertimeDeduction + absentDeduction + manualDeductions;
+      lateDeduction +
+      undertimeDeduction +
+      absentDeduction +
+      manualDeductions +
+      balanceDeduction;
+
     const netPay = grossPay - totalDeductions;
+    const releaseAmount = Math.max(netPay, 0);
+    const carryForwardAmount = Math.max(Math.abs(Math.min(netPay, 0)), 0);
+
+    const { balance_deductions, ...cleanBase } = base;
 
     return {
-      ...base,
+      ...cleanBase,
       status: "Draft",
       basic_pay: basicPay,
       holiday_pay: holidayPay,
       ot_pay: otPay,
       allowance: manualEarnings,
       manual_deduction: manualDeductions,
+      balance_deduction: balanceDeduction,
       late_deduction: lateDeduction,
       undertime_deduction: undertimeDeduction,
       absent_deduction: absentDeduction,
       total_deductions: totalDeductions,
       gross_pay: grossPay,
       net_pay: netPay,
+      release_amount: releaseAmount,
+      carry_forward_amount: carryForwardAmount,
       period_label: selectedPeriod?.period_name || "Payroll Period",
     };
   };
@@ -504,6 +587,21 @@ export default function PayrollRegisterPage() {
 
     const latestSettings = await fetchLatestSettings();
     const latestHolidays = await getHolidays();
+    await getEmployeeBalances();
+
+    const { data: latestBalancesData, error: balancesError } = await supabase
+      .from("employee_balances")
+      .select("*")
+      .eq("status", "Active")
+      .gt("remaining_balance", 0);
+
+    if (balancesError) {
+      setIsSaving(false);
+      alert("Failed to load employee balances.");
+      return console.log("LOAD BALANCES ERROR:", balancesError.message);
+    }
+
+    const latestBalances = latestBalancesData || [];
 
     await supabase.from("payroll_records").delete().eq("period_id", selectedPeriodId);
 
@@ -511,11 +609,38 @@ export default function PayrollRegisterPage() {
       employees.map(async (employee) => {
         const attendance = await getAttendanceSummary(employee.id);
 
-       const employeeAdjustments = adjustments.filter(
-  (item) =>
-    item.employee_id === employee.id &&
-    String(item.status || "Pending") === "Approved"
-);
+        const approvedPeriodAdjustments = adjustments.filter(
+          (item) =>
+            item.employee_id === employee.id &&
+            String(item.status || "Pending") === "Approved"
+        );
+
+        const activeBalanceAdjustments = latestBalances
+          .filter(
+            (balance) =>
+              String(balance.employee_id) === String(employee.id) &&
+              String(balance.status || "Active") === "Active" &&
+              Number(balance.remaining_balance || 0) > 0
+          )
+          .map((balance) => ({
+            id: `balance-${balance.id}`,
+            employee_id: balance.employee_id,
+            employee_name: balance.employee_name,
+            adjustment_type: balance.balance_type || "Carry Forward Balance",
+            adjustment_direction: "Deduction",
+            amount: Number(balance.remaining_balance || 0),
+            remarks: `Outstanding balance from previous cutoff. Balance ID: ${balance.id}`,
+            status: "Approved",
+            source_module: "Employee Balances",
+            source_id: balance.id,
+            is_employee_balance: true,
+            balance_id: balance.id,
+          }));
+
+        const employeeAdjustments = [
+          ...approvedPeriodAdjustments,
+          ...activeBalanceAdjustments,
+        ];
 
         const base = {
           period_id: selectedPeriodId,
@@ -536,7 +661,10 @@ export default function PayrollRegisterPage() {
           absent_days: attendance.absentDays,
           ot_minutes: attendance.otMinutes,
           holiday_worked_dates: attendance.holidayWorkedDates,
-
+          balance_deductions: activeBalanceAdjustments.reduce(
+            (sum, item) => sum + Number(item.amount || 0),
+            0
+          ),
           remarks: "",
         };
 
@@ -549,11 +677,22 @@ export default function PayrollRegisterPage() {
     setIsSaving(false);
 
     if (error) {
-      alert("Failed to generate payroll.");
-      return console.log("GENERATE PAYROLL ERROR:", error.message);
+      console.log("GENERATE PAYROLL ERROR:", error);
+      alert(`Failed to generate payroll.\n\n${error.message}`);
+      return;
     }
 
+    await supabase
+      .from("payroll_periods")
+      .update({
+        needs_regeneration: false,
+        last_generated_at: new Date().toISOString(),
+      })
+      .eq("id", selectedPeriodId);
+
+    await getPeriods();
     await getRecords(selectedPeriodId);
+    await getEmployeeBalances();
     setSelectedRecordIds([]);
     setSelectedPayslipId("");
     setSelectedAuditRecord(null);
@@ -608,8 +747,9 @@ export default function PayrollRegisterPage() {
     setAdjustmentRemarks("");
 
     await getAdjustments(selectedPeriodId);
+    await markPayrollNeedsRegeneration();
 
-    alert("Adjustment saved as Pending.");
+    alert("Adjustment saved as Pending. Payroll must be regenerated before sending to Manager.");
   };
 
   const approveAdjustment = async (id: string) => {
@@ -638,6 +778,8 @@ export default function PayrollRegisterPage() {
     }
 
     await getAdjustments(selectedPeriodId);
+    await markPayrollNeedsRegeneration();
+
     alert("Adjustment approved. Generate payroll to apply.");
   };
 
@@ -663,6 +805,7 @@ export default function PayrollRegisterPage() {
     }
 
     await getAdjustments(selectedPeriodId);
+    await markPayrollNeedsRegeneration();
   };
 
   const deleteAdjustment = async (id: string) => {
@@ -685,6 +828,8 @@ export default function PayrollRegisterPage() {
     }
 
     await getAdjustments(selectedPeriodId);
+    await markPayrollNeedsRegeneration();
+
     alert("Adjustment deleted. Generate payroll again to update payroll.");
   };
 
@@ -772,7 +917,20 @@ export default function PayrollRegisterPage() {
         isDeduction: item.adjustment_direction === "Deduction",
       }));
 
-    return [...attendanceLogs, ...manualLogs];
+    const balanceLogs = buildBalanceAdjustments(record.employee_id).map((item) => ({
+      date: "-",
+      schedule: "Carry Forward",
+      actual: "Employee balance",
+      status: "Deduction",
+      issue: `${item.adjustment_type} • ${item.remarks || "Outstanding balance"}`,
+      lateAmount: 0,
+      undertimeAmount: 0,
+      absentAmount: 0,
+      totalAmount: Number(item.amount || 0),
+      isDeduction: true,
+    }));
+
+    return [...attendanceLogs, ...manualLogs, ...balanceLogs];
   };
 
   const openEmployeeAudit = async (record: any) => {
@@ -788,11 +946,20 @@ export default function PayrollRegisterPage() {
         String(item.status || "Pending") === "Approved"
     );
 
-    setPayslipAdjustments(employeeAdjustments);
+    const balanceAdjustments = buildBalanceAdjustments(record.employee_id);
+
+    setPayslipAdjustments([...employeeAdjustments, ...balanceAdjustments]);
   };
 
   const sendPayrollToManager = async (mode: "all" | "selected") => {
     if (!selectedPeriodId || records.length === 0) return;
+
+    if (selectedPeriod?.needs_regeneration) {
+      alert(
+        "Cannot send payroll. Payroll is outdated because adjustments were changed. Generate Payroll first."
+      );
+      return;
+    }
 
     const targetRecords =
       mode === "all"
@@ -874,6 +1041,7 @@ Status will become: For Approval`;
 
     await getPeriods();
     await getRecords(selectedPeriodId);
+    await getEmployeeBalances();
     setSelectedRecordIds([]);
 
     alert("Payroll sent to Payroll Manager.");
@@ -884,6 +1052,7 @@ Status will become: For Approval`;
     getSettings();
     getHolidays();
     getPeriods();
+    getEmployeeBalances();
   }, []);
 
   useEffect(() => {
@@ -919,6 +1088,22 @@ Status will become: For Approval`;
     0
   );
 
+  const totalReleaseAmount = records.reduce(
+    (sum, record) =>
+      sum + Number(record.release_amount ?? Math.max(Number(record.net_pay || 0), 0)),
+    0
+  );
+
+  const totalCarryForwardAmount = records.reduce(
+    (sum, record) =>
+      sum +
+      Number(
+        record.carry_forward_amount ??
+          Math.max(Math.abs(Math.min(Number(record.net_pay || 0), 0)), 0)
+      ),
+    0
+  );
+
   const pendingAdjustments = adjustments.filter(
     (item) => String(item.status || "Pending") === "Pending"
   );
@@ -949,6 +1134,31 @@ Status will become: For Approval`;
     (sum, record) => sum + Number(record.net_pay || 0),
     0
   );
+
+  const selectedReleaseAmount = selectedRecords.reduce(
+    (sum, record) =>
+      sum + Number(record.release_amount ?? Math.max(Number(record.net_pay || 0), 0)),
+    0
+  );
+
+  const selectedCarryForwardAmount = selectedRecords.reduce(
+    (sum, record) =>
+      sum +
+      Number(
+        record.carry_forward_amount ??
+          Math.max(Math.abs(Math.min(Number(record.net_pay || 0), 0)), 0)
+      ),
+    0
+  );
+
+  const activeBalanceTotal = employeeBalances.reduce(
+    (sum, balance) => sum + Number(balance.remaining_balance || 0),
+    0
+  );
+
+  const employeesWithBalances = new Set(
+    employeeBalances.map((balance) => String(balance.employee_id))
+  ).size;
 
   const managerAlerts = records.flatMap((record) => {
     const alerts: any[] = [];
@@ -1004,9 +1214,9 @@ Status will become: For Approval`;
     if (netPay < 0) {
       alerts.push({
         employee: record.employee_name,
-        type: "Negative Net Pay",
-        message: `${formatMoney(netPay)} net pay. Fix deductions before sending.`,
-        severity: "High",
+        type: "Carry Forward Required",
+        message: `${formatMoney(netPay)} computed net pay. Release will be ₱0 and balance will carry forward.`,
+        severity: "Medium",
       });
     }
 
@@ -1097,6 +1307,61 @@ Status will become: For Approval`;
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+        <style jsx global>{`
+          @media print {
+            @page {
+              size: A4;
+              margin: 12mm;
+            }
+
+            html,
+            body {
+              background: #ffffff !important;
+              color: #111827 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            body * {
+              visibility: hidden !important;
+            }
+
+            .payslip-print-area,
+            .payslip-print-area * {
+              visibility: visible !important;
+            }
+
+            .payslip-print-area {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              color: #111827 !important;
+              box-shadow: none !important;
+            }
+
+            .payslip-no-print {
+              display: none !important;
+            }
+
+            .payslip-page {
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
+              background: #ffffff !important;
+            }
+
+            .payslip-avoid-break {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+          }
+        `}</style>
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Payroll Register</h1>
@@ -1115,13 +1380,44 @@ Status will become: For Approval`;
           </div>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-7">
           <KpiCard icon={<Users size={22} />} title="Employees" value={records.length} />
           <KpiCard icon={<AlertTriangle size={22} />} title="AI Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
           <KpiCard icon={<DollarSign size={22} />} title="Gross Pay" value={formatMoney(totalGross)} />
           <KpiCard icon={<Trash2 size={22} />} title="Deductions" value={formatMoney(totalDeductions)} danger={totalDeductions > 0} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Net Pay" value={formatMoney(totalNet)} success />
+          <KpiCard icon={<CheckCircle2 size={22} />} title="Computed Net" value={formatMoney(totalNet)} success={totalNet >= 0} danger={totalNet < 0} />
+          <KpiCard icon={<Send size={22} />} title="Release Amount" value={formatMoney(totalReleaseAmount)} success />
+          <KpiCard icon={<RotateCcw size={22} />} title="Carry Forward" value={formatMoney(totalCarryForwardAmount)} danger={totalCarryForwardAmount > 0} />
         </section>
+
+        {selectedPeriod?.needs_regeneration && (
+          <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 text-xl font-black text-red-300">
+                  <AlertTriangle size={22} /> Payroll Outdated
+                </h2>
+                <p className="mt-2 text-sm text-red-200">
+                  Attendance, adjustments, or employee balances were modified after the last payroll computation.
+                  Generate payroll again before reviewing or sending to Payroll Manager.
+                </p>
+                {selectedPeriod?.last_generated_at && (
+                  <p className="mt-1 text-xs text-red-200/70">
+                    Last generated: {new Date(selectedPeriod.last_generated_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={generatePayroll}
+                disabled={isSaving || !selectedPeriodId || isLocked}
+                className="rounded-xl bg-red-500 px-5 py-3 text-sm font-black text-white hover:bg-red-400 disabled:opacity-50"
+              >
+                Generate Payroll Now
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -1261,6 +1557,16 @@ Status will become: For Approval`;
                   <p className="mt-1 text-slate-400">
                     {selectedPeriod.start_date} to {selectedPeriod.end_date}
                   </p>
+                  {selectedPeriod?.needs_regeneration && (
+                    <p className="mt-2 flex items-center gap-1 text-xs text-red-400">
+                      <AlertTriangle size={12} /> Needs regeneration.
+                    </p>
+                  )}
+                  {selectedPeriod?.last_generated_at && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Last generated: {new Date(selectedPeriod.last_generated_at).toLocaleString()}
+                    </p>
+                  )}
                   {isLocked && (
                     <p className="mt-2 flex items-center gap-1 text-xs text-yellow-400">
                       <Lock size={12} /> Locked. Reopen to edit.
@@ -1423,6 +1729,61 @@ Status will become: For Approval`;
           </div>
         </section>
 
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Active carry-forward balances will be deducted automatically when payroll is generated.
+              </p>
+            </div>
+
+            <div className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm font-black text-yellow-300">
+              {employeesWithBalances} employee(s) • {formatMoney(activeBalanceTotal)}
+            </div>
+          </div>
+
+          <div className="max-h-[260px] overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3 text-right">Original</th>
+                  <th className="px-4 py-3 text-right">Remaining</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Remarks</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {employeeBalances.map((balance) => (
+                  <tr key={balance.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                    <td className="px-4 py-3 font-black">{balance.employee_name}</td>
+                    <td className="px-4 py-3">{balance.balance_type || "Carry Forward Balance"}</td>
+                    <td className="px-4 py-3 text-right">{formatMoney(balance.original_amount)}</td>
+                    <td className="px-4 py-3 text-right font-black text-yellow-300">
+                      {formatMoney(balance.remaining_balance)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={balance.status || "Active"} />
+                    </td>
+                    <td className="px-4 py-3 text-slate-400">{balance.remarks || "-"}</td>
+                  </tr>
+                ))}
+
+                {employeeBalances.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                      No active employee balances.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         {selectedRecordIds.length > 0 && (
           <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 backdrop-blur">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -1432,8 +1793,8 @@ Status will become: For Approval`;
                 </p>
                 <p className="mt-1 text-xs text-yellow-100/80">
                   Gross: {formatMoney(selectedGross)} • Deductions:{" "}
-                  {formatMoney(selectedDeductions)} • Net Pay:{" "}
-                  {formatMoney(selectedNet)}
+                  {formatMoney(selectedDeductions)} • Computed Net:{" "}
+                  {formatMoney(selectedNet)} • Release: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
                 </p>
               </div>
 
@@ -1447,7 +1808,8 @@ Status will become: For Approval`;
 
                 <button
                   onClick={() => sendPayrollToManager("selected")}
-                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300"
+                  disabled={Boolean(selectedPeriod?.needs_regeneration)}
+                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
                 >
                   <Send size={16} /> Approve Selected
                 </button>
@@ -1476,7 +1838,7 @@ Status will become: For Approval`;
 
               <button
                 onClick={() => sendPayrollToManager("all")}
-                disabled={records.length === 0}
+                disabled={records.length === 0 || Boolean(selectedPeriod?.needs_regeneration)}
                 className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
               >
                 <Send size={16} /> Approve All & Send
@@ -1494,6 +1856,18 @@ Status will become: For Approval`;
             </div>
           </div>
 
+          {selectedPeriod?.needs_regeneration && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center text-red-200">
+              <AlertTriangle className="mx-auto mb-3" size={34} />
+              <h3 className="text-xl font-black text-red-300">Payroll table hidden because data is outdated.</h3>
+              <p className="mt-2 text-sm">
+                Attendance, CA/deductions, or carry-forward balances changed after the last generation.
+                Click Generate Payroll before reviewing employee totals.
+              </p>
+            </div>
+          )}
+
+          {!selectedPeriod?.needs_regeneration && (
           <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
             <table className="w-full min-w-[1680px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
@@ -1512,7 +1886,10 @@ Status will become: For Approval`;
                   <th className="px-4 py-3 text-right">Holiday</th>
                   <th className="px-4 py-3 text-right">Auto Ded.</th>
                   <th className="px-4 py-3 text-right">Manual Ded.</th>
-                  <th className="px-4 py-3 text-right">Net Pay</th>
+                  <th className="px-4 py-3 text-right">Balance Ded.</th>
+                  <th className="px-4 py-3 text-right">Computed Net</th>
+                  <th className="px-4 py-3 text-right">Release</th>
+                  <th className="px-4 py-3 text-right">Carry Forward</th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
@@ -1561,6 +1938,7 @@ Status will become: For Approval`;
                       <td className="px-4 py-3 text-right text-blue-400">{formatMoney(record.holiday_pay)}</td>
                       <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
                       <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
+                      <td className="px-4 py-3 text-right text-yellow-300">{formatMoney(record.balance_deduction)}</td>
                       <td
                         className={`px-4 py-3 text-right font-black ${
                           Number(record.net_pay || 0) < 0
@@ -1569,6 +1947,15 @@ Status will become: For Approval`;
                         }`}
                       >
                         {formatMoney(record.net_pay)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                        {formatMoney(record.release_amount ?? Math.max(Number(record.net_pay || 0), 0))}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                        {formatMoney(
+                          record.carry_forward_amount ??
+                            Math.max(Math.abs(Math.min(Number(record.net_pay || 0), 0)), 0)
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -1584,7 +1971,7 @@ Status will become: For Approval`;
 
                 {filteredRecords.length === 0 && (
                   <tr>
-                    <td colSpan={16} className="px-4 py-14 text-center text-slate-500">
+                    <td colSpan={19} className="px-4 py-14 text-center text-slate-500">
                       No payroll records. Select period then click Generate.
                     </td>
                   </tr>
@@ -1592,9 +1979,10 @@ Status will become: For Approval`;
               </tbody>
             </table>
           </div>
+          )}
         </section>
 
-        {selectedAuditRecord && (
+        {!selectedPeriod?.needs_regeneration && selectedAuditRecord && (
           <section className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-6">
             <div className="mb-5 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
               <div>
@@ -1678,112 +2066,239 @@ Status will become: For Approval`;
           </section>
         )}
 
-        {selectedPayslip && (
+        {!selectedPeriod?.needs_regeneration && selectedPayslip && (
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <div className="mb-5 flex items-center justify-between">
+            <div className="payslip-no-print mb-5 flex items-center justify-between">
               <h2 className="text-xl font-bold">Detailed Payslip Preview</h2>
 
               <button
                 onClick={() => window.print()}
                 className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
               >
-                <Printer size={16} /> Print / Save as PDF
+                <Printer size={16} /> Print Payslip Only
               </button>
             </div>
 
-            <div className="bg-white p-8 text-black">
-              <div className="text-center">
-                <h1 className="text-2xl font-black">VINCENT RESORT HOTEL</h1>
-                <p className="text-sm">PAYSLIP</p>
-                <p className="font-bold">{selectedPeriod?.period_name}</p>
-              </div>
+            <div className="payslip-print-area">
+              <div className="payslip-page bg-white p-8 text-slate-950">
+                <div className="border-b-4 border-slate-900 pb-5">
+                  <div className="flex items-start justify-between gap-6">
+                    <div>
+                      <h1 className="text-2xl font-black tracking-wide">
+                        VINCENT RESORT HOTEL
+                      </h1>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                        Employee Payslip
+                      </p>
+                      <p className="mt-2 text-xs text-slate-600">
+                        Payroll Period: <b>{selectedPayslip.period_label || selectedPeriod?.period_name}</b>
+                      </p>
+                    </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
-                <Info label="Employee" value={selectedPayslip.employee_name} />
-                <Info label="Employee No." value={selectedPayslip.employee_no || "-"} />
-                <Info label="Department" value={selectedPayslip.department} />
-                <Info label="Position" value={selectedPayslip.position} />
-              </div>
-
-              <div className="mt-8 rounded-xl border border-slate-300 p-4 text-sm">
-                <h3 className="mb-3 font-black">Attendance Summary</h3>
-                <div className="grid grid-cols-6 gap-3 text-center">
-                  <Info label="Scheduled" value={selectedPayslip.scheduled_days || 0} />
-                  <Info label="Worked" value={selectedPayslip.days_worked || 0} />
-                  <Info label="RD/OFF" value={selectedPayslip.rest_days || 0} />
-                  <Info label="Absent" value={selectedPayslip.absent_days || 0} />
-                  <Info label="Late" value={`${selectedPayslip.late_minutes || 0} min`} />
-                  <Info label="UT" value={`${selectedPayslip.undertime_minutes || 0} min`} />
-                </div>
-              </div>
-
-              <div className="mt-8 grid grid-cols-2 gap-8 text-sm">
-                <div>
-                  <h3 className="border-b pb-2 font-black">Earnings Breakdown</h3>
-                  <Row label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
-                  <Row label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
-                  <Row label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
-
-                  {payslipAdjustments
-                    .filter((item) => item.adjustment_direction === "Earning")
-                    .map((item) => (
-                      <Row
-                        key={item.id}
-                        label={item.adjustment_type}
-                        value={formatMoney(item.amount)}
-                      />
-                    ))}
-
-                  {payslipAdjustments.filter(
-                    (item) => item.adjustment_direction === "Earning"
-                  ).length === 0 && (
-                    <Row label="Allowance / Bonus" value={formatMoney(0)} />
-                  )}
-
-                  <Row label="Gross Pay" value={formatMoney(selectedPayslip.gross_pay)} strong />
+                    <div className="text-right text-xs">
+                      <p className="font-black uppercase tracking-[0.18em] text-slate-500">
+                        Payroll Register
+                      </p>
+                      <p className="mt-2">
+                        Generated: <b>{new Date().toLocaleDateString()}</b>
+                      </p>
+                      <p>
+                        Status: <b>{selectedPayslip.status || "Draft"}</b>
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <h3 className="border-b pb-2 font-black">Deductions Breakdown</h3>
-                  <Row label="Late Deduction" value={formatMoney(selectedPayslip.late_deduction)} />
-                  <Row label="Undertime Deduction" value={formatMoney(selectedPayslip.undertime_deduction)} />
-                  <Row label="Absent Deduction" value={formatMoney(selectedPayslip.absent_deduction)} />
+                <div className="payslip-avoid-break mt-6 grid grid-cols-2 gap-6 text-xs">
+                  <div className="rounded-lg border border-slate-300">
+                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                      Employee Information
+                    </div>
+                    <div className="space-y-2 p-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        <span className="text-slate-500">Employee Name</span>
+                        <b>{selectedPayslip.employee_name}</b>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <span className="text-slate-500">Employee No.</span>
+                        <b>{selectedPayslip.employee_no || "-"}</b>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <span className="text-slate-500">Department</span>
+                        <b>{selectedPayslip.department || "-"}</b>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <span className="text-slate-500">Position</span>
+                        <b>{selectedPayslip.position || "-"}</b>
+                      </div>
+                    </div>
+                  </div>
 
-                  {payslipAdjustments
-                    .filter((item) => item.adjustment_direction === "Deduction")
-                    .map((item) => (
-                      <Row
-                        key={item.id}
-                        label={item.adjustment_type}
-                        value={formatMoney(item.amount)}
-                      />
-                    ))}
-
-                  <Row label="Manual Deductions" value={formatMoney(selectedPayslip.manual_deduction)} />
-                  <Row label="Total Deductions" value={formatMoney(selectedPayslip.total_deductions)} strong />
+                  <div className="rounded-lg border border-slate-300">
+                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                      Attendance Summary
+                    </div>
+                    <div className="grid grid-cols-3 gap-px bg-slate-300 text-center">
+                      <div className="bg-white p-3">
+                        <p className="text-slate-500">Scheduled</p>
+                        <b>{selectedPayslip.scheduled_days || 0}</b>
+                      </div>
+                      <div className="bg-white p-3">
+                        <p className="text-slate-500">Worked</p>
+                        <b>{selectedPayslip.days_worked || 0}</b>
+                      </div>
+                      <div className="bg-white p-3">
+                        <p className="text-slate-500">RD/OFF</p>
+                        <b>{selectedPayslip.rest_days || 0}</b>
+                      </div>
+                      <div className="bg-white p-3">
+                        <p className="text-slate-500">Absent</p>
+                        <b>{selectedPayslip.absent_days || 0}</b>
+                      </div>
+                      <div className="bg-white p-3">
+                        <p className="text-slate-500">Late</p>
+                        <b>{selectedPayslip.late_minutes || 0} min</b>
+                      </div>
+                      <div className="bg-white p-3">
+                        <p className="text-slate-500">UT</p>
+                        <b>{selectedPayslip.undertime_minutes || 0} min</b>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-8 rounded-xl border-2 border-black p-4 text-center">
-                <p className="text-sm font-bold">NET PAY</p>
-                <p className="text-3xl font-black">{formatMoney(selectedPayslip.net_pay)}</p>
-              </div>
+                <div className="payslip-avoid-break mt-6 grid grid-cols-2 gap-6 text-xs">
+                  <div className="rounded-lg border border-slate-300">
+                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                      Earnings
+                    </div>
 
-              <div className="mt-10 grid grid-cols-2 gap-10 text-center text-sm">
-                <div className="border-t border-black pt-2">
-                  {settings.authorized_signatory || "Authorized Signatory"}
+                    <table className="w-full">
+                      <tbody>
+                        <PayslipLine label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
+                        <PayslipLine label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
+                        <PayslipLine label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
+                        <PayslipLine label="Allowance / Bonus" value={formatMoney(selectedPayslip.allowance)} />
+                        <PayslipLine
+                          label="Gross Pay"
+                          value={formatMoney(selectedPayslip.gross_pay)}
+                          strong
+                        />
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-300">
+                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                      Deductions
+                    </div>
+
+                    <table className="w-full">
+                      <tbody>
+                        <PayslipLine label="Late Deduction" value={formatMoney(selectedPayslip.late_deduction)} />
+                        <PayslipLine label="Undertime Deduction" value={formatMoney(selectedPayslip.undertime_deduction)} />
+                        <PayslipLine label="Absent Deduction" value={formatMoney(selectedPayslip.absent_deduction)} />
+                        <PayslipLine label="Manual Deductions" value={formatMoney(selectedPayslip.manual_deduction)} />
+                        <PayslipLine label="Carry Forward Balance" value={formatMoney(selectedPayslip.balance_deduction)} />
+                        <PayslipLine
+                          label="Total Deductions"
+                          value={formatMoney(selectedPayslip.total_deductions)}
+                          strong
+                        />
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div className="border-t border-black pt-2">Employee Signature</div>
-              </div>
 
-              <p className="mt-8 text-center text-xs">
-                {settings.payslip_footer || "This is a system-generated payslip."}
-              </p>
+                <div className="payslip-avoid-break mt-6 rounded-lg border-2 border-slate-900">
+                  <div className="grid grid-cols-3 divide-x divide-slate-900 text-center">
+                    <div className="p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                        Computed Net Pay
+                      </p>
+                      <p className={`mt-2 text-2xl font-black ${
+                        Number(selectedPayslip.net_pay || 0) < 0 ? "text-red-700" : "text-slate-950"
+                      }`}>
+                        {formatMoney(selectedPayslip.net_pay)}
+                      </p>
+                    </div>
+
+                    <div className="p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                        Release Amount
+                      </p>
+                      <p className="mt-2 text-2xl font-black text-emerald-700">
+                        {formatMoney(
+                          selectedPayslip.release_amount ??
+                            Math.max(Number(selectedPayslip.net_pay || 0), 0)
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                        Next Cutoff Balance
+                      </p>
+                      <p className="mt-2 text-2xl font-black text-yellow-700">
+                        {formatMoney(
+                          selectedPayslip.carry_forward_amount ??
+                            Math.max(
+                              Math.abs(Math.min(Number(selectedPayslip.net_pay || 0), 0)),
+                              0
+                            )
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {Number(selectedPayslip.carry_forward_amount || 0) > 0 && (
+                  <div className="payslip-avoid-break mt-4 rounded-lg border border-yellow-600 bg-yellow-50 p-4 text-xs text-yellow-900">
+                    <b>Carry Forward Notice:</b> This employee has a remaining balance after this cutoff.
+                    Release amount is set to ₱0.00 and the remaining balance will continue to the next payroll cutoff.
+                  </div>
+                )}
+
+                <div className="payslip-avoid-break mt-8 grid grid-cols-2 gap-10 text-xs">
+                  <div>
+                    <div className="mt-10 border-t border-slate-900 pt-2 text-center">
+                      Prepared / Checked By
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mt-10 border-t border-slate-900 pt-2 text-center">
+                      Employee Signature
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mt-8 border-t border-slate-300 pt-3 text-center text-[10px] text-slate-500">
+                  {settings.payslip_footer || "This is a system-generated payslip."}
+                </p>
+              </div>
             </div>
           </section>
         )}
       </main>
     </div>
+  );
+}
+
+
+function PayslipLine({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <tr className={`${strong ? "border-t-2 border-slate-900 font-black" : "border-b border-slate-200"}`}>
+      <td className="px-4 py-2 text-slate-600">{label}</td>
+      <td className="px-4 py-2 text-right font-bold">{value}</td>
+    </tr>
   );
 }
 
@@ -1825,7 +2340,11 @@ function StatusBadge({ status }: { status: string }) {
   const normalized = String(status || "Draft");
 
   const style =
-    normalized === "Released" || normalized === "Paid"
+    normalized === "Active"
+      ? "bg-yellow-500/10 text-yellow-400"
+      : normalized === "Closed"
+      ? "bg-green-500/10 text-green-400"
+      : normalized === "Released" || normalized === "Paid"
       ? "bg-blue-500/10 text-blue-400"
       : normalized === "Approved" || normalized === "For Approval"
       ? "bg-green-500/10 text-green-400"

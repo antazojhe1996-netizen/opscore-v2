@@ -273,6 +273,89 @@ const isOnLeave = (employee: Employee, date: string) => {
   });
 };
 
+const normalizeTime = (time?: string | null) => {
+  if (!time) return "";
+  return String(time).slice(0, 5);
+};
+
+const normalizeManualTimeInput = (value: string) => {
+  const text = String(value || "").trim();
+
+  if (!text) return "";
+
+  const digitsOnly = text.replace(/[^0-9]/g, "");
+
+  if (/^\d{3,4}$/.test(digitsOnly)) {
+    const padded = digitsOnly.padStart(4, "0");
+    const hour = Number(padded.slice(0, 2));
+    const minute = Number(padded.slice(2, 4));
+
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    }
+  }
+
+  if (/^\d{1,2}:\d{2}$/.test(text)) {
+    const [hourText, minuteText] = text.split(":");
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    }
+  }
+
+  return text.slice(0, 5);
+};
+
+const getTimeHealthWarning = (row: any) => {
+  const worked = Number(row.worked_minutes || 0);
+
+  if (worked > 16 * 60) {
+    return "Possible time error / AM-PM mistake";
+  }
+
+  if (row.status === "Missing Out") return "Missing time out";
+  if (row.status === "Missing In") return "Missing time in";
+
+  return "";
+};
+
+const getShiftTimeline = (
+  scheduledIn?: string | null,
+  scheduledOut?: string | null,
+  actualIn?: string | null,
+  actualOut?: string | null
+) => {
+  let schedIn = timeToMinutes(scheduledIn);
+  let schedOut = timeToMinutes(scheduledOut);
+  let actIn = timeToMinutes(actualIn);
+  let actOut = timeToMinutes(actualOut);
+
+  const hasSchedule = Boolean(scheduledIn && scheduledOut);
+  const hasActual = Boolean(actualIn && actualOut);
+
+  if (hasSchedule && schedOut <= schedIn) {
+    schedOut += 1440;
+  }
+
+  if (hasActual && actOut <= actIn) {
+    actOut += 1440;
+  }
+
+  if (hasSchedule && hasActual && actIn + 720 < schedIn) {
+    actIn += 1440;
+    actOut += 1440;
+  }
+
+  return {
+    schedIn,
+    schedOut,
+    actIn,
+    actOut,
+  };
+};
+
 const computeEntry = (
   employee: Employee,
   date: string,
@@ -282,11 +365,11 @@ const computeEntry = (
   const shiftName = entry?.scheduled_shift || schedule?.shift || "OFF";
   const shift = getShiftTemplate(shiftName);
 
-  const scheduledIn = entry?.scheduled_in || shift?.start_time || null;
-  const scheduledOut = entry?.scheduled_out || shift?.end_time || null;
+  const scheduledIn = normalizeTime(entry?.scheduled_in || shift?.start_time || null);
+  const scheduledOut = normalizeTime(entry?.scheduled_out || shift?.end_time || null);
 
-  const timeIn = entry?.time_in || "";
-  const timeOut = entry?.time_out || "";
+  const timeIn = normalizeTime(entry?.time_in || "");
+  const timeOut = normalizeTime(entry?.time_out || "");
 
   const lateGrace = Number(settings.late_grace_minutes || 15);
   const undertimeGrace = Number(settings.undertime_grace_minutes || 0);
@@ -299,11 +382,14 @@ const computeEntry = (
       late_minutes: 0,
       undertime_minutes: 0,
       ot_minutes: 0,
+      worked_minutes: 0,
       status: "Leave",
     };
   }
 
   if (shiftName === "OFF" || !schedule) {
+    const hasAnyTime = Boolean(timeIn || timeOut);
+
     return {
       scheduled_shift: "OFF",
       scheduled_in: null,
@@ -311,7 +397,8 @@ const computeEntry = (
       late_minutes: 0,
       undertime_minutes: 0,
       ot_minutes: 0,
-      status: "RD",
+      worked_minutes: timeIn && timeOut ? diffMinutes(timeIn, timeOut) : 0,
+      status: hasAnyTime ? "Rest Day Work" : "RD",
     };
   }
 
@@ -323,23 +410,59 @@ const computeEntry = (
       late_minutes: 0,
       undertime_minutes: 0,
       ot_minutes: 0,
+      worked_minutes: 0,
       status: "Absent",
     };
   }
 
-  const lateRaw = timeIn && scheduledIn ? diffMinutes(scheduledIn, timeIn) : 0;
+  if (timeIn && !timeOut) {
+    const timeline = getShiftTimeline(scheduledIn, scheduledOut, timeIn, timeOut);
+    const lateRaw = scheduledIn ? Math.max(0, timeline.actIn - timeline.schedIn) : 0;
+
+    return {
+      scheduled_shift: shiftName,
+      scheduled_in: scheduledIn,
+      scheduled_out: scheduledOut,
+      late_minutes: lateRaw > lateGrace ? lateRaw : 0,
+      undertime_minutes: 0,
+      ot_minutes: 0,
+      worked_minutes: 0,
+      status: "Missing Out",
+    };
+  }
+
+  if (!timeIn && timeOut) {
+    return {
+      scheduled_shift: shiftName,
+      scheduled_in: scheduledIn,
+      scheduled_out: scheduledOut,
+      late_minutes: 0,
+      undertime_minutes: 0,
+      ot_minutes: 0,
+      worked_minutes: 0,
+      status: "Missing In",
+    };
+  }
+
+  const timeline = getShiftTimeline(scheduledIn, scheduledOut, timeIn, timeOut);
+
+  const workedMinutes = Math.max(0, timeline.actOut - timeline.actIn);
+
+  const lateRaw = scheduledIn ? Math.max(0, timeline.actIn - timeline.schedIn) : 0;
   const lateMinutes = lateRaw > lateGrace ? lateRaw : 0;
 
-  const undertimeRaw =
-    timeOut && scheduledOut ? diffMinutes(timeOut, scheduledOut) : 0;
+  const undertimeRaw = scheduledOut ? Math.max(0, timeline.schedOut - timeline.actOut) : 0;
   const undertimeMinutes = undertimeRaw > undertimeGrace ? undertimeRaw : 0;
 
-  const otRaw = timeOut && scheduledOut ? diffMinutes(scheduledOut, timeOut) : 0;
+  const otRaw = scheduledOut ? Math.max(0, timeline.actOut - timeline.schedOut) : 0;
   const otMinutes = otRaw > 0 ? otRaw : 0;
 
   let status = "Present";
-  if (lateMinutes > 0) status = "Late";
-  if (undertimeMinutes > 0) status = "Undertime";
+
+  if (lateMinutes > 0 && undertimeMinutes > 0) status = "Late + UT";
+  else if (lateMinutes > 0) status = "Late";
+  else if (undertimeMinutes > 0) status = "Undertime";
+  else if (otMinutes > 0) status = "Present + OT";
 
   return {
     scheduled_shift: shiftName,
@@ -348,11 +471,12 @@ const computeEntry = (
     late_minutes: lateMinutes,
     undertime_minutes: undertimeMinutes,
     ot_minutes: otMinutes,
+    worked_minutes: workedMinutes,
     status,
   };
 };
 
- 
+
   /// LOADERS
   const getEmployees = async () => {
     const { data, error } = await supabase
@@ -448,9 +572,14 @@ const computeEntry = (
       remarks: "",
     };
 
+    const safeValue =
+      field === "time_in" || field === "time_out"
+        ? normalizeManualTimeInput(value)
+        : value;
+
     const updated: AttendanceEntry = {
       ...baseEntry,
-      [field]: value,
+      [field]: safeValue,
     };
 
     const computed = computeEntry(employee, date, updated);
@@ -649,6 +778,7 @@ const computeEntry = (
           late_minutes: row.late_minutes,
           undertime_minutes: row.undertime_minutes,
           ot_minutes: row.ot_minutes,
+          worked_minutes: (row as any).worked_minutes || 0,
           status: row.status,
           remarks: row.entry?.remarks || "",
         }))
@@ -663,6 +793,7 @@ const computeEntry = (
           late_minutes: entry.late_minutes || 0,
           undertime_minutes: entry.undertime_minutes || 0,
           ot_minutes: entry.ot_minutes || 0,
+          worked_minutes: (entry as any).worked_minutes || 0,
           status: entry.status || "Present",
           remarks: entry.remarks || "",
         }));
@@ -751,7 +882,7 @@ const computeEntry = (
   ]);
 
   const presentCount = attendanceRows.filter((row) =>
-    ["Present", "Late", "Undertime"].includes(row.status)
+    ["Present", "Present + OT", "Late", "Undertime", "Late + UT", "Rest Day Work"].includes(row.status)
   ).length;
 
   const lateCount = attendanceRows.filter(
@@ -762,8 +893,23 @@ const computeEntry = (
     (row) => row.status === "Absent"
   ).length;
 
+  const totalWorkedMinutes = attendanceRows.reduce(
+    (sum, row: any) => sum + Number(row.worked_minutes || 0),
+    0
+  );
+
   const totalOtMinutes = attendanceRows.reduce(
     (sum, row) => sum + Number(row.ot_minutes || 0),
+    0
+  );
+
+  const totalLateMinutes = attendanceRows.reduce(
+    (sum, row) => sum + Number(row.late_minutes || 0),
+    0
+  );
+
+  const totalUndertimeMinutes = attendanceRows.reduce(
+    (sum, row) => sum + Number(row.undertime_minutes || 0),
     0
   );
 
@@ -777,12 +923,17 @@ const computeEntry = (
       isWorkingDay && !row.entry?.time_in && !row.entry?.time_out;
 
     const missingOut =
-      isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
+      isWorkingDay &&
+      ((row.entry?.time_in && !row.entry?.time_out) || row.status === "Missing Out");
 
-    const noSchedule =
-      row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
+   const noSchedule =
+  !row.scheduled_shift ||
+  row.scheduled_shift === "" ||
+  row.scheduled_shift === "No Schedule";
 
-    return missingTime || missingOut || noSchedule;
+    const impossibleWorkHours = Number((row as any).worked_minutes || 0) > 16 * 60;
+
+    return missingTime || missingOut || noSchedule || impossibleWorkHours;
   });
 
   const missingEntryRows = payrollIssueRows.filter((row) => {
@@ -800,12 +951,19 @@ const computeEntry = (
       row.scheduled_shift !== "RD" &&
       row.scheduled_shift !== "Leave";
 
-    return isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
+    return (
+      isWorkingDay &&
+      ((row.entry?.time_in && !row.entry?.time_out) || row.status === "Missing Out")
+    );
   });
 
   const noScheduleRows = attendanceRows.filter((row) => {
-    return row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
-  });
+  return (
+    !row.scheduled_shift ||
+    row.scheduled_shift === "" ||
+    row.scheduled_shift === "No Schedule"
+  );
+});
 
   const payrollReady =
     !!selectedEmployee && attendanceRows.length > 0 && payrollIssueRows.length === 0;
@@ -848,11 +1006,11 @@ const computeEntry = (
         <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard title="Days" value={attendanceRows.length} />
           <SummaryCard title="Present" value={presentCount} color="text-emerald-400" />
-          <SummaryCard title="Late" value={lateCount} color="text-amber-400" />
           <SummaryCard title="Absent" value={absentCount} color="text-red-400" />
-          <SummaryCard title="Missing" value={missingEntryRows.length} color="text-red-400" />
-          <SummaryCard title="Missing Out" value={missingOutRows.length} color="text-orange-400" />
-          <SummaryCard title="No Schedule" value={noScheduleRows.length} color="text-purple-400" />
+          <SummaryCard title="Worked Hours" value={(totalWorkedMinutes / 60).toFixed(2)} color="text-white" />
+          <SummaryCard title="Late Count" value={lateCount} color="text-amber-400" />
+          <SummaryCard title="Late Mins" value={totalLateMinutes} color="text-amber-400" />
+          <SummaryCard title="UT Mins" value={totalUndertimeMinutes} color="text-red-400" />
           <SummaryCard title="OT Hours" value={(totalOtMinutes / 60).toFixed(2)} color="text-blue-400" />
         </section>
 
@@ -999,10 +1157,13 @@ const computeEntry = (
                       ) {
                         issue = "Missing Time Out";
                       } else if (
-                        row.scheduled_shift === "OFF" &&
-                        !getSchedule(row.employee.id, row.date)
+                        !row.scheduled_shift ||
+row.scheduled_shift === "" ||
+row.scheduled_shift === "No Schedule"
                       ) {
                         issue = "No Schedule Found";
+                      } else if (Number((row as any).worked_minutes || 0) > 16 * 60) {
+                        issue = "Possible Time Error / AM-PM Mistake";
                       }
 
                       return (
@@ -1112,6 +1273,19 @@ const computeEntry = (
           </section>
         )}
 
+        {selectedEmployee && (
+          <section className="mb-8 rounded-3xl border border-blue-500/30 bg-blue-500/10 p-6">
+            <h2 className="text-xl font-black text-blue-300">Manual Encoding Guide</h2>
+            <p className="mt-2 text-sm text-blue-100/80">
+              You can type time directly. Examples: <b>1100</b> becomes <b>11:00</b>, <b>2050</b> becomes <b>20:50</b>.
+              Press Enter or click outside the field to apply.
+            </p>
+            <p className="mt-1 text-xs text-blue-100/60">
+              If the system shows “Possible time error / AM-PM mistake,” check if 23:00 should be 11:00.
+            </p>
+          </section>
+        )}
+
         <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-6">
             <h2 className="text-2xl font-black">
@@ -1135,10 +1309,12 @@ const computeEntry = (
                   <th className="px-4 py-3">Schedule</th>
                   <th className="px-4 py-3">Time In</th>
                   <th className="px-4 py-3">Time Out</th>
+                  <th className="px-4 py-3 text-right">Worked</th>
                   <th className="px-4 py-3 text-right">Late</th>
                   <th className="px-4 py-3 text-right">Undertime</th>
                   <th className="px-4 py-3 text-right">OT</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">AI Check</th>
                   <th className="px-4 py-3">Remarks</th>
                 </tr>
               </thead>
@@ -1166,35 +1342,27 @@ const computeEntry = (
                     </td>
 
                     <td className="px-4 py-3">
-                      <input
-                        type="time"
+                      <ManualTimeInput
                         value={row.entry?.time_in || ""}
-                        onChange={(e) =>
-                          updateLocalEntry(
-                            row.employee,
-                            row.date,
-                            "time_in",
-                            e.target.value
-                          )
+                        placeholder="1100"
+                        onChange={(value) =>
+                          updateLocalEntry(row.employee, row.date, "time_in", value)
                         }
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                       />
                     </td>
 
                     <td className="px-4 py-3">
-                      <input
-                        type="time"
+                      <ManualTimeInput
                         value={row.entry?.time_out || ""}
-                        onChange={(e) =>
-                          updateLocalEntry(
-                            row.employee,
-                            row.date,
-                            "time_out",
-                            e.target.value
-                          )
+                        placeholder="2050"
+                        onChange={(value) =>
+                          updateLocalEntry(row.employee, row.date, "time_out", value)
                         }
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                       />
+                    </td>
+
+                    <td className="px-4 py-3 text-right font-bold text-white">
+                      {((Number((row as any).worked_minutes || 0)) / 60).toFixed(2)}
                     </td>
 
                     <td className="px-4 py-3 text-right font-bold text-amber-400">
@@ -1211,6 +1379,18 @@ const computeEntry = (
 
                     <td className="px-4 py-3">
                       <StatusBadge status={row.status} />
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {getTimeHealthWarning(row) ? (
+                        <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-black text-red-300">
+                          {getTimeHealthWarning(row)}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-400">
+                          OK
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-4 py-3">
@@ -1232,7 +1412,7 @@ const computeEntry = (
 
                 {attendanceRows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-14 text-center text-slate-500">
+                    <td colSpan={11} className="px-4 py-14 text-center text-slate-500">
                       Select an employee to review attendance by date range.
                     </td>
                   </tr>
@@ -1243,6 +1423,74 @@ const computeEntry = (
         </section>
       </main>
     </div>
+  );
+}
+
+
+function ManualTimeInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  const [localValue, setLocalValue] = useState(value || "");
+
+  useEffect(() => {
+    setLocalValue(value || "");
+  }, [value]);
+
+  const normalize = (raw: string) => {
+    const text = String(raw || "").trim();
+    if (!text) return "";
+
+    const digitsOnly = text.replace(/[^0-9]/g, "");
+
+    if (/^\d{3,4}$/.test(digitsOnly)) {
+      const padded = digitsOnly.padStart(4, "0");
+      const hour = Number(padded.slice(0, 2));
+      const minute = Number(padded.slice(2, 4));
+
+      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+        return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+      }
+    }
+
+    if (/^\d{1,2}:\d{2}$/.test(text)) {
+      const [hourText, minuteText] = text.split(":");
+      const hour = Number(hourText);
+      const minute = Number(minuteText);
+
+      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+        return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+      }
+    }
+
+    return text;
+  };
+
+  return (
+    <input
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={() => {
+        const normalized = normalize(localValue);
+        setLocalValue(normalized);
+        onChange(normalized);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          const normalized = normalize(localValue);
+          setLocalValue(normalized);
+          onChange(normalized);
+        }
+      }}
+      placeholder={placeholder}
+      inputMode="numeric"
+      className="w-24 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center text-sm font-bold outline-none focus:border-amber-400"
+    />
   );
 }
 
@@ -1257,12 +1505,14 @@ function SummaryCard({ title, value, color = "text-white" }: any) {
 
 function StatusBadge({ status }: any) {
   const style =
-    status === "Present"
+    status === "Present" || status === "Present + OT"
       ? "bg-emerald-500/10 text-emerald-400"
-      : status === "Late"
+      : status === "Late" || status === "Late + UT"
       ? "bg-amber-500/10 text-amber-400"
-      : status === "Undertime" || status === "Absent"
+      : status === "Undertime" || status === "Absent" || status === "Missing Out" || status === "Missing In"
       ? "bg-red-500/10 text-red-400"
+      : status === "Rest Day Work"
+      ? "bg-purple-500/10 text-purple-400"
       : status === "Leave"
       ? "bg-blue-500/10 text-blue-400"
       : status === "RD"

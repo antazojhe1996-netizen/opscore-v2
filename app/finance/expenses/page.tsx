@@ -10,6 +10,7 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [expenseRequests, setExpenseRequests] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
   const [importPreview, setImportPreview] = useState<any[]>([]);
 
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
@@ -31,6 +32,7 @@ export default function ExpensesPage() {
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [deductToPayroll, setDeductToPayroll] = useState("Yes");
+  const [selectedPayrollPeriodId, setSelectedPayrollPeriodId] = useState("");
 
   /// STATES - FILTERS
   const [searchTerm, setSearchTerm] = useState("");
@@ -131,6 +133,20 @@ export default function ExpensesPage() {
     );
   };
 
+  const getPayrollPeriodLabel = (period: any) => {
+    if (!period) return "No payroll period";
+
+    return `${period.period_name || "Payroll Period"} (${period.status})`;
+  };
+
+  const getLinkedPayrollPeriod = (expense: any) => {
+    return payrollPeriods.find(
+      (period) =>
+        String(period.id) === String(expense.payroll_period_id) ||
+        String(period.id) === String(expense.period_id)
+    );
+  };
+
   /// CALCULATIONS - SUMMARY CARDS
   const totalExpenses = expenses.reduce(
     (sum, expense) => sum + Number(expense.amount || 0),
@@ -161,6 +177,14 @@ export default function ExpensesPage() {
 
   const cashAdvanceTotal = expenses
     .filter((expense) => expense.deduct_to_payroll)
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const linkedCashAdvanceTotal = expenses
+    .filter((expense) => expense.deduct_to_payroll && expense.payroll_adjustment_id)
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const unlinkedCashAdvanceTotal = expenses
+    .filter((expense) => expense.deduct_to_payroll && !expense.payroll_adjustment_id)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
   const pendingRequests = expenseRequests.filter(
@@ -309,6 +333,25 @@ export default function ExpensesPage() {
     setEmployees(data || []);
   };
 
+  const getPayrollPeriods = async () => {
+    const { data, error } = await supabase
+      .from("payroll_periods")
+      .select("*")
+      .in("status", ["Draft", "Reopened"])
+      .order("start_date", { ascending: true });
+
+    if (error) {
+      console.log("GET PAYROLL PERIODS ERROR:", error);
+      return;
+    }
+
+    setPayrollPeriods(data || []);
+
+    if (!selectedPayrollPeriodId && data && data.length > 0) {
+      setSelectedPayrollPeriodId(data[0].id);
+    }
+  };
+
   const getExpenses = async () => {
     const { data, error } = await supabase
       .from("expenses")
@@ -337,21 +380,51 @@ export default function ExpensesPage() {
     setExpenseRequests(data || []);
   };
 
-  const getNextDraftPayrollPeriod = async () => {
+  const getTargetPayrollPeriod = async () => {
+    if (selectedPayrollPeriodId) {
+      const { data, error } = await supabase
+        .from("payroll_periods")
+        .select("*")
+        .eq("id", selectedPayrollPeriodId)
+        .maybeSingle();
+
+      if (error) {
+        console.log("GET SELECTED PAYROLL PERIOD ERROR:", error);
+        return null;
+      }
+
+      return data;
+    }
+
     const { data, error } = await supabase
       .from("payroll_periods")
       .select("*")
-      .eq("status", "Draft")
+      .in("status", ["Draft", "Reopened"])
       .order("start_date", { ascending: true })
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      console.log("GET DRAFT PAYROLL PERIOD ERROR:", error);
+      console.log("GET TARGET PAYROLL PERIOD ERROR:", error);
       return null;
     }
 
     return data;
+  };
+
+  const markPayrollNeedsRegeneration = async (periodId: string) => {
+    if (!periodId) return;
+
+    const { error } = await supabase
+      .from("payroll_periods")
+      .update({
+        needs_regeneration: true,
+      })
+      .eq("id", periodId);
+
+    if (error) {
+      console.log("MARK PAYROLL NEEDS REGENERATION ERROR:", error);
+    }
   };
 
   /// FUNCTIONS - RESET FORM
@@ -395,6 +468,11 @@ export default function ExpensesPage() {
       return;
     }
 
+    if (isCashAdvance && deductToPayroll === "Yes" && !selectedPayrollPeriodId) {
+      alert("Select payroll period where this cash advance will be deducted.");
+      return;
+    }
+
     const selectedEmployee = employees.find(
       (employee) => employee.id === selectedEmployeeId
     );
@@ -414,6 +492,10 @@ export default function ExpensesPage() {
           ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
           : null,
       deduct_to_payroll: isCashAdvance && deductToPayroll === "Yes",
+      payroll_period_id:
+        isCashAdvance && deductToPayroll === "Yes"
+          ? selectedPayrollPeriodId || null
+          : null,
     };
 
     const { data: expenseData, error: expenseError } = await supabase
@@ -429,11 +511,11 @@ export default function ExpensesPage() {
     }
 
     if (isCashAdvance && deductToPayroll === "Yes" && selectedEmployee) {
-      const draftPeriod = await getNextDraftPayrollPeriod();
+      const targetPeriod = await getTargetPayrollPeriod();
 
-      if (!draftPeriod) {
+      if (!targetPeriod) {
         alert(
-          "Expense saved, but no Draft payroll period found. Create a Draft payroll period first before auto payroll deduction."
+          "Expense saved, but no Draft/Reopened payroll period found. Create or reopen a payroll period first before auto payroll deduction."
         );
 
         resetManualExpenseForm();
@@ -444,7 +526,7 @@ export default function ExpensesPage() {
       const { data: adjustmentData, error: adjustmentError } = await supabase
         .from("payroll_adjustments")
         .insert({
-          period_id: draftPeriod.id,
+          period_id: targetPeriod.id,
           employee_id: selectedEmployee.id,
           employee_name: `${selectedEmployee.first_name} ${selectedEmployee.last_name}`,
           adjustment_type: "Cash Advance",
@@ -452,7 +534,8 @@ export default function ExpensesPage() {
           amount: amountValue,
           remarks:
             remarks ||
-            `Cash advance from Expenses on ${expenseDate}. Source: ${source}.`,
+            `Cash advance from Expenses on ${expenseDate}. Source: ${source}. Expense ID: ${expenseData.id}.`,
+          status: "Pending",
           source_module: "Expenses",
           source_id: expenseData.id,
           payroll_deducted: false,
@@ -460,23 +543,28 @@ export default function ExpensesPage() {
         .select()
         .single();
 
-     if (adjustmentError) {
-  console.log("CREATE PAYROLL ADJUSTMENT ERROR:", adjustmentError);
+      if (adjustmentError) {
+        console.log("CREATE PAYROLL ADJUSTMENT ERROR:", adjustmentError);
 
-  alert(
-    `Expense saved, but failed to create payroll deduction.\n\n${adjustmentError.message}`
-  );
+        alert(
+          `Expense saved, but failed to create payroll deduction.\n\n${adjustmentError.message}`
+        );
 
-  resetManualExpenseForm();
-  getExpenses();
-  return;
-}
+        resetManualExpenseForm();
+        getExpenses();
+        return;
+      }
+
       await supabase
         .from("expenses")
         .update({
           payroll_adjustment_id: adjustmentData.id,
+          payroll_period_id: targetPeriod.id,
         })
         .eq("id", expenseData.id);
+
+      await markPayrollNeedsRegeneration(targetPeriod.id);
+      await getPayrollPeriods();
     }
 
     resetManualExpenseForm();
@@ -500,6 +588,8 @@ export default function ExpensesPage() {
     if (!confirmDelete) return;
 
     if (expense.payroll_adjustment_id) {
+      const linkedPeriodId = expense.payroll_period_id || expense.period_id;
+
       const { error: adjustmentError } = await supabase
         .from("payroll_adjustments")
         .delete()
@@ -509,6 +599,10 @@ export default function ExpensesPage() {
         console.log("DELETE LINKED PAYROLL ADJUSTMENT ERROR:", adjustmentError);
         alert("Failed to delete linked payroll deduction.");
         return;
+      }
+
+      if (linkedPeriodId) {
+        await markPayrollNeedsRegeneration(linkedPeriodId);
       }
     }
 
@@ -541,6 +635,7 @@ export default function ExpensesPage() {
       Amount: Number(expense.amount || 0),
       Payment_Method: expense.payment_method,
       Deduct_To_Payroll: expense.deduct_to_payroll ? "Yes" : "No",
+      Payroll_Period_ID: expense.payroll_period_id || "",
       Payroll_Adjustment_ID: expense.payroll_adjustment_id || "",
       Remarks: expense.remarks || "",
     }));
@@ -650,6 +745,7 @@ export default function ExpensesPage() {
     getExpenseRequests();
     getFinanceSettings();
     getEmployees();
+    getPayrollPeriods();
   }, []);
 
   /// UI
@@ -727,6 +823,18 @@ export default function ExpensesPage() {
           </section>
         )}
 
+        {unlinkedCashAdvanceTotal > 0 && (
+          <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
+            <h2 className="text-lg font-black text-red-300">
+              ⚠ Cash Advance Payroll Link Warning
+            </h2>
+            <p className="mt-1 text-sm text-red-200">
+              {formatCurrency(unlinkedCashAdvanceTotal)} cash advance expense is not linked to payroll deduction.
+              Check employee and payroll period before payroll generation.
+            </p>
+          </section>
+        )}
+
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
           <section className="self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
             <h2 className="text-xl font-bold">Manual Expense Entry</h2>
@@ -788,13 +896,29 @@ export default function ExpensesPage() {
                       onChange={(e) => setDeductToPayroll(e.target.value)}
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
                     >
-                      <option value="Yes">Deduct to next Draft Payroll</option>
+                      <option value="Yes">Deduct to payroll</option>
                       <option value="No">Record expense only</option>
                     </select>
 
+                    {deductToPayroll === "Yes" && (
+                      <select
+                        value={selectedPayrollPeriodId}
+                        onChange={(e) => setSelectedPayrollPeriodId(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                      >
+                        <option value="">Select payroll period</option>
+                        {payrollPeriods.map((period) => (
+                          <option key={period.id} value={period.id}>
+                            {getPayrollPeriodLabel(period)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
                     <p className="text-xs text-slate-400">
-                      If enabled, this will automatically create a Cash Advance
-                      deduction in the next Draft payroll period.
+                      If enabled, this will create a Pending Cash Advance
+                      deduction in Payroll Register. Payroll must approve/reject,
+                      then generate payroll again.
                     </p>
                   </div>
                 </div>
@@ -1031,7 +1155,14 @@ export default function ExpensesPage() {
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-3">
-                          {getPayrollBadge(expense) || "-"}
+                          <div className="flex flex-col gap-1">
+                            {getPayrollBadge(expense) || "-"}
+                            {expense.payroll_period_id && (
+                              <span className="text-xs text-slate-500">
+                                {getPayrollPeriodLabel(getLinkedPayrollPeriod(expense))}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-3">
