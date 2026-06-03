@@ -1048,6 +1048,118 @@ export default function PayrollRegisterPage() {
     setPayslipAdjustments([...employeeAdjustments, ...balanceAdjustments]);
   };
 
+  const releasePayroll = async (mode: "all" | "selected") => {
+    if (!selectedPeriodId || records.length === 0) {
+      alert("Select a payroll period with generated records first.");
+      return;
+    }
+
+    const targetRecords =
+      mode === "all"
+        ? records
+        : records.filter((record) => selectedRecordIds.includes(String(record.id)));
+
+    if (targetRecords.length === 0) {
+      alert("No employee records selected for release.");
+      return;
+    }
+
+    const confirmed = confirm(
+      `Release payroll?\n\nMode: ${
+        mode === "all" ? "Release All" : "Release Selected"
+      }\nEmployees: ${targetRecords.length}\nRelease Amount: ${formatMoney(
+        targetRecords.reduce(
+          (sum, record) => sum + getDisplayedReleaseAmount(record),
+          0
+        )
+      )}\n\nThis will save permanent payroll release history.`
+    );
+
+    if (!confirmed) return;
+
+    const releasedBy =
+      prompt("Released by:", settings.authorized_signatory || "Payroll Admin") ||
+      "Payroll Admin";
+
+    setIsSaving(true);
+
+    const now = new Date().toISOString();
+
+    const historyRows = targetRecords.map((record) => ({
+      payroll_record_id: record.id,
+      employee_id: record.employee_id,
+      employee_no: record.employee_no,
+      employee_name: record.employee_name,
+      department: record.department,
+      period_id: selectedPeriodId,
+      cutoff_label:
+        record.period_label || selectedPeriod?.period_name || "Payroll Period",
+      gross_pay: Number(record.gross_pay || 0),
+      total_deductions: getDisplayedTotalDeductions(record),
+      net_pay: getDisplayedNetPay(record),
+      released_amount: getDisplayedReleaseAmount(record),
+      carry_forward_amount: getDisplayedCarryForwardAmount(record),
+      released_by: releasedBy.trim(),
+      released_at: now,
+      remarks: record.remarks || "",
+    }));
+
+    const { error: historyError } = await supabase
+      .from("payroll_release_history")
+      .upsert(historyRows, {
+        onConflict: "payroll_record_id",
+      });
+
+    if (historyError) {
+      setIsSaving(false);
+      console.log("SAVE RELEASE HISTORY ERROR:", historyError);
+      alert(`Failed to save payroll release history.\n\n${historyError.message}`);
+      return;
+    }
+
+    const targetIds = targetRecords.map((record) => record.id);
+
+    const { error: recordError } = await supabase
+      .from("payroll_records")
+      .update({
+        status: "Released",
+        released_by: releasedBy.trim(),
+        released_at: now,
+      })
+      .in("id", targetIds);
+
+    if (recordError) {
+      setIsSaving(false);
+      console.log("UPDATE RELEASED RECORDS ERROR:", recordError);
+      alert(`Release history saved, but record status update failed.\n\n${recordError.message}`);
+      return;
+    }
+
+    const { error: periodError } = await supabase
+      .from("payroll_periods")
+      .update({
+        status: mode === "all" ? "Released" : "Partially Released",
+        released_by: releasedBy.trim(),
+        released_at: now,
+      })
+      .eq("id", selectedPeriodId);
+
+    if (periodError) {
+      console.log("UPDATE RELEASED PERIOD ERROR:", periodError.message);
+    }
+
+    setIsSaving(false);
+
+    await getPeriods();
+    await getRecords(selectedPeriodId);
+    setSelectedRecordIds([]);
+    setSelectedPayslipId("");
+    setSelectedPayslip(null);
+    setSelectedAuditRecord(null);
+
+    alert("Payroll released and saved to release history.");
+  };
+
   const sendPayrollToManager = async (mode: "all" | "selected") => {
     if (!selectedPeriodId || records.length === 0) return;
 
@@ -1922,10 +2034,18 @@ Status will become: For Approval`;
 
                 <button
                   onClick={() => sendPayrollToManager("selected")}
-                  disabled={Boolean(selectedPeriod?.needs_regeneration)}
+                  disabled={Boolean(selectedPeriod?.needs_regeneration) || isSaving}
                   className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
                 >
                   <Send size={16} /> Approve Selected
+                </button>
+
+                <button
+                  onClick={() => releasePayroll("selected")}
+                  disabled={Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  <CheckCircle2 size={16} /> Release Selected
                 </button>
               </div>
             </div>
@@ -1952,10 +2072,18 @@ Status will become: For Approval`;
 
               <button
                 onClick={() => sendPayrollToManager("all")}
-                disabled={records.length === 0 || Boolean(selectedPeriod?.needs_regeneration)}
+                disabled={records.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
                 className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
               >
                 <Send size={16} /> Approve All & Send
+              </button>
+
+              <button
+                onClick={() => releasePayroll("all")}
+                disabled={records.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                <CheckCircle2 size={16} /> Release All
               </button>
 
               <div className="relative">

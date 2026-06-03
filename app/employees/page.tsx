@@ -716,8 +716,9 @@ export default function EmployeesPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="flex-1 p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-6 xl:p-8">
+        <div className="w-full">
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Employee Masterlist</h1>
             <p className="mt-2 text-slate-400">
@@ -728,13 +729,13 @@ export default function EmployeesPage() {
 
           <button
             onClick={exportEmployees}
-            className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+            className="w-fit rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
           >
             Export Employees
           </button>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
+        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <KpiCard icon={<Users size={22} />} title="Total Employees" value={totalEmployees} />
           <KpiCard icon={<BadgeCheck size={22} />} title="Active Employees" value={activeEmployees} success />
           <KpiCard icon={<Briefcase size={22} />} title="Payroll Active" value={payrollActiveCount} />
@@ -743,8 +744,8 @@ export default function EmployeesPage() {
           <KpiCard icon={<DollarSignIcon />} title="Est. Monthly Payroll" value={formatMoney(totalMonthlyPayrollEstimate)} />
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+        <section className="mb-6 grid grid-cols-1 items-start gap-6 2xl:grid-cols-5">
+          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 2xl:col-span-3">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <h2 className="flex items-center gap-2 text-xl font-bold">
@@ -768,7 +769,7 @@ export default function EmployeesPage() {
               </p>
             )}
 
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
               <FormPanel title="Personal Details">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Input label="Employee No" value={employeeNo} setValue={setEmployeeNo} placeholder="Auto if blank" />
@@ -802,7 +803,7 @@ export default function EmployeesPage() {
               </FormPanel>
 
               <FormPanel title="201 File Checklist">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
                   <Select label="Resume / Bio Data" value={hasResume} setValue={setHasResume} options={yesNoOptions} />
                   <Select label="Valid ID" value={hasValidId} setValue={setHasValidId} options={yesNoOptions} />
                   <Select label="Employment Contract" value={hasContract} setValue={setHasContract} options={yesNoOptions} />
@@ -822,7 +823,7 @@ export default function EmployeesPage() {
               </FormPanel>
 
               <FormPanel title="Payroll Profile">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
                   <Select label="Rate Type *" value={rateType} setValue={setRateType} options={rateTypes} />
                   <Input label="Basic Rate *" type="number" value={basicRate} setValue={setBasicRate} />
                   <Select label="Payroll Active" value={payrollActive} setValue={setPayrollActive} options={["Yes", "No"]} />
@@ -888,7 +889,7 @@ export default function EmployeesPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
+          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 2xl:col-span-2">
             <h2 className="flex items-center gap-2 text-xl font-bold">
               <FileSpreadsheet size={22} /> Import Employees
             </h2>
@@ -970,7 +971,7 @@ export default function EmployeesPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6">
           <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h2 className="text-xl font-bold">Employee List</h2>
@@ -979,7 +980,7 @@ export default function EmployeesPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-3 xl:w-auto">
               <div className="relative">
                 <Search
                   size={16}
@@ -1022,7 +1023,7 @@ export default function EmployeesPage() {
           </div>
 
           <div className="max-h-[680px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1900px] text-sm">
+            <table className="w-full min-w-[1650px] text-sm">
               <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
@@ -1161,6 +1162,7 @@ export default function EmployeesPage() {
             </table>
           </div>
         </section>
+        </div>
       </main>
     </div>
   );
@@ -1187,7 +1189,7 @@ function KpiCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-5 ${
+      className={`rounded-2xl border p-4 xl:p-5 ${
         danger
           ? "border-red-500/20 bg-red-500/10"
           : success

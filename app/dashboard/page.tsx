@@ -639,7 +639,8 @@ export default function ExecutiveDashboardPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="flex-1 p-8">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+        <div className="w-full">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Executive Dashboard</h1>
@@ -681,14 +682,14 @@ export default function ExecutiveDashboardPage() {
           <KpiCard icon={<Hotel size={22} />} title="Occupancy" value={`${occupancyToday}%`} subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`} />
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-5">
+          <div className="h-[520px] rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
             <h2 className="text-xl font-bold">Revenue vs Expenses Trend</h2>
             <p className="mt-1 text-sm text-slate-400">
               Top graph for owner review. Based on selected range.
             </p>
 
-            <div className="mt-6 h-[340px]">
+            <div className="mt-6 h-[390px]">
               {trendData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={trendData} margin={{ top: 35, right: 30, left: 10, bottom: 10 }}>
@@ -718,22 +719,22 @@ export default function ExecutiveDashboardPage() {
             </div>
           </div>
 
-          <section className={`rounded-2xl border p-6 xl:col-span-2 ${statusStyle}`}>
+          <section className={`h-[520px] overflow-hidden rounded-2xl border p-5 xl:col-span-2 ${statusStyle}`}>
             <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
               <Brain size={18} /> Executive Briefing
             </p>
 
-            <h2 className="mt-2 text-3xl font-black">{businessStatus}</h2>
+            <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
 
-            <div className="mt-4 rounded-2xl bg-slate-950/60 p-5 text-center">
+            <div className="mt-3 rounded-2xl bg-slate-950/60 p-4 text-center">
               <p className="text-sm text-slate-400">Business Health Score</p>
-              <h3 className="mt-2 text-5xl font-black text-white">
+              <h3 className="mt-1 text-4xl font-black text-white">
                 {businessHealthScore}
               </h3>
               <p className="text-xs text-slate-500">out of 100</p>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-3">
               <BriefingBox
                 title="Critical Alerts"
                 items={criticalAlerts}
@@ -741,7 +742,7 @@ export default function ExecutiveDashboardPage() {
               />
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3">
               <BriefingBox
                 title="Recommended Actions"
                 items={recommendations}
@@ -758,7 +759,7 @@ export default function ExecutiveDashboardPage() {
           <MiniChartCard title="Room Occupancy Trend" value={`${occupancyToday}%`} subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`} icon={<TrendingUp size={22} />} data={miniOccupancyTrend} dataKey="occupancy" />
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="flex items-center gap-2 text-xl font-bold">
               <Users size={22} /> Employee Details
@@ -889,6 +890,7 @@ export default function ExecutiveDashboardPage() {
             </div>
           </div>
         </section>
+        </div>
       </main>
     </div>
   );
@@ -944,19 +946,19 @@ function BriefingBox({
   empty: string;
 }) {
   return (
-    <div className="rounded-xl bg-slate-950/60 p-4">
+    <div className="rounded-xl bg-slate-950/60 p-3">
       <p className="mb-2 text-sm font-bold text-white">{title}</p>
 
       {items.length > 0 ? (
-        <div className="space-y-2">
+        <div className="space-y-1">
           {items.slice(0, 4).map((item, index) => (
-            <p key={index} className="text-sm">
+            <p key={index} className="text-[13px] leading-5">
               • {item}
             </p>
           ))}
         </div>
       ) : (
-        <p className="text-sm">{empty}</p>
+        <p className="text-[13px] leading-5">{empty}</p>
       )}
     </div>
   );
