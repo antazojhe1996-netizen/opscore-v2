@@ -1,488 +1,191 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
+  BarChart3,
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  ClipboardList,
+  Clock,
   Database,
-  Download,
-  FileSpreadsheet,
-  RefreshCcw,
-  ShieldCheck,
-  Upload,
+  FileText,
+  Hotel,
+  LayoutDashboard,
+  Receipt,
+  Settings,
+  Users,
+  Wallet,
 } from "lucide-react";
-import * as XLSX from "xlsx";
-import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
 
-type BackupTable = {
-  key: string;
-  label: string;
-  table: string;
-  group: string;
+const menuSections = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    items: [],
+  },
+  {
+    title: "Workforce",
+    icon: Users,
+    items: [
+      { label: "Workforce", href: "/workforce", icon: Users },
+      { label: "Employee 201", href: "/employees", icon: FileText },
+      { label: "Scheduling", href: "/scheduling", icon: CalendarDays },
+      { label: "Leave Management", href: "/leave-management", icon: ClipboardList },
+      { label: "Forecasting", href: "/forecasting", icon: BarChart3 },
+      { label: "Workforce Settings", href: "/settings/workforce", icon: Settings },
+    ],
+  },
+  {
+    title: "Sales",
+    icon: Hotel,
+    items: [
+      { label: "Hotel Room Sales", href: "/sales/hotel-rooms", icon: Hotel },
+      { label: "Apartment Sales", href: "/sales/apartments", icon: Building2 },
+      { label: "Restaurant / Sports Bar Sales", href: "/sales/restaurant", icon: Receipt },
+      { label: "Sales Audit", href: "/sales/audit", icon: ClipboardList },
+      { label: "Sales Settings", href: "/settings/sales", icon: Settings },
+    ],
+  },
+  {
+    title: "Finance",
+    icon: Wallet,
+    items: [
+      { label: "Finance Dashboard", href: "/finance", icon: BarChart3 },
+      { label: "Expenses", href: "/expenses", icon: Receipt },
+      { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList },
+      { label: "Billing", href: "/finance/billing", icon: FileText },
+      { label: "Payment", href: "/finance/payment", icon: Wallet },
+      { label: "Cash Management", href: "/cash-management", icon: Wallet },
+      { label: "Finance Settings", href: "/settings/finance", icon: Settings },
+    ],
+  },
+  {
+    title: "Payroll",
+    icon: FileText,
+    items: [
+      { label: "Attendance Audit", href: "/finance/payroll/attendance", icon: Clock },
+      { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText },
+      { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet },
+      { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt },
+      { label: "Release History", href: "/finance/payroll/history", icon: BarChart3 },
+      { label: "Payroll Settings", href: "/settings/payroll", icon: Settings },
+    ],
+  },
+  {
+    title: "System",
+    icon: Settings,
+    items: [
+      { label: "General Settings", href: "/settings", icon: Settings },
+      { label: "Activity Logs", href: "/activity-logs", icon: ClipboardList },
+      { label: "Backup & Restore", href: "/backup", icon: Database },
+    ],
+  },
+];
+
+export default function Sidebar() {
+  const pathname = usePathname();
+
+  const isSectionActive = (section: any) => {
+  if (section.href) return pathname === section.href;
+
+  if (section.title === "Finance" && pathname.startsWith("/finance/payroll")) {
+    return false;
+  }
+
+  return section.items.some(
+    (item: any) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+  );
 };
 
-export default function BackupCenterPage() {
-  /// STATES
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [loadingCounts, setLoadingCounts] = useState(false);
-  const [exporting, setExporting] = useState("");
-  const [restoring, setRestoring] = useState("");
-  const [selectedRestoreTable, setSelectedRestoreTable] =
-    useState<BackupTable | null>(null);
-
-  const restoreFileRef = useRef<HTMLInputElement | null>(null);
-
-  /// DATA
-  const todayKey = new Date().toISOString().slice(0, 10);
-
-  const backupTables: BackupTable[] = [
-    { key: "employees", label: "Employees", table: "employees", group: "HR" },
-    { key: "schedules", label: "Schedules", table: "schedules", group: "Operations" },
-    { key: "attendance", label: "Attendance", table: "attendance_entries", group: "Payroll" },
-    { key: "leaves", label: "Leave Requests", table: "leave_requests", group: "HR" },
-
-    { key: "payroll_periods", label: "Payroll Periods", table: "payroll_periods", group: "Payroll" },
-    { key: "payroll_records", label: "Payroll Records", table: "payroll_records", group: "Payroll" },
-    { key: "payroll_adjustments", label: "Payroll Adjustments", table: "payroll_adjustments", group: "Payroll" },
-    { key: "employee_balances", label: "Employee Balances", table: "employee_balances", group: "Payroll" },
-
-    { key: "expenses", label: "Expenses", table: "expenses", group: "Finance" },
-    { key: "cash_drawers", label: "Cash Drawers", table: "cash_drawers", group: "Finance" },
-    { key: "cash_drawer_entries", label: "Cash Drawer Entries", table: "cash_drawer_entries", group: "Finance" },
-
-    { key: "occupancy", label: "Occupancy Data", table: "occupancy_data", group: "Operations" },
-    { key: "events", label: "Event Add-ons", table: "event_addons", group: "Operations" },
-    { key: "hc_rules", label: "HC Rule Settings", table: "hc_rule_settings", group: "Settings" },
-    { key: "shift_templates", label: "Shift Templates", table: "shift_templates", group: "Settings" },
-    { key: "payroll_settings", label: "Payroll Settings", table: "payroll_settings", group: "Settings" },
-  ];
-
-  const groups = Array.from(new Set(backupTables.map((item) => item.group)));
-
-  /// HELPERS
-  const safeSheetName = (name: string) =>
-    name.replace(/[\\/?*[\]:]/g, "").slice(0, 31);
-
-  const cleanRestoreRows = (rows: any[]) => {
-    return rows
-      .filter((row) => {
-        const values = Object.values(row || {});
-        return values.some(
-          (value) => value !== undefined && value !== null && String(value).trim() !== ""
-        );
-      })
-      .map((row) => {
-        const cleaned: Record<string, any> = {};
-
-        Object.entries(row).forEach(([key, value]) => {
-          if (key.startsWith("__EMPTY")) return;
-          if (key === "message") return;
-
-          if (value === "") cleaned[key] = null;
-          else cleaned[key] = value;
-        });
-
-        return cleaned;
-      });
-  };
-
-  const getRows = async (tableName: string) => {
-    const { data, error } = await supabase.from(tableName).select("*");
-
-    if (error) {
-      console.log(`BACKUP ERROR ${tableName}:`, error.message);
-      return { data: [], error: error.message };
-    }
-
-    return { data: data || [], error: "" };
-  };
-
-  const writeWorkbook = (workbook: XLSX.WorkBook, fileName: string) => {
-    XLSX.writeFile(workbook, fileName);
-  };
-
-  /// FUNCTIONS
-  const loadCounts = async () => {
-    setLoadingCounts(true);
-
-    const nextCounts: Record<string, number> = {};
-
-    for (const item of backupTables) {
-      const { data } = await getRows(item.table);
-      nextCounts[item.key] = data.length;
-    }
-
-    setCounts(nextCounts);
-    setLoadingCounts(false);
-  };
-
-  const exportSingleTable = async (item: BackupTable) => {
-    setExporting(item.key);
-
-    const { data, error } = await getRows(item.table);
-    const workbook = XLSX.utils.book_new();
-
-    const rows =
-      data.length > 0
-        ? data
-        : [{ message: error ? `Table export failed: ${error}` : "No records found." }];
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(item.label));
-
-    writeWorkbook(workbook, `${item.table}_backup_${todayKey}.xlsx`);
-    setExporting("");
-  };
-
-  const exportGroup = async (group: string) => {
-    setExporting(group);
-
-    const workbook = XLSX.utils.book_new();
-    const groupTables = backupTables.filter((item) => item.group === group);
-
-    for (const item of groupTables) {
-      const { data, error } = await getRows(item.table);
-
-      const rows =
-        data.length > 0
-          ? data
-          : [{ message: error ? `Table export failed: ${error}` : "No records found." }];
-
-      const worksheet = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(item.label));
-    }
-
-    writeWorkbook(workbook, `opscore_${group.toLowerCase()}_backup_${todayKey}.xlsx`);
-    setExporting("");
-  };
-
-  const exportAll = async () => {
-    const confirmed = confirm(
-      "Export full OPSCORE backup? This may take a few seconds depending on data size."
-    );
-
-    if (!confirmed) return;
-
-    setExporting("ALL");
-
-    const workbook = XLSX.utils.book_new();
-    const summaryRows: any[] = [];
-
-    for (const item of backupTables) {
-      const { data, error } = await getRows(item.table);
-
-      summaryRows.push({
-        group: item.group,
-        label: item.label,
-        table: item.table,
-        records: data.length,
-        status: error ? "Error" : "OK",
-        error,
-        exported_at: new Date().toISOString(),
-      });
-
-      const rows =
-        data.length > 0
-          ? data
-          : [{ message: error ? `Table export failed: ${error}` : "No records found." }];
-
-      const worksheet = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(item.label));
-    }
-
-    const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, "Backup Summary");
-
-    writeWorkbook(workbook, `opscore_full_backup_${todayKey}.xlsx`);
-    setExporting("");
-  };
-
-  const openRestorePicker = (item: BackupTable) => {
-    setSelectedRestoreTable(item);
-    restoreFileRef.current?.click();
-  };
-
-  const restoreSingleTable = async (file: File) => {
-    if (!selectedRestoreTable) return;
-
-    const mode = prompt(
-      `Restore ${selectedRestoreTable.label}\n\nType APPEND to add/update rows.\nType REPLACE to delete current table rows first.\n\nRecommended: APPEND`,
-      "APPEND"
-    );
-
-    if (!mode) return;
-
-    const cleanMode = mode.trim().toUpperCase();
-
-    if (cleanMode !== "APPEND" && cleanMode !== "REPLACE") {
-      alert("Invalid restore mode. Type APPEND or REPLACE only.");
-      return;
-    }
-
-    const confirmRestore = confirm(
-      `${cleanMode} restore for ${selectedRestoreTable.label}?\n\nFile: ${file.name}\nTable: ${selectedRestoreTable.table}\n\n${
-        cleanMode === "REPLACE"
-          ? "WARNING: This will delete current rows first before restoring."
-          : "This will upsert/import rows from the backup file."
-      }`
-    );
-
-    if (!confirmRestore) return;
-
-    setRestoring(selectedRestoreTable.key);
-
-    try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-
-      const preferredSheet =
-        workbook.Sheets[safeSheetName(selectedRestoreTable.label)] ||
-        workbook.Sheets[selectedRestoreTable.label] ||
-        workbook.Sheets[workbook.SheetNames[0]];
-
-      const rawRows: any[] = XLSX.utils.sheet_to_json(preferredSheet, {
-        defval: "",
-      });
-
-      const rows = cleanRestoreRows(rawRows);
-
-      if (rows.length === 0) {
-        alert("No valid rows found in backup file.");
-        setRestoring("");
-        return;
-      }
-
-      if (cleanMode === "REPLACE") {
-        const confirmedText = prompt(
-          `Final safety check.\n\nType RESTORE to continue replacing ${selectedRestoreTable.table}.`
-        );
-
-        if (confirmedText !== "RESTORE") {
-          alert("Restore cancelled.");
-          setRestoring("");
-          return;
-        }
-
-        const { error: deleteError } = await supabase
-          .from(selectedRestoreTable.table)
-          .delete()
-          .neq("id", "__never_match__");
-
-        if (deleteError) {
-          console.log("RESTORE DELETE ERROR:", deleteError.message);
-          alert(`Failed to clear table.\n\n${deleteError.message}`);
-          setRestoring("");
-          return;
-        }
-      }
-
-      const chunkSize = 500;
-      let imported = 0;
-
-      for (let i = 0; i < rows.length; i += chunkSize) {
-        const chunk = rows.slice(i, i + chunkSize);
-
-        const { error } = await supabase
-          .from(selectedRestoreTable.table)
-          .upsert(chunk);
-
-        if (error) {
-          console.log("RESTORE UPSERT ERROR:", error);
-          alert(
-            `Restore stopped after ${imported} row(s).\n\n${error.message}`
-          );
-          setRestoring("");
-          return;
-        }
-
-        imported += chunk.length;
-      }
-
-      alert(
-        `${selectedRestoreTable.label} restored successfully.\n\nRows imported: ${imported}\nMode: ${cleanMode}`
-      );
-
-      await loadCounts();
-    } catch (error: any) {
-      console.log("RESTORE FILE ERROR:", error);
-      alert(`Restore failed.\n\n${error?.message || "Unknown error"}`);
-    }
-
-    setRestoring("");
-    setSelectedRestoreTable(null);
-  };
-
-  /// EFFECTS
-  useEffect(() => {
-    loadCounts();
-  }, []);
-
-  /// CALCULATIONS
-  const totalRecords = Object.values(counts).reduce(
-    (sum, value) => sum + Number(value || 0),
-    0
-  );
-
-  /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+    <aside className="sticky top-0 z-50 h-screen w-72 shrink-0 border-r border-slate-800 bg-slate-950 p-5 text-white">
+      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg shadow-black/20">
+        <p className="text-lg font-black text-amber-400">● OPSCORE</p>
+        <p className="mt-1 text-xs text-slate-500">Hotel Operations System</p>
+      </div>
 
-      <input
-        ref={restoreFileRef}
-        type="file"
-        accept=".xlsx,.xls,.csv"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) restoreSingleTable(file);
-          e.target.value = "";
-        }}
-      />
+      <nav className="space-y-2">
+        {menuSections.map((section) => {
+          const Icon = section.icon;
+          const active = isSectionActive(section);
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-              System Safety
-            </p>
-
-            <h1 className="mt-2 text-4xl font-black">Backup Center</h1>
-
-            <p className="mt-2 max-w-5xl text-sm text-slate-400">
-              Export and restore critical OPSCORE data before imports, payroll
-              processing, deployments, or major edits.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={loadCounts}
-              disabled={loadingCounts || !!exporting || !!restoring}
-              className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-            >
-              <RefreshCcw size={16} />
-              {loadingCounts ? "Refreshing..." : "Refresh Counts"}
-            </button>
-
-            <button
-              onClick={exportAll}
-              disabled={!!exporting || !!restoring}
-              className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
-            >
-              <Download size={16} />
-              {exporting === "ALL" ? "Exporting..." : "Export Full Backup"}
-            </button>
-          </div>
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <SummaryCard icon={<Database size={24} />} title="Backup Tables" value={backupTables.length} />
-          <SummaryCard icon={<FileSpreadsheet size={24} />} title="Total Records" value={totalRecords} />
-          <SummaryCard icon={<ShieldCheck size={24} />} title="Backup Date" value={todayKey} />
-        </section>
-
-        <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5">
-          <p className="font-black text-yellow-300">Restore safety rule</p>
-          <p className="mt-1 text-sm text-yellow-100/80">
-            Use APPEND for normal recovery. Use REPLACE only after exporting a fresh full backup.
-            REPLACE asks for a second confirmation.
-          </p>
-        </section>
-
-        {groups.map((group) => {
-          const groupTables = backupTables.filter((item) => item.group === group);
-          const groupCount = groupTables.reduce(
-            (sum, item) => sum + Number(counts[item.key] || 0),
-            0
-          );
+          if (section.href) {
+            return (
+              <Link
+                key={section.title}
+                href={section.href}
+                className={`flex items-center gap-3 rounded-xl border-l-4 px-4 py-3 text-sm font-bold transition ${
+                  active
+                    ? "border-amber-400 bg-amber-400/10 text-amber-400"
+                    : "border-transparent text-slate-400 hover:bg-slate-900 hover:text-white"
+                }`}
+              >
+                <Icon size={17} />
+                <span className="flex-1">{section.title}</span>
+              </Link>
+            );
+          }
 
           return (
-            <section
-              key={group}
-              className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6"
-            >
-              <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <h2 className="text-2xl font-black">{group}</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    {groupTables.length} table(s) • {groupCount} record(s)
+            <div key={section.title} className="group relative">
+              <button
+                type="button"
+                className={`flex w-full items-center gap-3 rounded-xl border-l-4 px-4 py-3 text-left text-sm font-bold transition ${
+                  active
+                    ? "border-amber-400 bg-amber-400/10 text-amber-400"
+                    : "border-transparent text-slate-400 hover:bg-slate-900 hover:text-white"
+                }`}
+              >
+                <Icon size={17} />
+                <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                <ChevronRight size={15} className="opacity-60" />
+              </button>
+
+              <div className="invisible absolute left-[calc(100%+12px)] top-0 z-[999] w-80 translate-x-2 rounded-2xl border border-slate-800 bg-slate-950 p-3 opacity-0 shadow-2xl shadow-black/50 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
+                <div className="mb-3 border-b border-slate-800 px-3 pb-3">
+                  <p className="text-sm font-black text-amber-400">
+                    {section.title}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Select {section.title.toLowerCase()} module
                   </p>
                 </div>
 
-                <button
-                  onClick={() => exportGroup(group)}
-                  disabled={!!exporting || !!restoring}
-                  className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-                >
-                  {exporting === group ? "Exporting..." : `Export ${group}`}
-                </button>
-              </div>
+                <div className="space-y-1">
+                  {section.items.map((item: any) => {
+                    const ItemIcon = item.icon;
+                    const itemActive =
+  item.href === "/finance"
+    ? pathname === "/finance"
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {groupTables.map((item) => (
-                  <div
-                    key={item.key}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
-                  >
-                    <p className="text-sm text-slate-400">{item.label}</p>
-
-                    <h3 className="mt-2 text-3xl font-black">
-                      {counts[item.key] ?? 0}
-                    </h3>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      Table: {item.table}
-                    </p>
-
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => exportSingleTable(item)}
-                        disabled={!!exporting || !!restoring}
-                        className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-sm transition ${
+                          itemActive
+                            ? "border-amber-400 bg-amber-400/10 font-bold text-amber-400"
+                            : "border-transparent text-slate-400 hover:bg-slate-900 hover:text-white"
+                        }`}
                       >
-                        {exporting === item.key ? "Exporting..." : "Export"}
-                      </button>
-
-                      <button
-                        onClick={() => openRestorePicker(item)}
-                        disabled={!!exporting || !!restoring}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50"
-                      >
-                        <Upload size={15} />
-                        {restoring === item.key ? "Restoring..." : "Restore"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                        <ItemIcon size={15} />
+                        <span className="min-w-0 flex-1 truncate">
+                          {item.label}
+                        </span>
+                        <ChevronRight size={13} className="opacity-30" />
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </section>
+            </div>
           );
         })}
-      </main>
-    </div>
-  );
-}
-
-function SummaryCard({
-  icon,
-  title,
-  value,
-}: {
-  icon: any;
-  title: string;
-  value: any;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-      <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-amber-400">
-          {icon}
-        </div>
-
-        <p className="text-sm text-slate-400">{title}</p>
-      </div>
-
-      <h2 className="text-3xl font-black">{value}</h2>
-    </div>
+      </nav>
+    </aside>
   );
 }
