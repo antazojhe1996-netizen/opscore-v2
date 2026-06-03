@@ -770,9 +770,9 @@ const computeEntry = (
       ? attendanceRows.map((row) => ({
           employee_id: row.employee.id,
           attendance_date: row.date,
-          scheduled_shift: row.scheduled_shift,
-          scheduled_in: row.scheduled_in,
-          scheduled_out: row.scheduled_out,
+          scheduled_shift: row.scheduled_shift ?? null,
+scheduled_in: row.scheduled_in ?? null,
+scheduled_out: row.scheduled_out ?? null,
           time_in: row.entry?.time_in || null,
           time_out: row.entry?.time_out || null,
           late_minutes: row.late_minutes,
@@ -785,9 +785,9 @@ const computeEntry = (
       : entries.map((entry) => ({
           employee_id: entry.employee_id,
           attendance_date: entry.attendance_date,
-          scheduled_shift: entry.scheduled_shift,
-          scheduled_in: entry.scheduled_in,
-          scheduled_out: entry.scheduled_out,
+         scheduled_shift: entry.scheduled_shift ?? null,
+scheduled_in: entry.scheduled_in ?? null,
+scheduled_out: entry.scheduled_out ?? null,
           time_in: entry.time_in || null,
           time_out: entry.time_out || null,
           late_minutes: entry.late_minutes || 0,
@@ -926,10 +926,8 @@ const computeEntry = (
       isWorkingDay &&
       ((row.entry?.time_in && !row.entry?.time_out) || row.status === "Missing Out");
 
-   const noSchedule =
-  !row.scheduled_shift ||
-  row.scheduled_shift === "" ||
-  row.scheduled_shift === "No Schedule";
+    const noSchedule =
+      row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
 
     const impossibleWorkHours = Number((row as any).worked_minutes || 0) > 16 * 60;
 
@@ -1157,9 +1155,8 @@ const computeEntry = (
                       ) {
                         issue = "Missing Time Out";
                       } else if (
-                        !row.scheduled_shift ||
-row.scheduled_shift === "" ||
-row.scheduled_shift === "No Schedule"
+                        row.scheduled_shift === "OFF" &&
+                        !getSchedule(row.employee.id, row.date)
                       ) {
                         issue = "No Schedule Found";
                       } else if (Number((row as any).worked_minutes || 0) > 16 * 60) {

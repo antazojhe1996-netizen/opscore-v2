@@ -38,6 +38,7 @@ export default function PayrollRegisterPage() {
   const [adjustmentRemarks, setAdjustmentRemarks] = useState("");
 
   const [selectedPayslipId, setSelectedPayslipId] = useState("");
+  const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [checkedAuditItems, setCheckedAuditItems] = useState<string[]>([]);
@@ -80,6 +81,57 @@ export default function PayrollRegisterPage() {
     periodStatus === "For Approval";
 
   const canEditPayroll = !isLocked;
+  const isSettingEnabled = (
+    activeSettings: Record<string, string>,
+    key: string
+  ) => String(activeSettings[key] || "No") === "Yes";
+
+  const isGovernmentEnabled = (activeSettings: Record<string, string>) =>
+    isSettingEnabled(activeSettings, "government_contributions_enabled") ||
+    isSettingEnabled(activeSettings, "benefits_enabled");
+
+  const showGovernmentSection = isGovernmentEnabled(settings);
+  const showSss = showGovernmentSection && isSettingEnabled(settings, "sss_enabled");
+  const showPhilHealth =
+    showGovernmentSection && isSettingEnabled(settings, "philhealth_enabled");
+  const showPagibig =
+    showGovernmentSection && isSettingEnabled(settings, "pagibig_enabled");
+  const showTax = isSettingEnabled(settings, "withholding_tax_enabled");
+
+  const getGovernmentDeductionTotal = (record: any) =>
+    Number(record?.sss_deduction || 0) +
+    Number(record?.philhealth_deduction || 0) +
+    Number(record?.pagibig_deduction || 0) +
+    Number(record?.tax_deduction || 0);
+
+  const getAutoDeductionTotal = (record: any) =>
+    Number(record?.late_deduction || 0) +
+    Number(record?.undertime_deduction || 0) +
+    Number(record?.absent_deduction || 0);
+
+  const getDisplayedTotalDeductions = (record: any) => {
+    if (!record) return 0;
+
+    const rebuiltTotal =
+      getAutoDeductionTotal(record) +
+      Number(record?.manual_deduction || 0) +
+      Number(record?.balance_deduction || 0) +
+      getGovernmentDeductionTotal(record);
+
+    const savedTotal = Number(record?.total_deductions || 0);
+
+    return Math.max(savedTotal, rebuiltTotal);
+  };
+
+  const getDisplayedNetPay = (record: any) =>
+    Number(record?.gross_pay || 0) - getDisplayedTotalDeductions(record);
+
+  const getDisplayedReleaseAmount = (record: any) =>
+    Math.max(getDisplayedNetPay(record), 0);
+
+  const getDisplayedCarryForwardAmount = (record: any) =>
+    Math.max(Math.abs(Math.min(getDisplayedNetPay(record), 0)), 0);
+
 
   const isRestDay = (entry: any) => {
     const combined = `${entry.status || ""} ${entry.schedule || ""} ${
@@ -322,6 +374,7 @@ export default function PayrollRegisterPage() {
     setRecords([]);
     setAdjustments([]);
     setSelectedPayslipId("");
+    setSelectedPayslip(null);
     setSelectedAuditRecord(null);
     setAuditLogs([]);
     setPayslipAdjustments([]);
@@ -527,12 +580,35 @@ export default function PayrollRegisterPage() {
 
     const grossPay = basicPay + holidayPay + otPay + manualEarnings;
 
+    const governmentEnabled = isGovernmentEnabled(activeSettings);
+
+    // Phase 2-ready fields.
+    // For Vincent Phase 1, these stay 0 unless enabled and computation tables are added later.
+    const sssDeduction =
+      governmentEnabled && isSettingEnabled(activeSettings, "sss_enabled") ? 0 : 0;
+
+    const philhealthDeduction =
+      governmentEnabled && isSettingEnabled(activeSettings, "philhealth_enabled")
+        ? 0
+        : 0;
+
+    const pagibigDeduction =
+      governmentEnabled && isSettingEnabled(activeSettings, "pagibig_enabled") ? 0 : 0;
+
+    const taxDeduction = isSettingEnabled(activeSettings, "withholding_tax_enabled")
+      ? 0
+      : 0;
+
+    const governmentDeductions =
+      sssDeduction + philhealthDeduction + pagibigDeduction + taxDeduction;
+
     const totalDeductions =
       lateDeduction +
       undertimeDeduction +
       absentDeduction +
       manualDeductions +
-      balanceDeduction;
+      balanceDeduction +
+      governmentDeductions;
 
     const netPay = grossPay - totalDeductions;
     const releaseAmount = Math.max(netPay, 0);
@@ -549,6 +625,10 @@ export default function PayrollRegisterPage() {
       allowance: manualEarnings,
       manual_deduction: manualDeductions,
       balance_deduction: balanceDeduction,
+      sss_deduction: sssDeduction,
+      philhealth_deduction: philhealthDeduction,
+      pagibig_deduction: pagibigDeduction,
+      tax_deduction: taxDeduction,
       late_deduction: lateDeduction,
       undertime_deduction: undertimeDeduction,
       absent_deduction: absentDeduction,
@@ -695,6 +775,7 @@ export default function PayrollRegisterPage() {
     await getEmployeeBalances();
     setSelectedRecordIds([]);
     setSelectedPayslipId("");
+    setSelectedPayslip(null);
     setSelectedAuditRecord(null);
     setAuditLogs([]);
     setPayslipAdjustments([]);
@@ -934,19 +1015,36 @@ export default function PayrollRegisterPage() {
   };
 
   const openEmployeeAudit = async (record: any) => {
-    setSelectedAuditRecord(record);
-    setSelectedPayslipId(record.id);
+    const { data: freshRecord, error } = await supabase
+      .from("payroll_records")
+      .select("*")
+      .eq("id", record.id)
+      .maybeSingle();
 
-    const logs = await getEmployeeAuditLogs(record);
+    if (error) {
+      console.log("FETCH FRESH PAYSLIP RECORD ERROR:", error.message);
+    }
+
+    const activeRecord = freshRecord || record;
+
+    setRecords((prev) =>
+      prev.map((item) => (String(item.id) === String(activeRecord.id) ? activeRecord : item))
+    );
+
+    setSelectedAuditRecord(activeRecord);
+    setSelectedPayslipId(String(activeRecord.id));
+    setSelectedPayslip(activeRecord);
+
+    const logs = await getEmployeeAuditLogs(activeRecord);
     setAuditLogs(logs);
 
     const employeeAdjustments = adjustments.filter(
       (item) =>
-        item.employee_id === record.employee_id &&
+        String(item.employee_id) === String(activeRecord.employee_id) &&
         String(item.status || "Pending") === "Approved"
     );
 
-    const balanceAdjustments = buildBalanceAdjustments(record.employee_id);
+    const balanceAdjustments = buildBalanceAdjustments(activeRecord.employee_id);
 
     setPayslipAdjustments([...employeeAdjustments, ...balanceAdjustments]);
   };
@@ -973,7 +1071,7 @@ export default function PayrollRegisterPage() {
 
     const targetIds = targetRecords.map((record) => record.id);
     const targetNet = targetRecords.reduce(
-      (sum, record) => sum + Number(record.net_pay || 0),
+      (sum, record) => sum + getDisplayedNetPay(record),
       0
     );
     const targetGross = targetRecords.reduce(
@@ -981,7 +1079,7 @@ export default function PayrollRegisterPage() {
       0
     );
     const targetDeductions = targetRecords.reduce(
-      (sum, record) => sum + Number(record.total_deductions || 0),
+      (sum, record) => sum + getDisplayedTotalDeductions(record),
       0
     );
 
@@ -1060,6 +1158,12 @@ Status will become: For Approval`;
       getRecords(selectedPeriodId);
       getAdjustments(selectedPeriodId);
       setSelectedRecordIds([]);
+      setSelectedPayslipId("");
+      setSelectedPayslip(null);
+      setSelectedAuditRecord(null);
+      setAuditLogs([]);
+      setPayslipAdjustments([]);
+      setCheckedAuditItems([]);
     }
   }, [selectedPeriodId]);
 
@@ -1071,7 +1175,6 @@ Status will become: For Approval`;
     );
   }, [records, searchTerm]);
 
-  const selectedPayslip = records.find((record) => record.id === selectedPayslipId);
 
   const totalGross = records.reduce(
     (sum, record) => sum + Number(record.gross_pay || 0),
@@ -1079,28 +1182,32 @@ Status will become: For Approval`;
   );
 
   const totalDeductions = records.reduce(
-    (sum, record) => sum + Number(record.total_deductions || 0),
+    (sum, record) => sum + getDisplayedTotalDeductions(record),
     0
   );
 
   const totalNet = records.reduce(
-    (sum, record) => sum + Number(record.net_pay || 0),
+    (sum, record) => sum + getDisplayedNetPay(record),
     0
   );
 
   const totalReleaseAmount = records.reduce(
-    (sum, record) =>
-      sum + Number(record.release_amount ?? Math.max(Number(record.net_pay || 0), 0)),
+    (sum, record) => sum + getDisplayedReleaseAmount(record),
     0
   );
 
   const totalCarryForwardAmount = records.reduce(
+    (sum, record) => sum + getDisplayedCarryForwardAmount(record),
+    0
+  );
+
+  const totalGovernmentDeductions = records.reduce(
     (sum, record) =>
       sum +
-      Number(
-        record.carry_forward_amount ??
-          Math.max(Math.abs(Math.min(Number(record.net_pay || 0), 0)), 0)
-      ),
+      Number(record.sss_deduction || 0) +
+      Number(record.philhealth_deduction || 0) +
+      Number(record.pagibig_deduction || 0) +
+      Number(record.tax_deduction || 0),
     0
   );
 
@@ -1126,28 +1233,32 @@ Status will become: For Approval`;
   );
 
   const selectedDeductions = selectedRecords.reduce(
-    (sum, record) => sum + Number(record.total_deductions || 0),
+    (sum, record) => sum + getDisplayedTotalDeductions(record),
     0
   );
 
   const selectedNet = selectedRecords.reduce(
-    (sum, record) => sum + Number(record.net_pay || 0),
+    (sum, record) => sum + getDisplayedNetPay(record),
     0
   );
 
   const selectedReleaseAmount = selectedRecords.reduce(
-    (sum, record) =>
-      sum + Number(record.release_amount ?? Math.max(Number(record.net_pay || 0), 0)),
+    (sum, record) => sum + getDisplayedReleaseAmount(record),
     0
   );
 
   const selectedCarryForwardAmount = selectedRecords.reduce(
+    (sum, record) => sum + getDisplayedCarryForwardAmount(record),
+    0
+  );
+
+  const selectedGovernmentDeductions = selectedRecords.reduce(
     (sum, record) =>
       sum +
-      Number(
-        record.carry_forward_amount ??
-          Math.max(Math.abs(Math.min(Number(record.net_pay || 0), 0)), 0)
-      ),
+      Number(record.sss_deduction || 0) +
+      Number(record.philhealth_deduction || 0) +
+      Number(record.pagibig_deduction || 0) +
+      Number(record.tax_deduction || 0),
     0
   );
 
@@ -1170,9 +1281,9 @@ Status will become: For Approval`;
     const lateMinutes = Number(record.late_minutes || 0);
     const undertimeMinutes = Number(record.undertime_minutes || 0);
     const otMinutes = Number(record.ot_minutes || 0);
-    const netPay = Number(record.net_pay || 0);
+    const netPay = getDisplayedNetPay(record);
     const basicPay = Number(record.basic_pay || 0);
-    const totalDeduction = Number(record.total_deductions || 0);
+    const totalDeduction = getDisplayedTotalDeductions(record);
 
     if (scheduledDays === 0 && daysWorked === 0 && absentDays === 0) {
       alerts.push({
@@ -1380,7 +1491,7 @@ Status will become: For Approval`;
           </div>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-7">
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-8">
           <KpiCard icon={<Users size={22} />} title="Employees" value={records.length} />
           <KpiCard icon={<AlertTriangle size={22} />} title="AI Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
           <KpiCard icon={<DollarSign size={22} />} title="Gross Pay" value={formatMoney(totalGross)} />
@@ -1388,6 +1499,14 @@ Status will become: For Approval`;
           <KpiCard icon={<CheckCircle2 size={22} />} title="Computed Net" value={formatMoney(totalNet)} success={totalNet >= 0} danger={totalNet < 0} />
           <KpiCard icon={<Send size={22} />} title="Release Amount" value={formatMoney(totalReleaseAmount)} success />
           <KpiCard icon={<RotateCcw size={22} />} title="Carry Forward" value={formatMoney(totalCarryForwardAmount)} danger={totalCarryForwardAmount > 0} />
+          {(showGovernmentSection || showTax) && (
+            <KpiCard
+              icon={<DollarSign size={22} />}
+              title="Gov / Tax"
+              value={formatMoney(totalGovernmentDeductions)}
+              danger={totalGovernmentDeductions > 0}
+            />
+          )}
         </section>
 
         {selectedPeriod?.needs_regeneration && (
@@ -1795,6 +1914,9 @@ Status will become: For Approval`;
                   Gross: {formatMoney(selectedGross)} • Deductions:{" "}
                   {formatMoney(selectedDeductions)} • Computed Net:{" "}
                   {formatMoney(selectedNet)} • Release: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
+                  {(showGovernmentSection || showTax) && (
+                    <> • Gov/Tax: {formatMoney(selectedGovernmentDeductions)}</>
+                  )}
                 </p>
               </div>
 
@@ -1869,7 +1991,7 @@ Status will become: For Approval`;
 
           {!selectedPeriod?.needs_regeneration && (
           <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1680px] text-sm">
+            <table className="w-full min-w-[1780px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Select</th>
@@ -1886,6 +2008,9 @@ Status will become: For Approval`;
                   <th className="px-4 py-3 text-right">Holiday</th>
                   <th className="px-4 py-3 text-right">Auto Ded.</th>
                   <th className="px-4 py-3 text-right">Manual Ded.</th>
+                  {(showGovernmentSection || showTax) && (
+                    <th className="px-4 py-3 text-right">Gov / Tax</th>
+                  )}
                   <th className="px-4 py-3 text-right">Balance Ded.</th>
                   <th className="px-4 py-3 text-right">Computed Net</th>
                   <th className="px-4 py-3 text-right">Release</th>
@@ -1896,10 +2021,12 @@ Status will become: For Approval`;
 
               <tbody>
                 {filteredRecords.map((record) => {
-                  const autoDeduction =
-                    Number(record.late_deduction || 0) +
-                    Number(record.undertime_deduction || 0) +
-                    Number(record.absent_deduction || 0);
+                  const autoDeduction = getAutoDeductionTotal(record);
+                  const governmentDeduction = getGovernmentDeductionTotal(record);
+                  const displayedNetPay = getDisplayedNetPay(record);
+                  const displayedReleaseAmount = getDisplayedReleaseAmount(record);
+                  const displayedCarryForwardAmount =
+                    getDisplayedCarryForwardAmount(record);
 
                   const selected = selectedRecordIds.includes(String(record.id));
 
@@ -1908,7 +2035,7 @@ Status will become: For Approval`;
                       key={record.id}
                       className={`border-t border-slate-800 hover:bg-slate-800/40 ${
                         selected ? "bg-yellow-400/10" : ""
-                      } ${Number(record.net_pay || 0) < 0 ? "bg-red-500/10" : ""}`}
+                      } ${displayedNetPay < 0 ? "bg-red-500/10" : ""}`}
                     >
                       <td className="px-4 py-3">
                         <input
@@ -1938,24 +2065,24 @@ Status will become: For Approval`;
                       <td className="px-4 py-3 text-right text-blue-400">{formatMoney(record.holiday_pay)}</td>
                       <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
                       <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
+                      {(showGovernmentSection || showTax) && (
+                        <td className="px-4 py-3 text-right text-red-400">
+                          {formatMoney(governmentDeduction)}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-right text-yellow-300">{formatMoney(record.balance_deduction)}</td>
                       <td
                         className={`px-4 py-3 text-right font-black ${
-                          Number(record.net_pay || 0) < 0
-                            ? "text-red-400"
-                            : "text-emerald-400"
+                          displayedNetPay < 0 ? "text-red-400" : "text-emerald-400"
                         }`}
                       >
-                        {formatMoney(record.net_pay)}
+                        {formatMoney(displayedNetPay)}
                       </td>
                       <td className="px-4 py-3 text-right font-black text-emerald-400">
-                        {formatMoney(record.release_amount ?? Math.max(Number(record.net_pay || 0), 0))}
+                        {formatMoney(displayedReleaseAmount)}
                       </td>
                       <td className="px-4 py-3 text-right font-black text-yellow-300">
-                        {formatMoney(
-                          record.carry_forward_amount ??
-                            Math.max(Math.abs(Math.min(Number(record.net_pay || 0), 0)), 0)
-                        )}
+                        {formatMoney(displayedCarryForwardAmount)}
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -1971,7 +2098,7 @@ Status will become: For Approval`;
 
                 {filteredRecords.length === 0 && (
                   <tr>
-                    <td colSpan={19} className="px-4 py-14 text-center text-slate-500">
+                    <td colSpan={(showGovernmentSection || showTax) ? 20 : 19} className="px-4 py-14 text-center text-slate-500">
                       No payroll records. Select period then click Generate.
                     </td>
                   </tr>
@@ -2175,13 +2302,13 @@ Status will become: For Approval`;
 
                     <table className="w-full">
                       <tbody>
-                        <PayslipLine label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
-                        <PayslipLine label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
-                        <PayslipLine label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
-                        <PayslipLine label="Allowance / Bonus" value={formatMoney(selectedPayslip.allowance)} />
+                        <PayslipLine label="Basic Pay" value={formatMoney(selectedPayslip?.basic_pay)} />
+                        <PayslipLine label="Holiday Pay" value={formatMoney(selectedPayslip?.holiday_pay)} />
+                        <PayslipLine label="OT Pay" value={formatMoney(selectedPayslip?.ot_pay)} />
+                        <PayslipLine label="Allowance / Bonus" value={formatMoney(selectedPayslip?.allowance)} />
                         <PayslipLine
                           label="Gross Pay"
-                          value={formatMoney(selectedPayslip.gross_pay)}
+                          value={formatMoney(selectedPayslip?.gross_pay)}
                           strong
                         />
                       </tbody>
@@ -2195,14 +2322,40 @@ Status will become: For Approval`;
 
                     <table className="w-full">
                       <tbody>
-                        <PayslipLine label="Late Deduction" value={formatMoney(selectedPayslip.late_deduction)} />
-                        <PayslipLine label="Undertime Deduction" value={formatMoney(selectedPayslip.undertime_deduction)} />
-                        <PayslipLine label="Absent Deduction" value={formatMoney(selectedPayslip.absent_deduction)} />
-                        <PayslipLine label="Manual Deductions" value={formatMoney(selectedPayslip.manual_deduction)} />
-                        <PayslipLine label="Carry Forward Balance" value={formatMoney(selectedPayslip.balance_deduction)} />
+                        <PayslipLine label="Late Deduction" value={formatMoney(selectedPayslip?.late_deduction)} />
+                        <PayslipLine label="Undertime Deduction" value={formatMoney(selectedPayslip?.undertime_deduction)} />
+                        <PayslipLine label="Absent Deduction" value={formatMoney(selectedPayslip?.absent_deduction)} />
+                        <PayslipLine label="Manual Deductions" value={formatMoney(selectedPayslip?.manual_deduction)} />
+
+                        {showSss && (
+                          <PayslipLine label="SSS" value={formatMoney(selectedPayslip?.sss_deduction)} />
+                        )}
+
+                        {showPhilHealth && (
+                          <PayslipLine
+                            label="PhilHealth"
+                            value={formatMoney(selectedPayslip?.philhealth_deduction)}
+                          />
+                        )}
+
+                        {showPagibig && (
+                          <PayslipLine
+                            label="Pag-IBIG"
+                            value={formatMoney(selectedPayslip?.pagibig_deduction)}
+                          />
+                        )}
+
+                        {showTax && (
+                          <PayslipLine
+                            label="Withholding Tax"
+                            value={formatMoney(selectedPayslip?.tax_deduction)}
+                          />
+                        )}
+
+                        <PayslipLine label="Carry Forward Balance" value={formatMoney(selectedPayslip?.balance_deduction)} />
                         <PayslipLine
                           label="Total Deductions"
-                          value={formatMoney(selectedPayslip.total_deductions)}
+                          value={formatMoney(getDisplayedTotalDeductions(selectedPayslip))}
                           strong
                         />
                       </tbody>
@@ -2217,9 +2370,9 @@ Status will become: For Approval`;
                         Computed Net Pay
                       </p>
                       <p className={`mt-2 text-2xl font-black ${
-                        Number(selectedPayslip.net_pay || 0) < 0 ? "text-red-700" : "text-slate-950"
+                        getDisplayedNetPay(selectedPayslip) < 0 ? "text-red-700" : "text-slate-950"
                       }`}>
-                        {formatMoney(selectedPayslip.net_pay)}
+                        {formatMoney(getDisplayedNetPay(selectedPayslip))}
                       </p>
                     </div>
 
@@ -2229,8 +2382,7 @@ Status will become: For Approval`;
                       </p>
                       <p className="mt-2 text-2xl font-black text-emerald-700">
                         {formatMoney(
-                          selectedPayslip.release_amount ??
-                            Math.max(Number(selectedPayslip.net_pay || 0), 0)
+                          getDisplayedReleaseAmount(selectedPayslip)
                         )}
                       </p>
                     </div>
@@ -2241,18 +2393,14 @@ Status will become: For Approval`;
                       </p>
                       <p className="mt-2 text-2xl font-black text-yellow-700">
                         {formatMoney(
-                          selectedPayslip.carry_forward_amount ??
-                            Math.max(
-                              Math.abs(Math.min(Number(selectedPayslip.net_pay || 0), 0)),
-                              0
-                            )
+                          getDisplayedCarryForwardAmount(selectedPayslip)
                         )}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {Number(selectedPayslip.carry_forward_amount || 0) > 0 && (
+                {getDisplayedCarryForwardAmount(selectedPayslip) > 0 && (
                   <div className="payslip-avoid-break mt-4 rounded-lg border border-yellow-600 bg-yellow-50 p-4 text-xs text-yellow-900">
                     <b>Carry Forward Notice:</b> This employee has a remaining balance after this cutoff.
                     Release amount is set to ₱0.00 and the remaining balance will continue to the next payroll cutoff.
