@@ -7,9 +7,11 @@ import {
   Brain,
   CheckCircle2,
   DollarSign,
-  FileCheck,
+  Lock,
   Printer,
+  RotateCcw,
   Search,
+  Send,
   Trash2,
   Users,
 } from "lucide-react";
@@ -40,6 +42,7 @@ export default function PayrollRegisterPage() {
   const [checkedAuditItems, setCheckedAuditItems] = useState<string[]>([]);
   const [payslipAdjustments, setPayslipAdjustments] = useState<any[]>([]);
 
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -64,6 +67,17 @@ export default function PayrollRegisterPage() {
     if (!value) return "";
     return String(value).slice(0, 10);
   };
+
+  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
+  const periodStatus = selectedPeriod?.status || "Draft";
+
+  const isLocked =
+    periodStatus === "Approved" ||
+    periodStatus === "Released" ||
+    periodStatus === "Paid" ||
+    periodStatus === "For Approval";
+
+  const canEditPayroll = !isLocked;
 
   const isRestDay = (entry: any) => {
     const combined = `${entry.status || ""} ${entry.schedule || ""} ${
@@ -197,8 +211,6 @@ export default function PayrollRegisterPage() {
     setAdjustments(data || []);
   };
 
-  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
-
   const createPeriod = async () => {
     if (!periodName.trim() || !startDate || !endDate) {
       alert("Complete payroll period details.");
@@ -239,6 +251,11 @@ export default function PayrollRegisterPage() {
       return;
     }
 
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before deleting.");
+      return;
+    }
+
     const selected = periods.find((period) => period.id === selectedPeriodId);
 
     const confirmDelete = confirm(
@@ -272,8 +289,60 @@ export default function PayrollRegisterPage() {
     setAuditLogs([]);
     setPayslipAdjustments([]);
     setCheckedAuditItems([]);
+    setSelectedRecordIds([]);
 
     await getPeriods();
+  };
+
+  const reopenPayroll = async () => {
+    if (!selectedPeriodId) return;
+
+    const reason = prompt(
+      "Reason for reopening payroll? This is required for audit trail."
+    );
+
+    if (!reason || !reason.trim()) {
+      alert("Reopen reason is required.");
+      return;
+    }
+
+    const confirmed = confirm(
+      "Reopen this payroll? Records will return to Draft and can be edited/regenerated."
+    );
+
+    if (!confirmed) return;
+
+    const { error: periodError } = await supabase
+      .from("payroll_periods")
+      .update({
+        status: "Reopened",
+        reopen_reason: reason.trim(),
+        reopened_at: new Date().toISOString(),
+      })
+      .eq("id", selectedPeriodId);
+
+    if (periodError) {
+      alert("Failed to reopen payroll period.");
+      return console.log("REOPEN PERIOD ERROR:", periodError.message);
+    }
+
+    const { error: recordsError } = await supabase
+      .from("payroll_records")
+      .update({
+        status: "Draft",
+        reopen_reason: reason.trim(),
+      })
+      .eq("period_id", selectedPeriodId);
+
+    if (recordsError) {
+      console.log("REOPEN RECORDS ERROR:", recordsError.message);
+    }
+
+    await getPeriods();
+    await getRecords(selectedPeriodId);
+    setSelectedRecordIds([]);
+
+    alert("Payroll reopened.");
   };
 
   const getAttendanceRows = async (employeeId: string) => {
@@ -329,7 +398,6 @@ export default function PayrollRegisterPage() {
     const undertimeEnabled = activeSettings.undertime_deduction_enabled === "Yes";
     const absentEnabled = activeSettings.absent_deduction_enabled === "Yes";
     const holidayEnabled = activeSettings.holiday_pay_enabled === "Yes";
-
     const otMultiplier = Number(activeSettings.ot_multiplier || 1.25);
 
     const rateType = base.rate_type || "Daily";
@@ -388,10 +456,8 @@ export default function PayrollRegisterPage() {
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
     const grossPay = basicPay + holidayPay + otPay + manualEarnings;
-
     const totalDeductions =
       lateDeduction + undertimeDeduction + absentDeduction + manualDeductions;
-
     const netPay = grossPay - totalDeductions;
 
     return {
@@ -418,13 +484,18 @@ export default function PayrollRegisterPage() {
       return;
     }
 
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before generating again.");
+      return;
+    }
+
     if (employees.length === 0) {
       alert("No payroll active employees.");
       return;
     }
 
     const confirmGenerate = confirm(
-      "Generate payroll from latest attendance and payroll settings? Existing records for this period will be replaced, but manual adjustments will remain."
+      "Generate payroll using approved adjustments only? Existing records for this period will be replaced."
     );
 
     if (!confirmGenerate) return;
@@ -440,9 +511,11 @@ export default function PayrollRegisterPage() {
       employees.map(async (employee) => {
         const attendance = await getAttendanceSummary(employee.id);
 
-        const employeeAdjustments = adjustments.filter(
-          (item) => item.employee_id === employee.id
-        );
+       const employeeAdjustments = adjustments.filter(
+  (item) =>
+    item.employee_id === employee.id &&
+    String(item.status || "Pending") === "Approved"
+);
 
         const base = {
           period_id: selectedPeriodId,
@@ -481,17 +554,22 @@ export default function PayrollRegisterPage() {
     }
 
     await getRecords(selectedPeriodId);
-
+    setSelectedRecordIds([]);
     setSelectedPayslipId("");
     setSelectedAuditRecord(null);
     setAuditLogs([]);
     setPayslipAdjustments([]);
     setCheckedAuditItems([]);
 
-    alert("Payroll generated.");
+    alert("Payroll generated using approved adjustments only.");
   };
 
   const addAdjustment = async () => {
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before adding adjustments.");
+      return;
+    }
+
     if (!selectedPeriodId || !selectedEmployeeId || !adjustmentAmount) {
       alert("Complete adjustment form.");
       return;
@@ -531,15 +609,68 @@ export default function PayrollRegisterPage() {
 
     await getAdjustments(selectedPeriodId);
 
-    setSelectedPayslipId("");
-    setSelectedAuditRecord(null);
-    setAuditLogs([]);
-    setPayslipAdjustments([]);
+    alert("Adjustment saved as Pending.");
+  };
 
-    alert("Adjustment saved. Click Generate again to apply.");
+  const approveAdjustment = async (id: string) => {
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before approving adjustments.");
+      return;
+    }
+
+    const confirmed = confirm(
+      "Approve this adjustment? Click Generate Payroll after approval to apply it."
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("payroll_adjustments")
+      .update({
+        status: "Approved",
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert("Failed to approve adjustment.");
+      return console.log("APPROVE ADJUSTMENT ERROR:", error.message);
+    }
+
+    await getAdjustments(selectedPeriodId);
+    alert("Adjustment approved. Generate payroll to apply.");
+  };
+
+  const rejectAdjustment = async (id: string) => {
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before rejecting adjustments.");
+      return;
+    }
+
+    const confirmed = confirm("Reject this adjustment?");
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("payroll_adjustments")
+      .update({
+        status: "Rejected",
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert("Failed to reject adjustment.");
+      return console.log("REJECT ADJUSTMENT ERROR:", error.message);
+    }
+
+    await getAdjustments(selectedPeriodId);
   };
 
   const deleteAdjustment = async (id: string) => {
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before deleting adjustments.");
+      return;
+    }
+
     const confirmDelete = confirm("Delete this manual adjustment?");
     if (!confirmDelete) return;
 
@@ -554,13 +685,7 @@ export default function PayrollRegisterPage() {
     }
 
     await getAdjustments(selectedPeriodId);
-
-    setSelectedPayslipId("");
-    setSelectedAuditRecord(null);
-    setAuditLogs([]);
-    setPayslipAdjustments([]);
-
-    alert("Adjustment deleted. Click Generate again to update payroll.");
+    alert("Adjustment deleted. Generate payroll again to update payroll.");
   };
 
   const getEmployeeAuditLogs = async (record: any) => {
@@ -628,7 +753,11 @@ export default function PayrollRegisterPage() {
     });
 
     const manualLogs = adjustments
-      .filter((item) => item.employee_id === record.employee_id)
+      .filter(
+        (item) =>
+          item.employee_id === record.employee_id &&
+          String(item.status || "Pending") === "Approved"
+      )
       .map((item) => ({
         date: normalizeDate(item.created_at) || "-",
         schedule: "Manual",
@@ -654,38 +783,79 @@ export default function PayrollRegisterPage() {
     setAuditLogs(logs);
 
     const employeeAdjustments = adjustments.filter(
-      (item) => item.employee_id === record.employee_id
+      (item) =>
+        item.employee_id === record.employee_id &&
+        String(item.status || "Pending") === "Approved"
     );
 
     setPayslipAdjustments(employeeAdjustments);
   };
 
-  const approvePayroll = async () => {
-    if (!selectedPeriodId) return;
+  const sendPayrollToManager = async (mode: "all" | "selected") => {
+    if (!selectedPeriodId || records.length === 0) return;
 
-    const highAlerts = managerAlerts.filter((alert) => alert.severity === "High");
+    const targetRecords =
+      mode === "all"
+        ? records
+        : records.filter((record) => selectedRecordIds.includes(String(record.id)));
 
-    if (highAlerts.length > 0) {
+    if (targetRecords.length === 0) {
+      alert("No selected employees.");
+      return;
+    }
+
+    const targetIds = targetRecords.map((record) => record.id);
+    const targetNet = targetRecords.reduce(
+      (sum, record) => sum + Number(record.net_pay || 0),
+      0
+    );
+    const targetGross = targetRecords.reduce(
+      (sum, record) => sum + Number(record.gross_pay || 0),
+      0
+    );
+    const targetDeductions = targetRecords.reduce(
+      (sum, record) => sum + Number(record.total_deductions || 0),
+      0
+    );
+
+    const targetHighAlerts = managerAlerts.filter(
+      (alert) =>
+        alert.severity === "High" &&
+        targetRecords.some((record) => record.employee_name === alert.employee)
+    );
+
+    const confirmMessage = `Send Payroll to Manager?
+
+Mode: ${mode === "all" ? "Approve All" : "Approve Selected"}
+Employees: ${targetRecords.length}
+Gross Pay: ${formatMoney(targetGross)}
+Deductions: ${formatMoney(targetDeductions)}
+Net Pay: ${formatMoney(targetNet)}
+
+High Alerts: ${targetHighAlerts.length}
+
+Status will become: For Approval`;
+
+    const confirmed = confirm(confirmMessage);
+    if (!confirmed) return;
+
+    if (targetHighAlerts.length > 0) {
       const proceed = confirm(
-        `There are ${highAlerts.length} high manager audit alert/s. Approve anyway?`
+        `There are ${targetHighAlerts.length} HIGH alert(s). Send anyway?`
       );
 
       if (!proceed) return;
     }
 
-    const confirmApprove = confirm(
-      "Approve this payroll period and send records to Payroll Manager for release?"
-    );
-
-    if (!confirmApprove) return;
-
     const { error: periodError } = await supabase
       .from("payroll_periods")
-      .update({ status: "Approved" })
+      .update({
+        status: mode === "all" ? "Approved" : "Partially Approved",
+      })
       .eq("id", selectedPeriodId);
 
     if (periodError) {
-      alert("Failed to approve payroll period.");
+      alert("Failed to update payroll period.");
       return console.log("APPROVE PERIOD ERROR:", periodError.message);
     }
 
@@ -695,17 +865,18 @@ export default function PayrollRegisterPage() {
         status: "For Approval",
         period_label: selectedPeriod?.period_name || "Payroll Period",
       })
-      .eq("period_id", selectedPeriodId);
+      .in("id", targetIds);
 
     if (recordsError) {
-      alert("Payroll period approved, but records failed to send to Payroll Manager.");
+      alert("Records failed to send to Payroll Manager.");
       return console.log("APPROVE RECORDS ERROR:", recordsError.message);
     }
 
     await getPeriods();
     await getRecords(selectedPeriodId);
+    setSelectedRecordIds([]);
 
-    alert("Payroll approved and sent to Payroll Manager.");
+    alert("Payroll sent to Payroll Manager.");
   };
 
   useEffect(() => {
@@ -719,6 +890,7 @@ export default function PayrollRegisterPage() {
     if (selectedPeriodId) {
       getRecords(selectedPeriodId);
       getAdjustments(selectedPeriodId);
+      setSelectedRecordIds([]);
     }
   }, [selectedPeriodId]);
 
@@ -743,6 +915,37 @@ export default function PayrollRegisterPage() {
   );
 
   const totalNet = records.reduce(
+    (sum, record) => sum + Number(record.net_pay || 0),
+    0
+  );
+
+  const pendingAdjustments = adjustments.filter(
+    (item) => String(item.status || "Pending") === "Pending"
+  );
+
+  const approvedAdjustments = adjustments.filter(
+    (item) => String(item.status || "Pending") === "Approved"
+  );
+
+  const rejectedAdjustments = adjustments.filter(
+    (item) => String(item.status || "Pending") === "Rejected"
+  );
+
+  const selectedRecords = records.filter((record) =>
+    selectedRecordIds.includes(String(record.id))
+  );
+
+  const selectedGross = selectedRecords.reduce(
+    (sum, record) => sum + Number(record.gross_pay || 0),
+    0
+  );
+
+  const selectedDeductions = selectedRecords.reduce(
+    (sum, record) => sum + Number(record.total_deductions || 0),
+    0
+  );
+
+  const selectedNet = selectedRecords.reduce(
     (sum, record) => sum + Number(record.net_pay || 0),
     0
   );
@@ -794,6 +997,15 @@ export default function PayrollRegisterPage() {
         employee: record.employee_name,
         type: "Pay Without Attendance",
         message: "Employee has net pay but zero worked days.",
+        severity: "High",
+      });
+    }
+
+    if (netPay < 0) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "Negative Net Pay",
+        message: `${formatMoney(netPay)} net pay. Fix deductions before sending.`,
         severity: "High",
       });
     }
@@ -850,6 +1062,36 @@ export default function PayrollRegisterPage() {
     (alert) => alert.severity === "High"
   ).length;
 
+  const mediumAlertCount = managerAlerts.filter(
+    (alert) => alert.severity === "Medium"
+  ).length;
+
+  const riskLevel =
+    highAlertCount > 0 ? "High Risk" : mediumAlertCount > 0 ? "Medium Risk" : "Low Risk";
+
+  const riskStyle =
+    riskLevel === "High Risk"
+      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      : riskLevel === "Medium Risk"
+      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+      : "border-green-500/30 bg-green-500/10 text-green-300";
+
+  const toggleRecordSelection = (id: any) => {
+    const key = String(id);
+
+    setSelectedRecordIds((prev) =>
+      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+    );
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedRecordIds(filteredRecords.map((record) => String(record.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedRecordIds([]);
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
@@ -859,31 +1101,48 @@ export default function PayrollRegisterPage() {
           <div>
             <h1 className="text-3xl font-bold">Payroll Register</h1>
             <p className="mt-2 text-slate-400">
-              Generate payroll from attendance, review deductions, audit employees, and send payroll to manager for release.
+              Audit payroll, approve CA/deductions, generate payroll, then send approved payroll to Manager for payment.
             </p>
           </div>
 
-          <button
-            onClick={approvePayroll}
-            disabled={!selectedPeriodId || records.length === 0}
-            className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-          >
-            Approve & Send to Manager
-          </button>
+          <div className={`rounded-2xl border px-5 py-4 ${riskStyle}`}>
+            <p className="text-xs uppercase tracking-[0.18em]">
+              Payroll Risk Level
+            </p>
+            <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
+              <Brain size={18} /> {riskLevel}
+            </h2>
+          </div>
         </div>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
           <KpiCard icon={<Users size={22} />} title="Employees" value={records.length} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Manager Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="AI Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
           <KpiCard icon={<DollarSign size={22} />} title="Gross Pay" value={formatMoney(totalGross)} />
           <KpiCard icon={<Trash2 size={22} />} title="Deductions" value={formatMoney(totalDeductions)} danger={totalDeductions > 0} />
           <KpiCard icon={<CheckCircle2 size={22} />} title="Net Pay" value={formatMoney(totalNet)} success />
         </section>
 
         <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
-          <h2 className="flex items-center gap-2 text-xl font-bold text-yellow-300">
-            <Brain size={22} /> AI Payroll Audit
-          </h2>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-bold text-yellow-300">
+                <Brain size={22} /> AI Payroll Audit
+              </h2>
+              <p className="mt-1 text-sm text-yellow-100/70">
+                Warning only. Approval buttons are in the Payroll Review table.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <span className="rounded-full bg-red-500/10 px-4 py-2 text-xs font-black text-red-300">
+                {highAlertCount} High
+              </span>
+              <span className="rounded-full bg-yellow-500/10 px-4 py-2 text-xs font-black text-yellow-300">
+                {mediumAlertCount} Medium
+              </span>
+            </div>
+          </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {managerAlerts.length > 0 ? (
@@ -913,7 +1172,7 @@ export default function PayrollRegisterPage() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
             <h2 className="text-xl font-bold">Payroll Period</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Create, select, generate, or delete payroll period.
+              Create, select, generate, reopen, or delete payroll period.
             </p>
 
             <div className="mt-5 space-y-3">
@@ -921,7 +1180,8 @@ export default function PayrollRegisterPage() {
                 value={periodName}
                 onChange={(e) => setPeriodName(e.target.value)}
                 placeholder="June 1-15, 2026"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                disabled={isLocked}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
               />
 
               <div className="grid grid-cols-2 gap-3">
@@ -929,22 +1189,24 @@ export default function PayrollRegisterPage() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
+                  disabled={isLocked}
                   style={{ colorScheme: "dark" }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
                 />
 
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
+                  disabled={isLocked}
                   style={{ colorScheme: "dark" }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
                 />
               </div>
 
               <button
                 onClick={createPeriod}
-                disabled={isSaving}
+                disabled={isSaving || isLocked}
                 className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black hover:bg-blue-500 disabled:opacity-50"
               >
                 Create Period
@@ -966,7 +1228,7 @@ export default function PayrollRegisterPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={generatePayroll}
-                  disabled={isSaving || !selectedPeriodId}
+                  disabled={isSaving || !selectedPeriodId || isLocked}
                   className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
                 >
                   Generate
@@ -974,38 +1236,69 @@ export default function PayrollRegisterPage() {
 
                 <button
                   onClick={deletePeriod}
-                  disabled={isSaving || !selectedPeriodId}
+                  disabled={isSaving || !selectedPeriodId || isLocked}
                   className="rounded-xl bg-red-600 px-4 py-3 text-sm font-black hover:bg-red-500 disabled:opacity-50"
                 >
                   Delete
                 </button>
               </div>
 
+              {selectedPeriodId && isLocked && (
+                <button
+                  onClick={reopenPayroll}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm font-black text-yellow-300 hover:bg-yellow-500/20"
+                >
+                  <RotateCcw size={16} /> Reopen Payroll
+                </button>
+              )}
+
               {selectedPeriod && (
                 <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
-                  <p className="font-bold">{selectedPeriod.period_name}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-bold">{selectedPeriod.period_name}</p>
+                    <StatusBadge status={selectedPeriod.status} />
+                  </div>
                   <p className="mt-1 text-slate-400">
                     {selectedPeriod.start_date} to {selectedPeriod.end_date}
                   </p>
-                  <p className="mt-1 text-yellow-400">
-                    Status: {selectedPeriod.status}
-                  </p>
+                  {isLocked && (
+                    <p className="mt-2 flex items-center gap-1 text-xs text-yellow-400">
+                      <Lock size={12} /> Locked. Reopen to edit.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
-            <h2 className="text-xl font-bold">Manual Adjustments</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Add cash advance, resto unpaid, salary loan, allowance, bonus, or incentive.
-            </p>
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Manual Adjustments / Cash Advance</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Approve CA/deductions here before generating payroll.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs font-black">
+                <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-yellow-300">
+                  Pending {pendingAdjustments.length}
+                </span>
+                <span className="rounded-full bg-green-500/10 px-3 py-1 text-green-300">
+                  Approved {approvedAdjustments.length}
+                </span>
+                <span className="rounded-full bg-red-500/10 px-3 py-1 text-red-300">
+                  Rejected {rejectedAdjustments.length}
+                </span>
+              </div>
+            </div>
 
             <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-5">
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-2"
+                disabled={!canEditPayroll}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50 md:col-span-2"
               >
                 <option value="">Select employee</option>
                 {employees.map((employee) => (
@@ -1018,7 +1311,8 @@ export default function PayrollRegisterPage() {
               <select
                 value={adjustmentType}
                 onChange={(e) => setAdjustmentType(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                disabled={!canEditPayroll}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
               >
                 {[...deductionTypes, ...earningTypes].map((type) => (
                   <option key={type}>{type}</option>
@@ -1030,12 +1324,13 @@ export default function PayrollRegisterPage() {
                 value={adjustmentAmount}
                 onChange={(e) => setAdjustmentAmount(e.target.value)}
                 placeholder="Amount"
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                disabled={!canEditPayroll}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
               />
 
               <button
                 onClick={addAdjustment}
-                disabled={isSaving || !selectedPeriodId}
+                disabled={isSaving || !selectedPeriodId || !canEditPayroll}
                 className="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
               >
                 Save
@@ -1045,12 +1340,13 @@ export default function PayrollRegisterPage() {
                 value={adjustmentRemarks}
                 onChange={(e) => setAdjustmentRemarks(e.target.value)}
                 placeholder="Remarks"
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-5"
+                disabled={!canEditPayroll}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50 md:col-span-5"
               />
             </div>
 
-            <div className="mt-5 max-h-48 overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[800px] text-xs">
+            <div className="mt-5 max-h-64 overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1050px] text-xs">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
                     <th className="px-3 py-2">Employee</th>
@@ -1058,6 +1354,7 @@ export default function PayrollRegisterPage() {
                     <th className="px-3 py-2">Direction</th>
                     <th className="px-3 py-2 text-right">Amount</th>
                     <th className="px-3 py-2">Remarks</th>
+                    <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Action</th>
                   </tr>
                 </thead>
@@ -1071,19 +1368,45 @@ export default function PayrollRegisterPage() {
                       <td className="px-3 py-2 text-right">{formatMoney(item.amount)}</td>
                       <td className="px-3 py-2 text-slate-400">{item.remarks || "-"}</td>
                       <td className="px-3 py-2">
-                        <button
-                          onClick={() => deleteAdjustment(item.id)}
-                          className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
-                        >
-                          Delete
-                        </button>
+                        <StatusBadge status={item.status || "Pending"} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          {String(item.status || "Pending") === "Pending" && (
+                            <>
+                              <button
+                                onClick={() => approveAdjustment(item.id)}
+                                disabled={!canEditPayroll}
+                                className="rounded-lg bg-green-600 px-3 py-1 text-xs font-bold hover:bg-green-500 disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+
+                              <button
+                                onClick={() => rejectAdjustment(item.id)}
+                                disabled={!canEditPayroll}
+                                className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500 disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            onClick={() => deleteAdjustment(item.id)}
+                            disabled={!canEditPayroll}
+                            className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
 
                   {adjustments.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                      <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
                         No manual adjustments yet.
                       </td>
                     </tr>
@@ -1091,34 +1414,93 @@ export default function PayrollRegisterPage() {
                 </tbody>
               </table>
             </div>
+
+            {pendingAdjustments.length > 0 && (
+              <p className="mt-3 text-xs text-yellow-300">
+                Reminder: pending adjustments will NOT affect payroll. Approve then click Generate.
+              </p>
+            )}
           </div>
         </section>
+
+        {selectedRecordIds.length > 0 && (
+          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 backdrop-blur">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="text-sm font-black text-yellow-300">
+                  {selectedRecordIds.length} employee(s) selected
+                </p>
+                <p className="mt-1 text-xs text-yellow-100/80">
+                  Gross: {formatMoney(selectedGross)} • Deductions:{" "}
+                  {formatMoney(selectedDeductions)} • Net Pay:{" "}
+                  {formatMoney(selectedNet)}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={clearSelection}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
+                >
+                  Clear
+                </button>
+
+                <button
+                  onClick={() => sendPayrollToManager("selected")}
+                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300"
+                >
+                  <Send size={16} /> Approve Selected
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h2 className="text-xl font-bold">Payroll Review</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Review computed payroll before approval and release.
+                Review computed payroll before sending to Payroll Manager.
               </p>
             </div>
 
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-3 text-slate-500" />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search employee..."
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none xl:w-80"
-              />
+            <div className="flex flex-col gap-3 md:flex-row">
+              <button
+                onClick={selectAllFiltered}
+                disabled={filteredRecords.length === 0}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+              >
+                Select All
+              </button>
+
+              <button
+                onClick={() => sendPayrollToManager("all")}
+                disabled={records.length === 0}
+                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+              >
+                <Send size={16} /> Approve All & Send
+              </button>
+
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search employee..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none xl:w-80"
+                />
+              </div>
             </div>
           </div>
 
           <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1550px] text-sm">
+            <table className="w-full min-w-[1680px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
                 <tr>
+                  <th className="px-4 py-3">Select</th>
                   <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Sched</th>
                   <th className="px-4 py-3 text-right">Worked</th>
                   <th className="px-4 py-3 text-right">RD/OFF</th>
@@ -1142,16 +1524,31 @@ export default function PayrollRegisterPage() {
                     Number(record.undertime_deduction || 0) +
                     Number(record.absent_deduction || 0);
 
+                  const selected = selectedRecordIds.includes(String(record.id));
+
                   return (
                     <tr
                       key={record.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
+                      className={`border-t border-slate-800 hover:bg-slate-800/40 ${
+                        selected ? "bg-yellow-400/10" : ""
+                      } ${Number(record.net_pay || 0) < 0 ? "bg-red-500/10" : ""}`}
                     >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleRecordSelection(record.id)}
+                          className="h-4 w-4 accent-yellow-400"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-black">{record.employee_name}</p>
                         <p className="text-xs text-slate-500">
                           {record.department} • {record.position}
                         </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={record.status || "Draft"} />
                       </td>
                       <td className="px-4 py-3 text-right">{record.scheduled_days || 0}</td>
                       <td className="px-4 py-3 text-right">{record.days_worked || 0}</td>
@@ -1164,7 +1561,15 @@ export default function PayrollRegisterPage() {
                       <td className="px-4 py-3 text-right text-blue-400">{formatMoney(record.holiday_pay)}</td>
                       <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
                       <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatMoney(record.net_pay)}</td>
+                      <td
+                        className={`px-4 py-3 text-right font-black ${
+                          Number(record.net_pay || 0) < 0
+                            ? "text-red-400"
+                            : "text-emerald-400"
+                        }`}
+                      >
+                        {formatMoney(record.net_pay)}
+                      </td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => openEmployeeAudit(record)}
@@ -1179,7 +1584,7 @@ export default function PayrollRegisterPage() {
 
                 {filteredRecords.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="px-4 py-14 text-center text-slate-500">
+                    <td colSpan={16} className="px-4 py-14 text-center text-slate-500">
                       No payroll records. Select period then click Generate.
                     </td>
                   </tr>
@@ -1413,6 +1818,29 @@ function KpiCard({
       </div>
       <h2 className="text-2xl font-bold">{value}</h2>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const normalized = String(status || "Draft");
+
+  const style =
+    normalized === "Released" || normalized === "Paid"
+      ? "bg-blue-500/10 text-blue-400"
+      : normalized === "Approved" || normalized === "For Approval"
+      ? "bg-green-500/10 text-green-400"
+      : normalized === "Partially Approved"
+      ? "bg-yellow-500/10 text-yellow-400"
+      : normalized === "Reopened"
+      ? "bg-orange-500/10 text-orange-400"
+      : normalized === "Rejected"
+      ? "bg-red-500/10 text-red-400"
+      : "bg-slate-500/10 text-slate-300";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-bold ${style}`}>
+      {normalized}
+    </span>
   );
 }
 
