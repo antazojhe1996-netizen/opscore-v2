@@ -106,9 +106,7 @@ export default function UserRolesPage() {
   };
 
   const getPermissions = async () => {
-    const { data, error } = await supabase
-      .from("role_permissions")
-      .select("*");
+    const { data, error } = await supabase.from("role_permissions").select("*");
 
     if (error) {
       console.log("GET PERMISSIONS ERROR:", error.message);
@@ -324,11 +322,7 @@ export default function UserRolesPage() {
       "forecasting",
     ];
 
-    const allowedCreateEdit = [
-      "employees",
-      "scheduling",
-      "leave_management",
-    ];
+    const allowedCreateEdit = ["employees", "scheduling", "leave_management"];
 
     setRolePermissionsFromPreset((moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
@@ -348,11 +342,7 @@ export default function UserRolesPage() {
       "cash_management",
     ];
 
-    const allowedCreateEdit = [
-      "restaurant_sales",
-      "expenses",
-      "cash_management",
-    ];
+    const allowedCreateEdit = ["restaurant_sales", "expenses", "cash_management"];
 
     setRolePermissionsFromPreset((moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
@@ -381,11 +371,7 @@ export default function UserRolesPage() {
       "activity_logs",
     ];
 
-    const allowedApprove = [
-      "leave_management",
-      "expenses",
-      "payroll_manager",
-    ];
+    const allowedApprove = ["leave_management", "expenses", "payroll_manager"];
 
     setRolePermissionsFromPreset((moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
@@ -416,11 +402,9 @@ export default function UserRolesPage() {
 
     setIsSaving(true);
 
-    const { error } = await supabase
-      .from("role_permissions")
-      .upsert(rows, {
-        onConflict: "role_id,module_key",
-      });
+    const { error } = await supabase.from("role_permissions").upsert(rows, {
+      onConflict: "role_id,module_key",
+    });
 
     setIsSaving(false);
 
@@ -468,7 +452,8 @@ export default function UserRolesPage() {
             <h1 className="mt-2 text-4xl font-black">User Roles</h1>
 
             <p className="mt-2 max-w-4xl text-sm text-slate-400">
-              Create roles, apply permission presets, assign employees, and control access per module.
+              Create roles, apply permission presets, assign employees, and
+              control access per module.
             </p>
           </div>
 
