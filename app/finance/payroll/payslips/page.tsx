@@ -18,6 +18,32 @@ export default function PayslipsPage() {
       maximumFractionDigits: 2,
     })}`;
 
+
+  const getGovernmentDeductionTotal = (record: any) =>
+    Number(record.sss_deduction || 0) +
+    Number(record.philhealth_deduction || 0) +
+    Number(record.pagibig_deduction || 0) +
+    Number(record.tax_deduction || 0);
+
+  const getAutoDeductionTotal = (record: any) =>
+    Number(record.late_deduction || 0) +
+    Number(record.undertime_deduction || 0) +
+    Number(record.absent_deduction || 0);
+
+  const getDisplayedTotalDeductions = (record: any) => {
+    const rebuiltTotal =
+      getAutoDeductionTotal(record) +
+      Number(record.manual_deduction || 0) +
+      Number(record.balance_deduction || 0) +
+      getGovernmentDeductionTotal(record);
+
+    const savedTotal = Number(record.total_deductions || 0);
+    return Math.max(savedTotal, rebuiltTotal);
+  };
+
+  const getDisplayedNetPay = (record: any) =>
+    Number(record.gross_pay || 0) - getDisplayedTotalDeductions(record);
+
   const getPeriods = async () => {
     const { data, error } = await supabase
       .from("payroll_periods")
@@ -95,7 +121,11 @@ export default function PayslipsPage() {
         body: JSON.stringify({
           employeeEmail,
           period: selectedPeriod,
-          record,
+          record: {
+            ...record,
+            total_deductions: getDisplayedTotalDeductions(record),
+            net_pay: getDisplayedNetPay(record),
+          },
           adjustments: adjustments.filter(
             (item) => item.employee_id === record.employee_id
           ),
@@ -106,9 +136,8 @@ export default function PayslipsPage() {
 
       if (!response.ok) {
         await updatePayslipStatus(record.id, "Not Released", "Failed");
-        PALITAN:
-alert(result.error || "Failed to send payslip.");
-console.log("SEND PAYSLIP API ERROR:", result);
+        alert(result.error || "Failed to send payslip.");
+        console.log("SEND PAYSLIP API ERROR:", result);
         return;
       }
 
@@ -253,11 +282,11 @@ console.log("SEND PAYSLIP API ERROR:", result);
                       </td>
 
                       <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(record.total_deductions)}
+                        {formatMoney(getDisplayedTotalDeductions(record))}
                       </td>
 
                       <td className="px-4 py-3 text-right font-black text-emerald-400">
-                        {formatMoney(record.net_pay)}
+                        {formatMoney(getDisplayedNetPay(record))}
                       </td>
 
                       <td className="px-4 py-3">

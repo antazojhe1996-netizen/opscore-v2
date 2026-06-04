@@ -299,6 +299,31 @@ export default function PayrollRegisterPage() {
     await getPeriods();
   };
 
+
+  const balanceAppliesToSelectedPeriod = (balance: any) => {
+    const source = String(balance.source_module || "");
+    const balancePeriodId = balance.period_id ? String(balance.period_id) : "";
+
+    // Cash Drawer / Expenses cash advances are tied to the cutoff that covers
+    // the transaction date. Never deduct a future/other-cutoff CA in this period.
+    if (["Cash Drawer", "Expenses"].includes(source) && balancePeriodId) {
+      return balancePeriodId === String(selectedPeriodId);
+    }
+
+    // Carry-forward balances from Payroll Manager must remain available for the
+    // next payroll even if their source period is the previous cutoff.
+    return true;
+  };
+
+  const getBalanceAuditLabel = (balance: any) => {
+    const source = String(balance.source_module || "Employee Balances");
+    const balanceId = balance.id ? `Balance ID: ${balance.id}` : "";
+    const sourceId = balance.source_id ? `Source ID: ${balance.source_id}` : "";
+    const periodId = balance.period_id ? `Period ID: ${balance.period_id}` : "";
+
+    return [source, balanceId, sourceId, periodId].filter(Boolean).join(" • ");
+  };
+
   const createPeriod = async () => {
     if (!periodName.trim() || !startDate || !endDate) {
       alert("Complete payroll period details.");
@@ -482,7 +507,8 @@ export default function PayrollRegisterPage() {
       (balance) =>
         String(balance.employee_id) === String(employeeId) &&
         String(balance.status || "Active") === "Active" &&
-        Number(balance.remaining_balance || 0) > 0
+        Number(balance.remaining_balance || 0) > 0 &&
+        balanceAppliesToSelectedPeriod(balance)
     );
   };
 
@@ -494,7 +520,7 @@ export default function PayrollRegisterPage() {
       adjustment_type: balance.balance_type || "Carry Forward Balance",
       adjustment_direction: "Deduction",
       amount: Number(balance.remaining_balance || 0),
-      remarks: `Outstanding balance from previous cutoff. Balance ID: ${balance.id}`,
+      remarks: balance.remarks || getBalanceAuditLabel(balance),
       status: "Approved",
       source_module: "Employee Balances",
       source_id: balance.id,
@@ -702,7 +728,8 @@ export default function PayrollRegisterPage() {
             (balance) =>
               String(balance.employee_id) === String(employee.id) &&
               String(balance.status || "Active") === "Active" &&
-              Number(balance.remaining_balance || 0) > 0
+              Number(balance.remaining_balance || 0) > 0 &&
+              balanceAppliesToSelectedPeriod(balance)
           )
           .map((balance) => ({
             id: `balance-${balance.id}`,
@@ -711,7 +738,7 @@ export default function PayrollRegisterPage() {
             adjustment_type: balance.balance_type || "Carry Forward Balance",
             adjustment_direction: "Deduction",
             amount: Number(balance.remaining_balance || 0),
-            remarks: `Outstanding balance from previous cutoff. Balance ID: ${balance.id}`,
+            remarks: balance.remarks || getBalanceAuditLabel(balance),
             status: "Approved",
             source_module: "Employee Balances",
             source_id: balance.id,
@@ -914,6 +941,112 @@ export default function PayrollRegisterPage() {
     await markPayrollNeedsRegeneration();
 
     alert("Adjustment deleted. Generate payroll again to update payroll.");
+  };
+
+
+  const getBalanceSourceLabel = (balance: any) => {
+    const source = String(balance.source_module || "");
+
+    if (source === "Cash Drawer") return "Cash Drawer";
+    if (source === "Expenses") return "Expenses";
+    if (source === "Payroll Manager") return "Carry Forward";
+    if (source) return source;
+
+    return "Employee Balance";
+  };
+
+  const getBalanceSourceStyle = (balance: any) => {
+    const source = String(balance.source_module || "");
+
+    if (source === "Cash Drawer") return "bg-blue-500/10 text-blue-400";
+    if (source === "Expenses") return "bg-purple-500/10 text-purple-400";
+    if (source === "Payroll Manager") return "bg-amber-500/10 text-amber-400";
+
+    return "bg-slate-700 text-slate-300";
+  };
+
+  const deleteEmployeeBalance = async (balance: any) => {
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before cancelling employee balances.");
+      return;
+    }
+
+    const reason = prompt(
+      `Reason for cancelling this employee balance?
+
+Employee: ${balance.employee_name || "Unknown"}
+Type: ${balance.balance_type || "Balance"}
+Remaining: ${formatMoney(balance.remaining_balance)}
+Source: ${getBalanceSourceLabel(balance)}`
+    );
+
+    if (!reason || !reason.trim()) {
+      alert("Cancellation reason is required for audit trail.");
+      return;
+    }
+
+    const confirmed = confirm(
+      `Cancel this employee balance?
+
+Employee: ${balance.employee_name || "Unknown"}
+Type: ${balance.balance_type || "Balance"}
+Remaining: ${formatMoney(balance.remaining_balance)}
+Source: ${getBalanceSourceLabel(balance)}
+
+This will remove it from future payroll deductions but keep the audit trail.`
+    );
+
+    if (!confirmed) return;
+
+    setIsSaving(true);
+
+    const { error: expenseUpdateError } = await supabase
+      .from("expenses")
+      .update({
+        employee_balance_id: null,
+        deduct_to_payroll: false,
+        payroll_period_id: null,
+        remarks: `Payroll balance cancelled from Payroll Register. Reason: ${reason.trim()}`,
+      })
+      .eq("employee_balance_id", balance.id);
+
+    if (expenseUpdateError) {
+      console.log("UNLINK EXPENSE BALANCE ERROR:", expenseUpdateError.message);
+    }
+
+    const { error } = await supabase
+      .from("employee_balances")
+      .update({
+        status: "Cancelled",
+        cancelled_at: new Date().toISOString(),
+        cancel_reason: reason.trim(),
+        remaining_balance: 0,
+        remarks: `${balance.remarks || ""} Cancelled from Payroll Register. Reason: ${reason.trim()}`.trim(),
+      })
+      .eq("id", balance.id);
+
+    if (error) {
+      setIsSaving(false);
+      alert("Failed to cancel employee balance.");
+      return console.log("CANCEL EMPLOYEE BALANCE ERROR:", error.message);
+    }
+
+    const targetPeriodId = balance.period_id || selectedPeriodId;
+
+    if (targetPeriodId) {
+      await supabase
+        .from("payroll_periods")
+        .update({ needs_regeneration: true })
+        .eq("id", targetPeriodId);
+    }
+
+    setIsSaving(false);
+
+    await getEmployeeBalances();
+    await getPeriods();
+    if (selectedPeriodId) await getRecords(selectedPeriodId);
+
+    alert("Employee balance cancelled. Generate payroll again to update deductions.");
   };
 
   const getEmployeeAuditLogs = async (record: any) => {
@@ -2077,7 +2210,7 @@ This will:
             <div>
               <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Active carry-forward balances will be deducted automatically when payroll is generated.
+                Active balances will be deducted automatically when payroll is generated. Delete here only if the payroll deduction link is wrong.
               </p>
             </div>
 
@@ -2087,15 +2220,17 @@ This will:
           </div>
 
           <div className="max-h-[260px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[1100px] text-sm">
               <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
                   <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3 text-right">Original</th>
                   <th className="px-4 py-3 text-right">Remaining</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Remarks</th>
+                  <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
 
@@ -2104,6 +2239,11 @@ This will:
                   <tr key={balance.id} className="border-t border-slate-800 hover:bg-slate-800/40">
                     <td className="px-4 py-3 font-black">{balance.employee_name}</td>
                     <td className="px-4 py-3">{balance.balance_type || "Carry Forward Balance"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${getBalanceSourceStyle(balance)}`}>
+                        {getBalanceSourceLabel(balance)}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-right">{formatMoney(balance.original_amount)}</td>
                     <td className="px-4 py-3 text-right font-black text-yellow-300">
                       {formatMoney(balance.remaining_balance)}
@@ -2112,12 +2252,21 @@ This will:
                       <StatusBadge status={balance.status || "Active"} />
                     </td>
                     <td className="px-4 py-3 text-slate-400">{balance.remarks || "-"}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => deleteEmployeeBalance(balance)}
+                        disabled={!canEditPayroll || isSaving}
+                        className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
 
                 {employeeBalances.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                    <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
                       No active employee balances.
                     </td>
                   </tr>

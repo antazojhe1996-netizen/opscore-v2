@@ -8,12 +8,12 @@ import * as XLSX from "xlsx";
 export default function ExpensesPage() {
   /// STATES - DATABASE DATA
   const [expenses, setExpenses] = useState<any[]>([]);
-  const [expenseRequests, setExpenseRequests] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
   const [importPreview, setImportPreview] = useState<any[]>([]);
 
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
+  const [expenseSubcategories, setExpenseSubcategories] = useState<any[]>([]);
   const [paymentMethodsData, setPaymentMethodsData] = useState<any[]>([]);
   const [expenseAreasData, setExpenseAreasData] = useState<any[]>([]);
   const [expenseSourcesData, setExpenseSourcesData] = useState<any[]>([]);
@@ -23,6 +23,7 @@ export default function ExpensesPage() {
 
   const [expenseDate, setExpenseDate] = useState(today);
   const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
   const [expenseArea, setExpenseArea] = useState("");
   const [description, setDescription] = useState("");
   const [source, setSource] = useState("");
@@ -32,7 +33,6 @@ export default function ExpensesPage() {
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [deductToPayroll, setDeductToPayroll] = useState("Yes");
-  const [selectedPayrollPeriodId, setSelectedPayrollPeriodId] = useState("");
 
   /// STATES - FILTERS
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,6 +48,23 @@ export default function ExpensesPage() {
 
   /// DATA - SETTINGS LISTS
   const categories = expenseCategories.map((item) => item.name);
+  const selectedCategoryRecord = expenseCategories.find(
+    (item) => String(item.name || "") === String(category || "")
+  );
+
+  const subcategoryOptions = expenseSubcategories
+    .filter((item) => {
+      if (!category) return false;
+
+      if (item.category_id && selectedCategoryRecord?.id) {
+        return String(item.category_id) === String(selectedCategoryRecord.id);
+      }
+
+      return String(item.category || "") === String(category || "");
+    })
+    .map((item) => item.name || item.subcategory_name || item.label)
+    .filter(Boolean);
+
   const paymentMethods = paymentMethodsData.map((item) => item.name);
   const expenseAreas = expenseAreasData.map((item) => item.name);
   const expenseSources = expenseSourcesData.map((item) => item.name);
@@ -104,30 +121,37 @@ export default function ExpensesPage() {
 
   /// CALCULATIONS - SOURCE HELPERS
   const getExpenseSourceType = (expense: any) => {
-    if (expense.source === "Expense Request") return "Expense Request";
-    if (expense.source === "Imported") return "Imported";
+    const rawSource = String(expense.source || "");
+
+    if (rawSource === "Imported") return "Imported";
+    if (rawSource.includes("Cash Drawer")) return "Cash Drawer";
+    if (rawSource === "Payroll Release") return "Payroll Release";
+    if (rawSource === "Expense Request") return "Expense Request";
+
     return "Manual Entry";
   };
 
   const getSourceBadgeStyle = (sourceType: string) => {
-    if (sourceType === "Expense Request") return "bg-blue-500/10 text-blue-400";
+    if (sourceType === "Cash Drawer") return "bg-amber-500/10 text-amber-400";
+    if (sourceType === "Payroll Release") return "bg-cyan-500/10 text-cyan-400";
     if (sourceType === "Imported") return "bg-purple-500/10 text-purple-400";
+    if (sourceType === "Expense Request") return "bg-blue-500/10 text-blue-400";
     return "bg-emerald-500/10 text-emerald-400";
   };
 
   const getPayrollBadge = (expense: any) => {
     if (!expense.deduct_to_payroll) return null;
 
-    if (expense.payroll_adjustment_id) {
+    if (expense.employee_balance_id || expense.payroll_adjustment_id) {
       return (
-        <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+        <span className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
           Payroll Linked
         </span>
       );
     }
 
     return (
-      <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
+      <span className="w-fit rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
         Payroll Pending
       </span>
     );
@@ -145,6 +169,28 @@ export default function ExpensesPage() {
         String(period.id) === String(expense.payroll_period_id) ||
         String(period.id) === String(expense.period_id)
     );
+  };
+
+  const getPayrollSourceLabel = (expense: any) => {
+    if (!expense.deduct_to_payroll) return "";
+
+    const sourceType = getExpenseSourceType(expense);
+
+    if (sourceType === "Cash Drawer") return "Source: Cash Drawer";
+    if (sourceType === "Manual Entry") return "Source: Expenses";
+    if (sourceType === "Payroll Release") return "Source: Payroll Manager";
+
+    return `Source: ${sourceType}`;
+  };
+
+  const getReferenceLabel = (expense: any) => {
+    const references = [];
+
+    if (expense.id) references.push(`Expense ID: ${expense.id}`);
+    if (expense.cash_movement_id) references.push(`Cash Movement ID: ${expense.cash_movement_id}`);
+    if (expense.employee_balance_id) references.push(`Employee Balance ID: ${expense.employee_balance_id}`);
+
+    return references.join(" • ");
   };
 
   /// CALCULATIONS - SUMMARY CARDS
@@ -167,12 +213,20 @@ export default function ExpensesPage() {
     })
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const requestExpenseTotal = expenses
-    .filter((expense) => getExpenseSourceType(expense) === "Expense Request")
+  const cashDrawerExpenseTotal = expenses
+    .filter((expense) => getExpenseSourceType(expense) === "Cash Drawer")
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
   const manualExpenseTotal = expenses
     .filter((expense) => getExpenseSourceType(expense) === "Manual Entry")
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const importedExpenseTotal = expenses
+    .filter((expense) => getExpenseSourceType(expense) === "Imported")
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+  const payrollReleaseTotal = expenses
+    .filter((expense) => getExpenseSourceType(expense) === "Payroll Release")
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
   const cashAdvanceTotal = expenses
@@ -180,25 +234,20 @@ export default function ExpensesPage() {
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
   const linkedCashAdvanceTotal = expenses
-    .filter((expense) => expense.deduct_to_payroll && expense.payroll_adjustment_id)
+    .filter(
+      (expense) =>
+        expense.deduct_to_payroll &&
+        (expense.employee_balance_id || expense.payroll_adjustment_id)
+    )
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
   const unlinkedCashAdvanceTotal = expenses
-    .filter((expense) => expense.deduct_to_payroll && !expense.payroll_adjustment_id)
+    .filter(
+      (expense) =>
+        expense.deduct_to_payroll &&
+        !(expense.employee_balance_id || expense.payroll_adjustment_id)
+    )
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const pendingRequests = expenseRequests.filter(
-    (request) => request.status === "PENDING"
-  );
-
-  const pendingRequestAmount = pendingRequests.reduce(
-    (sum, request) => sum + Number(request.amount || 0),
-    0
-  );
-
-  const pendingLiquidationAmount = expenseRequests
-    .filter((request) => request.status === "RELEASED")
-    .reduce((sum, request) => sum + Number(request.amount || 0), 0);
 
   /// CALCULATIONS - MONTHLY CATEGORY SUMMARY
   const monthlyCategorySummary = monthNames.map((month, monthIndex) => {
@@ -229,6 +278,7 @@ export default function ExpensesPage() {
       const matchesSearch =
         String(expense.expense_date || "").toLowerCase().includes(search) ||
         String(expense.category || "").toLowerCase().includes(search) ||
+        String(expense.subcategory || "").toLowerCase().includes(search) ||
         String(expense.department || "").toLowerCase().includes(search) ||
         String(expense.description || "").toLowerCase().includes(search) ||
         String(expense.employee_name || "").toLowerCase().includes(search) ||
@@ -294,6 +344,12 @@ export default function ExpensesPage() {
   .eq("is_active", true)
   .order("name", { ascending: true });
 
+    const { data: subcategoriesData } = await supabase
+      .from("expense_subcategories")
+      .select("*")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
     const { data: paymentsData } = await supabase
       .from("finance_payment_methods")
       .select("*")
@@ -313,6 +369,7 @@ export default function ExpensesPage() {
       .order("name", { ascending: true });
 
     setExpenseCategories(categoriesData || []);
+    setExpenseSubcategories(subcategoriesData || []);
     setPaymentMethodsData(paymentsData || []);
     setExpenseAreasData(areasData || []);
     setExpenseSourcesData(sourcesData || []);
@@ -347,9 +404,6 @@ export default function ExpensesPage() {
 
     setPayrollPeriods(data || []);
 
-    if (!selectedPayrollPeriodId && data && data.length > 0) {
-      setSelectedPayrollPeriodId(data[0].id);
-    }
   };
 
   const getExpenses = async () => {
@@ -366,41 +420,26 @@ export default function ExpensesPage() {
     setExpenses(data || []);
   };
 
-  const getExpenseRequests = async () => {
-    const { data, error } = await supabase
-      .from("expense_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const getPayrollPeriodCoveringDate = (dateValue: string) => {
+    if (!dateValue) return null;
 
-    if (error) {
-      console.log("GET EXPENSE REQUESTS ERROR:", error);
-      return;
-    }
-
-    setExpenseRequests(data || []);
+    return (
+      payrollPeriods.find(
+        (period) =>
+          String(period.start_date || "") <= dateValue &&
+          String(period.end_date || "") >= dateValue
+      ) || null
+    );
   };
 
-  const getTargetPayrollPeriod = async () => {
-    if (selectedPayrollPeriodId) {
-      const { data, error } = await supabase
-        .from("payroll_periods")
-        .select("*")
-        .eq("id", selectedPayrollPeriodId)
-        .maybeSingle();
-
-      if (error) {
-        console.log("GET SELECTED PAYROLL PERIOD ERROR:", error);
-        return null;
-      }
-
-      return data;
-    }
-
+  const getTargetPayrollPeriod = async (dateValue: string) => {
     const { data, error } = await supabase
       .from("payroll_periods")
       .select("*")
+      .lte("start_date", dateValue)
+      .gte("end_date", dateValue)
       .in("status", ["Draft", "Reopened"])
-      .order("start_date", { ascending: true })
+      .order("start_date", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -431,6 +470,7 @@ export default function ExpensesPage() {
   const resetManualExpenseForm = () => {
     setExpenseDate(today);
     setCategory("");
+    setSubcategory("");
     setExpenseArea("");
     setDescription("");
     setSource("");
@@ -468,18 +508,25 @@ export default function ExpensesPage() {
       return;
     }
 
-    if (isCashAdvance && deductToPayroll === "Yes" && !selectedPayrollPeriodId) {
-      alert("Select payroll period where this cash advance will be deducted.");
-      return;
-    }
 
     const selectedEmployee = employees.find(
       (employee) => employee.id === selectedEmployeeId
     );
 
+    const activePayrollPeriod =
+      isCashAdvance && deductToPayroll === "Yes"
+        ? await getTargetPayrollPeriod(expenseDate)
+        : null;
+
+    if (isCashAdvance && deductToPayroll === "Yes" && !activePayrollPeriod) {
+      alert(`No Draft/Reopened payroll period covers ${expenseDate}. Create or reopen the correct cutoff first.`);
+      return;
+    }
+
     const expensePayload = {
       expense_date: expenseDate,
       category,
+      subcategory: subcategory || null,
       department: expenseArea,
       description,
       source,
@@ -494,7 +541,7 @@ export default function ExpensesPage() {
       deduct_to_payroll: isCashAdvance && deductToPayroll === "Yes",
       payroll_period_id:
         isCashAdvance && deductToPayroll === "Yes"
-          ? selectedPayrollPeriodId || null
+          ? activePayrollPeriod?.id || null
           : null,
     };
 
@@ -511,43 +558,37 @@ export default function ExpensesPage() {
     }
 
     if (isCashAdvance && deductToPayroll === "Yes" && selectedEmployee) {
-      const targetPeriod = await getTargetPayrollPeriod();
+      const employeeName = `${selectedEmployee.first_name || ""} ${selectedEmployee.last_name || ""}`.trim();
 
-      if (!targetPeriod) {
-        alert(
-          "Expense saved, but no Draft/Reopened payroll period found. Create or reopen a payroll period first before auto payroll deduction."
-        );
-
-        resetManualExpenseForm();
-        getExpenses();
-        return;
-      }
-
-      const { data: adjustmentData, error: adjustmentError } = await supabase
-        .from("payroll_adjustments")
+      const { data: balanceData, error: balanceError } = await supabase
+        .from("employee_balances")
         .insert({
-          period_id: targetPeriod.id,
           employee_id: selectedEmployee.id,
-          employee_name: `${selectedEmployee.first_name} ${selectedEmployee.last_name}`,
-          adjustment_type: "Cash Advance",
-          adjustment_direction: "Deduction",
-          amount: amountValue,
-          remarks:
-            remarks ||
-            `Cash advance from Expenses on ${expenseDate}. Source: ${source}. Expense ID: ${expenseData.id}.`,
-          status: "Pending",
+          employee_name: employeeName,
+          balance_type: "Cash Advance",
+          original_amount: amountValue,
+          remaining_balance: amountValue,
+          status: "Active",
           source_module: "Expenses",
-          source_id: expenseData.id,
-          payroll_deducted: false,
+          source_id: null,
+          period_id: activePayrollPeriod?.id || null,
+          remarks:
+            `Source: Expenses. Auto linked to: ${
+              activePayrollPeriod
+                ? `${activePayrollPeriod.period_name || "Payroll Period"} (${activePayrollPeriod.start_date} to ${activePayrollPeriod.end_date})`
+                : "No active cutoff"
+            }. Expense ID: ${expenseData.id}. ${
+              remarks || `Cash advance from Expenses on ${expenseDate}. Source: ${source}.`
+            }`,
         })
         .select()
         .single();
 
-      if (adjustmentError) {
-        console.log("CREATE PAYROLL ADJUSTMENT ERROR:", adjustmentError);
+      if (balanceError) {
+        console.log("CREATE EMPLOYEE BALANCE ERROR:", balanceError);
 
         alert(
-          `Expense saved, but failed to create payroll deduction.\n\n${adjustmentError.message}`
+          `Expense saved, but failed to create employee balance for payroll deduction.\n\n${balanceError.message}`
         );
 
         resetManualExpenseForm();
@@ -558,12 +599,17 @@ export default function ExpensesPage() {
       await supabase
         .from("expenses")
         .update({
-          payroll_adjustment_id: adjustmentData.id,
-          payroll_period_id: targetPeriod.id,
+          employee_balance_id: balanceData.id,
         })
         .eq("id", expenseData.id);
 
-      await markPayrollNeedsRegeneration(targetPeriod.id);
+      if (activePayrollPeriod?.id) {
+        await supabase
+          .from("payroll_periods")
+          .update({ needs_regeneration: true })
+          .eq("id", activePayrollPeriod.id);
+      }
+
       await getPayrollPeriods();
     }
 
@@ -572,7 +618,7 @@ export default function ExpensesPage() {
 
     alert(
       isCashAdvance && deductToPayroll === "Yes"
-        ? "Cash advance saved and linked to payroll deduction."
+        ? "Cash advance saved and added to employee balances for payroll deduction."
         : "Expense saved."
     );
   };
@@ -580,12 +626,19 @@ export default function ExpensesPage() {
   /// FUNCTIONS - DELETE EXPENSE
   const deleteExpense = async (expense: any) => {
     const confirmDelete = confirm(
-      expense.payroll_adjustment_id
-        ? "Delete this expense and its linked payroll deduction?"
+      (expense.employee_balance_id || expense.payroll_adjustment_id)
+        ? "Delete this expense and its linked payroll deduction/balance?"
         : "Are you sure you want to delete this expense?"
     );
 
     if (!confirmDelete) return;
+
+    if (expense.employee_balance_id) {
+      await supabase
+        .from("employee_balances")
+        .delete()
+        .eq("id", expense.employee_balance_id);
+    }
 
     if (expense.payroll_adjustment_id) {
       const linkedPeriodId = expense.payroll_period_id || expense.period_id;
@@ -627,6 +680,7 @@ export default function ExpensesPage() {
     const expenseRows = expenses.map((expense) => ({
       Date: expense.expense_date,
       Category: expense.category,
+      Subcategory: expense.subcategory || "",
       Expense_Area: expense.department,
       Employee: expense.employee_name || "",
       Description: expense.description,
@@ -637,6 +691,8 @@ export default function ExpensesPage() {
       Deduct_To_Payroll: expense.deduct_to_payroll ? "Yes" : "No",
       Payroll_Period_ID: expense.payroll_period_id || "",
       Payroll_Adjustment_ID: expense.payroll_adjustment_id || "",
+      Employee_Balance_ID: expense.employee_balance_id || "",
+      Cash_Movement_ID: expense.cash_movement_id || "",
       Remarks: expense.remarks || "",
     }));
 
@@ -687,6 +743,7 @@ export default function ExpensesPage() {
       .map((row) => ({
         expense_date: formatExcelDate(row.Date || row.date || row.expense_date),
         category: row.Category || row.category || "",
+        subcategory: row.Subcategory || row.subcategory || "",
         department:
           row.Expense_Area ||
           row["Expense Area"] ||
@@ -742,7 +799,6 @@ export default function ExpensesPage() {
   /// EFFECTS
   useEffect(() => {
     getExpenses();
-    getExpenseRequests();
     getFinanceSettings();
     getEmployees();
     getPayrollPeriods();
@@ -760,8 +816,7 @@ export default function ExpensesPage() {
           </p>
           <h1 className="mt-2 text-3xl font-bold">Expenses Ledger</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Review manual expenses, imported expenses, employee cash advances,
-            and posted expense requests in one official ledger.
+            Review direct expenses, cash drawer releases, imported expenses, and payroll-linked cash advances in one official ledger.
           </p>
         </div>
 
@@ -773,15 +828,15 @@ export default function ExpensesPage() {
           />
 
           <SummaryCard
-            title="Expense Requests"
-            value={formatCurrency(requestExpenseTotal)}
-            color="text-blue-400"
-          />
-
-          <SummaryCard
             title="Manual Expenses"
             value={formatCurrency(manualExpenseTotal)}
             color="text-emerald-400"
+          />
+
+          <SummaryCard
+            title="Cash Drawer Releases"
+            value={formatCurrency(cashDrawerExpenseTotal)}
+            color="text-amber-400"
           />
 
           <SummaryCard
@@ -791,37 +846,11 @@ export default function ExpensesPage() {
           />
 
           <SummaryCard
-            title="Pending Liquidation"
-            value={formatCurrency(pendingLiquidationAmount)}
-            color="text-amber-400"
+            title="Payroll Release"
+            value={formatCurrency(payrollReleaseTotal)}
+            color="text-cyan-400"
           />
         </section>
-
-        {pendingRequests.length > 0 && (
-          <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-amber-400">
-                  Pending Expense Requests
-                </h2>
-                <p className="mt-1 text-sm text-slate-300">
-                  {pendingRequests.length} request(s) waiting for approval with total amount of{" "}
-                  <span className="font-semibold text-white">
-                    {formatCurrency(pendingRequestAmount)}
-                  </span>
-                  .
-                </p>
-              </div>
-
-              <a
-                href="/finance/expense-requests"
-                className="w-fit rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
-              >
-                Review Requests →
-              </a>
-            </div>
-          </section>
-        )}
 
         {unlinkedCashAdvanceTotal > 0 && (
           <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
@@ -839,8 +868,7 @@ export default function ExpensesPage() {
           <section className="self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
             <h2 className="text-xl font-bold">Manual Expense Entry</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Use this for expenses that did not go through the request workflow.
-              Cash Advance can auto-create payroll deduction.
+              Use this for admin/accounting entries. Cash Advance will create an employee balance, but will not affect any cash drawer.
             </p>
 
             <div className="mt-5 space-y-4">
@@ -856,6 +884,7 @@ export default function ExpensesPage() {
                 value={category}
                 onChange={(e) => {
                   setCategory(e.target.value);
+                  setSubcategory("");
                   if (e.target.value.toLowerCase().includes("cash advance")) {
                     setDeductToPayroll("Yes");
                   }
@@ -869,6 +898,21 @@ export default function ExpensesPage() {
                   </option>
                 ))}
               </select>
+
+              {subcategoryOptions.length > 0 && (
+                <select
+                  value={subcategory}
+                  onChange={(e) => setSubcategory(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                >
+                  <option value="">Select subcategory</option>
+                  {subcategoryOptions.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {isCashAdvance && (
                 <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4">
@@ -901,24 +945,28 @@ export default function ExpensesPage() {
                     </select>
 
                     {deductToPayroll === "Yes" && (
-                      <select
-                        value={selectedPayrollPeriodId}
-                        onChange={(e) => setSelectedPayrollPeriodId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                      >
-                        <option value="">Select payroll period</option>
-                        {payrollPeriods.map((period) => (
-                          <option key={period.id} value={period.id}>
-                            {getPayrollPeriodLabel(period)}
-                          </option>
-                        ))}
-                      </select>
+                      <div className={`rounded-xl border p-3 ${
+                        getPayrollPeriodCoveringDate(expenseDate)
+                          ? "border-emerald-500/30 bg-emerald-500/10"
+                          : "border-red-500/30 bg-red-500/10"
+                      }`}>
+                        <p className={`text-xs font-black ${
+                          getPayrollPeriodCoveringDate(expenseDate) ? "text-emerald-300" : "text-red-300"
+                        }`}>
+                          {getPayrollPeriodCoveringDate(expenseDate)
+                            ? "✓ Auto Linked by Expense Date"
+                            : "⚠ No Payroll Period for Expense Date"}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300">
+                          {getPayrollPeriodCoveringDate(expenseDate)
+                            ? `${getPayrollPeriodCoveringDate(expenseDate)?.period_name || "Payroll Period"} (${getPayrollPeriodCoveringDate(expenseDate)?.start_date} to ${getPayrollPeriodCoveringDate(expenseDate)?.end_date})`
+                            : "Create or reopen the cutoff that covers the selected date. No manual cutoff selection needed here."}
+                        </p>
+                      </div>
                     )}
 
                     <p className="text-xs text-slate-400">
-                      If enabled, this will create a Pending Cash Advance
-                      deduction in Payroll Register. Payroll must approve/reject,
-                      then generate payroll again.
+                      If enabled, this auto-links to the current payroll. Payroll Register will deduct it on the next Generate Payroll.
                     </p>
                   </div>
                 </div>
@@ -1006,8 +1054,7 @@ export default function ExpensesPage() {
               <div>
                 <h2 className="text-xl font-bold">Official Expense Ledger</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Click table headers to sort. Use filters to separate requests,
-                  manual entries, and imports.
+                  Click table headers to sort. Use filters to separate manual entries, cash drawer releases, payroll releases, and imports.
                 </p>
               </div>
 
@@ -1033,8 +1080,9 @@ export default function ExpensesPage() {
                 className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               >
                 <option value="ALL">All Sources</option>
-                <option value="Expense Request">Expense Request</option>
                 <option value="Manual Entry">Manual Entry</option>
+                <option value="Cash Drawer">Cash Drawer</option>
+                <option value="Payroll Release">Payroll Release</option>
                 <option value="Imported">Imported</option>
               </select>
 
@@ -1073,6 +1121,7 @@ export default function ExpensesPage() {
                       ["expense_date", "Date", "w-[120px]"],
                       ["department", "Area", "w-[140px]"],
                       ["category", "Category", "w-[160px]"],
+                      ["subcategory", "Subcategory", "w-[160px]"],
                       ["employee_name", "Employee", "w-[180px]"],
                       ["description", "Description", "w-[260px]"],
                       ["amount", "Amount", "w-[130px]"],
@@ -1124,6 +1173,10 @@ export default function ExpensesPage() {
                         </td>
 
                         <td className="truncate px-4 py-3">
+                          {expense.subcategory || "-"}
+                        </td>
+
+                        <td className="truncate px-4 py-3">
                           {expense.employee_name || "-"}
                         </td>
 
@@ -1132,6 +1185,11 @@ export default function ExpensesPage() {
                           {expense.remarks && (
                             <p className="mt-1 text-xs text-slate-500">
                               {expense.remarks}
+                            </p>
+                          )}
+                          {getReferenceLabel(expense) && (
+                            <p className="mt-1 text-xs text-slate-600">
+                              {getReferenceLabel(expense)}
                             </p>
                           )}
                         </td>
@@ -1154,12 +1212,22 @@ export default function ExpensesPage() {
                           {expense.payment_method || "-"}
                         </td>
 
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td className="px-4 py-3">
                           <div className="flex flex-col gap-1">
                             {getPayrollBadge(expense) || "-"}
+                            {expense.deduct_to_payroll && (
+                              <span className="text-xs text-slate-500">
+                                {getPayrollSourceLabel(expense)}
+                              </span>
+                            )}
                             {expense.payroll_period_id && (
                               <span className="text-xs text-slate-500">
-                                {getPayrollPeriodLabel(getLinkedPayrollPeriod(expense))}
+                                Cutoff: {getPayrollPeriodLabel(getLinkedPayrollPeriod(expense))}
+                              </span>
+                            )}
+                            {expense.employee_balance_id && (
+                              <span className="break-all text-xs text-slate-600">
+                                Balance ID: {expense.employee_balance_id}
                               </span>
                             )}
                           </div>

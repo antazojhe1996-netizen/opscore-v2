@@ -15,6 +15,7 @@ import {
 
 const modules = [
   { key: "dashboard", label: "Dashboard" },
+  { key: "audit_center", label: "Audit Center" },
   { key: "workforce", label: "Workforce" },
   { key: "employees", label: "Employees / 201" },
   { key: "scheduling", label: "Scheduling" },
@@ -324,6 +325,7 @@ export default function UserRolesPage() {
   const applyHRPreset = () => {
     const allowedView = [
       "dashboard",
+      "audit_center",
       "workforce",
       "employees",
       "scheduling",
@@ -366,6 +368,7 @@ export default function UserRolesPage() {
   const applyManagerPreset = () => {
     const allowedView = [
       "dashboard",
+      "audit_center",
       "workforce",
       "employees",
       "scheduling",

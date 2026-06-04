@@ -44,7 +44,7 @@ type ImportPreviewRow = {
   matched: boolean;
   remarks: string;
   matched_employee_name?: string;
-matched_employee_no?: string;
+  matched_employee_no?: string;
 };
 
 export default function AttendancePage() {
@@ -71,289 +71,285 @@ export default function AttendancePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lockedPayrollPeriods, setLockedPayrollPeriods] = useState<any[]>([]);
 
-/// HELPERS
-const normalizeName = (name: string) =>
-  String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  /// HELPERS
+  const normalizeName = (name: string) =>
+    String(name || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-const getDateRange = () => {
-  const dates: string[] = [];
-  const current = new Date(startDate);
-  const end = new Date(endDate);
+  const getDateRange = () => {
+    const dates: string[] = [];
+    const current = new Date(startDate);
+    const end = new Date(endDate);
 
-  while (current <= end) {
-    dates.push(current.toISOString().split("T")[0]);
-    current.setDate(current.getDate() + 1);
-  }
-
-  return dates;
-};
-
-const getValue = (row: any, keys: string[]) => {
-  for (const key of keys) {
-    if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
-      return row[key];
+    while (current <= end) {
+      dates.push(current.toISOString().split("T")[0]);
+      current.setDate(current.getDate() + 1);
     }
-  }
 
-  return "";
-};
+    return dates;
+  };
 
-const parseExcelDate = (value: any) => {
-  if (!value) return "";
+  const getValue = (row: any, keys: string[]) => {
+    for (const key of keys) {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
+        return row[key];
+      }
+    }
 
-  if (typeof value === "number") {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (!parsed) return "";
+    return "";
+  };
 
-    return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(
-      parsed.d
-    ).padStart(2, "0")}`;
-  }
+  const parseExcelDate = (value: any) => {
+    if (!value) return "";
 
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return "";
+    if (typeof value === "number") {
+      const parsed = XLSX.SSF.parse_date_code(value);
+      if (!parsed) return "";
 
-  return date.toISOString().split("T")[0];
-};
-
-const parseExcelTime = (value: any) => {
-  if (!value && value !== 0) return "";
-
-  if (typeof value === "number") {
-    const totalMinutes = Math.round(value * 24 * 60);
-    const hours = Math.floor(totalMinutes / 60) % 24;
-    const minutes = totalMinutes % 60;
-
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-      2,
-      "0"
-    )}`;
-  }
-
-  const text = String(value).trim();
-  if (!text) return "";
-
-  if (/^\d{1,2}:\d{2}/.test(text)) {
-    const date = new Date(`2000-01-01 ${text}`);
-
-    if (!isNaN(date.getTime())) {
-      return `${String(date.getHours()).padStart(2, "0")}:${String(
-        date.getMinutes()
+      return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(
+        parsed.d
       ).padStart(2, "0")}`;
     }
 
-    return text.slice(0, 5);
-  }
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return "";
 
-  return "";
-};
+    return date.toISOString().split("T")[0];
+  };
 
-const parseMinutes = (value: any) => {
-  if (!value) return 0;
+  const parseExcelTime = (value: any) => {
+    if (!value && value !== 0) return "";
 
-  if (typeof value === "number") return Math.round(value);
+    if (typeof value === "number") {
+      const totalMinutes = Math.round(value * 24 * 60);
+      const hours = Math.floor(totalMinutes / 60) % 24;
+      const minutes = totalMinutes % 60;
 
-  const text = String(value).trim();
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+        2,
+        "0"
+      )}`;
+    }
 
-  if (text.includes(":")) {
-    const [h, m] = text.split(":").map(Number);
-    return (Number(h) || 0) * 60 + (Number(m) || 0);
-  }
+    const text = String(value).trim();
+    if (!text) return "";
 
-  return Number(text) || 0;
-};
+    if (/^\d{1,2}:\d{2}/.test(text)) {
+      const date = new Date(`2000-01-01 ${text}`);
 
-const parseOtMinutes = (value: any) => {
-  if (!value) return 0;
+      if (!isNaN(date.getTime())) {
+        return `${String(date.getHours()).padStart(2, "0")}:${String(
+          date.getMinutes()
+        ).padStart(2, "0")}`;
+      }
 
-  if (typeof value === "number") return Math.round(value * 60);
+      return text.slice(0, 5);
+    }
 
-  const text = String(value).trim();
+    return "";
+  };
 
-  if (text.includes(":")) {
-    const [h, m] = text.split(":").map(Number);
-    return (Number(h) || 0) * 60 + (Number(m) || 0);
-  }
+  const parseMinutes = (value: any) => {
+    if (!value) return 0;
 
-  return Math.round((Number(text) || 0) * 60);
-};
+    if (typeof value === "number") return Math.round(value);
 
-const timeToMinutes = (time?: string | null) => {
-  if (!time) return 0;
+    const text = String(value).trim();
 
-  const [h, m] = time.slice(0, 5).split(":").map(Number);
-  return h * 60 + m;
-};
+    if (text.includes(":")) {
+      const [h, m] = text.split(":").map(Number);
+      return (Number(h) || 0) * 60 + (Number(m) || 0);
+    }
 
-const diffMinutes = (start?: string | null, end?: string | null) => {
-  if (!start || !end) return 0;
+    return Number(text) || 0;
+  };
 
-  let startMin = timeToMinutes(start);
-  let endMin = timeToMinutes(end);
+  const parseOtMinutes = (value: any) => {
+    if (!value) return 0;
 
-  if (endMin < startMin) endMin += 24 * 60;
+    if (typeof value === "number") return Math.round(value * 60);
 
-  return endMin - startMin;
-};
+    const text = String(value).trim();
 
-const findEmployeeByEmployeeNoOrName = (
-  employeeNo: string,
-  name: string
-) => {
-  const cleanEmployeeNo = String(employeeNo || "").trim().toLowerCase();
-  const cleanName = normalizeName(name);
+    if (text.includes(":")) {
+      const [h, m] = text.split(":").map(Number);
+      return (Number(h) || 0) * 60 + (Number(m) || 0);
+    }
 
-  if (cleanEmployeeNo) {
-    const idMatch = employees.find(
-      (emp) =>
-        String(emp.employee_no || "").trim().toLowerCase() === cleanEmployeeNo
+    return Math.round((Number(text) || 0) * 60);
+  };
+
+  const timeToMinutes = (time?: string | null) => {
+    if (!time) return 0;
+
+    const [h, m] = time.slice(0, 5).split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const diffMinutes = (start?: string | null, end?: string | null) => {
+    if (!start || !end) return 0;
+
+    let startMin = timeToMinutes(start);
+    let endMin = timeToMinutes(end);
+
+    if (endMin < startMin) endMin += 24 * 60;
+
+    return endMin - startMin;
+  };
+
+  const findEmployeeByEmployeeNoOrName = (employeeNo: string, name: string) => {
+    const cleanEmployeeNo = String(employeeNo || "").trim().toLowerCase();
+    const cleanName = normalizeName(name);
+
+    if (cleanEmployeeNo) {
+      const idMatch = employees.find(
+        (emp) =>
+          String(emp.employee_no || "").trim().toLowerCase() === cleanEmployeeNo
+      );
+
+      if (idMatch) return idMatch;
+    }
+
+    if (!cleanName) return null;
+
+    const exactNameMatch = employees.find((emp) => {
+      const full = normalizeName(`${emp.first_name} ${emp.last_name}`);
+      const first = normalizeName(emp.first_name);
+      const last = normalizeName(emp.last_name);
+
+      return full === cleanName || first === cleanName || last === cleanName;
+    });
+
+    if (exactNameMatch) return exactNameMatch;
+
+    const partialMatches = employees.filter((emp) => {
+      const full = normalizeName(`${emp.first_name} ${emp.last_name}`);
+
+      return full.includes(cleanName) || cleanName.includes(full);
+    });
+
+    if (partialMatches.length === 1) return partialMatches[0];
+
+    return null;
+  };
+
+  const getEntry = (employeeId: string, date: string) =>
+    entries.find(
+      (entry) =>
+        String(entry.employee_id) === String(employeeId) &&
+        String(entry.attendance_date) === String(date)
     );
 
-    if (idMatch) return idMatch;
-  }
-
-  if (!cleanName) return null;
-
-  const exactNameMatch = employees.find((emp) => {
-    const full = normalizeName(`${emp.first_name} ${emp.last_name}`);
-    const first = normalizeName(emp.first_name);
-    const last = normalizeName(emp.last_name);
-
-    return full === cleanName || first === cleanName || last === cleanName;
-  });
-
-  if (exactNameMatch) return exactNameMatch;
-
-  const partialMatches = employees.filter((emp) => {
-    const full = normalizeName(`${emp.first_name} ${emp.last_name}`);
-
-    return full.includes(cleanName) || cleanName.includes(full);
-  });
-
-  if (partialMatches.length === 1) return partialMatches[0];
-
-  return null;
-};
-
-const getEntry = (employeeId: string, date: string) =>
-  entries.find(
-    (entry) =>
-      String(entry.employee_id) === String(employeeId) &&
-      String(entry.attendance_date) === String(date)
-  );
-
-const getSchedule = (employeeId: string, date: string) =>
-  schedules.find(
-    (item) =>
-      String(item.employee_id) === String(employeeId) &&
-      String(item.day) === String(date)
-  );
-
-const getShiftTemplate = (shiftName?: string | null) =>
-  shiftTemplates.find((shift) => shift.shift_name === shiftName);
-
-const isOnLeave = (employee: Employee, date: string) => {
-  const keys = [
-    String(employee.id || "").toLowerCase(),
-    String(employee.employee_no || "").toLowerCase(),
-    normalizeName(`${employee.first_name} ${employee.last_name}`),
-  ];
-
-  return approvedLeaves.some((leave) => {
-    const leaveEmployeeId = String(leave.employee_id || "").toLowerCase();
-
-    return (
-      keys.includes(leaveEmployeeId) &&
-      date >= String(leave.start_date) &&
-      date <= String(leave.end_date)
+  const getSchedule = (employeeId: string, date: string) =>
+    schedules.find(
+      (item) =>
+        String(item.employee_id) === String(employeeId) &&
+        String(item.day) === String(date)
     );
-  });
-};
 
-const computeEntry = (
-  employee: Employee,
-  date: string,
-  entry?: AttendanceEntry
-) => {
-  const schedule = getSchedule(employee.id, date);
-  const shiftName = entry?.scheduled_shift || schedule?.shift || "OFF";
-  const shift = getShiftTemplate(shiftName);
+  const getShiftTemplate = (shiftName?: string | null) =>
+    shiftTemplates.find((shift) => shift.shift_name === shiftName);
 
-  const scheduledIn = entry?.scheduled_in || shift?.start_time || null;
-  const scheduledOut = entry?.scheduled_out || shift?.end_time || null;
+  const isOnLeave = (employee: Employee, date: string) => {
+    const keys = [
+      String(employee.id || "").toLowerCase(),
+      String(employee.employee_no || "").toLowerCase(),
+      normalizeName(`${employee.first_name} ${employee.last_name}`),
+    ];
 
-  const timeIn = entry?.time_in || "";
-  const timeOut = entry?.time_out || "";
+    return approvedLeaves.some((leave) => {
+      const leaveEmployeeId = String(leave.employee_id || "").toLowerCase();
 
-  const lateGrace = Number(settings.late_grace_minutes || 15);
-  const undertimeGrace = Number(settings.undertime_grace_minutes || 0);
+      return (
+        keys.includes(leaveEmployeeId) &&
+        date >= String(leave.start_date) &&
+        date <= String(leave.end_date)
+      );
+    });
+  };
 
-  if (isOnLeave(employee, date)) {
-    return {
-      scheduled_shift: "Leave",
-      scheduled_in: null,
-      scheduled_out: null,
-      late_minutes: 0,
-      undertime_minutes: 0,
-      ot_minutes: 0,
-      status: "Leave",
-    };
-  }
+  const computeEntry = (
+    employee: Employee,
+    date: string,
+    entry?: AttendanceEntry
+  ) => {
+    const schedule = getSchedule(employee.id, date);
+    const shiftName = entry?.scheduled_shift || schedule?.shift || "OFF";
+    const shift = getShiftTemplate(shiftName);
 
-  if (shiftName === "OFF" || !schedule) {
-    return {
-      scheduled_shift: "OFF",
-      scheduled_in: null,
-      scheduled_out: null,
-      late_minutes: 0,
-      undertime_minutes: 0,
-      ot_minutes: 0,
-      status: "RD",
-    };
-  }
+    const scheduledIn = entry?.scheduled_in || shift?.start_time || null;
+    const scheduledOut = entry?.scheduled_out || shift?.end_time || null;
 
-  if (!timeIn && !timeOut) {
+    const timeIn = entry?.time_in || "";
+    const timeOut = entry?.time_out || "";
+
+    const lateGrace = Number(settings.late_grace_minutes || 15);
+    const undertimeGrace = Number(settings.undertime_grace_minutes || 0);
+
+    if (isOnLeave(employee, date)) {
+      return {
+        scheduled_shift: "Leave",
+        scheduled_in: null,
+        scheduled_out: null,
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
+        status: "Leave",
+      };
+    }
+
+    if (shiftName === "OFF" || !schedule) {
+      return {
+        scheduled_shift: "OFF",
+        scheduled_in: null,
+        scheduled_out: null,
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
+        status: "RD",
+      };
+    }
+
+    if (!timeIn && !timeOut) {
+      return {
+        scheduled_shift: shiftName,
+        scheduled_in: scheduledIn,
+        scheduled_out: scheduledOut,
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
+        status: "Absent",
+      };
+    }
+
+    const lateRaw = timeIn && scheduledIn ? diffMinutes(scheduledIn, timeIn) : 0;
+    const lateMinutes = lateRaw > lateGrace ? lateRaw : 0;
+
+    const undertimeRaw =
+      timeOut && scheduledOut ? diffMinutes(timeOut, scheduledOut) : 0;
+    const undertimeMinutes = undertimeRaw > undertimeGrace ? undertimeRaw : 0;
+
+    const otRaw = timeOut && scheduledOut ? diffMinutes(scheduledOut, timeOut) : 0;
+    const otMinutes = otRaw > 0 ? otRaw : 0;
+
+    let status = "Present";
+    if (lateMinutes > 0) status = "Late";
+    if (undertimeMinutes > 0) status = "Undertime";
+
     return {
       scheduled_shift: shiftName,
       scheduled_in: scheduledIn,
       scheduled_out: scheduledOut,
-      late_minutes: 0,
-      undertime_minutes: 0,
-      ot_minutes: 0,
-      status: "Absent",
+      late_minutes: lateMinutes,
+      undertime_minutes: undertimeMinutes,
+      ot_minutes: otMinutes,
+      status,
     };
-  }
-
-  const lateRaw = timeIn && scheduledIn ? diffMinutes(scheduledIn, timeIn) : 0;
-  const lateMinutes = lateRaw > lateGrace ? lateRaw : 0;
-
-  const undertimeRaw =
-    timeOut && scheduledOut ? diffMinutes(timeOut, scheduledOut) : 0;
-  const undertimeMinutes = undertimeRaw > undertimeGrace ? undertimeRaw : 0;
-
-  const otRaw = timeOut && scheduledOut ? diffMinutes(scheduledOut, timeOut) : 0;
-  const otMinutes = otRaw > 0 ? otRaw : 0;
-
-  let status = "Present";
-  if (lateMinutes > 0) status = "Late";
-  if (undertimeMinutes > 0) status = "Undertime";
-
-  return {
-    scheduled_shift: shiftName,
-    scheduled_in: scheduledIn,
-    scheduled_out: scheduledOut,
-    late_minutes: lateMinutes,
-    undertime_minutes: undertimeMinutes,
-    ot_minutes: otMinutes,
-    status,
   };
-};
 
- 
   /// LOADERS
   const getEmployees = async () => {
     const { data, error } = await supabase
@@ -447,6 +443,43 @@ const computeEntry = (
     }
 
     setLockedPayrollPeriods(data || []);
+  };
+
+  const markPayrollPeriodsForRegeneration = async (rows: any[]) => {
+    const affectedDates = rows
+      .map((row) => String(row.attendance_date || "").slice(0, 10))
+      .filter(Boolean)
+      .sort();
+
+    if (affectedDates.length === 0) return;
+
+    const minDate = affectedDates[0];
+    const maxDate = affectedDates[affectedDates.length - 1];
+
+    const { data: affectedPeriods, error } = await supabase
+      .from("payroll_periods")
+      .select("id, period_name, status")
+      .lte("start_date", maxDate)
+      .gte("end_date", minDate)
+      .in("status", ["Draft", "Reopened", "For Approval", "Approved"]);
+
+    if (error) {
+      console.log("MARK PAYROLL PERIODS QUERY ERROR:", error.message);
+      return;
+    }
+
+    const periodIds = (affectedPeriods || []).map((period) => period.id);
+
+    if (periodIds.length === 0) return;
+
+    const { error: updateError } = await supabase
+      .from("payroll_periods")
+      .update({ needs_regeneration: true })
+      .in("id", periodIds);
+
+    if (updateError) {
+      console.log("MARK PAYROLL NEEDS REGENERATION ERROR:", updateError.message);
+    }
   };
 
   /// ACTIONS
@@ -576,11 +609,6 @@ const computeEntry = (
 
       const previewRows: ImportPreviewRow[] = [];
 
-      // Biometric "Attend. Logs" layout is 4 rows per employee:
-      // Row 1: ID / Name
-      // Row 2: Day numbers
-      // Row 3: Day names
-      // Row 4: Logs, one cell per day, sometimes multiple times separated by line breaks.
       for (let rowIndex = 2; rowIndex < rows.length; rowIndex += 4) {
         const idRow = rows[rowIndex] || [];
         const dayRow = rows[rowIndex + 1] || [];
@@ -603,9 +631,6 @@ const computeEntry = (
           if (attendanceDate < startDate || attendanceDate > endDate) return;
 
           const times = normalizeTimeList(logRow[dayIndex]);
-
-          // Keep only actual rows with biometric logs.
-          // Payroll missing/absent is still handled by the Attendance Review table.
           if (times.length === 0) return;
 
           const timeIn = times[0] || null;
@@ -665,7 +690,6 @@ const computeEntry = (
         const timeIn = rawTimes[0] || null;
         const timeOut = rawTimes.length > 1 ? rawTimes[rawTimes.length - 1] : null;
 
-        // If there are no actual time logs in Abnormal, skip it. Missing rows are handled by review.
         if (!timeIn && !timeOut) return;
 
         const lateMinutes = parseMinutes(row[8]);
@@ -772,7 +796,6 @@ const computeEntry = (
 
     let preview = buildPreviewFromAttendLogs();
 
-    // Fallback only. Usually All Report.xlsx should use Attend. Logs.
     if (preview.length === 0) preview = buildPreviewFromAbnormalSheet();
     if (preview.length === 0) preview = buildPreviewFromSimpleSheet();
 
@@ -868,66 +891,71 @@ const computeEntry = (
   };
 
   const saveAttendance = async () => {
-  if (attendanceLocked) {
+    if (attendanceLocked) {
+      alert(
+        `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}\n\nReopen payroll first before editing attendance.`
+      );
+      return;
+    }
+
+    const sourceRows =
+      selectedEmployee && attendanceRows.length > 0
+        ? attendanceRows.map((row) => ({
+            employee_id: row.employee.id,
+            attendance_date: row.date,
+            scheduled_shift: row.scheduled_shift,
+            scheduled_in: row.scheduled_in,
+            scheduled_out: row.scheduled_out,
+            time_in: row.entry?.time_in || null,
+            time_out: row.entry?.time_out || null,
+            late_minutes: row.late_minutes,
+            undertime_minutes: row.undertime_minutes,
+            ot_minutes: row.ot_minutes,
+            status: row.status,
+            remarks: row.entry?.remarks || "",
+          }))
+        : entries.map((entry) => ({
+            employee_id: entry.employee_id,
+            attendance_date: entry.attendance_date,
+            scheduled_shift: entry.scheduled_shift,
+            scheduled_in: entry.scheduled_in,
+            scheduled_out: entry.scheduled_out,
+            time_in: entry.time_in || null,
+            time_out: entry.time_out || null,
+            late_minutes: entry.late_minutes || 0,
+            undertime_minutes: entry.undertime_minutes || 0,
+            ot_minutes: entry.ot_minutes || 0,
+            status: entry.status || "Present",
+            remarks: entry.remarks || "",
+          }));
+
+    if (sourceRows.length === 0) {
+      alert("No attendance rows to save.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    const { error } = await supabase.from("attendance_entries").upsert(sourceRows, {
+      onConflict: "employee_id,attendance_date",
+    });
+
+    if (error) {
+      setIsSaving(false);
+      console.log("SAVE ATTENDANCE ERROR:", error);
+      alert(error.message);
+      return;
+    }
+
+    await markPayrollPeriodsForRegeneration(sourceRows);
+
+    setIsSaving(false);
+
     alert(
-      `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}\n\nReopen payroll first before editing attendance.`
+      `Saved ${sourceRows.length} attendance row(s). Payroll periods covering the saved dates were marked for regeneration.`
     );
-    return;
-  }
-
-  const sourceRows =
-    selectedEmployee && attendanceRows.length > 0
-      ? attendanceRows.map((row) => ({
-          employee_id: row.employee.id,
-          attendance_date: row.date,
-          scheduled_shift: row.scheduled_shift,
-          scheduled_in: row.scheduled_in,
-          scheduled_out: row.scheduled_out,
-          time_in: row.entry?.time_in || null,
-          time_out: row.entry?.time_out || null,
-          late_minutes: row.late_minutes,
-          undertime_minutes: row.undertime_minutes,
-          ot_minutes: row.ot_minutes,
-          status: row.status,
-          remarks: row.entry?.remarks || "",
-        }))
-      : entries.map((entry) => ({
-          employee_id: entry.employee_id,
-          attendance_date: entry.attendance_date,
-          scheduled_shift: entry.scheduled_shift,
-          scheduled_in: entry.scheduled_in,
-          scheduled_out: entry.scheduled_out,
-          time_in: entry.time_in || null,
-          time_out: entry.time_out || null,
-          late_minutes: entry.late_minutes || 0,
-          undertime_minutes: entry.undertime_minutes || 0,
-          ot_minutes: entry.ot_minutes || 0,
-          status: entry.status || "Present",
-          remarks: entry.remarks || "",
-        }));
-
-  if (sourceRows.length === 0) {
-    alert("No attendance rows to save.");
-    return;
-  }
-
-  setIsSaving(true);
-
-  const { error } = await supabase.from("attendance_entries").upsert(sourceRows, {
-    onConflict: "employee_id,attendance_date",
-  });
-
-  setIsSaving(false);
-
-  if (error) {
-    console.log("SAVE ATTENDANCE ERROR:", error);
-    alert(error.message);
-    return;
-  }
-
-  alert(`Saved ${sourceRows.length} attendance row(s).`);
-  getAttendanceEntries();
-};
+    getAttendanceEntries();
+  };
 
   /// EFFECTS
   useEffect(() => {
@@ -998,9 +1026,7 @@ const computeEntry = (
     (row) => Number(row.late_minutes || 0) > 0
   ).length;
 
-  const absentCount = attendanceRows.filter(
-    (row) => row.status === "Absent"
-  ).length;
+  const absentCount = attendanceRows.filter((row) => row.status === "Absent").length;
 
   const totalOtMinutes = attendanceRows.reduce(
     (sum, row) => sum + Number(row.ot_minutes || 0),
@@ -1016,8 +1042,7 @@ const computeEntry = (
     const missingTime =
       isWorkingDay && !row.entry?.time_in && !row.entry?.time_out;
 
-    const missingOut =
-      isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
+    const missingOut = isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
 
     const noSchedule =
       row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
@@ -1078,7 +1103,7 @@ const computeEntry = (
             </p>
           </div>
 
-         <button
+          <button
             onClick={saveAttendance}
             disabled={isSaving || attendanceLocked}
             className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
@@ -1101,6 +1126,13 @@ const computeEntry = (
             </p>
           </section>
         )}
+
+        <section className="mb-8 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 text-blue-200">
+          <p className="font-black">Payroll Safety</p>
+          <p className="mt-1 text-sm text-blue-100/80">
+            Any saved attendance change automatically marks the affected payroll cutoff as outdated. Open Payroll Register and click Generate Payroll again before release.
+          </p>
+        </section>
 
         <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard title="Days" value={attendanceRows.length} />
@@ -1317,8 +1349,8 @@ const computeEntry = (
                 <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Excel Name</th>
-                      <th className="px-4 py-3">Matched Employee</th>
-                      <th className="px-4 py-3">Employee No</th>
+                    <th className="px-4 py-3">Matched Employee</th>
+                    <th className="px-4 py-3">Employee No</th>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Time In</th>
                     <th className="px-4 py-3">Time Out</th>
@@ -1334,10 +1366,10 @@ const computeEntry = (
                   {importPreview.map((row, index) => (
                     <tr key={index} className="border-t border-slate-800">
                       <td className="px-4 py-3 font-bold">{row.employee_name}</td>
-                        <td className="px-4 py-3 font-bold text-emerald-300">
-                          {row.matched_employee_name || "-"}
-                        </td>
-                        <td className="px-4 py-3">{row.matched_employee_no || "-"}</td>
+                      <td className="px-4 py-3 font-bold text-emerald-300">
+                        {row.matched_employee_name || "-"}
+                      </td>
+                      <td className="px-4 py-3">{row.matched_employee_no || "-"}</td>
                       <td className="px-4 py-3">{row.attendance_date}</td>
                       <td className="px-4 py-3">{row.time_in || "--:--"}</td>
                       <td className="px-4 py-3">{row.time_out || "--:--"}</td>
@@ -1420,7 +1452,7 @@ const computeEntry = (
                         {row.scheduled_shift}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {row.scheduled_in || "--:--"} -{" "}
+                        {row.scheduled_in || "--:--"} - {" "}
                         {row.scheduled_out || "--:--"}
                       </p>
                     </td>

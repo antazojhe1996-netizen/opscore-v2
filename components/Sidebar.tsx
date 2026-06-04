@@ -33,6 +33,13 @@ const menuSections = [
     items: [],
   },
   {
+    title: "Audit Center",
+    href: "/audit",
+    icon: ShieldCheck,
+    moduleKey: "always_allow",
+    items: [],
+  },
+  {
     title: "Workforce",
     icon: Users,
     items: [
@@ -311,7 +318,24 @@ export default function Sidebar() {
             </div>
           )}
         </nav>
+
       )}
+
+      <button
+  onClick={() => {
+    localStorage.removeItem("opscore_current_employee_id");
+    window.location.href = "/login";
+  }}
+  className="mt-4 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
+>
+  Logout
+</button>
+<div className="mt-8 text-center text-xs text-slate-500">
+  <p>OPSCORE v1.0 Beta</p>
+  <p className="mt-1">
+    Designed & Developed by <span className="text-slate-300">Jherome Antazo</span>
+  </p>
+</div>
     </aside>
   );
 }

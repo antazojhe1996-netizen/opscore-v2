@@ -115,6 +115,17 @@ export default function PayrollManagerPage() {
 
     const today = new Date().toISOString().slice(0, 10);
     const periodId = firstRecord?.period_id || "NO_PERIOD";
+    const payload = {
+      expense_date: today,
+      category: "Payroll",
+      subcategory: "Payroll Release",
+      department: "Payroll",
+      description: `Payroll Release - ${periodLabel}`,
+      amount: totalNetPay,
+      payment_method: "Payroll",
+      remarks: `Auto Generated from Payroll Manager. Period ID: ${periodId}. Employees: ${recordsToRelease.length}. Updated: ${new Date().toISOString()}.`,
+      source: "Payroll Release",
+    };
 
     const { data: existingExpense } = await supabase
       .from("expenses")
@@ -123,22 +134,13 @@ export default function PayrollManagerPage() {
       .ilike("remarks", `%Period ID: ${periodId}%`)
       .maybeSingle();
 
-    if (existingExpense) return;
-
-    const { error } = await supabase.from("expenses").insert({
-      expense_date: today,
-      category: "Payroll",
-      department: "Payroll",
-      description: `Payroll Release - ${periodLabel}`,
-      amount: totalNetPay,
-      payment_method: "Payroll",
-      remarks: `Auto Generated from Payroll Manager. Period ID: ${periodId}. Employees: ${recordsToRelease.length}.`,
-      source: "Payroll Release",
-    });
+    const { error } = existingExpense?.id
+      ? await supabase.from("expenses").update(payload).eq("id", existingExpense.id)
+      : await supabase.from("expenses").insert(payload);
 
     if (error) {
-      console.log("CREATE PAYROLL EXPENSE ERROR:", error.message);
-      alert("Payroll released, but expense entry failed. Check expenses table columns.");
+      console.log("CREATE/UPDATE PAYROLL EXPENSE ERROR:", error.message);
+      alert("Payroll released, but payroll expense entry failed. Check expenses table columns.");
     }
   };
 
@@ -149,18 +151,40 @@ export default function PayrollManagerPage() {
 
     if (negativeRecords.length === 0) return;
 
-    const balanceRows = negativeRecords.map((record) => ({
-      employee_id: record.employee_id || null,
-      employee_name: getEmployeeName(record),
-      balance_type: "Cash Advance Carry Forward",
-      original_amount: getCarryForwardAmount(record),
-      remaining_balance: getCarryForwardAmount(record),
-      status: "Active",
-      source_module: "Payroll Manager",
-      source_id: record.id,
-      period_id: record.period_id || null,
-      remarks: `Auto carry forward from ${getPeriodLabel(record)}. Net pay was ${formatPeso(getRecordAmount(record))}.`,
-    }));
+    const sourceIds = negativeRecords.map((record) => record.id).filter(Boolean);
+
+    const { data: existingBalances, error: existingError } = await supabase
+      .from("employee_balances")
+      .select("id, source_id, status")
+      .eq("source_module", "Payroll Manager")
+      .in("source_id", sourceIds);
+
+    if (existingError) {
+      console.log("CHECK EXISTING CARRY FORWARD ERROR:", existingError.message);
+      alert("Payroll was released, but carry-forward duplicate check failed.");
+      return;
+    }
+
+    const existingSourceIds = new Set(
+      (existingBalances || []).map((item) => String(item.source_id))
+    );
+
+    const balanceRows = negativeRecords
+      .filter((record) => !existingSourceIds.has(String(record.id)))
+      .map((record) => ({
+        employee_id: record.employee_id || null,
+        employee_name: getEmployeeName(record),
+        balance_type: "Cash Advance Carry Forward",
+        original_amount: getCarryForwardAmount(record),
+        remaining_balance: getCarryForwardAmount(record),
+        status: "Active",
+        source_module: "Payroll Manager",
+        source_id: record.id,
+        period_id: record.period_id || null,
+        remarks: `Auto carry forward from ${getPeriodLabel(record)}. Net pay was ${formatPeso(getRecordAmount(record))}. Payroll Record ID: ${record.id}.`,
+      }));
+
+    if (balanceRows.length === 0) return;
 
     const { error } = await supabase.from("employee_balances").insert(balanceRows);
 
@@ -356,9 +380,21 @@ This will mark payroll as Released, create a Payroll expense for actual release 
           status: "Reopened",
           reopen_reason: reason.trim(),
           reopened_at: new Date().toISOString(),
+          needs_regeneration: true,
         })
         .eq("id", periodId);
     }
+
+    await supabase
+      .from("employee_balances")
+      .update({
+        status: "Cancelled",
+        remaining_balance: 0,
+        cancelled_at: new Date().toISOString(),
+        cancel_reason: `Payroll reopened: ${reason.trim()}`,
+      })
+      .eq("source_module", "Payroll Manager")
+      .in("source_id", targetIds);
 
     setIsProcessing(false);
     setSelectedRecordIds([]);
