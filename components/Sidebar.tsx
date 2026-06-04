@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
 
+
 const menuSections = [
   {
     title: "Dashboard",
@@ -64,6 +65,12 @@ const menuSections = [
       { label: "Payment", href: "/finance/bills", icon: Wallet, moduleKey: "bills_monitoring" },
       { label: "Cash Management", href: "/finance/cash-management", icon: Wallet, moduleKey: "cash_management" },
       { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
+     {
+  label: "Expense Allocation",
+  href: "/finance/settings/expense-allocation",
+  icon: Wallet,
+  moduleKey: "settings",
+},
     ],
   },
   {
