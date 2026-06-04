@@ -1,162 +1,114 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
 
 export default function FinancePage() {
-  /// STATES
-  const [revenueSources, setRevenueSources] = useState<any[]>([]);
-
-  /// FUNCTIONS
-  const getRevenueSources = async () => {
-    const { data, error } = await supabase
-      .from("finance_revenue_sources")
-      .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
-
-    if (error) {
-      console.log("REVENUE SOURCES ERROR:", error);
-      return;
-    }
-
-    setRevenueSources(data || []);
-  };
-
-  const getRevenueLink = (name: string) => {
-    const slug = name.toLowerCase().replaceAll(" ", "-");
-
-    if (slug === "hotel-rooms") return "/finance/room-sales";
-    if (slug === "restaurant") return "/finance/restaurant-import";
-    if (slug === "apartment") return "/finance/apartment";
-    if (slug === "sports-bar") return "/finance/sports-bar-sales";
-
-    return `/finance/revenue/${slug}`;
-  };
-
-  useEffect(() => {
-    getRevenueSources();
-  }, []);
-
-  /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="flex-1 p-8">
-        <section>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
+        {/* HEADER */}
+        <section className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-            OPSCORE Finance
+            Finance
           </p>
-          <h1 className="mt-2 text-3xl font-bold">Finance</h1>
-          <p className="mt-2 text-slate-400">
-            Monitor revenue, expenses, approvals, cash control, and reports.
+
+          <h1 className="mt-2 text-4xl font-black">
+            Finance Dashboard
+          </h1>
+
+          <p className="mt-2 max-w-4xl text-sm text-slate-400">
+            Manage expenses, billing, revenue, cash management,
+            finance reports, and operational cash flow.
           </p>
         </section>
 
-        <section className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Total Revenue" value="₱0.00" color="text-emerald-400" />
-          <SummaryCard title="Total Expenses" value="₱0.00" color="text-red-400" />
-          <SummaryCard title="Net Profit" value="₱0.00" color="text-yellow-400" />
-          <SummaryCard title="Cash Variance" value="₱0.00" color="text-blue-400" />
-        </section>
-
-        <section className="mt-8">
-          <SectionHeader
-            title="Finance Control"
-            description="Approval, expense control, cash release, and accountability tools."
+        {/* QUICK STATS */}
+        <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <DashboardCard
+            title="Today's Revenue"
+            value="₱0.00"
+            description="Rooms + Restaurant + Other Revenue"
           />
 
-          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <FinanceLink
-              href="/finance/expense-requests"
-              title="Expense Requests"
-              description="Request, approve, release, and liquidate operational expenses."
-              action="Open Requests →"
-              highlight
-            />
+          <DashboardCard
+            title="Today's Expenses"
+            value="₱0.00"
+            description="Approved and released expenses"
+          />
 
-            <FinanceLink
+          <DashboardCard
+            title="Pending Requests"
+            value="0"
+            description="Expense requests awaiting approval"
+          />
+
+          <DashboardCard
+            title="Cash Accountability"
+            value="₱0.00"
+            description="Released cash not yet liquidated"
+          />
+        </section>
+
+        {/* FINANCE MODULES */}
+        <section className="mt-8">
+          <h2 className="mb-4 text-xl font-bold">
+            Finance Modules
+          </h2>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <FinanceModuleCard
+              title="Expenses"
+              description="Track expenses, approvals, releases and liquidation."
               href="/finance/expenses"
-              title="Expense Recording"
-              description="Encode actual expenses, import history, export reports, and review spending."
-              action="Open Expenses →"
             />
 
-            <FinanceLink
-              href="/finance/cash-management"
+            <FinanceModuleCard
+              title="Expense Requests"
+              description="Review and approve submitted expense requests."
+              href="/finance/expense-requests"
+            />
+
+            <FinanceModuleCard
+              title="Bills Monitoring"
+              description="Track supplier payables and recurring bills."
+              href="/finance/bills"
+            />
+
+            <FinanceModuleCard
               title="Cash Management"
-              description="Track opening float, cash releases, expected cash, actual cash, and variance."
-              action="Open Cash Management →"
-              muted
-            />
-          </div>
-        </section>
-
-        <section className="mt-8">
-          <SectionHeader
-            title="Revenue Sources"
-            description="Sales and collection modules by business area."
-          />
-
-          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {revenueSources.map((source) => (
-              <Link
-                key={source.id}
-                href={getRevenueLink(source.name)}
-                className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-emerald-400 hover:bg-slate-800"
-              >
-                <h3 className="text-xl font-bold">{source.name}</h3>
-
-                <p className="mt-3 text-sm leading-6 text-slate-400">
-                  Manage {source.name} revenue records and sales tracking.
-                </p>
-
-                <p className="mt-6 text-sm font-semibold text-emerald-400">
-                  Open {source.name} →
-                </p>
-              </Link>
-            ))}
-
-            {revenueSources.length === 0 && (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
-                No active revenue sources found.
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="mt-8">
-          <SectionHeader
-            title="Reports & Settings"
-            description="Management reports and configurable finance rules."
-          />
-
-          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <FinanceLink
-              href="/finance/reports"
-              title="Finance Reports"
-              description="View daily, monthly, and yearly revenue, expenses, and profit reports."
-              action="Open Reports →"
+              description="Monitor released cash and accountability."
+              href="/finance/cash-management"
             />
 
-            <FinanceLink
-              href="/finance/settings"
+            <FinanceModuleCard
+              title="Revenue Sources"
+              description="Track hotel, restaurant and other revenue."
+              href="/finance/room-sales"
+            />
+
+            <FinanceModuleCard
               title="Finance Settings"
-              description="Configure revenue sources, expense categories, payment methods, and workflow rules."
-              action="Open Settings →"
-              muted
+              description="Manage categories, payment methods and finance controls."
+              href="/finance/settings"
             />
+          </div>
+        </section>
 
-            <FinanceLink
-  href="/finance/bills"
-  title="Bills Monitoring"
-  description="Track monthly utility bills, due dates, outstanding balances, and automatically create expense records when paid."
-  action="Open Bills →"
-/>
+        {/* FINANCE HEALTH */}
+        <section className="mt-8">
+          <h2 className="mb-4 text-xl font-bold">
+            Finance Health
+          </h2>
 
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <p className="text-sm text-slate-400">
+              Finance analytics, profit monitoring,
+              budget tracking, cash flow analysis,
+              and management reporting will appear here.
+            </p>
           </div>
         </section>
       </main>
@@ -164,57 +116,56 @@ export default function FinancePage() {
   );
 }
 
-function SectionHeader({ title, description }: any) {
-  return (
-    <div>
-      <h2 className="text-lg font-bold text-slate-200">{title}</h2>
-      <p className="mt-1 text-sm text-slate-400">{description}</p>
-    </div>
-  );
-}
-
-function SummaryCard({ title, value, color }: any) {
+function DashboardCard({
+  title,
+  value,
+  description,
+}: {
+  title: string;
+  value: string;
+  description: string;
+}) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 text-2xl font-bold ${color}`}>{value}</h2>
+      <p className="text-sm text-slate-400">
+        {title}
+      </p>
+
+      <h3 className="mt-3 text-3xl font-black">
+        {value}
+      </h3>
+
+      <p className="mt-2 text-xs text-slate-500">
+        {description}
+      </p>
     </div>
   );
 }
 
-function FinanceLink({
-  href,
+function FinanceModuleCard({
   title,
   description,
-  action,
-  muted,
-  highlight,
-}: any) {
+  href,
+}: {
+  title: string;
+  description: string;
+  href: string;
+}) {
   return (
     <Link
       href={href}
-      className={`rounded-2xl border bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:bg-slate-800 ${
-        highlight
-          ? "border-amber-500/60 hover:border-amber-400"
-          : muted
-          ? "border-slate-800 hover:border-slate-500"
-          : "border-slate-800 hover:border-yellow-400"
-      }`}
+      className="group rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-amber-400"
     >
-      <h3 className="text-xl font-bold">{title}</h3>
+      <h3 className="text-lg font-bold group-hover:text-amber-400">
+        {title}
+      </h3>
 
-      <p className="mt-3 text-sm leading-6 text-slate-400">{description}</p>
+      <p className="mt-2 text-sm text-slate-400">
+        {description}
+      </p>
 
-      <p
-        className={`mt-6 text-sm font-semibold ${
-          highlight
-            ? "text-amber-400"
-            : muted
-            ? "text-slate-300"
-            : "text-yellow-400"
-        }`}
-      >
-        {action}
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-amber-400">
+        Open Module →
       </p>
     </Link>
   );

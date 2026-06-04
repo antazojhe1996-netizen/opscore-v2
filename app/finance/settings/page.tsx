@@ -12,6 +12,7 @@ export default function FinanceSettingsPage() {
   const [expenseSources, setExpenseSources] = useState<any[]>([]);
   const [revenueSources, setRevenueSources] = useState<any[]>([]);
   const [workflowSettings, setWorkflowSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
   const [newCategory, setNewCategory] = useState("");
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
@@ -21,27 +22,29 @@ export default function FinanceSettingsPage() {
 
   /// FUNCTIONS
   const getFinanceSettings = async () => {
-    const { data: categories } = await supabase
-      .from("finance_expense_categories")
+    setLoading(true);
+
+    const { data: categories, error: categoriesError } = await supabase
+      .from("expense_categories")
       .select("*")
       .order("name", { ascending: true });
 
-    const { data: payments } = await supabase
+    const { data: payments, error: paymentsError } = await supabase
       .from("finance_payment_methods")
       .select("*")
       .order("name", { ascending: true });
 
-    const { data: areas } = await supabase
+    const { data: areas, error: areasError } = await supabase
       .from("finance_expense_areas")
       .select("*")
       .order("name", { ascending: true });
 
-    const { data: expenseSourcesData } = await supabase
+    const { data: expenseSourcesData, error: sourcesError } = await supabase
       .from("finance_expense_sources")
       .select("*")
       .order("name", { ascending: true });
 
-    const { data: revenueSourcesData } = await supabase
+    const { data: revenueSourcesData, error: revenueError } = await supabase
       .from("finance_revenue_sources")
       .select("*")
       .order("name", { ascending: true });
@@ -50,11 +53,16 @@ export default function FinanceSettingsPage() {
       .from("finance_workflow_settings")
       .select("*")
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (workflowError) {
-      console.log("GET WORKFLOW SETTINGS ERROR:", workflowError);
-    }
+    if (categoriesError) console.log("GET CATEGORIES ERROR:", categoriesError);
+    if (paymentsError) console.log("GET PAYMENTS ERROR:", paymentsError);
+    if (areasError) console.log("GET AREAS ERROR:", areasError);
+    if (sourcesError) console.log("GET SOURCES ERROR:", sourcesError);
+    if (revenueError) console.log("GET REVENUE ERROR:", revenueError);
+    if (workflowError) console.log("GET WORKFLOW SETTINGS ERROR:", workflowError);
+
+    console.log("EXPENSE CATEGORIES COUNT:", categories?.length);
 
     setExpenseCategories(categories || []);
     setPaymentMethods(payments || []);
@@ -62,6 +70,8 @@ export default function FinanceSettingsPage() {
     setExpenseSources(expenseSourcesData || []);
     setRevenueSources(revenueSourcesData || []);
     setWorkflowSettings(workflowData || null);
+
+    setLoading(false);
   };
 
   const addItem = async (table: string, value: string, reset: () => void) => {
@@ -70,16 +80,22 @@ export default function FinanceSettingsPage() {
       return;
     }
 
-    const { error } = await supabase.from(table).insert([
-      {
-        name: value.trim(),
-        is_active: true,
-      },
-    ]);
+    const payload: any = {
+      name: value.trim(),
+      is_active: true,
+    };
+
+    if (table === "expense_categories" && value.toLowerCase().includes("cash advance")) {
+      payload.description = "Employee cash advance linked to payroll deduction.";
+      payload.is_employee_related = true;
+      payload.is_payroll_deductible = true;
+    }
+
+    const { error } = await supabase.from(table).insert(payload);
 
     if (error) {
       console.log("ADD ITEM ERROR:", error);
-      alert("Failed to add item. It may already exist.");
+      alert("Failed to add item. It may already exist or table columns are missing.");
       return;
     }
 
@@ -100,21 +116,6 @@ export default function FinanceSettingsPage() {
     if (error) {
       console.log("TOGGLE ITEM ERROR:", error);
       alert("Failed to update item.");
-      return;
-    }
-
-    getFinanceSettings();
-  };
-
-  const deleteItem = async (table: string, id: string) => {
-    const confirmDelete = confirm("Are you sure you want to delete this item?");
-    if (!confirmDelete) return;
-
-    const { error } = await supabase.from(table).delete().eq("id", id);
-
-    if (error) {
-      console.log("DELETE ITEM ERROR:", error);
-      alert("Failed to delete item.");
       return;
     }
 
@@ -157,7 +158,8 @@ export default function FinanceSettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Finance Settings</h1>
           <p className="text-sm text-slate-400">
-            Configure finance dropdowns, revenue sources, expense workflow, and cash management controls.
+            Configure finance dropdowns, revenue sources, expense workflow, and
+            cash management controls.
           </p>
         </div>
 
@@ -165,25 +167,26 @@ export default function FinanceSettingsPage() {
           <div className="mb-4">
             <h2 className="text-xl font-bold">Expense Settings</h2>
             <p className="text-sm text-slate-400">
-              Used for expense requests, approval, release, liquidation, and reports.
+              Used for expense requests, manual expenses, approval, release,
+              liquidation, payroll deduction, and reports.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <SettingsPanel
               title="Expense Categories"
-              description="What kind of expense this is."
+              description="Master list used by the Expenses page category dropdown."
               inputValue={newCategory}
               setInputValue={setNewCategory}
               items={expenseCategories}
-              tableName="finance_expense_categories"
+              tableName="expense_categories"
               addItem={() =>
-                addItem("finance_expense_categories", newCategory, () =>
+                addItem("expense_categories", newCategory, () =>
                   setNewCategory("")
                 )
               }
               toggleItem={toggleItem}
-              deleteItem={deleteItem}
+              loading={loading}
             />
 
             <SettingsPanel
@@ -199,7 +202,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
-              deleteItem={deleteItem}
+              loading={loading}
             />
 
             <SettingsPanel
@@ -215,7 +218,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
-              deleteItem={deleteItem}
+              loading={loading}
             />
 
             <SettingsPanel
@@ -231,7 +234,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
-              deleteItem={deleteItem}
+              loading={loading}
             />
           </div>
         </section>
@@ -240,7 +243,8 @@ export default function FinanceSettingsPage() {
           <div className="mb-4">
             <h2 className="text-xl font-bold">Finance Workflow</h2>
             <p className="text-sm text-slate-400">
-              Controls how expenses, approvals, cash release, liquidation, and cash monitoring behave.
+              Controls how expenses, approvals, cash release, liquidation, and
+              cash monitoring behave.
             </p>
           </div>
 
@@ -305,7 +309,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
-              deleteItem={deleteItem}
+              loading={loading}
             />
           </div>
         </section>
@@ -349,13 +353,29 @@ function SettingsPanel({
   tableName,
   addItem,
   toggleItem,
-  deleteItem,
+  loading,
 }: any) {
+  const activeCount = items.filter((item: any) => item.is_active).length;
+  const inactiveCount = items.length - activeCount;
+
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <div className="mb-5">
-        <h3 className="text-lg font-bold">{title}</h3>
-        <p className="mt-1 text-sm text-slate-400">{description}</p>
+      <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h3 className="text-lg font-bold">{title}</h3>
+          <p className="mt-1 text-sm text-slate-400">{description}</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Table: <span className="text-amber-400">{tableName}</span>
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-400">
+          Total: <span className="font-bold text-white">{items.length}</span>{" "}
+          · Active:{" "}
+          <span className="font-bold text-emerald-400">{activeCount}</span> ·
+          Inactive:{" "}
+          <span className="font-bold text-red-400">{inactiveCount}</span>
+        </div>
       </div>
 
       <div className="mb-5 flex gap-2">
@@ -364,7 +384,7 @@ function SettingsPanel({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Add new item..."
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-400"
         />
 
         <button
@@ -375,53 +395,80 @@ function SettingsPanel({
         </button>
       </div>
 
-      <div className="max-h-[360px] overflow-auto rounded-xl border border-slate-800">
+      <div className="max-h-[520px] overflow-auto rounded-xl border border-slate-800">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 bg-slate-900">
             <tr className="border-b border-slate-800 text-left text-slate-400">
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Actions</th>
+              <th className="px-4 py-3">Rules</th>
+              <th className="px-4 py-3">Action</th>
             </tr>
           </thead>
 
           <tbody>
-            {items.map((item: any) => (
-              <tr
-                key={item.id}
-                className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
-              >
-                <td className="px-4 py-3 font-medium">{item.name}</td>
-
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() =>
-                      toggleItem(tableName, item.id, item.is_active)
-                    }
-                    className={`w-24 rounded-full border px-3 py-1 text-xs font-semibold ${
-                      item.is_active
-                        ? "border-green-500/30 bg-green-500/20 text-green-400"
-                        : "border-red-500/30 bg-red-500/20 text-red-400"
-                    }`}
-                  >
-                    {item.is_active ? "Active" : "Inactive"}
-                  </button>
-                </td>
-
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => deleteItem(tableName, item.id)}
-                    className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
-                  >
-                    Delete
-                  </button>
+            {loading && (
+              <tr>
+                <td colSpan={4} className="py-8 text-center text-slate-500">
+                  Loading...
                 </td>
               </tr>
-            ))}
+            )}
 
-            {items.length === 0 && (
+            {!loading &&
+              items.map((item: any) => (
+                <tr
+                  key={item.id}
+                  className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
+                >
+                  <td className="px-4 py-3 font-medium">{item.name}</td>
+
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex w-24 justify-center rounded-full border px-3 py-1 text-xs font-semibold ${
+                        item.is_active
+                          ? "border-green-500/30 bg-green-500/20 text-green-400"
+                          : "border-red-500/30 bg-red-500/20 text-red-400"
+                      }`}
+                    >
+                      {item.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    {item.is_payroll_deductible ? (
+                      <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
+                        Payroll Deductible
+                      </span>
+                    ) : item.is_employee_related ? (
+                      <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-400">
+                        Employee Related
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-500">Standard</span>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() =>
+                        toggleItem(tableName, item.id, item.is_active)
+                      }
+                      className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                        item.is_active
+                          ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950"
+                          : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950"
+                      }`}
+                    >
+                      {item.is_active ? "Disable" : "Enable"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+            {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={3} className="py-8 text-center text-slate-500">
+                <td colSpan={4} className="py-8 text-center text-slate-500">
                   No items found.
                 </td>
               </tr>
