@@ -1,1359 +1,1264 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Brain,
+  DollarSign,
+  Hotel,
+  Receipt,
+  ShieldAlert,
+  Utensils,
+  Users,
+  Wallet,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
-import * as XLSX from "xlsx";
 
-export default function ExpensesPage() {
-  /// STATES - DATABASE DATA
+type RangeType = "daily" | "weekly" | "monthly" | "yearly";
+
+export default function ExecutiveDashboardPage() {
+  const [rangeType, setRangeType] = useState<RangeType>("monthly");
+  const [occupancyData, setOccupancyData] = useState<any[]>([]);
+  const [hotelReservations, setHotelReservations] = useState<any[]>([]);
+  const [restaurantSales, setRestaurantSales] = useState<any[]>([]);
+  const [apartmentSales, setApartmentSales] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
-  const [expenseRequests, setExpenseRequests] = useState<any[]>([]);
+  const [payrollRows, setPayrollRows] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
-  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [hcRules, setHcRules] = useState<any>(null);
+  const [bills, setBills] = useState<any[]>([]);
+  const [cashDrawers, setCashDrawers] = useState<any[]>([]);
 
-  const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
-  const [paymentMethodsData, setPaymentMethodsData] = useState<any[]>([]);
-  const [expenseAreasData, setExpenseAreasData] = useState<any[]>([]);
-  const [expenseSourcesData, setExpenseSourcesData] = useState<any[]>([]);
+  const todayKey = new Date().toISOString().slice(0, 10);
 
-  /// STATES - MANUAL EXPENSE FORM
-  const today = new Date().toISOString().split("T")[0];
-
-  const [expenseDate, setExpenseDate] = useState(today);
-  const [category, setCategory] = useState("");
-  const [expenseArea, setExpenseArea] = useState("");
-  const [description, setDescription] = useState("");
-  const [source, setSource] = useState("");
-  const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [remarks, setRemarks] = useState("");
-
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
-  const [deductToPayroll, setDeductToPayroll] = useState("Yes");
-  const [selectedPayrollPeriodId, setSelectedPayrollPeriodId] = useState("");
-
-  /// STATES - FILTERS
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sourceFilter, setSourceFilter] = useState("ALL");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [departmentFilter, setDepartmentFilter] = useState("ALL");
-
-  /// STATES - SORTING
-  const [sortConfig, setSortConfig] = useState({
-    key: "expense_date",
-    direction: "desc",
-  });
-
-  /// DATA - SETTINGS LISTS
-  const categories = expenseCategories.map((item) => item.name);
-  const paymentMethods = paymentMethodsData.map((item) => item.name);
-  const expenseAreas = expenseAreasData.map((item) => item.name);
-  const expenseSources = expenseSourcesData.map((item) => item.name);
-
-  const isCashAdvance =
-    category.toLowerCase().includes("cash advance") ||
-    description.toLowerCase().includes("cash advance");
-
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-  ];
-
-  /// CALCULATIONS - DATE
-  const currentYear = new Date().getFullYear();
-  const now = new Date();
-
-  /// FUNCTIONS - FORMATTERS
-  const formatCurrency = (value: any) =>
+  const formatPeso = (value: number) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
 
-  const cleanNumber = (value: any) => {
-    if (!value) return 0;
+  const getDateValue = (row: any) =>
+    String(
+      row.business_date ||
+        row.check_in ||
+        row.date ||
+        row.sale_date ||
+        row.sales_date ||
+        row.transaction_date ||
+        row.expense_date ||
+        row.event_date ||
+        row.drawer_date ||
+        row.payroll_date ||
+        row.period_start ||
+        row.due_date ||
+        row.opened_at ||
+        row.created_at ||
+        ""
+    ).slice(0, 10);
 
-    return Number(
-      String(value)
-        .replace("₱", "")
-        .replace(/,/g, "")
-        .trim()
-    );
+  const getAmountValue = (row: any) => {
+    const amount =
+      row.net_pay ??
+      row.total_net_pay ??
+      row.payroll_total ??
+      row.grand_total ??
+      row.amount ??
+      row.total_amount ??
+      row.total ??
+      row.revenue ??
+      row.sales ??
+      row.net_sales ??
+      row.gross_sales ??
+      row.total_sales ??
+      row.collection_amount ??
+      row.payment_amount ??
+      0;
+
+    return Number(amount || 0);
   };
 
-  const formatExcelDate = (value: any) => {
-    if (!value) return "";
-
-    if (typeof value === "number") {
-      const date = XLSX.SSF.parse_date_code(value);
-      if (!date) return "";
-
-      return `${date.y}-${String(date.m).padStart(2, "0")}-${String(
-        date.d
-      ).padStart(2, "0")}`;
+  const getRowsFromTables = async (tableNames: string[]) => {
+    for (const tableName of tableNames) {
+      const { data, error } = await supabase.from(tableName).select("*");
+      if (!error && data) return data || [];
     }
 
-    if (value instanceof Date) {
-      return value.toISOString().split("T")[0];
-    }
-
-    return String(value).split("T")[0];
+    return [];
   };
 
-  /// CALCULATIONS - SOURCE HELPERS
-  const getExpenseSourceType = (expense: any) => {
-    if (expense.source === "Expense Request") return "Expense Request";
-    if (expense.source === "Imported") return "Imported";
-    return "Manual Entry";
-  };
-
-  const getSourceBadgeStyle = (sourceType: string) => {
-    if (sourceType === "Expense Request") return "bg-blue-500/10 text-blue-400";
-    if (sourceType === "Imported") return "bg-purple-500/10 text-purple-400";
-    return "bg-emerald-500/10 text-emerald-400";
-  };
-
-  const getPayrollBadge = (expense: any) => {
-    if (!expense.deduct_to_payroll) return null;
-
-    if (expense.payroll_adjustment_id) {
-      return (
-        <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-          Payroll Linked
-        </span>
-      );
-    }
-
-    return (
-      <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
-        Payroll Pending
-      </span>
-    );
-  };
-
-  const getPayrollPeriodLabel = (period: any) => {
-    if (!period) return "No payroll period";
-
-    return `${period.period_name || "Payroll Period"} (${period.status})`;
-  };
-
-  const getLinkedPayrollPeriod = (expense: any) => {
-    return payrollPeriods.find(
-      (period) =>
-        String(period.id) === String(expense.payroll_period_id) ||
-        String(period.id) === String(expense.period_id)
-    );
-  };
-
-  /// CALCULATIONS - SUMMARY CARDS
-  const totalExpenses = expenses.reduce(
-    (sum, expense) => sum + Number(expense.amount || 0),
-    0
-  );
-
-  const todayExpenses = expenses
-    .filter((expense) => expense.expense_date === today)
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const thisMonthExpenses = expenses
-    .filter((expense) => {
-      const date = new Date(expense.expense_date + "T00:00:00");
-      return (
-        date.getFullYear() === now.getFullYear() &&
-        date.getMonth() === now.getMonth()
-      );
-    })
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const requestExpenseTotal = expenses
-    .filter((expense) => getExpenseSourceType(expense) === "Expense Request")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const manualExpenseTotal = expenses
-    .filter((expense) => getExpenseSourceType(expense) === "Manual Entry")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const cashAdvanceTotal = expenses
-    .filter((expense) => expense.deduct_to_payroll)
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const linkedCashAdvanceTotal = expenses
-    .filter((expense) => expense.deduct_to_payroll && expense.payroll_adjustment_id)
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const unlinkedCashAdvanceTotal = expenses
-    .filter((expense) => expense.deduct_to_payroll && !expense.payroll_adjustment_id)
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-  const pendingRequests = expenseRequests.filter(
-    (request) => request.status === "PENDING"
-  );
-
-  const pendingRequestAmount = pendingRequests.reduce(
-    (sum, request) => sum + Number(request.amount || 0),
-    0
-  );
-
-  const pendingLiquidationAmount = expenseRequests
-    .filter((request) => request.status === "RELEASED")
-    .reduce((sum, request) => sum + Number(request.amount || 0), 0);
-
-  /// CALCULATIONS - MONTHLY CATEGORY SUMMARY
-  const monthlyCategorySummary = monthNames.map((month, monthIndex) => {
-    const row: any = { month };
-
-    categories.forEach((cat) => {
-      row[cat] = expenses
-        .filter((expense) => {
-          const date = new Date(expense.expense_date + "T00:00:00");
-
-          return (
-            date.getFullYear() === currentYear &&
-            date.getMonth() === monthIndex &&
-            expense.category === cat
-          );
-        })
-        .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-    });
-
-    return row;
-  });
-
-  /// CALCULATIONS - FILTERED EXPENSES
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
-      const search = searchTerm.toLowerCase();
-
-      const matchesSearch =
-        String(expense.expense_date || "").toLowerCase().includes(search) ||
-        String(expense.category || "").toLowerCase().includes(search) ||
-        String(expense.department || "").toLowerCase().includes(search) ||
-        String(expense.description || "").toLowerCase().includes(search) ||
-        String(expense.employee_name || "").toLowerCase().includes(search) ||
-        String(expense.source || "").toLowerCase().includes(search) ||
-        String(expense.payment_method || "").toLowerCase().includes(search);
-
-      const sourceType = getExpenseSourceType(expense);
-
-      const matchesSource =
-        sourceFilter === "ALL" ? true : sourceType === sourceFilter;
-
-      const matchesCategory =
-        categoryFilter === "ALL" ? true : expense.category === categoryFilter;
-
-      const matchesDepartment =
-        departmentFilter === "ALL" ? true : expense.department === departmentFilter;
-
-      return matchesSearch && matchesSource && matchesCategory && matchesDepartment;
-    });
-  }, [expenses, searchTerm, sourceFilter, categoryFilter, departmentFilter]);
-
-  /// CALCULATIONS - SORTED EXPENSES
-  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
-
-    if (sortConfig.key === "amount") {
-      return sortConfig.direction === "asc"
-        ? Number(aValue || 0) - Number(bValue || 0)
-        : Number(bValue || 0) - Number(aValue || 0);
-    }
-
-    if (sortConfig.key === "expense_date") {
-      return sortConfig.direction === "asc"
-        ? new Date(aValue).getTime() - new Date(bValue).getTime()
-        : new Date(bValue).getTime() - new Date(aValue).getTime();
-    }
-
-    return sortConfig.direction === "asc"
-      ? String(aValue || "").localeCompare(String(bValue || ""))
-      : String(bValue || "").localeCompare(String(aValue || ""));
-  });
-
-  /// FUNCTIONS - TABLE SORTING
-  const requestSort = (key: string) => {
-    setSortConfig((current) => ({
-      key,
-      direction:
-        current.key === key && current.direction === "asc" ? "desc" : "asc",
-    }));
-  };
-
-  const sortIcon = (key: string) => {
-    if (sortConfig.key !== key) return "↕";
-    return sortConfig.direction === "asc" ? "↑" : "↓";
-  };
-
-  /// FUNCTIONS - GET DATA
-  const getFinanceSettings = async () => {
-    const { data: categoriesData } = await supabase
-      .from("finance_expense_categories")
+  const loadDashboardData = async () => {
+    const { data: occupancy } = await supabase
+      .from("occupancy_data")
       .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+      .order("business_date", { ascending: true });
 
-    const { data: paymentsData } = await supabase
-      .from("finance_payment_methods")
+    const { data: hotelReservationsData } = await supabase
+      .from("finance_hotel_reservations")
       .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+      .order("check_in", { ascending: false });
 
-    const { data: areasData } = await supabase
-      .from("finance_expense_areas")
+    const restaurantSalesData = await getRowsFromTables([
+      "restaurant_sales",
+      "resto_sales",
+      "restaurant_revenue",
+      "food_sales",
+      "pos_sales",
+    ]);
+
+    const apartmentSalesData = await getRowsFromTables([
+      "apartment_payments",
+      "apartment_sales",
+      "apartment_billing",
+      "finance_apartment_payments",
+      "finance_apartment",
+    ]);
+
+    const payrollData = await getRowsFromTables([
+      "payroll_register",
+      "payroll_runs",
+      "payroll_records",
+      "payroll_history",
+      "finance_payroll_register",
+    ]);
+
+    const { data: expensesData } = await supabase.from("expenses").select("*");
+
+    const { data: billsData } = await supabase
+      .from("finance_bills")
       .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+      .order("due_date", { ascending: true });
 
-    const { data: sourcesData } = await supabase
-      .from("finance_expense_sources")
+    const drawerData = await getRowsFromTables([
+      "finance_cash_drawers",
+      "cash_drawers",
+      "finance_cash_management",
+      "cash_management",
+    ]);
+
+    const { data: eventsData } = await supabase
+      .from("event_addons")
       .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+      .order("event_date", { ascending: true });
 
-    setExpenseCategories(categoriesData || []);
-    setPaymentMethodsData(paymentsData || []);
-    setExpenseAreasData(areasData || []);
-    setExpenseSourcesData(sourcesData || []);
-  };
+    const { data: schedulesData } = await supabase.from("schedules").select("*");
+    const { data: employeesData } = await supabase.from("employees").select("*");
+    const { data: leavesData } = await supabase.from("leave_requests").select("*");
 
-  const getEmployees = async () => {
-    const { data, error } = await supabase
-      .from("employees")
-      .select("*")
-      .eq("payroll_active", true)
-      .order("first_name", { ascending: true });
-
-    if (error) {
-      console.log("GET EMPLOYEES ERROR:", error);
-      return;
-    }
-
-    setEmployees(data || []);
-  };
-
-  const getPayrollPeriods = async () => {
-    const { data, error } = await supabase
-      .from("payroll_periods")
-      .select("*")
-      .in("status", ["Draft", "Reopened"])
-      .order("start_date", { ascending: true });
-
-    if (error) {
-      console.log("GET PAYROLL PERIODS ERROR:", error);
-      return;
-    }
-
-    setPayrollPeriods(data || []);
-
-    if (!selectedPayrollPeriodId && data && data.length > 0) {
-      setSelectedPayrollPeriodId(data[0].id);
-    }
-  };
-
-  const getExpenses = async () => {
-    const { data, error } = await supabase
-      .from("expenses")
-      .select("*")
-      .order("expense_date", { ascending: false });
-
-    if (error) {
-      console.log("GET EXPENSES ERROR:", error);
-      return;
-    }
-
-    setExpenses(data || []);
-  };
-
-  const getExpenseRequests = async () => {
-    const { data, error } = await supabase
-      .from("expense_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.log("GET EXPENSE REQUESTS ERROR:", error);
-      return;
-    }
-
-    setExpenseRequests(data || []);
-  };
-
-  const getTargetPayrollPeriod = async () => {
-    if (selectedPayrollPeriodId) {
-      const { data, error } = await supabase
-        .from("payroll_periods")
-        .select("*")
-        .eq("id", selectedPayrollPeriodId)
-        .maybeSingle();
-
-      if (error) {
-        console.log("GET SELECTED PAYROLL PERIOD ERROR:", error);
-        return null;
-      }
-
-      return data;
-    }
-
-    const { data, error } = await supabase
-      .from("payroll_periods")
-      .select("*")
-      .in("status", ["Draft", "Reopened"])
-      .order("start_date", { ascending: true })
-      .limit(1)
+    const { data: hcData } = await supabase
+      .from("hc_rule_settings")
+      .select("setting_data")
+      .eq("setting_name", "hc_rules")
       .maybeSingle();
 
-    if (error) {
-      console.log("GET TARGET PAYROLL PERIOD ERROR:", error);
-      return null;
-    }
-
-    return data;
+    setOccupancyData(occupancy || []);
+    setHotelReservations(hotelReservationsData || []);
+    setRestaurantSales(restaurantSalesData || []);
+    setApartmentSales(apartmentSalesData || []);
+    setPayrollRows(payrollData || []);
+    setExpenses(expensesData || []);
+    setBills(billsData || []);
+    setCashDrawers(drawerData || []);
+    setEvents(eventsData || []);
+    setSchedules(schedulesData || []);
+    setEmployees(employeesData || []);
+    setLeaveRequests(leavesData || []);
+    setHcRules(hcData?.setting_data || null);
   };
 
-  const markPayrollNeedsRegeneration = async (periodId: string) => {
-    if (!periodId) return;
-
-    const { error } = await supabase
-      .from("payroll_periods")
-      .update({
-        needs_regeneration: true,
-      })
-      .eq("id", periodId);
-
-    if (error) {
-      console.log("MARK PAYROLL NEEDS REGENERATION ERROR:", error);
-    }
-  };
-
-  /// FUNCTIONS - RESET FORM
-  const resetManualExpenseForm = () => {
-    setExpenseDate(today);
-    setCategory("");
-    setExpenseArea("");
-    setDescription("");
-    setSource("");
-    setAmount("");
-    setPaymentMethod("");
-    setRemarks("");
-    setSelectedEmployeeId("");
-    setDeductToPayroll("Yes");
-  };
-
-  /// FUNCTIONS - ADD MANUAL EXPENSE
-  const addExpense = async () => {
-    if (
-      !expenseDate ||
-      !category ||
-      !expenseArea ||
-      !description.trim() ||
-      !source ||
-      !amount ||
-      !paymentMethod
-    ) {
-      alert("Please complete required fields.");
-      return;
-    }
-
-    const amountValue = Number(amount);
-
-    if (amountValue <= 0) {
-      alert("Amount must be greater than 0.");
-      return;
-    }
-
-    if (isCashAdvance && deductToPayroll === "Yes" && !selectedEmployeeId) {
-      alert("Select employee for cash advance payroll deduction.");
-      return;
-    }
-
-    if (isCashAdvance && deductToPayroll === "Yes" && !selectedPayrollPeriodId) {
-      alert("Select payroll period where this cash advance will be deducted.");
-      return;
-    }
-
-    const selectedEmployee = employees.find(
-      (employee) => employee.id === selectedEmployeeId
-    );
-
-    const expensePayload = {
-      expense_date: expenseDate,
-      category,
-      department: expenseArea,
-      description,
-      source,
-      amount: amountValue,
-      payment_method: paymentMethod,
-      remarks,
-      employee_id: isCashAdvance ? selectedEmployeeId || null : null,
-      employee_name:
-        isCashAdvance && selectedEmployee
-          ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
-          : null,
-      deduct_to_payroll: isCashAdvance && deductToPayroll === "Yes",
-      payroll_period_id:
-        isCashAdvance && deductToPayroll === "Yes"
-          ? selectedPayrollPeriodId || null
-          : null,
-    };
-
-    const { data: expenseData, error: expenseError } = await supabase
-      .from("expenses")
-      .insert(expensePayload)
-      .select()
-      .single();
-
-    if (expenseError) {
-      console.log("ADD EXPENSE ERROR:", expenseError);
-      alert("Failed to save expense.");
-      return;
-    }
-
-    if (isCashAdvance && deductToPayroll === "Yes" && selectedEmployee) {
-      const targetPeriod = await getTargetPayrollPeriod();
-
-      if (!targetPeriod) {
-        alert(
-          "Expense saved, but no Draft/Reopened payroll period found. Create or reopen a payroll period first before auto payroll deduction."
-        );
-
-        resetManualExpenseForm();
-        getExpenses();
-        return;
-      }
-
-      const { data: adjustmentData, error: adjustmentError } = await supabase
-        .from("payroll_adjustments")
-        .insert({
-          period_id: targetPeriod.id,
-          employee_id: selectedEmployee.id,
-          employee_name: `${selectedEmployee.first_name} ${selectedEmployee.last_name}`,
-          adjustment_type: "Cash Advance",
-          adjustment_direction: "Deduction",
-          amount: amountValue,
-          remarks:
-            remarks ||
-            `Cash advance from Expenses on ${expenseDate}. Source: ${source}. Expense ID: ${expenseData.id}.`,
-          status: "Pending",
-          source_module: "Expenses",
-          source_id: expenseData.id,
-          payroll_deducted: false,
-        })
-        .select()
-        .single();
-
-      if (adjustmentError) {
-        console.log("CREATE PAYROLL ADJUSTMENT ERROR:", adjustmentError);
-
-        alert(
-          `Expense saved, but failed to create payroll deduction.\n\n${adjustmentError.message}`
-        );
-
-        resetManualExpenseForm();
-        getExpenses();
-        return;
-      }
-
-      await supabase
-        .from("expenses")
-        .update({
-          payroll_adjustment_id: adjustmentData.id,
-          payroll_period_id: targetPeriod.id,
-        })
-        .eq("id", expenseData.id);
-
-      await markPayrollNeedsRegeneration(targetPeriod.id);
-      await getPayrollPeriods();
-    }
-
-    resetManualExpenseForm();
-    getExpenses();
-
-    alert(
-      isCashAdvance && deductToPayroll === "Yes"
-        ? "Cash advance saved and linked to payroll deduction."
-        : "Expense saved."
-    );
-  };
-
-  /// FUNCTIONS - DELETE EXPENSE
-  const deleteExpense = async (expense: any) => {
-    const confirmDelete = confirm(
-      expense.payroll_adjustment_id
-        ? "Delete this expense and its linked payroll deduction?"
-        : "Are you sure you want to delete this expense?"
-    );
-
-    if (!confirmDelete) return;
-
-    if (expense.payroll_adjustment_id) {
-      const linkedPeriodId = expense.payroll_period_id || expense.period_id;
-
-      const { error: adjustmentError } = await supabase
-        .from("payroll_adjustments")
-        .delete()
-        .eq("id", expense.payroll_adjustment_id);
-
-      if (adjustmentError) {
-        console.log("DELETE LINKED PAYROLL ADJUSTMENT ERROR:", adjustmentError);
-        alert("Failed to delete linked payroll deduction.");
-        return;
-      }
-
-      if (linkedPeriodId) {
-        await markPayrollNeedsRegeneration(linkedPeriodId);
-      }
-    }
-
-    const { error } = await supabase.from("expenses").delete().eq("id", expense.id);
-
-    if (error) {
-      console.log("DELETE EXPENSE ERROR:", error);
-      alert("Failed to delete expense.");
-      return;
-    }
-
-    getExpenses();
-  };
-
-  /// FUNCTIONS - EXPORT EXPENSES
-  const exportExpenses = () => {
-    if (expenses.length === 0) {
-      alert("No expenses to export.");
-      return;
-    }
-
-    const expenseRows = expenses.map((expense) => ({
-      Date: expense.expense_date,
-      Category: expense.category,
-      Expense_Area: expense.department,
-      Employee: expense.employee_name || "",
-      Description: expense.description,
-      Source: expense.source || "",
-      Source_Type: getExpenseSourceType(expense),
-      Amount: Number(expense.amount || 0),
-      Payment_Method: expense.payment_method,
-      Deduct_To_Payroll: expense.deduct_to_payroll ? "Yes" : "No",
-      Payroll_Period_ID: expense.payroll_period_id || "",
-      Payroll_Adjustment_ID: expense.payroll_adjustment_id || "",
-      Remarks: expense.remarks || "",
-    }));
-
-    const categoryRows = monthlyCategorySummary.map((row) => {
-      const newRow: any = { Month: row.month };
-
-      categories.forEach((cat) => {
-        newRow[cat] = row[cat];
-      });
-
-      return newRow;
-    });
-
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(expenseRows),
-      "Expense Ledger"
-    );
-
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(categoryRows),
-      "Monthly by Category"
-    );
-
-    XLSX.writeFile(
-      workbook,
-      `Expenses_Ledger_${new Date().toISOString().split("T")[0]}.xlsx`
-    );
-  };
-
-  /// FUNCTIONS - IMPORT EXPENSES
-  const handleImportFile = async (event: any) => {
-    const file = event.target.files[0];
-
-    if (!file) return;
-
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-
-    const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-    const parsedRows = rows
-      .map((row) => ({
-        expense_date: formatExcelDate(row.Date || row.date || row.expense_date),
-        category: row.Category || row.category || "",
-        department:
-          row.Expense_Area ||
-          row["Expense Area"] ||
-          row.Department ||
-          row.department ||
-          "",
-        description: row.Description || row.description || "",
-        source:
-          row.Source ||
-          row.source ||
-          row.Supplier ||
-          row.supplier ||
-          row.Vendor ||
-          row.vendor ||
-          "Imported",
-        amount: cleanNumber(row.Amount || row.amount),
-        payment_method:
-          row.Payment ||
-          row.Payment_Method ||
-          row["Payment Method"] ||
-          row.payment_method ||
-          "",
-        remarks: row.Remarks || row.remarks || "Imported expense",
-      }))
-      .filter((row) => row.expense_date && row.amount > 0);
-
-    setImportPreview(parsedRows);
-  };
-
-  const cancelImport = () => {
-    setImportPreview([]);
-  };
-
-  const saveImportedExpenses = async () => {
-    if (importPreview.length === 0) {
-      alert("No imported expenses to save.");
-      return;
-    }
-
-    const { error } = await supabase.from("expenses").insert(importPreview);
-
-    if (error) {
-      console.log("IMPORT EXPENSES ERROR:", error);
-      alert("Failed to import expenses.");
-      return;
-    }
-
-    alert("Imported expenses saved successfully.");
-    setImportPreview([]);
-    getExpenses();
-  };
-
-  /// EFFECTS
   useEffect(() => {
-    getExpenses();
-    getExpenseRequests();
-    getFinanceSettings();
-    getEmployees();
-    getPayrollPeriods();
+    loadDashboardData();
   }, []);
 
-  /// UI
+  const getLatestFinanceDate = () => {
+    const dates = [
+      ...hotelReservations,
+      ...restaurantSales,
+      ...apartmentSales,
+      ...expenses,
+    ]
+      .map((row) => getDateValue(row))
+      .filter(Boolean)
+      .sort();
+
+    return dates[dates.length - 1] || todayKey;
+  };
+
+  const isWithinRange = (dateString: string) => {
+    if (!dateString) return false;
+
+    const anchorKey = getLatestFinanceDate();
+    const date = new Date(dateString);
+    const anchorDate = new Date(anchorKey);
+
+    if (Number.isNaN(date.getTime())) return false;
+
+    if (rangeType === "daily") return dateString === anchorKey;
+
+    if (rangeType === "weekly") {
+      const weekAgo = new Date(anchorDate);
+      weekAgo.setDate(anchorDate.getDate() - 6);
+      return date >= weekAgo && date <= anchorDate;
+    }
+
+    if (rangeType === "monthly") {
+      return (
+        date.getFullYear() === anchorDate.getFullYear() &&
+        date.getMonth() === anchorDate.getMonth()
+      );
+    }
+
+    return date.getFullYear() === anchorDate.getFullYear();
+  };
+
+  const sumAmount = (rows: any[]) =>
+    rows
+      .filter((row) => isWithinRange(getDateValue(row)))
+      .reduce((sum, row) => sum + getAmountValue(row), 0);
+
+  const getExpenseBusinessUnit = (row: any) =>
+    String(
+      row.business_unit ||
+        row.expense_unit ||
+        row.department ||
+        row.category ||
+        "Shared"
+    ).toLowerCase();
+
+  const sumExpensesByUnit = (unitKeywords: string[]) =>
+    expenses
+      .filter((row) => isWithinRange(getDateValue(row)))
+      .filter((row) => {
+        const unit = getExpenseBusinessUnit(row);
+        return unitKeywords.some((keyword) => unit.includes(keyword));
+      })
+      .reduce((sum, row) => sum + getAmountValue(row), 0);
+
+  const getDaysLeft = (dueDateValue: string | null) => {
+    if (!dueDateValue) return null;
+
+    const due = new Date(`${dueDateValue}T00:00:00`);
+    const now = new Date(`${todayKey}T00:00:00`);
+    const diff = due.getTime() - now.getTime();
+
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const getDrawerExpectedCash = (drawer: any) =>
+    Number(
+      drawer.expected_cash ??
+        drawer.expected_amount ??
+        drawer.expected_total ??
+        drawer.system_cash ??
+        drawer.total_expected ??
+        drawer.cash_expected ??
+        0
+    );
+
+  const getDrawerActualCash = (drawer: any) =>
+    Number(
+      drawer.actual_cash ??
+        drawer.actual_amount ??
+        drawer.actual_total ??
+        drawer.counted_cash ??
+        drawer.cash_count ??
+        drawer.total_actual ??
+        0
+    );
+
+  const getDrawerVariance = (drawer: any) => {
+    const savedVariance =
+      drawer.variance ??
+      drawer.cash_variance ??
+      drawer.drawer_variance ??
+      drawer.difference;
+
+    if (savedVariance !== undefined && savedVariance !== null) {
+      return Number(savedVariance || 0);
+    }
+
+    return getDrawerActualCash(drawer) - getDrawerExpectedCash(drawer);
+  };
+
+  const getDrawerStatus = (drawer: any) =>
+    String(drawer.status || drawer.drawer_status || "").toLowerCase();
+
+  const getDrawerCashier = (drawer: any) =>
+    drawer.cashier_name ||
+    drawer.cashier ||
+    drawer.employee_name ||
+    drawer.opened_by ||
+    "Cashier";
+
+  const roomRevenue = sumAmount(hotelReservations);
+  const restaurantRevenue = sumAmount(restaurantSales);
+  const apartmentRevenue = sumAmount(apartmentSales);
+  const totalRevenue = roomRevenue + restaurantRevenue + apartmentRevenue;
+
+  const totalExpenses = Math.abs(sumAmount(expenses));
+  const payrollTotal = Math.abs(sumAmount(payrollRows));
+
+  const roomDirectExpenses = sumExpensesByUnit([
+    "room",
+    "hotel",
+    "housekeeping",
+    "laundry",
+  ]);
+
+  const restaurantDirectExpenses = sumExpensesByUnit([
+    "restaurant",
+    "kitchen",
+    "bar",
+    "food",
+  ]);
+
+  const apartmentDirectExpenses = sumExpensesByUnit(["apartment", "tenant"]);
+
+  const netProfit = totalRevenue - totalExpenses - payrollTotal;
+
+  const profitMargin =
+    totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+
+  const roomsProfit = roomRevenue - roomDirectExpenses;
+  const restaurantProfit = restaurantRevenue - restaurantDirectExpenses;
+  const apartmentProfit = apartmentRevenue - apartmentDirectExpenses;
+
+  const payrollRatio =
+    totalRevenue > 0 ? Math.round((payrollTotal / totalRevenue) * 100) : 0;
+
+  const payrollStatus =
+    totalRevenue <= 0 && payrollTotal > 0
+      ? "Critical"
+      : payrollRatio >= 80
+      ? "Critical"
+      : payrollRatio >= 60
+      ? "High Risk"
+      : payrollRatio >= 40
+      ? "Watch"
+      : "Healthy";
+
+  const payrollStatusStyle =
+    payrollStatus === "Critical" || payrollStatus === "High Risk"
+      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      : payrollStatus === "Watch"
+      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+      : "border-green-500/30 bg-green-500/10 text-green-300";
+
+  const filteredReservations = hotelReservations.filter((row) =>
+    isWithinRange(getDateValue(row))
+  );
+
+  const outstandingBalance = filteredReservations.reduce(
+    (sum, row) => sum + Number(row.balance_due || 0),
+    0
+  );
+
+  const unpaidReservations = filteredReservations.filter(
+    (row) => Number(row.balance_due || 0) > 0
+  );
+
+  const todayOccupancy =
+    occupancyData.find((day) => String(day.business_date) === todayKey) ||
+    occupancyData[0];
+
+  const roomsSoldToday = Number(todayOccupancy?.rooms_sold || 0);
+  const availableRoomsToday = Number(todayOccupancy?.available_rooms || 0);
+  const occupancyToday = Number(todayOccupancy?.occupancy || 0);
+
+  const unpaidBills = bills.filter((bill) => {
+    const status = String(bill.status || "").toLowerCase();
+    return status !== "paid" && status !== "cancelled";
+  });
+
+  const overdueBills = unpaidBills.filter((bill) => {
+    const daysLeft = getDaysLeft(bill.due_date);
+    return daysLeft !== null && daysLeft < 0;
+  });
+
+  const upcomingBills = unpaidBills.filter((bill) => {
+    const daysLeft = getDaysLeft(bill.due_date);
+    return daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
+  });
+
+  const upcomingBillsTotal = upcomingBills.reduce(
+    (sum, bill) => sum + Number(bill.amount || 0),
+    0
+  );
+
+  const overdueBillsTotal = overdueBills.reduce(
+    (sum, bill) => sum + Number(bill.amount || 0),
+    0
+  );
+
+  const outstandingBills = unpaidBills.reduce(
+    (sum, bill) => sum + Number(bill.amount || 0),
+    0
+  );
+
+  const openDrawers = cashDrawers.filter((drawer) => {
+    const status = getDrawerStatus(drawer);
+    return status === "open" || status === "active" || status === "pending";
+  });
+
+  const closedDrawers = cashDrawers.filter((drawer) => {
+    const status = getDrawerStatus(drawer);
+    return status === "closed" || status === "completed";
+  });
+
+  const drawerRowsForSummary =
+    openDrawers.length > 0
+      ? openDrawers
+      : cashDrawers.filter((drawer) => isWithinRange(getDateValue(drawer)));
+
+  const expectedCash = drawerRowsForSummary.reduce(
+    (sum, drawer) => sum + getDrawerExpectedCash(drawer),
+    0
+  );
+
+  const actualCash = drawerRowsForSummary.reduce(
+    (sum, drawer) => sum + getDrawerActualCash(drawer),
+    0
+  );
+
+  const totalVariance = drawerRowsForSummary.reduce(
+    (sum, drawer) => sum + getDrawerVariance(drawer),
+    0
+  );
+
+  const drawerAlerts = drawerRowsForSummary.filter(
+    (drawer) =>
+      Math.abs(getDrawerVariance(drawer)) > 0 ||
+      ["open", "active", "pending"].includes(getDrawerStatus(drawer))
+  );
+
+  const expectedCollections = outstandingBalance + apartmentRevenue;
+  const cashAvailable = actualCash > 0 ? actualCash : totalRevenue - totalExpenses;
+
+  const projectedCashPosition =
+    cashAvailable + expectedCollections - upcomingBillsTotal - payrollTotal;
+
+  const cashFlowStatus =
+    projectedCashPosition < 0
+      ? "Critical"
+      : projectedCashPosition < upcomingBillsTotal * 0.25
+      ? "Watch"
+      : "Safe";
+
+  const cashFlowStyle =
+    cashFlowStatus === "Critical"
+      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      : cashFlowStatus === "Watch"
+      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+      : "border-green-500/30 bg-green-500/10 text-green-300";
+
+  const potentialRecovery =
+    outstandingBalance + overdueBillsTotal + Math.abs(totalVariance);
+
+  const todayEvents = events.filter(
+    (event) => String(event.event_date) === todayKey
+  );
+
+  const getRequiredHCByDepartment = () => {
+    if (!hcRules || !todayOccupancy) return [];
+
+    const roomsSold = Number(todayOccupancy.rooms_sold || 0);
+    const date = String(todayOccupancy.business_date || todayKey);
+
+    const occupancyRule = hcRules.occupancyRules?.find((rule: any) => {
+      return (
+        roomsSold >= Number(rule.min || 0) &&
+        roomsSold <= Number(rule.max || 999999)
+      );
+    });
+
+    const dayName = new Date(date).toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    const peakRule = hcRules.peakRules?.find((rule: any) => rule.day === dayName);
+
+    const eventToday = events.find((event) => String(event.event_date) === date);
+    const eventPax = Number(eventToday?.expected_pax || 0);
+
+    const eventRule = hcRules.eventRules?.find((rule: any) => {
+      return (
+        eventPax >= Number(rule.min || 0) &&
+        eventPax <= Number(rule.max || 999999)
+      );
+    });
+
+    const departments = new Set<string>([
+      ...Object.keys(occupancyRule?.rules || {}),
+      ...Object.keys(peakRule?.rules || {}),
+      ...Object.keys(eventRule?.rules || {}),
+    ]);
+
+    return Array.from(departments).map((department) => {
+      const required =
+        Number(occupancyRule?.rules?.[department] || 0) +
+        Number(peakRule?.rules?.[department] || 0) +
+        Number(eventToday ? eventRule?.rules?.[department] || 0 : 0);
+
+      const scheduled = schedules.filter((schedule) => {
+        const employee = employees.find(
+          (emp) => String(emp.id) === String(schedule.employee_id)
+        );
+
+        return (
+          String(schedule.day) === date &&
+          String(schedule.shift).toUpperCase() !== "OFF" &&
+          String(employee?.department || "").trim() === department
+        );
+      }).length;
+
+      return {
+        department,
+        required,
+        scheduled,
+        gap: scheduled - required,
+      };
+    });
+  };
+
+  const departmentStatus = getRequiredHCByDepartment();
+
+  const requiredHCToday = departmentStatus.reduce(
+    (sum, dept) => sum + Number(dept.required || 0),
+    0
+  );
+
+  const scheduledHCToday = departmentStatus.reduce(
+    (sum, dept) => sum + Number(dept.scheduled || 0),
+    0
+  );
+
+  const hcGapToday = scheduledHCToday - requiredHCToday;
+
+  const pendingLeaves = leaveRequests.filter(
+    (leave) => String(leave.status || "").toLowerCase() === "pending"
+  );
+
+  const activeEmployees = employees.filter((emp) => {
+    const status = String(emp.employment_status || emp.status || "").toLowerCase();
+    return status !== "resigned" && status !== "inactive";
+  });
+
+  const resignedEmployees = employees.filter((emp) => {
+    const status = String(emp.employment_status || emp.status || "").toLowerCase();
+    return status === "resigned" || status === "inactive";
+  });
+
+  const departmentCounts = activeEmployees.reduce(
+    (acc: Record<string, number>, emp) => {
+      const dept = emp.department || "Unassigned";
+      acc[dept] = (acc[dept] || 0) + 1;
+      return acc;
+    },
+    {}
+  );
+
+  const topDepartments = Object.entries(departmentCounts)
+    .map(([department, count]) => ({ department, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  const criticalDepartments = departmentStatus.filter((dept) => dept.gap < 0);
+
+  const revenueSources = [
+    { name: "Rooms", value: roomRevenue },
+    { name: "Restaurant", value: restaurantRevenue },
+    { name: "Apartment", value: apartmentRevenue },
+  ].sort((a, b) => b.value - a.value);
+
+  const topSource = revenueSources[0] || { name: "-", value: 0 };
+
+  const topShare =
+    totalRevenue > 0 ? Math.round((topSource.value / totalRevenue) * 100) : 0;
+
+  const criticalAlerts = [
+    ...(cashFlowStatus === "Critical"
+      ? [
+          `Cash flow is critical. Projected shortage: ${formatPeso(
+            Math.abs(projectedCashPosition)
+          )}.`,
+        ]
+      : []),
+    ...(cashFlowStatus === "Watch"
+      ? [`Cash flow needs monitoring. Projected position: ${formatPeso(projectedCashPosition)}.`]
+      : []),
+    ...(overdueBills.length > 0
+      ? [
+          `${overdueBills.length} overdue bill(s) worth ${formatPeso(
+            overdueBillsTotal
+          )} need payment review.`,
+        ]
+      : []),
+    ...(payrollRatio >= 80
+      ? [`Payroll ratio is critical at ${payrollRatio}%. Target is 35%-40%.`]
+      : []),
+    ...(payrollRatio >= 40 && payrollRatio < 80
+      ? [`Payroll ratio is on watch at ${payrollRatio}%.`]
+      : []),
+    ...(potentialRecovery > 0
+      ? [`Potential cash recovery detected: ${formatPeso(potentialRecovery)}.`]
+      : []),
+    ...(Math.abs(totalVariance) > 0
+      ? [`Cash drawer variance detected: ${formatPeso(totalVariance)}.`]
+      : []),
+    ...(openDrawers.length > 0
+      ? [`${openDrawers.length} cash drawer(s) still open.`]
+      : []),
+    ...(outstandingBalance > 0
+      ? [
+          `${unpaidReservations.length} unpaid reservation(s) with ${formatPeso(
+            outstandingBalance
+          )} outstanding balance.`,
+        ]
+      : []),
+    ...criticalDepartments.map(
+      (dept) => `${dept.department} short by ${Math.abs(dept.gap)} staff.`
+    ),
+    ...(pendingLeaves.length > 0
+      ? [`${pendingLeaves.length} leave request(s) pending approval.`]
+      : []),
+    ...(todayEvents.length > 0
+      ? todayEvents.map(
+          (event) =>
+            `${event.event_name} today with ${event.expected_pax || 0} pax.`
+        )
+      : []),
+    ...(netProfit < 0 ? ["Expenses and payroll are higher than revenue."] : []),
+    ...(occupancyToday < 40 ? [`Room occupancy is low at ${occupancyToday}%.`] : []),
+  ];
+
+  const recommendations = [
+    ...(cashFlowStatus === "Critical"
+      ? [
+          "Collect unpaid reservations and overdue balances immediately.",
+          "Delay non-essential purchases until projected cash position improves.",
+        ]
+      : []),
+    ...(overdueBills.length > 0
+      ? ["Prioritize overdue bills before additional cash releases."]
+      : []),
+    ...(payrollRatio >= 40
+      ? ["Review manpower schedule because payroll ratio is above ideal target."]
+      : []),
+    ...(potentialRecovery > 0
+      ? [
+          `Recovering pending balances can improve cash position by ${formatPeso(
+            potentialRecovery
+          )}.`,
+        ]
+      : []),
+    ...(Math.abs(totalVariance) > 0
+      ? ["Review cash drawer variance before closing daily report."]
+      : []),
+    ...(openDrawers.length > 0
+      ? ["Follow up pending cash drawer closures."]
+      : []),
+    ...(outstandingBalance > 0
+      ? ["Review unpaid reservations and update balances."]
+      : []),
+    ...(hcGapToday < 0
+      ? [`Fill staffing gap of ${Math.abs(hcGapToday)} staff for today's operation.`]
+      : []),
+    ...(occupancyToday < 40
+      ? ["Review OTA visibility and consider room promotions."]
+      : []),
+    ...(topShare >= 80 && totalRevenue > 0
+      ? [
+          `Revenue is heavily dependent on ${topSource.name}. Improve other revenue channels.`,
+        ]
+      : []),
+    ...(netProfit < 0
+      ? ["Check expenses immediately because current profit is negative."]
+      : []),
+  ];
+
+  const financeScore = Math.max(
+    0,
+    100 -
+      (netProfit < 0 ? 30 : 0) -
+      (cashFlowStatus === "Critical" ? 25 : 0) -
+      (cashFlowStatus === "Watch" ? 10 : 0) -
+      (outstandingBalance > 0 ? 15 : 0) -
+      (overdueBills.length > 0 ? 15 : 0) -
+      (Math.abs(totalVariance) > 0 ? 10 : 0) -
+      (profitMargin < 20 ? 10 : 0) -
+      (payrollRatio >= 80 ? 20 : payrollRatio >= 40 ? 10 : 0)
+  );
+
+  const operationsScore = Math.max(
+    0,
+    100 - (occupancyToday < 40 ? 20 : 0) - (todayEvents.length > 0 ? 5 : 0)
+  );
+
+  const workforceScore = Math.max(
+    0,
+    100 - (hcGapToday < 0 ? Math.abs(hcGapToday) * 8 : 0)
+  );
+
+  const businessHealthScore = Math.round(
+    (financeScore + operationsScore + workforceScore) / 3
+  );
+
+  const businessStatus =
+    businessHealthScore >= 85
+      ? "Stable"
+      : businessHealthScore >= 70
+      ? "Watchlist"
+      : "Needs Attention";
+
+  const statusStyle =
+    businessStatus === "Stable"
+      ? "border-green-500/30 bg-green-500/10 text-green-300"
+      : businessStatus === "Watchlist"
+      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+      : "border-red-500/30 bg-red-500/10 text-red-300";
+
+  const getChartLabel = (dateString: string) => {
+    const date = new Date(dateString);
+
+    if (rangeType === "yearly") {
+      return date.toLocaleDateString("en-US", { month: "short" });
+    }
+
+    if (rangeType === "monthly") {
+      const weekNumber = Math.ceil(date.getDate() / 7);
+      return `Week ${weekNumber}`;
+    }
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const trendData = useMemo(() => {
+    const map: Record<
+      string,
+      { date: string; revenue: number; expenses: number; profit: number }
+    > = {};
+
+    const addToMap = (
+      date: string,
+      type: "revenue" | "expenses",
+      amount: number
+    ) => {
+      if (!date || !isWithinRange(date)) return;
+
+      const groupKey = rangeType === "yearly" ? date.slice(0, 7) : date;
+
+      if (!map[groupKey]) {
+        map[groupKey] = {
+          date: groupKey,
+          revenue: 0,
+          expenses: 0,
+          profit: 0,
+        };
+      }
+
+      map[groupKey][type] += Math.abs(Number(amount || 0));
+    };
+
+    hotelReservations.forEach((row) => {
+      addToMap(getDateValue(row), "revenue", getAmountValue(row));
+    });
+
+    restaurantSales.forEach((row) => {
+      addToMap(getDateValue(row), "revenue", getAmountValue(row));
+    });
+
+    apartmentSales.forEach((row) => {
+      addToMap(getDateValue(row), "revenue", getAmountValue(row));
+    });
+
+    expenses.forEach((row) => {
+      addToMap(getDateValue(row), "expenses", getAmountValue(row));
+    });
+
+    payrollRows.forEach((row) => {
+      addToMap(getDateValue(row), "expenses", getAmountValue(row));
+    });
+
+    return Object.values(map)
+      .map((row) => ({
+        ...row,
+        label: getChartLabel(row.date),
+        profit: row.revenue - row.expenses,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [
+    hotelReservations,
+    restaurantSales,
+    apartmentSales,
+    expenses,
+    payrollRows,
+    rangeType,
+  ]);
+
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <div className="mb-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-            Finance Ledger
-          </p>
-          <h1 className="mt-2 text-3xl font-bold">Expenses Ledger</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Review manual expenses, imported expenses, employee cash advances,
-            and posted expense requests in one official ledger.
-          </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+              OPSCORE Owner View
+            </p>
+
+            <h1 className="mt-2 text-4xl font-black">Executive Dashboard</h1>
+
+            <p className="mt-2 text-slate-400">
+              AI-style cash flow, leaks, revenue, payroll, bills, and operation health.
+            </p>
+          </div>
+
+          <div className="flex rounded-xl border border-slate-800 bg-slate-900 p-1">
+            {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
+              (range) => (
+                <button
+                  key={range}
+                  onClick={() => setRangeType(range)}
+                  className={
+                    rangeType === range
+                      ? "rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-slate-950"
+                      : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
+                  }
+                >
+                  {range === "daily"
+                    ? "Today"
+                    : range === "weekly"
+                    ? "This Week"
+                    : range === "monthly"
+                    ? "This Month"
+                    : "This Year"}
+                </button>
+              )
+            )}
+          </div>
         </div>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard
-            title="This Month Expenses"
-            value={formatCurrency(thisMonthExpenses)}
-            color="text-red-400"
+          <KpiCard icon={<DollarSign size={22} />} title="Total Revenue" value={formatPeso(totalRevenue)} success />
+          <KpiCard icon={<Receipt size={22} />} title="Expenses" value={formatPeso(totalExpenses)} danger />
+          <KpiCard icon={<Users size={22} />} title="Payroll" value={formatPeso(payrollTotal)} danger={payrollRatio >= 40} subtitle={`${payrollRatio}% of revenue`} />
+          <KpiCard icon={<DollarSign size={22} />} title="Net Profit" value={formatPeso(netProfit)} success={netProfit >= 0} danger={netProfit < 0} subtitle={`${profitMargin}% margin`} />
+          <KpiCard icon={<Hotel size={22} />} title="Occupancy" value={`${occupancyToday}%`} subtitle={`${roomsSoldToday} / ${availableRoomsToday} rooms`} />
+        </section>
+
+        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <InsightCard
+            icon={<Wallet size={22} />}
+            title="Cash Flow Health"
+            status={cashFlowStatus}
+            statusClass={cashFlowStyle}
+            rows={[
+              ["Cash Available", formatPeso(cashAvailable)],
+              ["Expected Collections", formatPeso(expectedCollections)],
+              ["Upcoming Bills", formatPeso(upcomingBillsTotal)],
+              ["Payroll Load", formatPeso(payrollTotal)],
+              ["Projected Position", formatPeso(projectedCashPosition)],
+            ]}
           />
 
-          <SummaryCard
-            title="Expense Requests"
-            value={formatCurrency(requestExpenseTotal)}
-            color="text-blue-400"
+          <InsightCard
+            icon={<ShieldAlert size={22} />}
+            title="Revenue Leak Detector"
+            status={potentialRecovery > 0 ? "Leak Found" : "Clean"}
+            statusClass={
+              potentialRecovery > 0
+                ? "border-red-500/30 bg-red-500/10 text-red-300"
+                : "border-green-500/30 bg-green-500/10 text-green-300"
+            }
+            rows={[
+              ["Unpaid Rooms", formatPeso(outstandingBalance)],
+              ["Overdue Bills", formatPeso(overdueBillsTotal)],
+              ["Cash Variance", formatPeso(Math.abs(totalVariance))],
+              ["Potential Recovery", formatPeso(potentialRecovery)],
+            ]}
           />
 
-          <SummaryCard
-            title="Manual Expenses"
-            value={formatCurrency(manualExpenseTotal)}
-            color="text-emerald-400"
-          />
-
-          <SummaryCard
-            title="Cash Advance"
-            value={formatCurrency(cashAdvanceTotal)}
-            color="text-purple-400"
-          />
-
-          <SummaryCard
-            title="Pending Liquidation"
-            value={formatCurrency(pendingLiquidationAmount)}
-            color="text-amber-400"
+          <InsightCard
+            icon={<Users size={22} />}
+            title="Payroll Health"
+            status={payrollStatus}
+            statusClass={payrollStatusStyle}
+            rows={[
+              ["Revenue", formatPeso(totalRevenue)],
+              ["Payroll", formatPeso(payrollTotal)],
+              ["Payroll Ratio", `${payrollRatio}%`],
+              ["Target", "35% - 40%"],
+            ]}
           />
         </section>
 
-        {pendingRequests.length > 0 && (
-          <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-amber-400">
-                  Pending Expense Requests
-                </h2>
-                <p className="mt-1 text-sm text-slate-300">
-                  {pendingRequests.length} request(s) waiting for approval with total amount of{" "}
-                  <span className="font-semibold text-white">
-                    {formatCurrency(pendingRequestAmount)}
-                  </span>
-                  .
-                </p>
-              </div>
+        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-5">
+          <div className="h-[520px] rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+            <h2 className="text-xl font-bold">Revenue vs Expenses Trend</h2>
 
-              <a
-                href="/finance/expense-requests"
-                className="w-fit rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
-              >
-                Review Requests →
-              </a>
-            </div>
-          </section>
-        )}
-
-        {unlinkedCashAdvanceTotal > 0 && (
-          <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
-            <h2 className="text-lg font-black text-red-300">
-              ⚠ Cash Advance Payroll Link Warning
-            </h2>
-            <p className="mt-1 text-sm text-red-200">
-              {formatCurrency(unlinkedCashAdvanceTotal)} cash advance expense is not linked to payroll deduction.
-              Check employee and payroll period before payroll generation.
-            </p>
-          </section>
-        )}
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
-          <section className="self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="text-xl font-bold">Manual Expense Entry</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Use this for expenses that did not go through the request workflow.
-              Cash Advance can auto-create payroll deduction.
+              Includes rooms, restaurant, apartment, expenses, and payroll when available.
             </p>
 
-            <div className="mt-5 space-y-4">
-              <input
-                type="date"
-                value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)}
-                style={{ colorScheme: "dark" }}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
-
-              <select
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
-                  if (e.target.value.toLowerCase().includes("cash advance")) {
-                    setDeductToPayroll("Yes");
-                  }
-                }}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select expense category</option>
-                {categories.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              {isCashAdvance && (
-                <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4">
-                  <p className="mb-3 text-sm font-bold text-purple-300">
-                    Employee Cash Advance
-                  </p>
-
-                  <div className="space-y-3">
-                    <select
-                      value={selectedEmployeeId}
-                      onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                    >
-                      <option value="">Select employee</option>
-                      {employees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.first_name} {employee.last_name} —{" "}
-                          {employee.department}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={deductToPayroll}
-                      onChange={(e) => setDeductToPayroll(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                    >
-                      <option value="Yes">Deduct to payroll</option>
-                      <option value="No">Record expense only</option>
-                    </select>
-
-                    {deductToPayroll === "Yes" && (
-                      <select
-                        value={selectedPayrollPeriodId}
-                        onChange={(e) => setSelectedPayrollPeriodId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                      >
-                        <option value="">Select payroll period</option>
-                        {payrollPeriods.map((period) => (
-                          <option key={period.id} value={period.id}>
-                            {getPayrollPeriodLabel(period)}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-
-                    <p className="text-xs text-slate-400">
-                      If enabled, this will create a Pending Cash Advance
-                      deduction in Payroll Register. Payroll must approve/reject,
-                      then generate payroll again.
-                    </p>
-                  </div>
+            <div className="mt-6 h-[390px]">
+              {trendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trendData} margin={{ top: 35, right: 30, left: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="label" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" tickFormatter={(value) => `₱${Number(value) / 1000}k`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#020617",
+                        border: "1px solid #334155",
+                        borderRadius: "12px",
+                        color: "#fff",
+                      }}
+                      formatter={(value: any) => formatPeso(Number(value))}
+                    />
+                    <Legend verticalAlign="top" height={35} />
+                    <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#3b82f6" strokeWidth={3} fill="#3b82f6" fillOpacity={0.18} />
+                    <Area type="monotone" dataKey="expenses" name="Expenses + Payroll" stroke="#ef4444" strokeWidth={3} fill="#ef4444" fillOpacity={0.12} />
+                    <Area type="monotone" dataKey="profit" name="Profit" stroke="#22c55e" strokeWidth={3} fill="#22c55e" fillOpacity={0.15} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                  No financial data found for selected range.
                 </div>
               )}
+            </div>
+          </div>
 
-              <select
-                value={expenseArea}
-                onChange={(e) => setExpenseArea(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select expense area</option>
-                {expenseAreas.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+          <section className={`h-[520px] overflow-hidden rounded-2xl border p-5 xl:col-span-2 ${statusStyle}`}>
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
+              <Brain size={18} /> OPSCORE AI Advisor
+            </p>
 
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={
-                  isCashAdvance
-                    ? "Example: Cash advance released by front desk"
-                    : "Description"
-                }
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
+            <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
 
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select source / supplier</option>
-                {expenseSources.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-3 rounded-2xl bg-slate-950/60 p-4 text-center">
+              <p className="text-sm text-slate-400">OPSCORE Health Score</p>
 
-              <input
-                type="number"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Amount"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
+              <h3 className="mt-1 text-4xl font-black text-white">
+                {businessHealthScore}
+              </h3>
 
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select payment method</option>
-                {paymentMethods.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <p className="text-xs text-slate-500">out of 100</p>
+            </div>
 
-              <textarea
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                rows={3}
-                placeholder="Optional remarks..."
-                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
+            <div className="mt-3">
+              <BriefingBox title="Critical Alerts" items={criticalAlerts} empty="No major issue detected." />
+            </div>
 
-              <button
-                onClick={addExpense}
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500"
-              >
-                Save Manual Expense
-              </button>
+            <div className="mt-3">
+              <BriefingBox title="Recommended Actions" items={recommendations} empty="Maintain current operation and continue monitoring." />
             </div>
           </section>
+        </section>
 
-          <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Official Expense Ledger</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Click table headers to sort. Use filters to separate requests,
-                  manual entries, and imports.
-                </p>
-              </div>
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
+          <ProfitCard title="Rooms" sales={roomRevenue} expenses={roomDirectExpenses} profit={roomsProfit} />
+          <ProfitCard title="Restaurant" sales={restaurantRevenue} expenses={restaurantDirectExpenses} profit={restaurantProfit} />
+          <ProfitCard title="Apartment" sales={apartmentRevenue} expenses={apartmentDirectExpenses} profit={apartmentProfit} />
+        </section>
 
-              <button
-                onClick={exportExpenses}
-                className="w-fit rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold hover:bg-green-500"
-              >
-                Export Excel
-              </button>
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <KpiCard icon={<AlertTriangle size={22} />} title="Bills Outstanding" value={formatPeso(outstandingBills)} danger={outstandingBills > 0} subtitle={`${overdueBills.length} overdue • ${upcomingBills.length} due soon`} />
+          <KpiCard icon={<Hotel size={22} />} title="Room Sales" value={formatPeso(roomRevenue)} />
+          <KpiCard icon={<Utensils size={22} />} title="Restaurant Revenue" value={formatPeso(restaurantRevenue)} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Outstanding Guest Balance" value={formatPeso(outstandingBalance)} danger={outstandingBalance > 0} subtitle={`${unpaidReservations.length} unpaid reservation(s)`} />
+        </section>
+
+        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
+          <Panel title="Employee Details" icon={<Users size={22} />}>
+            <div className="grid grid-cols-2 gap-3">
+              <MiniStat title="Active Employees" value={activeEmployees.length} />
+              <MiniStat title="Inactive / Resigned" value={resignedEmployees.length} />
+              <MiniStat title="Scheduled Today" value={scheduledHCToday} />
+              <MiniStat title="Pending Leaves" value={pendingLeaves.length} />
             </div>
 
-            <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search ledger..."
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
+            <div className="mt-5 space-y-3">
+              <p className="text-sm font-bold text-slate-300">Department Headcount</p>
+              {topDepartments.length > 0 ? (
+                topDepartments.map((dept) => (
+                  <MiniRow key={dept.department} label={dept.department} value={String(dept.count)} />
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">No employee data found.</p>
+              )}
+            </div>
+          </Panel>
 
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="ALL">All Sources</option>
-                <option value="Expense Request">Expense Request</option>
-                <option value="Manual Entry">Manual Entry</option>
-                <option value="Imported">Imported</option>
-              </select>
-
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="ALL">All Categories</option>
-                {categories.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={departmentFilter}
-                onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="ALL">All Areas</option>
-                {expenseAreas.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+          <Panel title="Workforce Coverage" icon={<Users size={22} />}>
+            <div className="grid grid-cols-3 gap-3">
+              <MiniStat title="Required" value={requiredHCToday} />
+              <MiniStat title="Scheduled" value={scheduledHCToday} />
+              <MiniStat title="Gap" value={hcGapToday > 0 ? `+${hcGapToday}` : hcGapToday} danger={hcGapToday < 0} />
             </div>
 
-            <div className="max-h-[640px] max-w-full overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1380px] table-fixed border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-950">
-                  <tr className="border-b border-slate-800 text-left text-slate-400">
-                    {[
-                      ["expense_date", "Date", "w-[120px]"],
-                      ["department", "Area", "w-[140px]"],
-                      ["category", "Category", "w-[160px]"],
-                      ["employee_name", "Employee", "w-[180px]"],
-                      ["description", "Description", "w-[260px]"],
-                      ["amount", "Amount", "w-[130px]"],
-                      ["source", "Source", "w-[150px]"],
-                      ["payment_method", "Payment", "w-[130px]"],
-                    ].map(([key, label, width]) => (
-                      <th
-                        key={key}
-                        onClick={() => requestSort(key)}
-                        className={`${width} cursor-pointer whitespace-nowrap px-4 py-3 hover:bg-slate-800 hover:text-white`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span>{label}</span>
-                          <span className="text-xs text-slate-500">
-                            {sortIcon(key)}
-                          </span>
+            <div className="mt-5 space-y-3">
+              {departmentStatus.length > 0 ? (
+                departmentStatus.slice(0, 6).map((dept) => (
+                  <MiniRow
+                    key={dept.department}
+                    label={`${dept.department} • Req ${dept.required} / Sch ${dept.scheduled}`}
+                    value={dept.gap > 0 ? `+${dept.gap}` : String(dept.gap)}
+                  />
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">No workforce rule data found.</p>
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="Cash Drawer Summary" icon={<Wallet size={22} />}>
+            <div className="grid grid-cols-2 gap-3">
+              <MiniStat title="Open Drawers" value={openDrawers.length} danger={openDrawers.length > 0} />
+              <MiniStat title="Closed Drawers" value={closedDrawers.length} />
+              <MiniStat title="Expected Cash" value={formatPeso(expectedCash)} />
+              <MiniStat title="Variance" value={formatPeso(totalVariance)} danger={totalVariance !== 0} />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {drawerAlerts.length > 0 ? (
+                drawerAlerts.slice(0, 5).map((drawer) => {
+                  const variance = getDrawerVariance(drawer);
+                  const status = getDrawerStatus(drawer);
+
+                  return (
+                    <div
+                      key={drawer.id}
+                      className="rounded-xl border border-red-500/20 bg-red-500/10 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{getDrawerCashier(drawer)}</p>
+                          <p className="text-xs text-slate-400">
+                            Status: {status || "No status"} • {getDateValue(drawer) || "No date"}
+                          </p>
                         </div>
-                      </th>
-                    ))}
 
-                    <th className="w-[150px] whitespace-nowrap px-4 py-3">
-                      Payroll
-                    </th>
-                    <th className="w-[100px] whitespace-nowrap px-4 py-3">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {sortedExpenses.map((expense) => {
-                    const sourceType = getExpenseSourceType(expense);
-
-                    return (
-                      <tr
-                        key={expense.id}
-                        className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
-                      >
-                        <td className="whitespace-nowrap px-4 py-3">
-                          {expense.expense_date}
-                        </td>
-
-                        <td className="truncate px-4 py-3">
-                          {expense.department || "-"}
-                        </td>
-
-                        <td className="truncate px-4 py-3">
-                          {expense.category || "-"}
-                        </td>
-
-                        <td className="truncate px-4 py-3">
-                          {expense.employee_name || "-"}
-                        </td>
-
-                        <td className="break-words px-4 py-3">
-                          <p>{expense.description || "-"}</p>
-                          {expense.remarks && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {expense.remarks}
-                            </p>
-                          )}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                          {formatCurrency(expense.amount)}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getSourceBadgeStyle(
-                              sourceType
-                            )}`}
-                          >
-                            {sourceType}
-                          </span>
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          {expense.payment_method || "-"}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <div className="flex flex-col gap-1">
-                            {getPayrollBadge(expense) || "-"}
-                            {expense.payroll_period_id && (
-                              <span className="text-xs text-slate-500">
-                                {getPayrollPeriodLabel(getLinkedPayrollPeriod(expense))}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <button
-                            onClick={() => deleteExpense(expense)}
-                            className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {sortedExpenses.length === 0 && (
-                    <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-500">
-                        No expenses found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                        <p className="font-bold text-red-300">
+                          {formatPeso(variance)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4">
+                  <p className="font-semibold text-green-300">
+                    ✅ All cash drawers balanced
+                  </p>
+                  <p className="mt-1 text-xs text-green-200">
+                    No open drawers or variance detected.
+                  </p>
+                </div>
+              )}
             </div>
-          </section>
-        </section>
-
-        <section className="mt-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <h2 className="mb-4 text-xl font-bold">Monthly Expenses by Category</h2>
-
-          <div className="max-w-full overflow-x-auto rounded-xl border border-slate-800">
-            <table className="min-w-[1400px] border-collapse text-sm">
-              <thead className="bg-slate-950">
-                <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-950 px-4 py-3">
-                    Month
-                  </th>
-
-                  {categories.map((cat) => (
-                    <th key={cat} className="whitespace-nowrap px-4 py-3">
-                      {cat}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {monthlyCategorySummary.map((row) => (
-                  <tr
-                    key={row.month}
-                    className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
-                  >
-                    <td className="sticky left-0 z-10 whitespace-nowrap bg-slate-900 px-4 py-3 font-semibold">
-                      {row.month}
-                    </td>
-
-                    {categories.map((cat) => (
-                      <td key={cat} className="whitespace-nowrap px-4 py-3">
-                        {formatCurrency(row[cat])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-
-                <tr className="border-t border-slate-700 bg-slate-950 text-white">
-                  <td className="sticky left-0 z-20 whitespace-nowrap bg-slate-950 px-4 py-3 font-bold">
-                    Total
-                  </td>
-
-                  {categories.map((cat) => {
-                    const total = monthlyCategorySummary.reduce(
-                      (sum, row) => sum + Number(row[cat] || 0),
-                      0
-                    );
-
-                    return (
-                      <td key={cat} className="whitespace-nowrap px-4 py-3 font-bold">
-                        {formatCurrency(total)}
-                      </td>
-                    );
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="mt-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Import Expenses</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Upload Excel or CSV, review preview, then save to the ledger.
-              </p>
-            </div>
-
-            {importPreview.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  onClick={cancelImport}
-                  className="rounded-lg bg-slate-600 px-3 py-2 text-xs font-semibold hover:bg-slate-500"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={saveImportedExpenses}
-                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold hover:bg-blue-500"
-                >
-                  Save Import
-                </button>
-              </div>
-            )}
-          </div>
-
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleImportFile}
-            className="mb-4 w-fit rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"
-          />
-
-          <div className="h-[520px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[920px] table-fixed border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-950">
-                <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="w-[120px] px-4 py-3">Date</th>
-                  <th className="w-[160px] px-4 py-3">Category</th>
-                  <th className="w-[160px] px-4 py-3">Area</th>
-                  <th className="w-[220px] px-4 py-3">Description</th>
-                  <th className="w-[160px] px-4 py-3">Source</th>
-                  <th className="w-[140px] px-4 py-3">Amount</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {importPreview.map((expense, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-slate-800/70 text-slate-200"
-                  >
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {expense.expense_date}
-                    </td>
-
-                    <td className="truncate px-4 py-3">
-                      {expense.category || "-"}
-                    </td>
-
-                    <td className="truncate px-4 py-3">
-                      {expense.department || "-"}
-                    </td>
-
-                    <td className="break-words px-4 py-3">
-                      {expense.description || "-"}
-                    </td>
-
-                    <td className="truncate px-4 py-3">
-                      {expense.source || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                      {formatCurrency(expense.amount)}
-                    </td>
-                  </tr>
-                ))}
-
-                {importPreview.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="h-[450px] text-center text-slate-500">
-                      Upload Excel/CSV to preview expenses.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          </Panel>
         </section>
       </main>
     </div>
   );
 }
 
-/// COMPONENT - SUMMARY CARD
-function SummaryCard({ title, value, color }: any) {
+function KpiCard({
+  icon,
+  title,
+  value,
+  subtitle,
+  success,
+  danger,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: any;
+  subtitle?: string;
+  success?: boolean;
+  danger?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>
-        {value}
+    <div
+      className={`rounded-2xl border p-5 ${
+        danger
+          ? "border-red-500/20 bg-red-500/10"
+          : success
+          ? "border-green-500/20 bg-green-500/10"
+          : "border-slate-800 bg-slate-900"
+      }`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+          {icon}
+        </div>
+        <p className="text-sm text-slate-400">{title}</p>
+      </div>
+
+      <h2 className="text-2xl font-bold">{value}</h2>
+
+      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+    </div>
+  );
+}
+
+function InsightCard({
+  icon,
+  title,
+  status,
+  statusClass,
+  rows,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  status: string;
+  statusClass: string;
+  rows: [string, string][];
+}) {
+  return (
+    <div className={`rounded-2xl border p-6 ${statusClass}`}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-slate-950/60 p-3">{icon}</div>
+          <h2 className="text-xl font-black text-white">{title}</h2>
+        </div>
+
+        <span className="rounded-full bg-slate-950/50 px-3 py-1 text-xs font-black">
+          {status}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {rows.map(([label, value]) => (
+          <MiniRow key={label} label={label} value={value} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProfitCard({
+  title,
+  sales,
+  expenses,
+  profit,
+}: {
+  title: string;
+  sales: number;
+  expenses: number;
+  profit: number;
+}) {
+  const margin = sales > 0 ? Math.round((profit / sales) * 100) : 0;
+
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+      <h2 className="text-xl font-black">{title} Profitability</h2>
+
+      <div className="mt-5 space-y-3">
+        <MiniRow label="Sales" value={`₱${sales.toLocaleString("en-PH")}`} />
+        <MiniRow label="Direct Expenses" value={`₱${expenses.toLocaleString("en-PH")}`} />
+        <MiniRow label="Profit" value={`₱${profit.toLocaleString("en-PH")}`} />
+        <MiniRow label="Margin" value={`${margin}%`} />
+      </div>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+      <h2 className="mb-5 flex items-center gap-2 text-xl font-bold">
+        {icon} {title}
       </h2>
+      {children}
+    </div>
+  );
+}
+
+function MiniRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="font-black">{value}</p>
+    </div>
+  );
+}
+
+function BriefingBox({
+  title,
+  items,
+  empty,
+}: {
+  title: string;
+  items: string[];
+  empty: string;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-950/60 p-3">
+      <p className="mb-2 text-sm font-bold text-white">{title}</p>
+
+      {items.length > 0 ? (
+        <div className="space-y-1">
+          {items.slice(0, 4).map((item, index) => (
+            <p key={index} className="text-[13px] leading-5">
+              • {item}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[13px] leading-5">{empty}</p>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({
+  title,
+  value,
+  danger,
+}: {
+  title: string;
+  value: any;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-xs text-slate-500">{title}</p>
+      <h3
+        className={
+          danger
+            ? "mt-1 text-2xl font-black text-red-400"
+            : "mt-1 text-2xl font-black text-white"
+        }
+      >
+        {value}
+      </h3>
     </div>
   );
 }

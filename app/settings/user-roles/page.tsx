@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { logActivity } from "@/app/lib/activityLogger";
 import {
   Plus,
   RefreshCcw,
@@ -11,7 +12,6 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { logActivity } from "@/app/lib/activityLogger";
 
 const modules = [
   { key: "dashboard", label: "Dashboard" },
@@ -20,23 +20,19 @@ const modules = [
   { key: "scheduling", label: "Scheduling" },
   { key: "leave_management", label: "Leave Management" },
   { key: "forecasting", label: "Forecasting" },
-
   { key: "hotel_room_sales", label: "Hotel Room Sales" },
   { key: "apartment_sales", label: "Apartment Sales" },
   { key: "restaurant_sales", label: "Restaurant / Sports Bar Sales" },
-
   { key: "finance_dashboard", label: "Finance Dashboard" },
   { key: "expenses", label: "Expenses" },
   { key: "bills_monitoring", label: "Bills Monitoring" },
   { key: "cash_management", label: "Cash Management" },
-
   { key: "attendance", label: "Attendance Audit" },
   { key: "payroll_register", label: "Payroll Register" },
   { key: "payroll_manager", label: "Payroll Manager" },
   { key: "payslips", label: "Payslips" },
   { key: "payroll_snapshots", label: "Payroll Snapshots" },
   { key: "release_history", label: "Release History" },
-
   { key: "settings", label: "Settings" },
   { key: "user_roles", label: "User Roles" },
   { key: "backup_restore", label: "Backup & Restore" },
@@ -56,7 +52,6 @@ export default function UserRolesPage() {
   const [roles, setRoles] = useState<any[]>([]);
   const [permissions, setPermissions] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDescription, setNewRoleDescription] = useState("");
@@ -169,6 +164,13 @@ export default function UserRolesPage() {
 
     await refreshData();
 
+    await logActivity(
+      "User Roles",
+      "Create Role",
+      `Created role: ${data.role_name}`,
+      "Current User"
+    );
+
     alert("Role created.");
   };
 
@@ -180,7 +182,9 @@ export default function UserRolesPage() {
       return;
     }
 
-    const confirmed = confirm(`Delete role "${selectedRole.role_name}"?`);
+    const roleName = selectedRole.role_name;
+    const confirmed = confirm(`Delete role "${roleName}"?`);
+
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -195,6 +199,13 @@ export default function UserRolesPage() {
 
     setSelectedRoleId("");
     await refreshData();
+
+    await logActivity(
+      "User Roles",
+      "Delete Role",
+      `Deleted role: ${roleName}`,
+      "Current User"
+    );
 
     alert("Role deleted.");
   };
@@ -300,15 +311,12 @@ export default function UserRolesPage() {
       "release_history",
     ];
 
-    const allowedEdit = ["attendance", "payroll_register"];
-    const allowedApprove = ["payroll_manager"];
-
     setRolePermissionsFromPreset((moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
       can_create: moduleKey === "attendance",
-      can_edit: allowedEdit.includes(moduleKey),
+      can_edit: ["attendance", "payroll_register"].includes(moduleKey),
       can_delete: false,
-      can_approve: allowedApprove.includes(moduleKey),
+      can_approve: moduleKey === "payroll_manager",
       can_release: false,
     }));
   };
@@ -414,55 +422,45 @@ export default function UserRolesPage() {
       return;
     }
 
-   await getPermissions();
+    await getPermissions();
 
-await logActivity(
-  "User Roles",
-  "Save Permissions",
-  `Updated permissions for ${selectedRole?.role_name || "selected role"}`,
-  "Current User"
-);
+    await logActivity(
+      "User Roles",
+      "Save Permissions",
+      `Updated permissions for ${selectedRole?.role_name || "selected role"}`,
+      "Current User"
+    );
 
-alert("Permissions saved.");
-};
+    alert("Permissions saved.");
+  };
 
-const assignEmployeeRole = async (
-  employeeId: string,
-  roleId: string
-) => {
-  const employee = employees.find(
-    (emp) => emp.id === employeeId
-  );
+  const assignEmployeeRole = async (employeeId: string, roleId: string) => {
+    const employee = employees.find((emp) => emp.id === employeeId);
+    const role = roles.find((r) => r.id === roleId);
 
-  const role = roles.find(
-    (r) => r.id === roleId
-  );
+    const { error } = await supabase
+      .from("employees")
+      .update({
+        system_role_id: roleId || null,
+      })
+      .eq("id", employeeId);
 
-  const { error } = await supabase
-    .from("employees")
-    .update({
-      system_role_id: roleId || null,
-    })
-    .eq("id", employeeId);
+    if (error) {
+      alert(error.message);
+      return;
+    }
 
-  if (error) {
-    alert(error.message);
-    return;
-  }
+    await getEmployees();
 
-  await getEmployees();
-
-  await logActivity(
-    "User Roles",
-    "Assign Employee Role",
-    `${employee?.first_name || ""} ${
-      employee?.last_name || ""
-    } assigned to ${
-      role?.role_name || "No Access"
-    }`,
-    "Current User"
-  );
-};
+    await logActivity(
+      "User Roles",
+      "Assign Employee Role",
+      `${employee?.first_name || ""} ${employee?.last_name || ""} assigned to ${
+        role?.role_name || "No Access"
+      }`,
+      "Current User"
+    );
+  };
 
   useEffect(() => {
     refreshData();
@@ -502,13 +500,11 @@ const assignEmployeeRole = async (
             title="Roles"
             value={roles.length}
           />
-
           <SummaryCard
             icon={<Users size={22} />}
             title="Employees"
             value={employees.length}
           />
-
           <SummaryCard
             icon={<ShieldCheck size={22} />}
             title="Selected Role"
@@ -561,7 +557,6 @@ const assignEmployeeRole = async (
                   }`}
                 >
                   <p className="font-black">{role.role_name}</p>
-
                   <p className="mt-1 text-sm text-slate-400">
                     {role.description || "No description"}
                   </p>
@@ -591,59 +586,25 @@ const assignEmployeeRole = async (
               </p>
 
               <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  onClick={grantFullAccess}
-                  disabled={!selectedRoleId}
-                  className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
-                >
+                <button onClick={grantFullAccess} disabled={!selectedRoleId} className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50">
                   Full Access
                 </button>
-
-                <button
-                  onClick={grantViewOnly}
-                  disabled={!selectedRoleId}
-                  className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
-                >
+                <button onClick={grantViewOnly} disabled={!selectedRoleId} className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50">
                   View Only
                 </button>
-
-                <button
-                  onClick={applyManagerPreset}
-                  disabled={!selectedRoleId}
-                  className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-                >
+                <button onClick={applyManagerPreset} disabled={!selectedRoleId} className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
                   Manager Preset
                 </button>
-
-                <button
-                  onClick={applyPayrollPreset}
-                  disabled={!selectedRoleId}
-                  className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
-                >
+                <button onClick={applyPayrollPreset} disabled={!selectedRoleId} className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50">
                   Payroll Preset
                 </button>
-
-                <button
-                  onClick={applyHRPreset}
-                  disabled={!selectedRoleId}
-                  className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-                >
+                <button onClick={applyHRPreset} disabled={!selectedRoleId} className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
                   HR Preset
                 </button>
-
-                <button
-                  onClick={applyCashierPreset}
-                  disabled={!selectedRoleId}
-                  className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-                >
+                <button onClick={applyCashierPreset} disabled={!selectedRoleId} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
                   Cashier Preset
                 </button>
-
-                <button
-                  onClick={clearAllPermissions}
-                  disabled={!selectedRoleId}
-                  className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-                >
+                <button onClick={clearAllPermissions} disabled={!selectedRoleId} className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
                   Clear All
                 </button>
               </div>
@@ -732,11 +693,8 @@ const assignEmployeeRole = async (
                     <td className="px-4 py-3 font-bold">
                       {employee.first_name} {employee.last_name}
                     </td>
-
                     <td className="px-4 py-3">{employee.department || "-"}</td>
-
                     <td className="px-4 py-3">{employee.position || "-"}</td>
-
                     <td className="px-4 py-3">
                       <select
                         value={employee.system_role_id || ""}
@@ -746,7 +704,6 @@ const assignEmployeeRole = async (
                         className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                       >
                         <option value="">No Access</option>
-
                         {roles.map((role) => (
                           <option key={role.id} value={role.id}>
                             {role.role_name}
@@ -759,10 +716,7 @@ const assignEmployeeRole = async (
 
                 {employees.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-4 py-10 text-center text-slate-500"
-                    >
+                    <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
                       No employees found.
                     </td>
                   </tr>
@@ -791,10 +745,8 @@ function SummaryCard({
         <div className="rounded-full bg-slate-800 p-3 text-amber-400">
           {icon}
         </div>
-
         <p className="text-sm text-slate-400">{title}</p>
       </div>
-
       <h2 className="text-2xl font-black">{value}</h2>
     </div>
   );
