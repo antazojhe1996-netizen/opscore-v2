@@ -1,5 +1,6 @@
 "use client";
 
+import { logActivity } from "@/app/lib/activityLogger";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+
 
 export default function PayrollRegisterPage() {
   const [employees, setEmployees] = useState<any[]>([]);

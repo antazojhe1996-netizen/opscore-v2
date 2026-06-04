@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,82 +16,91 @@ import {
   LayoutDashboard,
   Receipt,
   Settings,
+  ShieldCheck,
+  UserCheck,
   Users,
   Wallet,
 } from "lucide-react";
+import { supabase } from "@/app/lib/supabase";
 
 const menuSections = [
   {
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    moduleKey: "dashboard",
     items: [],
   },
   {
     title: "Workforce",
     icon: Users,
     items: [
-      { label: "Workforce", href: "/workforce", icon: Users },
-      { label: "Employee 201", href: "/employees", icon: FileText },
-      { label: "Scheduling", href: "/scheduling", icon: CalendarDays },
-      { label: "Leave Management", href: "/leave-management", icon: ClipboardList },
-      { label: "Forecasting", href: "/forecasting", icon: BarChart3 },
-      { label: "Workforce Settings", href: "/settings", icon: Settings },
+      { label: "Workforce", href: "/workforce", icon: Users, moduleKey: "workforce" },
+      { label: "Employee 201", href: "/employees", icon: FileText, moduleKey: "employees" },
+      { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
+      { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
+      { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
+      { label: "Workforce Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
     title: "Sales",
     icon: Hotel,
     items: [
-      { label: "Hotel Room Sales", href: "/finance/room-sales", icon: Hotel },
-      { label: "Apartment Sales", href: "/finance/apartment", icon: Building2 },
-      { label: "Restaurant / Sports Bar Sales", href: "/finance/restaurant-import", icon: Receipt },
-      { label: "Sales Settings", href: "/finance/settings", icon: Settings },
+      { label: "Hotel Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "hotel_room_sales" },
+      { label: "Apartment Sales", href: "/finance/apartment", icon: Building2, moduleKey: "apartment_sales" },
+      { label: "Restaurant / Sports Bar Sales", href: "/finance/restaurant-import", icon: Receipt, moduleKey: "restaurant_sales" },
+      { label: "Sales Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
     title: "Finance",
     icon: Wallet,
     items: [
-      { label: "Finance Dashboard", href: "/finance", icon: BarChart3 },
-      { label: "Expenses", href: "/finance/expenses", icon: Receipt },
-      { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList },
-      { label: "Billing", href: "/finance/bills", icon: FileText },
-      { label: "Payment", href: "/finance/bills", icon: Wallet },
-      { label: "Cash Management", href: "/finance/cash-management", icon: Wallet },
-      { label: "Finance Settings", href: "/finance/settings", icon: Settings },
+      { label: "Finance Dashboard", href: "/finance", icon: BarChart3, moduleKey: "finance_dashboard" },
+      { label: "Expenses", href: "/finance/expenses", icon: Receipt, moduleKey: "expenses" },
+      { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList, moduleKey: "bills_monitoring" },
+      { label: "Billing", href: "/finance/bills", icon: FileText, moduleKey: "bills_monitoring" },
+      { label: "Payment", href: "/finance/bills", icon: Wallet, moduleKey: "bills_monitoring" },
+      { label: "Cash Management", href: "/finance/cash-management", icon: Wallet, moduleKey: "cash_management" },
+      { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
     title: "Payroll",
     icon: FileText,
     items: [
-      { label: "Attendance Audit", href: "/finance/payroll/attendance", icon: Clock },
-      { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText },
-      { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet },
-      { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt },
-      { label: "Release History", href: "/finance/payroll/history", icon: BarChart3 },
-      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings },
-      {label: "Snapshot History",href: "/finance/payroll/snapshots",icon: Database,},
+      { label: "Attendance Audit", href: "/finance/payroll/attendance", icon: Clock, moduleKey: "attendance" },
+      { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText, moduleKey: "payroll_register" },
+      { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet, moduleKey: "payroll_manager" },
+      { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt, moduleKey: "payslips" },
+      { label: "Release History", href: "/finance/payroll/history", icon: BarChart3, moduleKey: "release_history" },
+      { label: "Snapshot History", href: "/finance/payroll/snapshots", icon: Database, moduleKey: "payroll_snapshots" },
+      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
     title: "System",
     icon: Settings,
     items: [
-      { label: "General Settings", href: "/settings", icon: Settings },
-      { label: "Departments", href: "/settings/departments", icon: Users },
-      { label: "Employment Status", href: "/settings/employment-status", icon: ClipboardList },
-      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList },
-      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3 },
-      { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3 },
-      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList },
-      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList },
-      { label: "Positions", href: "/settings/positions", icon: Users },
-      { label: "Property", href: "/settings/property", icon: Hotel },
-      { label: "Shifts", href: "/settings/shifts", icon: Clock },
-      { label: "Activity Logs", href: "/settings", icon: ClipboardList },
-      { label: "Backup & Restore", href: "/backup", icon: Database },
+      { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
+      { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
+      { label: "Activity Logs", href: "/activity-logs", icon: ClipboardList, moduleKey: "activity_logs" },
+      { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
+
+      // Temporary testing page. Keep visible while wala pang login.
+      { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "always_allow" },
+
+      { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "settings" },
+      { label: "Employment Status", href: "/settings/employment-status", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "settings" },
+      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "settings" },
+      { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3, moduleKey: "settings" },
+      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "settings" },
+      { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "settings" },
+      { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "settings" },
     ],
   },
 ];
@@ -98,11 +108,102 @@ const menuSections = [
 export default function Sidebar() {
   const pathname = usePathname();
 
+  const [permissions, setPermissions] = useState<any[]>([]);
+  const [loadingAccess, setLoadingAccess] = useState(true);
+
+  const getCurrentUserPermissions = async () => {
+    setLoadingAccess(true);
+
+    const currentEmployeeId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_id")
+        : null;
+
+    if (!currentEmployeeId) {
+      setPermissions([]);
+      setLoadingAccess(false);
+      return;
+    }
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, system_role_id")
+      .eq("id", currentEmployeeId)
+      .maybeSingle();
+
+    if (employeeError || !employee?.system_role_id) {
+      setPermissions([]);
+      setLoadingAccess(false);
+      return;
+    }
+
+    const { data: rolePermissions, error: permissionError } = await supabase
+      .from("role_permissions")
+      .select("*")
+      .eq("role_id", employee.system_role_id);
+
+    if (permissionError) {
+      console.log("GET SIDEBAR PERMISSIONS ERROR:", permissionError.message);
+      setPermissions([]);
+      setLoadingAccess(false);
+      return;
+    }
+
+    setPermissions(rolePermissions || []);
+    setLoadingAccess(false);
+  };
+
+  useEffect(() => {
+    getCurrentUserPermissions();
+
+    const handleStorageChange = () => {
+      getCurrentUserPermissions();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  const canView = (moduleKey: string) => {
+    if (moduleKey === "always_allow") return true;
+
+    return permissions.some(
+      (permission) =>
+        permission.module_key === moduleKey && permission.can_view === true
+    );
+  };
+
   const isItemActive = (href: string) => {
     if (href === "/finance") return pathname === "/finance";
     if (href === "/settings") return pathname === "/settings";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  const filterSectionItems = (section: any) => {
+    if (section.href) return [];
+
+    return section.items.filter((item: any) => canView(item.moduleKey));
+  };
+
+  const visibleSections = menuSections
+    .map((section: any) => {
+      if (section.href) {
+        return canView(section.moduleKey) ? section : null;
+      }
+
+      const visibleItems = filterSectionItems(section);
+
+      if (visibleItems.length === 0) return null;
+
+      return {
+        ...section,
+        items: visibleItems,
+      };
+    })
+    .filter(Boolean);
 
   const isSectionActive = (section: any) => {
     if (section.href) return isItemActive(section.href);
@@ -110,88 +211,100 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="sticky top-0 z-50 h-screen w-72 shrink-0 border-r border-slate-800 bg-slate-950 p-5 text-white">
+    <aside className="sticky top-0 z-[9999] h-screen w-72 shrink-0 border-r border-slate-800 bg-slate-950 p-5 text-white">
       <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg shadow-black/20">
         <p className="text-lg font-black text-amber-400">● OPSCORE</p>
         <p className="mt-1 text-xs text-slate-500">Hotel Operations System</p>
       </div>
 
-      <nav className="space-y-2">
-        {menuSections.map((section) => {
-          const Icon = section.icon;
-          const active = isSectionActive(section);
+      {loadingAccess ? (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">
+          Loading access...
+        </div>
+      ) : (
+        <nav className="space-y-2">
+          {visibleSections.map((section: any) => {
+            const Icon = section.icon;
+            const active = isSectionActive(section);
 
-          if (section.href) {
+            if (section.href) {
+              return (
+                <Link
+                  key={section.title}
+                  href={section.href}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                    active
+                      ? "bg-slate-900 text-amber-400"
+                      : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  }`}
+                >
+                  <Icon size={17} />
+                  <span className="flex-1">{section.title}</span>
+                </Link>
+              );
+            }
+
             return (
-              <Link
-                key={section.title}
-                href={section.href}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                  active
-                    ? "bg-slate-900 text-amber-400"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-white"
-                }`}
-              >
-                <Icon size={17} />
-                <span className="flex-1">{section.title}</span>
-              </Link>
-            );
-          }
+              <div key={section.title} className="group">
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+                    active
+                      ? "bg-slate-900 text-amber-400"
+                      : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  }`}
+                >
+                  <Icon size={17} />
+                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                  <ChevronRight size={15} className="opacity-50" />
+                </button>
 
-          return (
-            <div key={section.title} className="group relative">
-              <button
-                type="button"
-                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
-                  active
-                    ? "bg-slate-900 text-amber-400"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-white"
-                }`}
-              >
-                <Icon size={17} />
-                <span className="min-w-0 flex-1 truncate">{section.title}</span>
-                <ChevronRight size={15} className="opacity-50" />
-              </button>
+                <div className="invisible fixed left-[300px] top-24 z-[99999] max-h-[80vh] w-80 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-3 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
+                  <div className="mb-3 border-b border-slate-800 px-3 pb-3">
+                    <p className="text-sm font-black text-amber-400">
+                      {section.title}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Select {section.title.toLowerCase()} module
+                    </p>
+                  </div>
 
-              <div className="invisible absolute left-[calc(100%+12px)] top-0 z-[999] max-h-[80vh] w-80 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-3 opacity-0 shadow-2xl shadow-black/50 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
-                <div className="mb-3 border-b border-slate-800 px-3 pb-3">
-                  <p className="text-sm font-black text-amber-400">
-                    {section.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Select {section.title.toLowerCase()} module
-                  </p>
-                </div>
+                  <div className="space-y-1">
+                    {section.items.map((item: any) => {
+                      const ItemIcon = item.icon;
+                      const itemActive = isItemActive(item.href);
 
-                <div className="space-y-1">
-                  {section.items.map((item: any) => {
-                    const ItemIcon = item.icon;
-                    const itemActive = isItemActive(item.href);
-
-                    return (
-                      <Link
-                        key={`${section.title}-${item.href}-${item.label}`}
-                        href={item.href}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-                          itemActive
-                            ? "bg-slate-900 font-semibold text-amber-400"
-                            : "text-slate-400 hover:bg-slate-900 hover:text-white"
-                        }`}
-                      >
-                        <ItemIcon size={15} />
-                        <span className="min-w-0 flex-1 truncate">
-                          {item.label}
-                        </span>
-                        <ChevronRight size={13} className="opacity-30" />
-                      </Link>
-                    );
-                  })}
+                      return (
+                        <Link
+                          key={`${section.title}-${item.href}-${item.label}`}
+                          href={item.href}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                            itemActive
+                              ? "bg-slate-900 font-semibold text-amber-400"
+                              : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                          }`}
+                        >
+                          <ItemIcon size={15} />
+                          <span className="min-w-0 flex-1 truncate">
+                            {item.label}
+                          </span>
+                          <ChevronRight size={13} className="opacity-30" />
+                        </Link>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
+            );
+          })}
+
+          {visibleSections.length === 0 && (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+              No access assigned. Go to Current User or assign a role.
             </div>
-          );
-        })}
-      </nav>
+          )}
+        </nav>
+      )}
     </aside>
   );
 }
