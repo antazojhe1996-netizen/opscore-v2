@@ -426,21 +426,43 @@ await logActivity(
 alert("Permissions saved.");
 };
 
-  const assignEmployeeRole = async (employeeId: string, roleId: string) => {
-    const { error } = await supabase
-      .from("employees")
-      .update({
-        system_role_id: roleId || null,
-      })
-      .eq("id", employeeId);
+const assignEmployeeRole = async (
+  employeeId: string,
+  roleId: string
+) => {
+  const employee = employees.find(
+    (emp) => emp.id === employeeId
+  );
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+  const role = roles.find(
+    (r) => r.id === roleId
+  );
 
-    await getEmployees();
-  };
+  const { error } = await supabase
+    .from("employees")
+    .update({
+      system_role_id: roleId || null,
+    })
+    .eq("id", employeeId);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await getEmployees();
+
+  await logActivity(
+    "User Roles",
+    "Assign Employee Role",
+    `${employee?.first_name || ""} ${
+      employee?.last_name || ""
+    } assigned to ${
+      role?.role_name || "No Access"
+    }`,
+    "Current User"
+  );
+};
 
   useEffect(() => {
     refreshData();
