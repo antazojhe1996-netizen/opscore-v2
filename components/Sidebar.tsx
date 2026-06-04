@@ -35,7 +35,7 @@ const menuSections = [
       { label: "Scheduling", href: "/scheduling", icon: CalendarDays },
       { label: "Leave Management", href: "/leave-management", icon: ClipboardList },
       { label: "Forecasting", href: "/forecasting", icon: BarChart3 },
-      { label: "Workforce Settings", href: "/settings/workforce", icon: Settings },
+      { label: "Workforce Settings", href: "/settings", icon: Settings },
     ],
   },
   {
@@ -45,7 +45,6 @@ const menuSections = [
       { label: "Hotel Room Sales", href: "/finance/room-sales", icon: Hotel },
       { label: "Apartment Sales", href: "/finance/apartment", icon: Building2 },
       { label: "Restaurant / Sports Bar Sales", href: "/finance/restaurant-import", icon: Receipt },
-      { label: "Sales Audit", href: "/finance/audit", icon: ClipboardList },
       { label: "Sales Settings", href: "/finance/settings", icon: Settings },
     ],
   },
@@ -54,12 +53,12 @@ const menuSections = [
     icon: Wallet,
     items: [
       { label: "Finance Dashboard", href: "/finance", icon: BarChart3 },
-      { label: "Expenses", href: "/expenses", icon: Receipt },
+      { label: "Expenses", href: "/finance/expenses", icon: Receipt },
       { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList },
-      { label: "Billing", href: "/finance/billing", icon: FileText },
-      { label: "Payment", href: "/finance/payment", icon: Wallet },
-      { label: "Cash Management", href: "/cash-management", icon: Wallet },
-      { label: "Finance Settings", href: "/settings/finance", icon: Settings },
+      { label: "Billing", href: "/finance/bills", icon: FileText },
+      { label: "Payment", href: "/finance/bills", icon: Wallet },
+      { label: "Cash Management", href: "/finance/cash-management", icon: Wallet },
+      { label: "Finance Settings", href: "/finance/settings", icon: Settings },
     ],
   },
   {
@@ -71,7 +70,8 @@ const menuSections = [
       { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet },
       { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt },
       { label: "Release History", href: "/finance/payroll/history", icon: BarChart3 },
-      { label: "Payroll Settings", href: "/settings/payroll", icon: Settings },
+      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings },
+      {label: "Snapshot History",href: "/finance/payroll/snapshots",icon: Database,},
     ],
   },
   {
@@ -79,7 +79,17 @@ const menuSections = [
     icon: Settings,
     items: [
       { label: "General Settings", href: "/settings", icon: Settings },
-      { label: "Activity Logs", href: "/activity-logs", icon: ClipboardList },
+      { label: "Departments", href: "/settings/departments", icon: Users },
+      { label: "Employment Status", href: "/settings/employment-status", icon: ClipboardList },
+      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList },
+      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3 },
+      { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3 },
+      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList },
+      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList },
+      { label: "Positions", href: "/settings/positions", icon: Users },
+      { label: "Property", href: "/settings/property", icon: Hotel },
+      { label: "Shifts", href: "/settings/shifts", icon: Clock },
+      { label: "Activity Logs", href: "/settings", icon: ClipboardList },
       { label: "Backup & Restore", href: "/backup", icon: Database },
     ],
   },
@@ -90,6 +100,7 @@ export default function Sidebar() {
 
   const isItemActive = (href: string) => {
     if (href === "/finance") return pathname === "/finance";
+    if (href === "/settings") return pathname === "/settings";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -142,7 +153,7 @@ export default function Sidebar() {
                 <ChevronRight size={15} className="opacity-50" />
               </button>
 
-              <div className="invisible absolute left-[calc(100%+12px)] top-0 z-[999] w-80 translate-x-2 rounded-2xl border border-slate-800 bg-slate-950 p-3 opacity-0 shadow-2xl shadow-black/50 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
+              <div className="invisible absolute left-[calc(100%+12px)] top-0 z-[999] max-h-[80vh] w-80 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-3 opacity-0 shadow-2xl shadow-black/50 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
                 <div className="mb-3 border-b border-slate-800 px-3 pb-3">
                   <p className="text-sm font-black text-amber-400">
                     {section.title}
@@ -159,7 +170,7 @@ export default function Sidebar() {
 
                     return (
                       <Link
-                        key={item.href}
+                        key={`${section.title}-${item.href}-${item.label}`}
                         href={item.href}
                         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                           itemActive

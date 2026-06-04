@@ -407,6 +407,7 @@ export default function PayrollRegisterPage() {
         reopened_at: new Date().toISOString(),
         attendance_locked: false,
         attendance_locked_at: null,
+        snapshot_created_at: null,
       })
       .eq("id", selectedPeriodId);
 
@@ -1050,7 +1051,78 @@ export default function PayrollRegisterPage() {
     setPayslipAdjustments([...employeeAdjustments, ...balanceAdjustments]);
   };
 
-  const releasePayroll = async (mode: "all" | "selected") => {
+  
+  const createPayrollSnapshots = async (
+    targetRecords: any[],
+    snapshotType = "Manager Approval Snapshot"
+  ) => {
+    if (!selectedPeriodId || targetRecords.length === 0) return true;
+
+    const now = new Date().toISOString();
+
+    const snapshotRows = targetRecords.map((record) => ({
+      payroll_record_id: record.id,
+      payroll_period_id: selectedPeriodId,
+      period_id: selectedPeriodId,
+      employee_id: record.employee_id,
+
+      employee_no: record.employee_no,
+      employee_name: record.employee_name,
+      department: record.department,
+      position: record.position,
+      period_label: record.period_label || selectedPeriod?.period_name || "Payroll Period",
+
+      scheduled_days: Number(record.scheduled_days || 0),
+      rest_days: Number(record.rest_days || 0),
+      days_worked: Number(record.days_worked || 0),
+      absent_days: Number(record.absent_days || 0),
+      late_minutes: Number(record.late_minutes || 0),
+      undertime_minutes: Number(record.undertime_minutes || 0),
+      ot_minutes: Number(record.ot_minutes || 0),
+
+      basic_pay: Number(record.basic_pay || 0),
+      holiday_pay: Number(record.holiday_pay || 0),
+      ot_pay: Number(record.ot_pay || 0),
+      allowance: Number(record.allowance || 0),
+
+      late_deduction: Number(record.late_deduction || 0),
+      undertime_deduction: Number(record.undertime_deduction || 0),
+      absent_deduction: Number(record.absent_deduction || 0),
+      manual_deduction: Number(record.manual_deduction || 0),
+      balance_deduction: Number(record.balance_deduction || 0),
+
+      sss_deduction: Number(record.sss_deduction || 0),
+      philhealth_deduction: Number(record.philhealth_deduction || 0),
+      pagibig_deduction: Number(record.pagibig_deduction || 0),
+      tax_deduction: Number(record.tax_deduction || 0),
+
+      gross_pay: Number(record.gross_pay || 0),
+      total_deductions: getDisplayedTotalDeductions(record),
+      net_pay: getDisplayedNetPay(record),
+      release_amount: getDisplayedReleaseAmount(record),
+      carry_forward_amount: getDisplayedCarryForwardAmount(record),
+
+      record_status: record.status || "Draft",
+      snapshot_type: snapshotType,
+      snapshot_created_at: now,
+    }));
+
+    const { error } = await supabase
+      .from("payroll_snapshots")
+      .upsert(snapshotRows, {
+        onConflict: "payroll_record_id",
+      });
+
+    if (error) {
+      console.log("CREATE PAYROLL SNAPSHOT ERROR:", error);
+      alert(`Failed to create payroll snapshot.\n\n${error.message}`);
+      return false;
+    }
+
+    return true;
+  };
+
+const releasePayroll = async (mode: "all" | "selected") => {
     if (!selectedPeriodId || records.length === 0) {
       alert("Select a payroll period with generated records first.");
       return;
@@ -1086,6 +1158,16 @@ export default function PayrollRegisterPage() {
     setIsSaving(true);
 
     const now = new Date().toISOString();
+
+    const snapshotOk = await createPayrollSnapshots(
+      targetRecords,
+      "Release Snapshot"
+    );
+
+    if (!snapshotOk) {
+      setIsSaving(false);
+      return;
+    }
 
     const historyRows = targetRecords.map((record) => ({
       payroll_record_id: record.id,
@@ -1183,14 +1265,17 @@ export default function PayrollRegisterPage() {
     }
 
     const targetIds = targetRecords.map((record) => record.id);
+
     const targetNet = targetRecords.reduce(
       (sum, record) => sum + getDisplayedNetPay(record),
       0
     );
+
     const targetGross = targetRecords.reduce(
       (sum, record) => sum + Number(record.gross_pay || 0),
       0
     );
+
     const targetDeductions = targetRecords.reduce(
       (sum, record) => sum + getDisplayedTotalDeductions(record),
       0
@@ -1212,8 +1297,10 @@ Net Pay: ${formatMoney(targetNet)}
 
 High Alerts: ${targetHighAlerts.length}
 
-Status will become: For Approval
-Attendance will be locked for this cutoff.`;
+This will:
+1. Create a permanent payroll snapshot
+2. Lock attendance for this cutoff
+3. Send payroll records to Payroll Manager`;
 
     const confirmed = confirm(confirmMessage);
     if (!confirmed) return;
@@ -1226,16 +1313,33 @@ Attendance will be locked for this cutoff.`;
       if (!proceed) return;
     }
 
+    setIsSaving(true);
+
+    const now = new Date().toISOString();
+
+    const snapshotOk = await createPayrollSnapshots(
+      targetRecords,
+      "Manager Approval Snapshot"
+    );
+
+    if (!snapshotOk) {
+      setIsSaving(false);
+      return;
+    }
+
     const { error: periodError } = await supabase
       .from("payroll_periods")
       .update({
         status: mode === "all" ? "Approved" : "Partially Approved",
         attendance_locked: true,
-        attendance_locked_at: new Date().toISOString(),
+        attendance_locked_at: now,
+        snapshot_created_at: now,
+        needs_regeneration: false,
       })
       .eq("id", selectedPeriodId);
 
     if (periodError) {
+      setIsSaving(false);
       alert("Failed to update payroll period.");
       return console.log("APPROVE PERIOD ERROR:", periodError.message);
     }
@@ -1245,20 +1349,24 @@ Attendance will be locked for this cutoff.`;
       .update({
         status: "For Approval",
         period_label: selectedPeriod?.period_name || "Payroll Period",
+        snapshot_created_at: now,
       })
       .in("id", targetIds);
 
     if (recordsError) {
+      setIsSaving(false);
       alert("Records failed to send to Payroll Manager.");
       return console.log("APPROVE RECORDS ERROR:", recordsError.message);
     }
+
+    setIsSaving(false);
 
     await getPeriods();
     await getRecords(selectedPeriodId);
     await getEmployeeBalances();
     setSelectedRecordIds([]);
 
-    alert("Payroll sent to Payroll Manager. Attendance is now locked for this cutoff.");
+    alert("Payroll snapshot created, attendance locked, and payroll sent to Payroll Manager.");
   };
 
   useEffect(() => {
