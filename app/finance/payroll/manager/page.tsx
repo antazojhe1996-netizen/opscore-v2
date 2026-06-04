@@ -502,6 +502,162 @@ This will mark payroll as Released, create a Payroll expense for actual release 
     0
   );
 
+
+  /// CALCULATIONS - PAYROLL SUMMARY / COMPARISON
+  const getRecordOtPay = (record: any) =>
+    Number(record.ot_pay || record.overtime_pay || record.ot_amount || 0);
+
+  const getRecordHolidayPay = (record: any) =>
+    Number(record.holiday_pay || record.holiday_amount || 0);
+
+  const getRecordAllowance = (record: any) =>
+    Number(record.allowance || record.allowances || record.bonus || record.incentive || 0);
+
+  const getRecordLateDeduction = (record: any) =>
+    Number(record.late_deduction || record.late_amount || 0);
+
+  const getRecordUndertimeDeduction = (record: any) =>
+    Number(record.undertime_deduction || record.undertime_amount || 0);
+
+  const getRecordBalanceDeduction = (record: any) =>
+    Number(record.balance_deduction || record.cash_advance_deduction || 0);
+
+  const getRecordBasicPay = (record: any) =>
+    Number(record.basic_pay || 0);
+
+  const getPeriodSortDate = (records: any[]) => {
+    const dates = records
+      .map((record) =>
+        String(
+          record.released_at ||
+            record.snapshot_created_at ||
+            record.created_at ||
+            record.updated_at ||
+            ""
+        ).slice(0, 10)
+      )
+      .filter(Boolean)
+      .sort();
+
+    return dates[dates.length - 1] || "";
+  };
+
+  const summarizePayrollPeriod = (periodLabel: string, rows: any[]) => {
+    const gross = rows.reduce((sum, record) => sum + getRecordGross(record), 0);
+    const deductions = rows.reduce((sum, record) => sum + getRecordDeduction(record), 0);
+    const release = rows.reduce((sum, record) => sum + getReleaseAmount(record), 0);
+    const carryForward = rows.reduce(
+      (sum, record) => sum + getCarryForwardAmount(record),
+      0
+    );
+    const ot = rows.reduce((sum, record) => sum + getRecordOtPay(record), 0);
+    const holiday = rows.reduce(
+      (sum, record) => sum + getRecordHolidayPay(record),
+      0
+    );
+    const allowance = rows.reduce(
+      (sum, record) => sum + getRecordAllowance(record),
+      0
+    );
+    const late = rows.reduce(
+      (sum, record) => sum + getRecordLateDeduction(record),
+      0
+    );
+    const undertime = rows.reduce(
+      (sum, record) => sum + getRecordUndertimeDeduction(record),
+      0
+    );
+    const balanceDeduction = rows.reduce(
+      (sum, record) => sum + getRecordBalanceDeduction(record),
+      0
+    );
+    const basicPay = rows.reduce((sum, record) => sum + getRecordBasicPay(record), 0);
+
+    return {
+      periodLabel,
+      rows,
+      employees: new Set(rows.map((record) => String(record.employee_id || record.employee_no || record.id))).size,
+      gross,
+      deductions,
+      release,
+      carryForward,
+      basicPay,
+      ot,
+      holiday,
+      allowance,
+      late,
+      undertime,
+      balanceDeduction,
+      sortDate: getPeriodSortDate(rows),
+    };
+  };
+
+  const payrollPeriodSummaries = Object.values(
+    payrollRecords.reduce((acc: Record<string, any[]>, record) => {
+      const label = getPeriodLabel(record);
+
+      if (!acc[label]) acc[label] = [];
+      acc[label].push(record);
+
+      return acc;
+    }, {})
+  )
+    .map((rows: any[]) => summarizePayrollPeriod(getPeriodLabel(rows[0]), rows))
+    .sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+
+  const currentPayrollSummary =
+    payrollPeriodSummaries.find((item) => item.periodLabel === periodFilter) ||
+    payrollPeriodSummaries[0] ||
+    summarizePayrollPeriod("No payroll period", []);
+
+  const previousPayrollSummary =
+    payrollPeriodSummaries.find(
+      (item) => item.periodLabel !== currentPayrollSummary.periodLabel
+    ) || summarizePayrollPeriod("No previous payroll", []);
+
+  const payrollDifference =
+    currentPayrollSummary.release - previousPayrollSummary.release;
+
+  const payrollDifferencePercent =
+    previousPayrollSummary.release > 0
+      ? Math.round((payrollDifference / previousPayrollSummary.release) * 1000) / 10
+      : currentPayrollSummary.release > 0
+      ? 100
+      : 0;
+
+  const payrollComparisonStatus =
+    payrollDifference > 0
+      ? `Increased by ${formatPeso(payrollDifference)} (${payrollDifferencePercent}%)`
+      : payrollDifference < 0
+      ? `Decreased by ${formatPeso(Math.abs(payrollDifference))} (${Math.abs(payrollDifferencePercent)}%)`
+      : "No change";
+
+  const payrollIncreaseDrivers = [
+    {
+      label: "Basic Pay",
+      difference: currentPayrollSummary.basicPay - previousPayrollSummary.basicPay,
+    },
+    {
+      label: "OT Pay",
+      difference: currentPayrollSummary.ot - previousPayrollSummary.ot,
+    },
+    {
+      label: "Holiday Pay",
+      difference: currentPayrollSummary.holiday - previousPayrollSummary.holiday,
+    },
+    {
+      label: "Allowances / Bonus",
+      difference: currentPayrollSummary.allowance - previousPayrollSummary.allowance,
+    },
+    {
+      label: "Cash Advance / Balances",
+      difference:
+        currentPayrollSummary.balanceDeduction - previousPayrollSummary.balanceDeduction,
+    },
+  ]
+    .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))
+    .slice(0, 4);
+
   const aiAlerts = [
     ...(pendingAdjustments.length > 0
       ? [`${pendingAdjustments.length} pending adjustment(s) still need Register approval before release.`]
@@ -578,6 +734,136 @@ This will mark payroll as Released, create a Payroll expense for actual release 
           <KpiCard icon={<AlertTriangle size={22} />} title="Pending Register Approval" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
           <KpiCard icon={<Brain size={22} />} title="Carry Forward Employees" value={negativePayroll.length} danger={negativePayroll.length > 0} />
           <KpiCard icon={<CheckCircle2 size={22} />} title="Released Payroll" value={releasedPayroll.length} success />
+        </section>
+
+
+
+        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h2 className="text-xl font-black">Payroll Summary Comparison</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Compares the selected/latest payroll period against the previous payroll period.
+                </p>
+              </div>
+
+              <div
+                className={`rounded-xl border px-4 py-3 text-sm font-black ${
+                  payrollDifference > 0
+                    ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+                    : payrollDifference < 0
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    : "border-slate-700 bg-slate-950 text-slate-300"
+                }`}
+              >
+                {payrollComparisonStatus}
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <MiniStat
+                title="Current Payroll"
+                value={formatPeso(currentPayrollSummary.release)}
+                success={currentPayrollSummary.release > 0}
+              />
+              <MiniStat
+                title="Previous Payroll"
+                value={formatPeso(previousPayrollSummary.release)}
+              />
+              <MiniStat
+                title="Difference"
+                value={`${payrollDifference >= 0 ? "+" : ""}${formatPeso(
+                  payrollDifference
+                )}`}
+                danger={payrollDifference > 0}
+                success={payrollDifference < 0}
+              />
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <PayrollComparisonCard
+                title="Current Breakdown"
+                period={currentPayrollSummary.periodLabel}
+                rows={[
+                  ["Employees", currentPayrollSummary.employees],
+                  ["Gross Pay", formatPeso(currentPayrollSummary.gross)],
+                  ["Basic Pay", formatPeso(currentPayrollSummary.basicPay)],
+                  ["OT Pay", formatPeso(currentPayrollSummary.ot)],
+                  ["Holiday Pay", formatPeso(currentPayrollSummary.holiday)],
+                  ["Allowances", formatPeso(currentPayrollSummary.allowance)],
+                  ["Deductions", formatPeso(currentPayrollSummary.deductions)],
+                  ["Cash Advance / Balances", formatPeso(currentPayrollSummary.balanceDeduction)],
+                  ["Release Amount", formatPeso(currentPayrollSummary.release)],
+                  ["Carry Forward", formatPeso(currentPayrollSummary.carryForward)],
+                ]}
+              />
+
+              <PayrollComparisonCard
+                title="Previous Breakdown"
+                period={previousPayrollSummary.periodLabel}
+                rows={[
+                  ["Employees", previousPayrollSummary.employees],
+                  ["Gross Pay", formatPeso(previousPayrollSummary.gross)],
+                  ["Basic Pay", formatPeso(previousPayrollSummary.basicPay)],
+                  ["OT Pay", formatPeso(previousPayrollSummary.ot)],
+                  ["Holiday Pay", formatPeso(previousPayrollSummary.holiday)],
+                  ["Allowances", formatPeso(previousPayrollSummary.allowance)],
+                  ["Deductions", formatPeso(previousPayrollSummary.deductions)],
+                  ["Cash Advance / Balances", formatPeso(previousPayrollSummary.balanceDeduction)],
+                  ["Release Amount", formatPeso(previousPayrollSummary.release)],
+                  ["Carry Forward", formatPeso(previousPayrollSummary.carryForward)],
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6 xl:col-span-2">
+            <h2 className="flex items-center gap-2 text-xl font-black text-yellow-300">
+              <Brain size={22} /> Payroll Insight
+            </h2>
+
+            <div className="mt-4 rounded-xl bg-slate-950/70 p-4">
+              <p className="text-sm font-bold text-white">
+                {currentPayrollSummary.periodLabel}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Compared with {previousPayrollSummary.periodLabel}
+              </p>
+              <p className="mt-3 text-sm text-yellow-100">
+                Payroll {payrollComparisonStatus.toLowerCase()}.
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <p className="text-sm font-black text-white">Main movement drivers</p>
+              {payrollIncreaseDrivers.map((driver) => (
+                <div
+                  key={driver.label}
+                  className="flex items-center justify-between rounded-xl bg-slate-950 px-4 py-3 text-sm"
+                >
+                  <span className="text-slate-300">{driver.label}</span>
+                  <span
+                    className={`font-black ${
+                      driver.difference > 0
+                        ? "text-red-300"
+                        : driver.difference < 0
+                        ? "text-emerald-300"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {driver.difference >= 0 ? "+" : ""}
+                    {formatPeso(driver.difference)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 text-xs leading-5 text-slate-300">
+              Use this summary before releasing payroll. If payroll increased, check OT,
+              holiday pay, allowances, or headcount before approval.
+            </div>
+          </div>
         </section>
 
         <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
@@ -950,6 +1236,28 @@ This will mark payroll as Released, create a Payroll expense for actual release 
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+
+function PayrollComparisonCard({ title, period, rows }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+      <p className="text-sm font-black text-white">{title}</p>
+      <p className="mt-1 text-xs text-slate-500">{period}</p>
+
+      <div className="mt-4 space-y-2">
+        {rows.map(([label, value]: any[]) => (
+          <div
+            key={label}
+            className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm"
+          >
+            <span className="text-slate-400">{label}</span>
+            <span className="font-black text-white">{value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
