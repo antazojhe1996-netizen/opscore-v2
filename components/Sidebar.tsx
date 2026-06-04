@@ -42,11 +42,11 @@ const menuSections = [
     title: "Sales",
     icon: Hotel,
     items: [
-      { label: "Hotel Room Sales", href: "/sales/hotel-rooms", icon: Hotel },
-      { label: "Apartment Sales", href: "/sales/apartments", icon: Building2 },
-      { label: "Restaurant / Sports Bar Sales", href: "/sales/restaurant", icon: Receipt },
-      { label: "Sales Audit", href: "/sales/audit", icon: ClipboardList },
-      { label: "Sales Settings", href: "/settings/sales", icon: Settings },
+      { label: "Hotel Room Sales", href: "/finance/room-sales", icon: Hotel },
+      { label: "Apartment Sales", href: "/finance/apartment", icon: Building2 },
+      { label: "Restaurant / Sports Bar Sales", href: "/finance/restaurant-import", icon: Receipt },
+      { label: "Sales Audit", href: "/finance/audit", icon: ClipboardList },
+      { label: "Sales Settings", href: "/finance/settings", icon: Settings },
     ],
   },
   {
@@ -88,17 +88,15 @@ const menuSections = [
 export default function Sidebar() {
   const pathname = usePathname();
 
+  const isItemActive = (href: string) => {
+    if (href === "/finance") return pathname === "/finance";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   const isSectionActive = (section: any) => {
-  if (section.href) return pathname === section.href;
-
-  if (section.title === "Finance" && pathname.startsWith("/finance/payroll")) {
-    return false;
-  }
-
-  return section.items.some(
-    (item: any) => pathname === item.href || pathname.startsWith(`${item.href}/`)
-  );
-};
+    if (section.href) return isItemActive(section.href);
+    return section.items.some((item: any) => isItemActive(item.href));
+  };
 
   return (
     <aside className="sticky top-0 z-50 h-screen w-72 shrink-0 border-r border-slate-800 bg-slate-950 p-5 text-white">
@@ -117,10 +115,10 @@ export default function Sidebar() {
               <Link
                 key={section.title}
                 href={section.href}
-                className={`flex items-center gap-3 rounded-xl border-l-4 px-4 py-3 text-sm font-bold transition ${
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                   active
-                    ? "border-amber-400 bg-amber-400/10 text-amber-400"
-                    : "border-transparent text-slate-400 hover:bg-slate-900 hover:text-white"
+                    ? "bg-slate-900 text-amber-400"
+                    : "text-slate-400 hover:bg-slate-900 hover:text-white"
                 }`}
               >
                 <Icon size={17} />
@@ -133,15 +131,15 @@ export default function Sidebar() {
             <div key={section.title} className="group relative">
               <button
                 type="button"
-                className={`flex w-full items-center gap-3 rounded-xl border-l-4 px-4 py-3 text-left text-sm font-bold transition ${
+                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
                   active
-                    ? "border-amber-400 bg-amber-400/10 text-amber-400"
-                    : "border-transparent text-slate-400 hover:bg-slate-900 hover:text-white"
+                    ? "bg-slate-900 text-amber-400"
+                    : "text-slate-400 hover:bg-slate-900 hover:text-white"
                 }`}
               >
                 <Icon size={17} />
                 <span className="min-w-0 flex-1 truncate">{section.title}</span>
-                <ChevronRight size={15} className="opacity-60" />
+                <ChevronRight size={15} className="opacity-50" />
               </button>
 
               <div className="invisible absolute left-[calc(100%+12px)] top-0 z-[999] w-80 translate-x-2 rounded-2xl border border-slate-800 bg-slate-950 p-3 opacity-0 shadow-2xl shadow-black/50 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
@@ -157,19 +155,16 @@ export default function Sidebar() {
                 <div className="space-y-1">
                   {section.items.map((item: any) => {
                     const ItemIcon = item.icon;
-                    const itemActive =
-  item.href === "/finance"
-    ? pathname === "/finance"
-    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const itemActive = isItemActive(item.href);
 
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-sm transition ${
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                           itemActive
-                            ? "border-amber-400 bg-amber-400/10 font-bold text-amber-400"
-                            : "border-transparent text-slate-400 hover:bg-slate-900 hover:text-white"
+                            ? "bg-slate-900 font-semibold text-amber-400"
+                            : "text-slate-400 hover:bg-slate-900 hover:text-white"
                         }`}
                       >
                         <ItemIcon size={15} />
