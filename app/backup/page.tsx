@@ -290,7 +290,7 @@ const createAuditLog = async ({
 }) => {
   try {
     await supabase.from("audit_logs").insert({
-      module: "Backup Center",
+      module: "Backup Center", // V1 Hardening Complete
       action,
       description,
       severity,
@@ -374,7 +374,7 @@ const exportTable = async (tableName: string, fileName: string) => {
   downloadTextFile(csv, safeFileName(fileName), "text/csv");
 
   await createAuditLog({
-    action: "EXPORT_TABLE",
+    action: "BACKUP_DOWNLOAD",
     description: `Exported ${tableName} backup.`,
     severity: "info",
     newValue: {
@@ -434,7 +434,7 @@ const exportBackupGroup = async (groupName: BackupItem["group"]) => {
   );
 
   await createAuditLog({
-    action: "EXPORT_GROUP_BACKUP",
+    action: "CREATE_BACKUP",
     description: `Exported ${groupName} backup group.`,
     severity: "warning",
     newValue: {
@@ -500,7 +500,7 @@ const exportFullBackup = async () => {
   );
 
   await createAuditLog({
-    action: "EXPORT_FULL_BACKUP",
+    action: "EXPORT_BACKUP",
     description: "Exported full OPSCORE backup.",
     severity: "warning",
     newValue: {

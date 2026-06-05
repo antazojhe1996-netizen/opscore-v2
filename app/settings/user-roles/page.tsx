@@ -34,6 +34,7 @@ const modules = [
   { key: "payroll_snapshots", label: "Payroll Snapshots" },
   { key: "release_history", label: "Release History" },
   { key: "settings", label: "Settings" },
+  { key: "current_user", label: "Current User" },
   { key: "user_roles", label: "User Roles" },
   { key: "backup_restore", label: "Backup & Restore" },
   { key: "activity_logs", label: "Activity Logs" },
@@ -48,7 +49,10 @@ const emptyPermission = {
   can_release: false,
 };
 
+type AuditSeverity = "info" | "warning" | "critical";
+
 export default function UserRolesPage() {
+  /// STATES
   const [roles, setRoles] = useState<any[]>([]);
   const [permissions, setPermissions] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -57,6 +61,7 @@ export default function UserRolesPage() {
   const [newRoleDescription, setNewRoleDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  /// CALCULATIONS
   const selectedRole = roles.find((role) => role.id === selectedRoleId);
 
   const rolePermissions = useMemo(() => {
@@ -83,25 +88,76 @@ export default function UserRolesPage() {
     (employee) => employee.system_role_id === selectedRoleId
   );
 
-  const createAuditLog = async (
-    action: string,
-    description: string,
-    severity: "info" | "warning" | "critical" = "info",
-    oldValue?: any,
-    newValue?: any
-  ) => {
+  /// FUNCTIONS
+  const getCurrentUser = async () => {
+    const localUser =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_user")
+        : null;
+
+    if (localUser) {
+      try {
+        const parsedUser = JSON.parse(localUser);
+
+        return {
+          id: parsedUser?.id || null,
+          name:
+            parsedUser?.name ||
+            parsedUser?.full_name ||
+            parsedUser?.user_name ||
+            parsedUser?.email ||
+            "Unknown User",
+          email: parsedUser?.email || null,
+        };
+      } catch {
+        // Continue to Supabase auth fallback.
+      }
+    }
+
+    const { data } = await supabase.auth.getUser();
+
+    return {
+      id: data?.user?.id || null,
+      name:
+        data?.user?.user_metadata?.full_name ||
+        data?.user?.email ||
+        "Unknown User",
+      email: data?.user?.email || null,
+    };
+  };
+
+  const createAuditLog = async ({
+    action,
+    description,
+    severity = "info",
+    recordId = null,
+    oldValue = null,
+    newValue = null,
+  }: {
+    action: string;
+    description: string;
+    severity?: AuditSeverity;
+    recordId?: string | null;
+    oldValue?: any;
+    newValue?: any;
+  }) => {
+    const currentUser = await getCurrentUser();
+
     const { error } = await supabase.from("audit_logs").insert({
-      module: "System Settings",
+      user_id: currentUser.id,
+      user_name: currentUser.name,
+      module: "User Roles",
       action,
       description,
       severity,
-      record_id: null,
-      old_value: oldValue || null,
-      new_value: newValue || null,
+      record_id: recordId,
+      old_value: oldValue,
+      new_value: newValue,
+      created_at: new Date().toISOString(),
     });
 
     if (error) {
-      console.log("USER ROLES AUDIT ERROR:", JSON.stringify(error, null, 2));
+      console.log("USER ROLES AUDIT ERROR:", error.message);
     }
   };
 
@@ -186,18 +242,14 @@ export default function UserRolesPage() {
 
     await refreshData();
 
-    await createAuditLog(
-      "CREATE_ROLE",
-      `Created system role: ${data.role_name}`,
-      "warning",
-      null,
-      {
-        id: data.id,
-        role_name: data.role_name,
-        description: data.description,
-        is_active: data.is_active,
-      }
-    );
+    await createAuditLog({
+      action: "CREATE_ROLE",
+      description: `Created system role: ${data.role_name}`,
+      severity: "warning",
+      recordId: data.id,
+      oldValue: null,
+      newValue: data,
+    });
 
     alert("Role created.");
   };
@@ -206,24 +258,25 @@ export default function UserRolesPage() {
     if (!selectedRoleId || !selectedRole) return;
 
     if (assignedEmployees.length > 0) {
-      await createAuditLog(
-        "DELETE_ROLE_BLOCKED",
-        `Blocked delete for role ${selectedRole.role_name} because employees are still assigned.`,
-        "warning",
-        {
+      await createAuditLog({
+        action: "DELETE_ROLE_BLOCKED",
+        description: `Blocked delete for role ${selectedRole.role_name} because employees are still assigned.`,
+        severity: "warning",
+        recordId: selectedRoleId,
+        oldValue: {
           role_id: selectedRoleId,
           role_name: selectedRole.role_name,
           assigned_employees: assignedEmployees.length,
         },
-        null
-      );
+        newValue: null,
+      });
 
       alert("Cannot delete role. Remove assigned employees first.");
       return;
     }
 
-    const roleName = selectedRole.role_name;
-    const confirmed = confirm(`Delete role "${roleName}"?`);
+    const roleSnapshot = selectedRole;
+    const confirmed = confirm(`Delete role "${roleSnapshot.role_name}"?`);
 
     if (!confirmed) return;
 
@@ -240,16 +293,14 @@ export default function UserRolesPage() {
     setSelectedRoleId("");
     await refreshData();
 
-    await createAuditLog(
-      "DELETE_ROLE",
-      `Deleted system role: ${roleName}`,
-      "critical",
-      {
-        role_id: selectedRoleId,
-        role_name: roleName,
-      },
-      null
-    );
+    await createAuditLog({
+      action: "DELETE_ROLE",
+      description: `Deleted system role: ${roleSnapshot.role_name}`,
+      severity: "critical",
+      recordId: roleSnapshot.id,
+      oldValue: roleSnapshot,
+      newValue: null,
+    });
 
     alert("Role deleted.");
   };
@@ -299,6 +350,10 @@ export default function UserRolesPage() {
       return;
     }
 
+    const oldPermissions = permissions.filter(
+      (permission) => permission.role_id === selectedRoleId
+    );
+
     const otherRolePermissions = permissions.filter(
       (permission) => permission.role_id !== selectedRoleId
     );
@@ -311,13 +366,23 @@ export default function UserRolesPage() {
 
     setPermissions([...otherRolePermissions, ...newRolePermissions]);
 
-    await createAuditLog(
-      "APPLY_PERMISSION_PRESET",
-      `Applied ${presetName} preset to ${selectedRole?.role_name || "selected role"}. Save is still required to persist changes.`,
-      presetName === "Clear All" ? "warning" : "info",
-      { role_id: selectedRoleId, role_name: selectedRole?.role_name },
-      { preset: presetName, permissions: newRolePermissions }
-    );
+    await createAuditLog({
+      action: "APPLY_PERMISSION_PRESET",
+      description: `Applied ${presetName} preset to ${
+        selectedRole?.role_name || "selected role"
+      }. Save is still required to persist changes.`,
+      severity: presetName === "Clear All" ? "warning" : "info",
+      recordId: selectedRoleId,
+      oldValue: {
+        role_id: selectedRoleId,
+        role_name: selectedRole?.role_name,
+        permissions: oldPermissions,
+      },
+      newValue: {
+        preset: presetName,
+        permissions: newRolePermissions,
+      },
+    });
   };
 
   const grantFullAccess = async () => {
@@ -383,6 +448,7 @@ export default function UserRolesPage() {
       "scheduling",
       "leave_management",
       "forecasting",
+      "current_user",
     ];
 
     const allowedCreateEdit = ["employees", "scheduling", "leave_management"];
@@ -403,9 +469,14 @@ export default function UserRolesPage() {
       "restaurant_sales",
       "expenses",
       "cash_management",
+      "current_user",
     ];
 
-    const allowedCreateEdit = ["restaurant_sales", "expenses", "cash_management"];
+    const allowedCreateEdit = [
+      "restaurant_sales",
+      "expenses",
+      "cash_management",
+    ];
 
     await setRolePermissionsFromPreset("Cashier", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
@@ -433,6 +504,7 @@ export default function UserRolesPage() {
       "payroll_snapshots",
       "release_history",
       "activity_logs",
+      "current_user",
     ];
 
     const allowedApprove = ["leave_management", "expenses", "payroll_manager"];
@@ -452,6 +524,10 @@ export default function UserRolesPage() {
       alert("Select role first.");
       return;
     }
+
+    const oldRows = permissions.filter(
+      (permission) => permission.role_id === selectedRoleId
+    );
 
     const rows = modules.map((module) => ({
       role_id: selectedRoleId,
@@ -479,25 +555,32 @@ export default function UserRolesPage() {
 
     await getPermissions();
 
-    await createAuditLog(
-      "SAVE_PERMISSIONS",
-      `Saved permissions for ${selectedRole?.role_name || "selected role"}`,
-      "warning",
-      null,
-      {
+    await createAuditLog({
+      action: "SAVE_PERMISSIONS",
+      description: `Saved permissions for ${
+        selectedRole?.role_name || "selected role"
+      }`,
+      severity: "warning",
+      recordId: selectedRoleId,
+      oldValue: {
+        role_id: selectedRoleId,
+        role_name: selectedRole?.role_name,
+        permissions: oldRows,
+      },
+      newValue: {
         role_id: selectedRoleId,
         role_name: selectedRole?.role_name,
         permissions: rows,
-      }
-    );
+      },
+    });
 
     alert("Permissions saved.");
   };
 
   const assignEmployeeRole = async (employeeId: string, roleId: string) => {
     const employee = employees.find((emp) => emp.id === employeeId);
-    const oldRole = roles.find((r) => r.id === employee?.system_role_id);
-    const role = roles.find((r) => r.id === roleId);
+    const oldRole = roles.find((role) => role.id === employee?.system_role_id);
+    const role = roles.find((role) => role.id === roleId);
 
     const { error } = await supabase
       .from("employees")
@@ -513,31 +596,37 @@ export default function UserRolesPage() {
 
     await getEmployees();
 
-    await createAuditLog(
-      "ASSIGN_EMPLOYEE_ROLE",
-      `${employee?.first_name || ""} ${employee?.last_name || ""} assigned to ${
-        role?.role_name || "No Access"
-      }`,
-      "warning",
-      {
+    await createAuditLog({
+      action: "ASSIGN_EMPLOYEE_ROLE",
+      description: `${employee?.first_name || ""} ${
+        employee?.last_name || ""
+      } assigned to ${role?.role_name || "No Access"}`,
+      severity: "warning",
+      recordId: employeeId,
+      oldValue: {
         employee_id: employeeId,
-        employee_name: `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim(),
+        employee_name: `${employee?.first_name || ""} ${
+          employee?.last_name || ""
+        }`.trim(),
         role_id: employee?.system_role_id || null,
         role_name: oldRole?.role_name || "No Access",
       },
-      {
+      newValue: {
         employee_id: employeeId,
-        employee_name: `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim(),
+        employee_name: `${employee?.first_name || ""} ${
+          employee?.last_name || ""
+        }`.trim(),
         role_id: roleId || null,
         role_name: role?.role_name || "No Access",
-      }
-    );
+      },
+    });
   };
 
   useEffect(() => {
     refreshData();
   }, []);
 
+  /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
@@ -658,25 +747,53 @@ export default function UserRolesPage() {
               </p>
 
               <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={grantFullAccess} disabled={!selectedRoleId} className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50">
+                <button
+                  onClick={grantFullAccess}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
+                >
                   Full Access
                 </button>
-                <button onClick={grantViewOnly} disabled={!selectedRoleId} className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50">
+                <button
+                  onClick={grantViewOnly}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
+                >
                   View Only
                 </button>
-                <button onClick={applyManagerPreset} disabled={!selectedRoleId} className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
+                <button
+                  onClick={applyManagerPreset}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                >
                   Manager Preset
                 </button>
-                <button onClick={applyPayrollPreset} disabled={!selectedRoleId} className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50">
+                <button
+                  onClick={applyPayrollPreset}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
+                >
                   Payroll Preset
                 </button>
-                <button onClick={applyHRPreset} disabled={!selectedRoleId} className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
+                <button
+                  onClick={applyHRPreset}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                >
                   HR Preset
                 </button>
-                <button onClick={applyCashierPreset} disabled={!selectedRoleId} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
+                <button
+                  onClick={applyCashierPreset}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                >
                   Cashier Preset
                 </button>
-                <button onClick={clearAllPermissions} disabled={!selectedRoleId} className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">
+                <button
+                  onClick={clearAllPermissions}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                >
                   Clear All
                 </button>
               </div>
@@ -739,6 +856,12 @@ export default function UserRolesPage() {
               </tbody>
             </table>
           </div>
+
+          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+            Audit actions covered: CREATE_ROLE, DELETE_ROLE,
+            DELETE_ROLE_BLOCKED, APPLY_PERMISSION_PRESET, SAVE_PERMISSIONS,
+            ASSIGN_EMPLOYEE_ROLE.
+          </div>
         </section>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
@@ -788,7 +911,10 @@ export default function UserRolesPage() {
 
                 {employees.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
+                    <td
+                      colSpan={4}
+                      className="px-4 py-10 text-center text-slate-500"
+                    >
                       No employees found.
                     </td>
                   </tr>

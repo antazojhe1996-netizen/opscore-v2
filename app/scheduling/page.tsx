@@ -358,12 +358,62 @@ export default function SchedulingPage() {
     const confirmed = confirm("Publish this weekly schedule? This will lock editing.");
     if (!confirmed) return;
 
-    const { error } = await supabase.from("schedule_publications").insert({
-      period_start: visibleDays[0].key,
-      period_end: visibleDays[visibleDays.length - 1].key,
-      department: selectedDepartment,
-      status: "Published",
-    });
+    const { data: existingPublication, error: existingPublicationError } =
+      await supabase
+        .from("schedule_publications")
+        .select("*")
+        .eq("period_start", visibleDays[0].key)
+        .eq("period_end", visibleDays[visibleDays.length - 1].key)
+        .eq("department", selectedDepartment)
+        .maybeSingle();
+
+    if (existingPublicationError) {
+      console.log("CHECK PUBLISH STATUS ERROR:", existingPublicationError.message);
+      alert("Failed to check publish status.");
+      await createAuditLog(
+        "PUBLISH_SCHEDULE_FAILED",
+        "Failed to check existing schedule publication before publishing",
+        "warning",
+        null,
+        {
+          department: selectedDepartment,
+          periodStart: visibleDays[0].key,
+          periodEnd: visibleDays[visibleDays.length - 1].key,
+          error: existingPublicationError.message,
+        }
+      );
+      return;
+    }
+
+    if (existingPublication) {
+      alert("This schedule is already published.");
+      await createAuditLog(
+        "PUBLISH_SCHEDULE_BLOCKED",
+        "Attempted to publish an already published schedule",
+        "warning",
+        existingPublication,
+        {
+          department: selectedDepartment,
+          periodStart: visibleDays[0].key,
+          periodEnd: visibleDays[visibleDays.length - 1].key,
+        },
+        existingPublication.id
+      );
+      await getPublishedSchedule();
+      return;
+    }
+
+    const { data: publicationData, error } = await supabase
+      .from("schedule_publications")
+      .insert({
+        period_start: visibleDays[0].key,
+        period_end: visibleDays[visibleDays.length - 1].key,
+        department: selectedDepartment,
+        status: "Published",
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
     if (error) {
       console.log("PUBLISH ERROR:", error.message);
@@ -389,12 +439,19 @@ export default function SchedulingPage() {
       "info",
       null,
       {
+        publication: publicationData,
         department: selectedDepartment,
         periodStart: visibleDays[0].key,
         periodEnd: visibleDays[visibleDays.length - 1].key,
         viewMode,
         visibleStaff: filteredEmployees.length,
-      }
+        scheduleRows: schedules.filter(
+          (schedule) =>
+            schedule.day >= visibleDays[0].key &&
+            schedule.day <= visibleDays[visibleDays.length - 1].key
+        ).length,
+      },
+      publicationData?.id || null
     );
 
     await getPublishedSchedule();
@@ -516,6 +573,43 @@ export default function SchedulingPage() {
     return found?.shift || "OFF";
   };
 
+  const getCurrentUser = async () => {
+    const localUser =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_user")
+        : null;
+
+    if (localUser) {
+      try {
+        const parsedUser = JSON.parse(localUser);
+
+        return {
+          id: parsedUser?.id || null,
+          name:
+            parsedUser?.name ||
+            parsedUser?.full_name ||
+            parsedUser?.user_name ||
+            parsedUser?.email ||
+            "Unknown User",
+          email: parsedUser?.email || null,
+        };
+      } catch {
+        // Continue to Supabase auth fallback.
+      }
+    }
+
+    const { data } = await supabase.auth.getUser();
+
+    return {
+      id: data?.user?.id || null,
+      name:
+        data?.user?.user_metadata?.full_name ||
+        data?.user?.email ||
+        "Unknown User",
+      email: data?.user?.email || null,
+    };
+  };
+
   const createAuditLog = async (
     action: string,
     description: string,
@@ -524,8 +618,12 @@ export default function SchedulingPage() {
     newValue: any = null,
     recordId: string | number | null = null
   ) => {
+    const currentUser = await getCurrentUser();
+
     const { error } = await supabase.from("audit_logs").insert({
-      module: "Scheduling",
+      user_id: currentUser.id,
+      user_name: currentUser.name,
+      module: "Schedule Publishing",
       action,
       description,
       severity,
@@ -536,7 +634,7 @@ export default function SchedulingPage() {
     });
 
     if (error) {
-      console.log("SCHEDULING AUDIT ERROR:", error.message);
+      console.log("SCHEDULE PUBLISHING AUDIT ERROR:", error.message);
     }
   };
 
@@ -1337,7 +1435,7 @@ export default function SchedulingPage() {
                 Publish Rule
               </p>
               <p className="mt-2 text-xs leading-6 text-slate-500">
-                Published schedules are locked. To edit, import, or copy schedules, unpublish first.
+                Published schedules are locked. To edit, import, or copy schedules, unpublish first. Publish and unpublish actions are recorded in Audit Trail.
               </p>
             </div>
           </div>
