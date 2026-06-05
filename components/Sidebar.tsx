@@ -32,302 +32,87 @@ const menuSections = [
     items: [],
   },
   {
-    title: "Audit Center",
+    title: "Audit",
     icon: ShieldCheck,
     items: [
-      {
-        label: "Operations Audit",
-        href: "/audit",
-        icon: ShieldCheck,
-        moduleKey: "always_allow",
-      },
-      {
-        label: "Audit Trail",
-        href: "/admin/audit-logs",
-        icon: ClipboardList,
-        moduleKey: "always_allow",
-      },
-      {
-        label: "Database Health",
-        href: "/admin/database-health",
-        icon: Database,
-        moduleKey: "always_allow",
-      },
+      { label: "Operations Audit", href: "/audit", icon: ShieldCheck, moduleKey: "always_allow" },
+      { label: "Audit Trail", href: "/admin/audit-logs", icon: ClipboardList, moduleKey: "always_allow" },
+      { label: "Database Health", href: "/admin/database-health", icon: Database, moduleKey: "always_allow" },
     ],
   },
   {
     title: "Workforce",
     icon: Users,
     items: [
-      {
-        label: "Workforce",
-        href: "/workforce",
-        icon: Users,
-        moduleKey: "workforce",
-      },
-      {
-        label: "Employee 201",
-        href: "/employees",
-        icon: FileText,
-        moduleKey: "employees",
-      },
-      {
-        label: "Scheduling",
-        href: "/scheduling",
-        icon: CalendarDays,
-        moduleKey: "scheduling",
-      },
-      {
-        label: "Schedule Publishing",
-        href: "/scheduling",
-        icon: LockIcon,
-        moduleKey: "scheduling",
-      },
-      {
-        label: "Leave Management",
-        href: "/leave-management",
-        icon: ClipboardList,
-        moduleKey: "leave_management",
-      },
-      {
-        label: "Forecasting",
-        href: "/forecasting",
-        icon: BarChart3,
-        moduleKey: "forecasting",
-      },
+      { label: "Workforce", href: "/workforce", icon: Users, moduleKey: "workforce" },
+      { label: "Employee 201", href: "/employees", icon: FileText, moduleKey: "employees" },
+      { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
+      { label: "Schedule Publishing", href: "/scheduling", icon: ShieldCheck, moduleKey: "scheduling" },
+      { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
+      { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
     ],
   },
   {
     title: "Sales",
     icon: Hotel,
     items: [
-      {
-        label: "Hotel Room Sales",
-        href: "/finance/room-sales",
-        icon: Hotel,
-        moduleKey: "hotel_room_sales",
-      },
-      {
-        label: "Apartment Sales",
-        href: "/finance/apartment",
-        icon: Building2,
-        moduleKey: "apartment_sales",
-      },
-      {
-        label: "Restaurant / Sports Bar Sales",
-        href: "/finance/restaurant-import",
-        icon: Receipt,
-        moduleKey: "restaurant_sales",
-      },
-      {
-        label: "Sales Settings",
-        href: "/finance/settings",
-        icon: Settings,
-        moduleKey: "settings",
-      },
+      { label: "Hotel Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "hotel_room_sales" },
+      { label: "Apartment Sales", href: "/finance/apartment", icon: Building2, moduleKey: "apartment_sales" },
+      { label: "Restaurant / Sports Bar", href: "/finance/restaurant-import", icon: Receipt, moduleKey: "restaurant_sales" },
+      { label: "Sales Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
     title: "Finance",
     icon: Wallet,
     items: [
-      {
-        label: "Finance Dashboard",
-        href: "/finance",
-        icon: BarChart3,
-        moduleKey: "finance_dashboard",
-      },
-      {
-        label: "Expenses",
-        href: "/finance/expenses",
-        icon: Receipt,
-        moduleKey: "expenses",
-      },
-      {
-        label: "Bills Monitoring",
-        href: "/finance/bills",
-        icon: ClipboardList,
-        moduleKey: "bills_monitoring",
-      },
-      {
-        label: "Cash Management",
-        href: "/finance/cash-management",
-        icon: Wallet,
-        moduleKey: "cash_management",
-      },
-      {
-        label: "Expense Allocation",
-        href: "/finance/settings/expense-allocation",
-        icon: Wallet,
-        moduleKey: "settings",
-      },
-      {
-        label: "Finance Settings",
-        href: "/finance/settings",
-        icon: Settings,
-        moduleKey: "settings",
-      },
+      { label: "Finance Dashboard", href: "/finance", icon: BarChart3, moduleKey: "finance_dashboard" },
+      { label: "Expenses", href: "/finance/expenses", icon: Receipt, moduleKey: "expenses" },
+      { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList, moduleKey: "bills_monitoring" },
+      { label: "Cash Management", href: "/finance/cash-management", icon: Wallet, moduleKey: "cash_management" },
+      { label: "Expense Allocation", href: "/finance/settings/expense-allocation", icon: Wallet, moduleKey: "settings" },
+      { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
     title: "Payroll",
     icon: FileText,
     items: [
-      {
-        label: "Attendance Audit",
-        href: "/finance/payroll/attendance",
-        icon: Clock,
-        moduleKey: "attendance",
-      },
-      {
-        label: "Payroll Register",
-        href: "/finance/payroll/register",
-        icon: FileText,
-        moduleKey: "payroll_register",
-      },
-      {
-        label: "Payroll Manager",
-        href: "/finance/payroll/manager",
-        icon: Wallet,
-        moduleKey: "payroll_manager",
-      },
-      {
-        label: "Payslips",
-        href: "/finance/payroll/payslips",
-        icon: Receipt,
-        moduleKey: "payslips",
-      },
-      {
-        label: "Release History",
-        href: "/finance/payroll/history",
-        icon: BarChart3,
-        moduleKey: "release_history",
-      },
-      {
-        label: "Snapshot History",
-        href: "/finance/payroll/snapshots",
-        icon: Database,
-        moduleKey: "payroll_snapshots",
-      },
-      {
-        label: "Payroll Settings",
-        href: "/finance/payroll/settings",
-        icon: Settings,
-        moduleKey: "settings",
-      },
+      { label: "Attendance Audit", href: "/finance/payroll/attendance", icon: Clock, moduleKey: "attendance" },
+      { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText, moduleKey: "payroll_register" },
+      { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet, moduleKey: "payroll_manager" },
+      { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt, moduleKey: "payslips" },
+      { label: "Release History", href: "/finance/payroll/history", icon: BarChart3, moduleKey: "release_history" },
+      { label: "Snapshot History", href: "/finance/payroll/snapshots", icon: Database, moduleKey: "payroll_snapshots" },
+      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
     title: "System",
     icon: Settings,
     items: [
-      {
-        label: "General Settings",
-        href: "/settings",
-        icon: Settings,
-        moduleKey: "settings",
-      },
-      {
-        label: "Backup & Restore",
-        href: "/backup",
-        icon: Database,
-        moduleKey: "backup_restore",
-      },
-      {
-        label: "User Roles",
-        href: "/settings/user-roles",
-        icon: ShieldCheck,
-        moduleKey: "user_roles",
-      },
-      {
-        label: "Current User",
-        href: "/settings/current-user",
-        icon: UserCheck,
-        moduleKey: "always_allow",
-      },
-      {
-        label: "Departments",
-        href: "/settings/departments",
-        icon: Users,
-        moduleKey: "settings",
-      },
-      {
-        label: "Positions",
-        href: "/settings/positions",
-        icon: Users,
-        moduleKey: "settings",
-      },
-      {
-        label: "Employment Statuses",
-        href: "/settings/employment-statuses",
-        icon: ClipboardList,
-        moduleKey: "settings",
-      },
-      {
-        label: "Employment Types",
-        href: "/settings/employment-types",
-        icon: ClipboardList,
-        moduleKey: "settings",
-      },
-      {
-        label: "Shifts",
-        href: "/settings/shifts",
-        icon: Clock,
-        moduleKey: "settings",
-      },
-      {
-        label: "HC Rules",
-        href: "/settings/hc-rules",
-        icon: BarChart3,
-        moduleKey: "settings",
-      },
-      {
-        label: "Forecasting Rules",
-        href: "/settings/forecasting-rules",
-        icon: BarChart3,
-        moduleKey: "settings",
-      },
-      {
-        label: "Event Add-ons",
-        href: "/settings/event-addons",
-        icon: CalendarDays,
-        moduleKey: "settings",
-      },
-      {
-        label: "Occupancy Import",
-        href: "/settings/occupancy-import",
-        icon: Database,
-        moduleKey: "settings",
-      },
-      {
-        label: "Leave Settings",
-        href: "/settings/leave-settings",
-        icon: ClipboardList,
-        moduleKey: "settings",
-      },
-      {
-        label: "Leave Credits",
-        href: "/settings/leave-credits",
-        icon: ClipboardList,
-        moduleKey: "settings",
-      },
-      {
-        label: "Property",
-        href: "/settings/property",
-        icon: Hotel,
-        moduleKey: "settings",
-      },
+      { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
+      { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
+      { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
+      { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "always_allow" },
+      { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "settings" },
+      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "settings" },
+      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "settings" },
+      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "settings" },
+      { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3, moduleKey: "settings" },
+      { label: "Event Add-ons", href: "/settings/event-addons", icon: CalendarDays, moduleKey: "settings" },
+      { label: "Occupancy Import", href: "/settings/occupancy-import", icon: Database, moduleKey: "settings" },
+      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "settings" },
     ],
   },
 ];
 
-function LockIcon({ size = 17 }: { size?: number }) {
-  return <ShieldCheck size={size} />;
-}
-
 export default function Sidebar() {
   const pathname = usePathname();
-
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(true);
 
@@ -402,25 +187,19 @@ export default function Sidebar() {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const filterSectionItems = (section: any) => {
-    if (section.href) return [];
-    return section.items.filter((item: any) => canView(item.moduleKey));
-  };
-
   const visibleSections = menuSections
     .map((section: any) => {
       if (section.href) {
         return canView(section.moduleKey) ? section : null;
       }
 
-      const visibleItems = filterSectionItems(section);
+      const visibleItems = section.items.filter((item: any) =>
+        canView(item.moduleKey)
+      );
 
       if (visibleItems.length === 0) return null;
 
-      return {
-        ...section,
-        items: visibleItems,
-      };
+      return { ...section, items: visibleItems };
     })
     .filter(Boolean);
 
@@ -430,18 +209,20 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="sticky top-0 z-[9999] h-screen w-72 shrink-0 border-r border-slate-800 bg-slate-950 p-5 text-white">
-      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg shadow-black/20">
-        <p className="text-lg font-black text-amber-400">● OPSCORE</p>
-        <p className="mt-1 text-xs text-slate-500">Hotel Operations System</p>
+    <aside className="sticky top-0 z-[9999] h-screen w-56 shrink-0 border-r border-slate-800 bg-slate-950 px-3 py-4 text-white">
+      <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-3 shadow-lg shadow-black/20">
+        <p className="truncate text-base font-black text-amber-400">● OPSCORE</p>
+        <p className="mt-0.5 truncate text-[11px] text-slate-500">
+          Hotel Operations
+        </p>
       </div>
 
       {loadingAccess ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-400">
           Loading access...
         </div>
       ) : (
-        <nav className="space-y-2">
+        <nav className="space-y-1.5">
           {visibleSections.map((section: any) => {
             const Icon = section.icon;
             const active = isSectionActive(section);
@@ -451,14 +232,15 @@ export default function Sidebar() {
                 <Link
                   key={section.title}
                   href={section.href}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                  title={section.title}
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
                     active
-                      ? "bg-slate-900 text-amber-400"
+                      ? "bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/10"
                       : "text-slate-400 hover:bg-slate-900 hover:text-white"
                   }`}
                 >
-                  <Icon size={17} />
-                  <span className="flex-1">{section.title}</span>
+                  <Icon size={16} />
+                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
                 </Link>
               );
             }
@@ -467,26 +249,23 @@ export default function Sidebar() {
               <div key={section.title} className="group">
                 <button
                   type="button"
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+                  title={section.title}
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${
                     active
-                      ? "bg-slate-900 text-amber-400"
+                      ? "bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/10"
                       : "text-slate-400 hover:bg-slate-900 hover:text-white"
                   }`}
                 >
-                  <Icon size={17} />
-                  <span className="min-w-0 flex-1 truncate">
-                    {section.title}
-                  </span>
-                  <ChevronRight size={15} className="opacity-50" />
+                  <Icon size={16} />
+                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                  <ChevronRight size={13} className="opacity-60" />
                 </button>
 
-                <div className="invisible fixed left-[300px] top-24 z-[99999] max-h-[80vh] w-80 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-3 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
-                  <div className="mb-3 border-b border-slate-800 px-3 pb-3">
-                    <p className="text-sm font-black text-amber-400">
-                      {section.title}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Select {section.title.toLowerCase()} module
+                <div className="invisible fixed left-[232px] top-20 z-[99999] max-h-[82vh] w-72 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-2.5 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
+                  <div className="mb-2 border-b border-slate-800 px-3 pb-2.5">
+                    <p className="text-sm font-black text-amber-400">{section.title}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Select module
                     </p>
                   </div>
 
@@ -499,17 +278,16 @@ export default function Sidebar() {
                         <Link
                           key={`${section.title}-${item.href}-${item.label}`}
                           href={item.href}
-                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                          title={item.label}
+                          className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs transition ${
                             itemActive
-                              ? "bg-slate-900 font-semibold text-amber-400"
+                              ? "bg-slate-900 font-black text-amber-400"
                               : "text-slate-400 hover:bg-slate-900 hover:text-white"
                           }`}
                         >
-                          <ItemIcon size={15} />
-                          <span className="min-w-0 flex-1 truncate">
-                            {item.label}
-                          </span>
-                          <ChevronRight size={13} className="opacity-30" />
+                          <ItemIcon size={14} />
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          <ChevronRight size={12} className="opacity-25" />
                         </Link>
                       );
                     })}
@@ -520,8 +298,8 @@ export default function Sidebar() {
           })}
 
           {visibleSections.length === 0 && (
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-              No access assigned. Go to Current User or assign a role.
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
+              No access assigned.
             </div>
           )}
         </nav>
@@ -530,9 +308,11 @@ export default function Sidebar() {
       <button
         onClick={() => {
           localStorage.removeItem("opscore_current_employee_id");
+          localStorage.removeItem("opscore_current_employee_name");
+          localStorage.removeItem("opscore_current_user");
           window.location.href = "/login";
         }}
-        className="mt-4 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
+        className="mt-4 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20"
       >
         Logout
       </button>

@@ -1325,6 +1325,141 @@ export default function ExecutiveDashboardPage() {
           </div>
         </div>
 
+        <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+          <ExecutivePulse
+            label="Net Position"
+            value={formatPeso(netPosition)}
+            tone={netPosition >= 0 ? "good" : "bad"}
+          />
+          <ExecutivePulse
+            label="Profit Margin"
+            value={`${profitMargin}%`}
+            tone={profitMargin >= 0 ? "good" : "bad"}
+          />
+          <ExecutivePulse
+            label="Occupancy"
+            value={`${occupancyToday}%`}
+            tone={occupancyToday >= 50 ? "good" : "watch"}
+          />
+          <ExecutivePulse
+            label="Rooms Sold"
+            value={`${roomsSoldToday}/${availableRoomsToday}`}
+            tone="neutral"
+          />
+        </section>
+
+        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-5">
+          <div className="h-[560px] rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20 xl:col-span-3">
+            <h2 className="text-xl font-bold">Cash, Revenue & Expense Trend</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Owner-level trend without duplicate cash drawer cards.
+            </p>
+
+            <div className="mt-6 h-[430px] min-h-[430px] min-w-0">
+              {chartReady && trendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={430}>
+                  <AreaChart
+                    data={trendData}
+                    margin={{ top: 35, right: 30, left: 10, bottom: 10 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="label" stroke="#94a3b8" />
+                    <YAxis
+                      stroke="#94a3b8"
+                      tickFormatter={(value) => `₱${Number(value) / 1000}k`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#020617",
+                        border: "1px solid #334155",
+                        borderRadius: "12px",
+                        color: "#fff",
+                      }}
+                      formatter={(value: any) => formatPeso(Number(value))}
+                    />
+                    <Legend verticalAlign="top" height={35} />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      name="Revenue"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      fill="#3b82f6"
+                      fillOpacity={0.18}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="expenses"
+                      name="Expenses + Payroll"
+                      stroke="#ef4444"
+                      strokeWidth={3}
+                      fill="#ef4444"
+                      fillOpacity={0.12}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cash"
+                      name="Actual Cash"
+                      stroke="#eab308"
+                      strokeWidth={3}
+                      fill="#eab308"
+                      fillOpacity={0.15}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="profit"
+                      name="Net Position"
+                      stroke="#22c55e"
+                      strokeWidth={3}
+                      fill="#22c55e"
+                      fillOpacity={0.12}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                  No financial data found for selected range.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <section
+            className={`h-[560px] overflow-hidden rounded-2xl border p-5 shadow-2xl shadow-black/20 xl:col-span-2 ${statusStyle}`}
+          >
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
+              <Brain size={18} /> OPSCORE AI Advisor
+            </p>
+
+            <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
+
+            <div className="mt-3 rounded-2xl bg-slate-950/60 p-4 text-center">
+              <p className="text-sm text-slate-400">Owner Health Score</p>
+              <h3 className="mt-1 text-4xl font-black text-white">
+                {businessHealthScore}
+              </h3>
+              <p className="text-xs text-slate-500">cash-weighted score</p>
+            </div>
+
+            <div className="mt-3">
+              <BriefingBox
+                title="Critical Alerts"
+                items={criticalAlerts}
+                empty="No major issue detected."
+              />
+            </div>
+
+            <div className="mt-3">
+              <BriefingBox
+                title="Recommended Actions"
+                items={recommendations}
+                empty="Maintain current operation and monitor daily cash."
+              />
+            </div>
+          </section>
+        </section>
+
+
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
           <KpiCard
             icon={<Wallet size={22} />}
@@ -1497,117 +1632,6 @@ export default function ExecutiveDashboardPage() {
               },
             ]}
           />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-5">
-          <div className="h-[520px] rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
-            <h2 className="text-xl font-bold">Cash, Revenue & Expense Trend</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Owner-level trend without duplicate cash drawer cards.
-            </p>
-
-            <div className="mt-6 h-[390px] min-h-[390px] min-w-0">
-              {chartReady && trendData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={390}>
-                  <AreaChart
-                    data={trendData}
-                    margin={{ top: 35, right: 30, left: 10, bottom: 10 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="label" stroke="#94a3b8" />
-                    <YAxis
-                      stroke="#94a3b8"
-                      tickFormatter={(value) => `₱${Number(value) / 1000}k`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#020617",
-                        border: "1px solid #334155",
-                        borderRadius: "12px",
-                        color: "#fff",
-                      }}
-                      formatter={(value: any) => formatPeso(Number(value))}
-                    />
-                    <Legend verticalAlign="top" height={35} />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      name="Revenue"
-                      stroke="#3b82f6"
-                      strokeWidth={3}
-                      fill="#3b82f6"
-                      fillOpacity={0.18}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="expenses"
-                      name="Expenses + Payroll"
-                      stroke="#ef4444"
-                      strokeWidth={3}
-                      fill="#ef4444"
-                      fillOpacity={0.12}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="cash"
-                      name="Actual Cash"
-                      stroke="#eab308"
-                      strokeWidth={3}
-                      fill="#eab308"
-                      fillOpacity={0.15}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="profit"
-                      name="Net Position"
-                      stroke="#22c55e"
-                      strokeWidth={3}
-                      fill="#22c55e"
-                      fillOpacity={0.12}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                  No financial data found for selected range.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <section
-            className={`h-[520px] overflow-hidden rounded-2xl border p-5 xl:col-span-2 ${statusStyle}`}
-          >
-            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
-              <Brain size={18} /> OPSCORE AI Advisor
-            </p>
-
-            <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
-
-            <div className="mt-3 rounded-2xl bg-slate-950/60 p-4 text-center">
-              <p className="text-sm text-slate-400">Owner Health Score</p>
-              <h3 className="mt-1 text-4xl font-black text-white">
-                {businessHealthScore}
-              </h3>
-              <p className="text-xs text-slate-500">cash-weighted score</p>
-            </div>
-
-            <div className="mt-3">
-              <BriefingBox
-                title="Critical Alerts"
-                items={criticalAlerts}
-                empty="No major issue detected."
-              />
-            </div>
-
-            <div className="mt-3">
-              <BriefingBox
-                title="Recommended Actions"
-                items={recommendations}
-                empty="Maintain current operation and monitor daily cash."
-              />
-            </div>
-          </section>
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -1993,6 +2017,35 @@ export default function ExecutiveDashboardPage() {
           </section>
         </section>
       </main>
+    </div>
+  );
+}
+
+
+function ExecutivePulse({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: "good" | "bad" | "watch" | "neutral";
+}) {
+  const toneClass =
+    tone === "good"
+      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+      : tone === "bad"
+        ? "border-red-500/20 bg-red-500/10 text-red-300"
+        : tone === "watch"
+          ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
+          : "border-slate-800 bg-slate-900 text-slate-200";
+
+  return (
+    <div className={`rounded-2xl border px-5 py-4 ${toneClass}`}>
+      <p className="text-xs font-bold uppercase tracking-[0.22em] opacity-70">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-black text-white">{value}</p>
     </div>
   );
 }
