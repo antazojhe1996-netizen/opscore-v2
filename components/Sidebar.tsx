@@ -17,6 +17,7 @@ import {
   Receipt,
   Settings,
   ShieldCheck,
+  User,
   UserCheck,
   Users,
   Wallet,
@@ -44,13 +45,20 @@ const menuSections = [
     title: "Workforce",
     icon: Users,
     items: [
-      { label: "Workforce", href: "/workforce", icon: Users, moduleKey: "workforce" },
-      { label: "Employee 201", href: "/employees", icon: FileText, moduleKey: "employees" },
-      { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
-      { label: "Schedule Publishing", href: "/scheduling", icon: ShieldCheck, moduleKey: "scheduling" },
-      { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
-      { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
-    ],
+  { label: "Workforce", href: "/workforce", icon: Users, moduleKey: "workforce" },
+
+  { label: "Employee 201", href: "/employees", icon: FileText, moduleKey: "employees" },
+
+  { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
+
+  { label: "Schedule Publishing", href: "/scheduling", icon: ShieldCheck, moduleKey: "scheduling" },
+
+  { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
+
+  { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
+
+  { label: "Employee Portal", href: "/employee-portal", icon: User, moduleKey: "employees" },
+],
   },
   {
     title: "Sales",
