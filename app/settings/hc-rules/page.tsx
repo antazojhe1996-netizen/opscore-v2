@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 type RuleGroup = {
   id: number;
@@ -156,6 +157,12 @@ export default function HCRulesPage() {
     useState<RuleGroup[]>(defaultEventRules);
 
   /// FUNCTIONS
+
+  const getCurrentUserEmail = async () => {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.email || "System User";
+  };
+
   const getDepartments = async () => {
     const { data, error } = await supabase
       .from("departments")
@@ -221,14 +228,22 @@ export default function HCRulesPage() {
   };
 
   const saveHCRules = async () => {
+    const { data: oldRule } = await supabase
+      .from("hc_rule_settings")
+      .select("*")
+      .eq("setting_name", "hc_rules")
+      .maybeSingle();
+
+    const payload = {
+      occupancyRules,
+      peakRules,
+      eventRules,
+    };
+
     const { error } = await supabase.from("hc_rule_settings").upsert(
       {
         setting_name: "hc_rules",
-        setting_data: {
-          occupancyRules,
-          peakRules,
-          eventRules,
-        },
+        setting_data: payload,
         updated_at: new Date().toISOString(),
       },
       {
@@ -242,13 +257,57 @@ export default function HCRulesPage() {
       return;
     }
 
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / HC Rules",
+      action: "UPDATE_HC_RULE",
+      description: "Updated HC Rules configuration",
+      severity: "warning",
+      recordId: "hc_rules",
+      oldValue: oldRule?.setting_data || null,
+      newValue: payload,
+    });
+
     alert("HC rules saved successfully.");
   };
 
-  const resetToDefault = () => {
+  const resetToDefault = async () => {
+    const confirmReset = confirm(
+      "Reset HC rules to default values? This will be recorded in Audit Trail."
+    );
+
+    if (!confirmReset) return;
+
+    const oldValue = {
+      occupancyRules,
+      peakRules,
+      eventRules,
+    };
+
+    const newValue = {
+      occupancyRules: defaultOccupancyRules,
+      peakRules: defaultPeakRules,
+      eventRules: defaultEventRules,
+    };
+
     setOccupancyRules(defaultOccupancyRules);
     setPeakRules(defaultPeakRules);
     setEventRules(defaultEventRules);
+
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / HC Rules",
+      action: "RESET_HC_RULE",
+      description: "Reset HC Rules to default values",
+      severity: "critical",
+      recordId: "hc_rules",
+      oldValue,
+      newValue,
+    });
   };
 
   const updateGroupRange = (
@@ -257,9 +316,11 @@ export default function HCRulesPage() {
     field: "min" | "max",
     value: number
   ) => {
+    const safeValue = Math.max(0, value || 0);
+
     const updater = (prev: RuleGroup[]) =>
       prev.map((group) =>
-        group.id === id ? { ...group, [field]: value } : group
+        group.id === id ? { ...group, [field]: safeValue } : group
       );
 
     if (section === "occupancy") setOccupancyRules(updater);
@@ -417,6 +478,7 @@ export default function HCRulesPage() {
   };
 
   /// EFFECTS
+
   useEffect(() => {
     getDepartments();
     loadHCRules();
@@ -477,6 +539,7 @@ export default function HCRulesPage() {
   );
 
   /// UI
+
   return (
     <div className="flex min-h-screen bg-[#050514] text-white">
       <Sidebar />

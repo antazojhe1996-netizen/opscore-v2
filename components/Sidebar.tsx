@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
 
-
 const menuSections = [
   {
     title: "Dashboard",
@@ -32,22 +31,28 @@ const menuSections = [
     moduleKey: "dashboard",
     items: [],
   },
-  {
+{
   title: "Audit Center",
   icon: ShieldCheck,
   items: [
     {
-      label: "Audit Logs",
+      label: "Operations Audit",
+      href: "/audit",
+      icon: ShieldCheck,
+      moduleKey: "always_allow",
+    },
+    {
+      label: "Audit Trail",
       href: "/admin/audit-logs",
       icon: ClipboardList,
       moduleKey: "always_allow",
     },
     {
-      label: "Database Health",
-      href: "/admin/database-health",
-      icon: Database,
-      moduleKey: "always_allow",
-    },
+  label: "Database Health",
+  href: "/admin/database-health",
+  icon: Database,
+  moduleKey: "always_allow",
+},
   ],
 },
   {
@@ -59,7 +64,6 @@ const menuSections = [
       { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
       { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
       { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
-      { label: "Workforce Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
   {
@@ -79,16 +83,9 @@ const menuSections = [
       { label: "Finance Dashboard", href: "/finance", icon: BarChart3, moduleKey: "finance_dashboard" },
       { label: "Expenses", href: "/finance/expenses", icon: Receipt, moduleKey: "expenses" },
       { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList, moduleKey: "bills_monitoring" },
-      { label: "Billing", href: "/finance/bills", icon: FileText, moduleKey: "bills_monitoring" },
-      { label: "Payment", href: "/finance/bills", icon: Wallet, moduleKey: "bills_monitoring" },
       { label: "Cash Management", href: "/finance/cash-management", icon: Wallet, moduleKey: "cash_management" },
+      { label: "Expense Allocation", href: "/finance/settings/expense-allocation", icon: Wallet, moduleKey: "settings" },
       { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
-     {
-  label: "Expense Allocation",
-  href: "/finance/settings/expense-allocation",
-  icon: Wallet,
-  moduleKey: "settings",
-},
     ],
   },
   {
@@ -110,22 +107,19 @@ const menuSections = [
     items: [
       { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
       { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
-      { label: "Activity Logs", href: "/activity-logs", icon: ClipboardList, moduleKey: "activity_logs" },
       { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
-
-      // Temporary testing page. Keep visible while wala pang login.
       { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "always_allow" },
 
       { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "settings" },
-      { label: "Employment Status", href: "/settings/employment-status", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "settings" },
+      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList, moduleKey: "settings" },
       { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "settings" },
+      { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "settings" },
       { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "settings" },
       { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3, moduleKey: "settings" },
       { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "settings" },
       { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "settings" },
-      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "settings" },
       { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "settings" },
-      { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "settings" },
     ],
   },
 ];
@@ -209,7 +203,6 @@ export default function Sidebar() {
 
   const filterSectionItems = (section: any) => {
     if (section.href) return [];
-
     return section.items.filter((item: any) => canView(item.moduleKey));
   };
 
@@ -280,7 +273,9 @@ export default function Sidebar() {
                   }`}
                 >
                   <Icon size={17} />
-                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {section.title}
+                  </span>
                   <ChevronRight size={15} className="opacity-50" />
                 </button>
 
@@ -329,24 +324,17 @@ export default function Sidebar() {
             </div>
           )}
         </nav>
-
       )}
 
       <button
-  onClick={() => {
-    localStorage.removeItem("opscore_current_employee_id");
-    window.location.href = "/login";
-  }}
-  className="mt-4 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
->
-  Logout
-</button>
-<div className="mt-8 text-center text-xs text-slate-500">
-  <p>OPSCORE v1.0 Beta</p>
-  <p className="mt-1">
-    Designed & Developed by <span className="text-slate-300">Jherome Antazo</span>
-  </p>
-</div>
+        onClick={() => {
+          localStorage.removeItem("opscore_current_employee_id");
+          window.location.href = "/login";
+        }}
+        className="mt-4 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
+      >
+        Logout
+      </button>
     </aside>
   );
 }

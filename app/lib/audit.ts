@@ -1,3 +1,5 @@
+import { supabase } from "@/app/lib/supabase";
+
 type AuditLogInput = {
   userId?: string | null;
   userName?: string | null;
@@ -21,25 +23,19 @@ export async function createAuditLog({
   oldValue = null,
   newValue = null,
 }: AuditLogInput) {
-  try {
-    await fetch("/api/audit/log", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId,
-        userName,
-        module,
-        action,
-        description,
-        severity,
-        recordId,
-        oldValue,
-        newValue,
-      }),
-    });
-  } catch (error) {
-    console.log("AUDIT FETCH ERROR:", error);
+  const { error } = await supabase.from("audit_logs").insert({
+    user_id: userId,
+    user_name: userName,
+    module,
+    action,
+    description,
+    severity,
+    record_id: recordId,
+    old_value: oldValue,
+    new_value: newValue,
+  });
+
+  if (error) {
+    console.log("CREATE AUDIT LOG ERROR:", error);
   }
 }

@@ -345,6 +345,13 @@ export default function SchedulingPage() {
   const publishSchedule = async () => {
     if (viewMode !== "weekly") {
       alert("Publish is only available in weekly view.");
+      await createAuditLog(
+        "PUBLISH_SCHEDULE_BLOCKED",
+        "Attempted to publish schedule outside weekly view",
+        "warning",
+        null,
+        { viewMode, department: selectedDepartment }
+      );
       return;
     }
 
@@ -361,8 +368,34 @@ export default function SchedulingPage() {
     if (error) {
       console.log("PUBLISH ERROR:", error.message);
       alert("Failed to publish schedule.");
+      await createAuditLog(
+        "PUBLISH_SCHEDULE_FAILED",
+        "Failed to publish schedule",
+        "warning",
+        null,
+        {
+          department: selectedDepartment,
+          periodStart: visibleDays[0].key,
+          periodEnd: visibleDays[visibleDays.length - 1].key,
+          error: error.message,
+        }
+      );
       return;
     }
+
+    await createAuditLog(
+      "PUBLISH_SCHEDULE",
+      `Published ${selectedDepartment} schedule (${visibleDays[0].key} to ${visibleDays[visibleDays.length - 1].key})`,
+      "info",
+      null,
+      {
+        department: selectedDepartment,
+        periodStart: visibleDays[0].key,
+        periodEnd: visibleDays[visibleDays.length - 1].key,
+        viewMode,
+        visibleStaff: filteredEmployees.length,
+      }
+    );
 
     await getPublishedSchedule();
   };
@@ -379,8 +412,25 @@ export default function SchedulingPage() {
     if (error) {
       console.log("UNPUBLISH ERROR:", error.message);
       alert("Failed to unpublish schedule.");
+      await createAuditLog(
+        "UNPUBLISH_SCHEDULE_FAILED",
+        "Failed to unpublish schedule",
+        "warning",
+        publishedSchedule,
+        { error: error.message },
+        publishedSchedule.id
+      );
       return;
     }
+
+    await createAuditLog(
+      "UNPUBLISH_SCHEDULE",
+      `Unpublished ${selectedDepartment} schedule (${publishedSchedule.period_start || visibleDays[0]?.key} to ${publishedSchedule.period_end || visibleDays[visibleDays.length - 1]?.key})`,
+      "warning",
+      publishedSchedule,
+      null,
+      publishedSchedule.id
+    );
 
     setPublishedSchedule(null);
   };
@@ -466,9 +516,46 @@ export default function SchedulingPage() {
     return found?.shift || "OFF";
   };
 
+  const createAuditLog = async (
+    action: string,
+    description: string,
+    severity: "info" | "warning" | "critical" = "info",
+    oldValue: any = null,
+    newValue: any = null,
+    recordId: string | number | null = null
+  ) => {
+    const { error } = await supabase.from("audit_logs").insert({
+      module: "Scheduling",
+      action,
+      description,
+      severity,
+      record_id: recordId ? String(recordId) : null,
+      old_value: oldValue,
+      new_value: newValue,
+      created_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.log("SCHEDULING AUDIT ERROR:", error.message);
+    }
+  };
+
+  const getEmployeeDisplayName = (employeeId: string) => {
+    const employee = employees.find((emp) => String(emp.id) === String(employeeId));
+    if (!employee) return "Unknown Employee";
+    return `${employee.first_name} ${employee.last_name}`.trim();
+  };
+
   const updateSchedule = async (employeeId: string, day: string, shift: string) => {
     if (publishedSchedule) {
       alert("This schedule is already published. Unpublish first before editing.");
+      await createAuditLog(
+        "UPDATE_SCHEDULE_BLOCKED",
+        "Attempted to edit a published schedule",
+        "warning",
+        { publishedSchedule },
+        { employeeId, day, shift }
+      );
       return;
     }
 
@@ -476,6 +563,13 @@ export default function SchedulingPage() {
 
     if (employee && isEmployeeOnLeave(employee, day) && shift !== "OFF") {
       alert("This employee has an approved leave on this date.");
+      await createAuditLog(
+        "UPDATE_SCHEDULE_BLOCKED",
+        `Attempted to schedule ${employee.first_name} ${employee.last_name} while on approved leave`,
+        "warning",
+        { leaveType: getLeaveType(employee, day), day },
+        { employeeId, employeeName: `${employee.first_name} ${employee.last_name}`, shift }
+      );
       return;
     }
 
@@ -501,6 +595,15 @@ export default function SchedulingPage() {
 
       setSchedules((prev) =>
         prev.map((item) => (item.id === existing.id ? { ...item, shift } : item))
+      );
+
+      await createAuditLog(
+        "UPDATE_SCHEDULE",
+        `Updated schedule for ${getEmployeeDisplayName(employeeId)} on ${day}`,
+        "info",
+        { employeeId, day, shift: existing.shift },
+        { employeeId, day, shift },
+        existing.id
       );
 
       setSaveStatus("saved");
@@ -535,6 +638,15 @@ export default function SchedulingPage() {
       },
     ]);
 
+    await createAuditLog(
+      "CREATE_SCHEDULE",
+      `Created schedule for ${getEmployeeDisplayName(employeeId)} on ${day}`,
+      "info",
+      null,
+      { employeeId, day, shift },
+      data?.id || null
+    );
+
     setSaveStatus("saved");
     setTimeout(() => setSaveStatus("idle"), 1300);
   };
@@ -542,6 +654,13 @@ export default function SchedulingPage() {
   const previewScheduleImport = async (file: File) => {
     if (publishedSchedule) {
       alert("This schedule is already published. Unpublish first before importing.");
+      await createAuditLog(
+        "IMPORT_SCHEDULE_BLOCKED",
+        "Attempted to import into a published schedule",
+        "warning",
+        { publishedSchedule },
+        { rows: scheduleImportPreview.length, department: selectedDepartment }
+      );
       return;
     }
 
@@ -611,11 +730,33 @@ export default function SchedulingPage() {
     setScheduleImportStatus(
       `Preview loaded. Rows: ${preview.length}. Ready: ${matched}. Issues: ${missing}.`
     );
+
+    if (missing > 0) {
+      await createAuditLog(
+        "IMPORT_SCHEDULE_VALIDATION_WARNING",
+        `Schedule import preview has ${missing} issue row(s)`,
+        "warning",
+        null,
+        {
+          rows: preview.length,
+          ready: matched,
+          issues: missing,
+          sampleIssues: preview.filter((row) => !row.matched).slice(0, 10),
+        }
+      );
+    }
   };
 
   const confirmScheduleImport = async () => {
     if (publishedSchedule) {
       alert("This schedule is already published. Unpublish first before importing.");
+      await createAuditLog(
+        "IMPORT_SCHEDULE_BLOCKED",
+        "Attempted to import into a published schedule",
+        "warning",
+        { publishedSchedule },
+        { rows: scheduleImportPreview.length, department: selectedDepartment }
+      );
       return;
     }
 
@@ -625,6 +766,16 @@ export default function SchedulingPage() {
 
     if (readyRows.length === 0) {
       alert("No valid schedule rows to import.");
+      await createAuditLog(
+        "IMPORT_SCHEDULE_VALIDATION_FAILED",
+        "No valid schedule rows to import",
+        "warning",
+        null,
+        {
+          rows: scheduleImportPreview.length,
+          issues: scheduleImportPreview.filter((row) => !row.matched).slice(0, 20),
+        }
+      );
       return;
     }
 
@@ -649,9 +800,31 @@ export default function SchedulingPage() {
     if (error) {
       console.log("IMPORT SCHEDULE ERROR:", error);
       alert(error.message);
+      await createAuditLog(
+        "IMPORT_SCHEDULE_FAILED",
+        "Failed to import schedule rows",
+        "warning",
+        null,
+        { rows: rowsToSave.length, error: error.message }
+      );
       setSaveStatus("idle");
       return;
     }
+
+    await createAuditLog(
+      "IMPORT_SCHEDULE",
+      `Imported ${rowsToSave.length} schedule row(s)`,
+      "info",
+      null,
+      {
+        rows: rowsToSave.length,
+        previewRows: scheduleImportPreview.length,
+        issues: scheduleImportPreview.length - rowsToSave.length,
+        department: selectedDepartment,
+        periodStart: visibleDays[0]?.key || null,
+        periodEnd: visibleDays[visibleDays.length - 1]?.key || null,
+      }
+    );
 
     await getSchedules();
 
@@ -696,11 +869,25 @@ export default function SchedulingPage() {
   const copyLastWeekSchedule = async () => {
     if (publishedSchedule) {
       alert("This schedule is already published. Unpublish first before copying.");
+      await createAuditLog(
+        "COPY_LAST_WEEK_BLOCKED",
+        "Attempted to copy last week into a published schedule",
+        "warning",
+        { publishedSchedule },
+        { department: selectedDepartment, periodStart: visibleDays[0]?.key, periodEnd: visibleDays[visibleDays.length - 1]?.key }
+      );
       return;
     }
 
     if (viewMode !== "weekly") {
       alert("Copy Last Week is only available in weekly view.");
+      await createAuditLog(
+        "COPY_LAST_WEEK_BLOCKED",
+        "Attempted to copy last week outside weekly view",
+        "warning",
+        null,
+        { viewMode, department: selectedDepartment }
+      );
       return;
     }
 
@@ -727,6 +914,13 @@ export default function SchedulingPage() {
 
     if (error) {
       console.log("COPY LAST WEEK ERROR:", error.message);
+      await createAuditLog(
+        "COPY_LAST_WEEK_FAILED",
+        "Failed to load last week's schedule",
+        "warning",
+        null,
+        { startKey, endKey, error: error.message }
+      );
       setCopyingSchedule(false);
       return;
     }
@@ -746,6 +940,13 @@ export default function SchedulingPage() {
 
     if (newSchedules.length === 0) {
       alert("No schedule found from last week.");
+      await createAuditLog(
+        "COPY_LAST_WEEK_EMPTY",
+        "No previous week schedule found to copy",
+        "warning",
+        null,
+        { startKey, endKey, department: selectedDepartment }
+      );
       setCopyingSchedule(false);
       return;
     }
@@ -765,9 +966,36 @@ export default function SchedulingPage() {
 
     if (insertError) {
       console.log("COPY INSERT ERROR:", insertError.message);
+      await createAuditLog(
+        "COPY_LAST_WEEK_FAILED",
+        "Failed to copy last week's schedule",
+        "warning",
+        null,
+        {
+          sourceStart: startKey,
+          sourceEnd: endKey,
+          targetStart: visibleDays[0]?.key || null,
+          targetEnd: visibleDays[visibleDays.length - 1]?.key || null,
+          rows: newSchedules.length,
+          error: insertError.message,
+        }
+      );
       setCopyingSchedule(false);
       return;
     }
+
+    await createAuditLog(
+      "COPY_LAST_WEEK",
+      `Copied ${newSchedules.length} schedule row(s) from previous week`,
+      "warning",
+      { sourceStart: startKey, sourceEnd: endKey, rows: data?.length || 0 },
+      {
+        targetStart: visibleDays[0]?.key || null,
+        targetEnd: visibleDays[visibleDays.length - 1]?.key || null,
+        rows: newSchedules.length,
+        department: selectedDepartment,
+      }
+    );
 
     await getSchedules();
     setCopyingSchedule(false);

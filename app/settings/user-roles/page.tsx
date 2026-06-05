@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
-import { logActivity } from "@/app/lib/activityLogger";
 import {
   Plus,
   RefreshCcw,
@@ -83,6 +82,28 @@ export default function UserRolesPage() {
   const assignedEmployees = employees.filter(
     (employee) => employee.system_role_id === selectedRoleId
   );
+
+  const createAuditLog = async (
+    action: string,
+    description: string,
+    severity: "info" | "warning" | "critical" = "info",
+    oldValue?: any,
+    newValue?: any
+  ) => {
+    const { error } = await supabase.from("audit_logs").insert({
+      module: "System Settings",
+      action,
+      description,
+      severity,
+      record_id: null,
+      old_value: oldValue || null,
+      new_value: newValue || null,
+    });
+
+    if (error) {
+      console.log("USER ROLES AUDIT ERROR:", JSON.stringify(error, null, 2));
+    }
+  };
 
   const getRoles = async () => {
     const { data, error } = await supabase
@@ -165,11 +186,17 @@ export default function UserRolesPage() {
 
     await refreshData();
 
-    await logActivity(
-      "User Roles",
-      "Create Role",
-      `Created role: ${data.role_name}`,
-      "Current User"
+    await createAuditLog(
+      "CREATE_ROLE",
+      `Created system role: ${data.role_name}`,
+      "warning",
+      null,
+      {
+        id: data.id,
+        role_name: data.role_name,
+        description: data.description,
+        is_active: data.is_active,
+      }
     );
 
     alert("Role created.");
@@ -179,6 +206,18 @@ export default function UserRolesPage() {
     if (!selectedRoleId || !selectedRole) return;
 
     if (assignedEmployees.length > 0) {
+      await createAuditLog(
+        "DELETE_ROLE_BLOCKED",
+        `Blocked delete for role ${selectedRole.role_name} because employees are still assigned.`,
+        "warning",
+        {
+          role_id: selectedRoleId,
+          role_name: selectedRole.role_name,
+          assigned_employees: assignedEmployees.length,
+        },
+        null
+      );
+
       alert("Cannot delete role. Remove assigned employees first.");
       return;
     }
@@ -201,11 +240,15 @@ export default function UserRolesPage() {
     setSelectedRoleId("");
     await refreshData();
 
-    await logActivity(
-      "User Roles",
-      "Delete Role",
-      `Deleted role: ${roleName}`,
-      "Current User"
+    await createAuditLog(
+      "DELETE_ROLE",
+      `Deleted system role: ${roleName}`,
+      "critical",
+      {
+        role_id: selectedRoleId,
+        role_name: roleName,
+      },
+      null
     );
 
     alert("Role deleted.");
@@ -247,7 +290,8 @@ export default function UserRolesPage() {
     ]);
   };
 
-  const setRolePermissionsFromPreset = (
+  const setRolePermissionsFromPreset = async (
+    presetName: string,
     builder: (moduleKey: string) => any
   ) => {
     if (!selectedRoleId) {
@@ -266,10 +310,18 @@ export default function UserRolesPage() {
     }));
 
     setPermissions([...otherRolePermissions, ...newRolePermissions]);
+
+    await createAuditLog(
+      "APPLY_PERMISSION_PRESET",
+      `Applied ${presetName} preset to ${selectedRole?.role_name || "selected role"}. Save is still required to persist changes.`,
+      presetName === "Clear All" ? "warning" : "info",
+      { role_id: selectedRoleId, role_name: selectedRole?.role_name },
+      { preset: presetName, permissions: newRolePermissions }
+    );
   };
 
-  const grantFullAccess = () => {
-    setRolePermissionsFromPreset(() => ({
+  const grantFullAccess = async () => {
+    await setRolePermissionsFromPreset("Full Access", () => ({
       can_view: true,
       can_create: true,
       can_edit: true,
@@ -279,8 +331,8 @@ export default function UserRolesPage() {
     }));
   };
 
-  const grantViewOnly = () => {
-    setRolePermissionsFromPreset(() => ({
+  const grantViewOnly = async () => {
+    await setRolePermissionsFromPreset("View Only", () => ({
       can_view: true,
       can_create: false,
       can_edit: false,
@@ -290,8 +342,8 @@ export default function UserRolesPage() {
     }));
   };
 
-  const clearAllPermissions = () => {
-    setRolePermissionsFromPreset(() => ({
+  const clearAllPermissions = async () => {
+    await setRolePermissionsFromPreset("Clear All", () => ({
       can_view: false,
       can_create: false,
       can_edit: false,
@@ -301,7 +353,7 @@ export default function UserRolesPage() {
     }));
   };
 
-  const applyPayrollPreset = () => {
+  const applyPayrollPreset = async () => {
     const allowedView = [
       "dashboard",
       "attendance",
@@ -312,7 +364,7 @@ export default function UserRolesPage() {
       "release_history",
     ];
 
-    setRolePermissionsFromPreset((moduleKey) => ({
+    await setRolePermissionsFromPreset("Payroll", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
       can_create: moduleKey === "attendance",
       can_edit: ["attendance", "payroll_register"].includes(moduleKey),
@@ -322,7 +374,7 @@ export default function UserRolesPage() {
     }));
   };
 
-  const applyHRPreset = () => {
+  const applyHRPreset = async () => {
     const allowedView = [
       "dashboard",
       "audit_center",
@@ -335,7 +387,7 @@ export default function UserRolesPage() {
 
     const allowedCreateEdit = ["employees", "scheduling", "leave_management"];
 
-    setRolePermissionsFromPreset((moduleKey) => ({
+    await setRolePermissionsFromPreset("HR", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
       can_create: allowedCreateEdit.includes(moduleKey),
       can_edit: allowedCreateEdit.includes(moduleKey),
@@ -345,7 +397,7 @@ export default function UserRolesPage() {
     }));
   };
 
-  const applyCashierPreset = () => {
+  const applyCashierPreset = async () => {
     const allowedView = [
       "dashboard",
       "restaurant_sales",
@@ -355,7 +407,7 @@ export default function UserRolesPage() {
 
     const allowedCreateEdit = ["restaurant_sales", "expenses", "cash_management"];
 
-    setRolePermissionsFromPreset((moduleKey) => ({
+    await setRolePermissionsFromPreset("Cashier", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
       can_create: allowedCreateEdit.includes(moduleKey),
       can_edit: allowedCreateEdit.includes(moduleKey),
@@ -365,7 +417,7 @@ export default function UserRolesPage() {
     }));
   };
 
-  const applyManagerPreset = () => {
+  const applyManagerPreset = async () => {
     const allowedView = [
       "dashboard",
       "audit_center",
@@ -385,7 +437,7 @@ export default function UserRolesPage() {
 
     const allowedApprove = ["leave_management", "expenses", "payroll_manager"];
 
-    setRolePermissionsFromPreset((moduleKey) => ({
+    await setRolePermissionsFromPreset("Manager", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
       can_create: false,
       can_edit: false,
@@ -427,11 +479,16 @@ export default function UserRolesPage() {
 
     await getPermissions();
 
-    await logActivity(
-      "User Roles",
-      "Save Permissions",
-      `Updated permissions for ${selectedRole?.role_name || "selected role"}`,
-      "Current User"
+    await createAuditLog(
+      "SAVE_PERMISSIONS",
+      `Saved permissions for ${selectedRole?.role_name || "selected role"}`,
+      "warning",
+      null,
+      {
+        role_id: selectedRoleId,
+        role_name: selectedRole?.role_name,
+        permissions: rows,
+      }
     );
 
     alert("Permissions saved.");
@@ -439,6 +496,7 @@ export default function UserRolesPage() {
 
   const assignEmployeeRole = async (employeeId: string, roleId: string) => {
     const employee = employees.find((emp) => emp.id === employeeId);
+    const oldRole = roles.find((r) => r.id === employee?.system_role_id);
     const role = roles.find((r) => r.id === roleId);
 
     const { error } = await supabase
@@ -455,13 +513,24 @@ export default function UserRolesPage() {
 
     await getEmployees();
 
-    await logActivity(
-      "User Roles",
-      "Assign Employee Role",
+    await createAuditLog(
+      "ASSIGN_EMPLOYEE_ROLE",
       `${employee?.first_name || ""} ${employee?.last_name || ""} assigned to ${
         role?.role_name || "No Access"
       }`,
-      "Current User"
+      "warning",
+      {
+        employee_id: employeeId,
+        employee_name: `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim(),
+        role_id: employee?.system_role_id || null,
+        role_name: oldRole?.role_name || "No Access",
+      },
+      {
+        employee_id: employeeId,
+        employee_name: `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim(),
+        role_id: roleId || null,
+        role_name: role?.role_name || "No Access",
+      }
     );
   };
 

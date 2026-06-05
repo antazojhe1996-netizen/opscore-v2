@@ -1,289 +1,693 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
-import * as XLSX from "xlsx";
 
-type ReservationRow = {
+type TimeFilter = "today" | "month" | "year" | "all";
+
+type HotelSale = {
   id?: number;
-  reservation_number: string;
-  guest_name: string;
-  room: string;
-  room_type: string;
-  check_in: string | null;
-  check_out: string | null;
-  nights: number;
-  booking_source: string;
-  status: string;
-  accommodation_total: number;
-  grand_total: number;
-  amount_paid: number;
-  balance_due: number;
-  import_key: string;
+  reservation_number?: string | null;
+  guest_name?: string | null;
+  room?: string | null;
+  room_type?: string | null;
+  check_in?: string | null;
+  check_out?: string | null;
+  nights?: number | null;
+  booking_source?: string | null;
+  status?: string | null;
+  total_sales?: number | null;
+  amount_paid?: number | null;
+  unpaid_balance?: number | null;
 };
+
+const RESERVATIONS_TABLE = "finance_hotel_reservations";
+const AUDIT_TABLE = "audit_logs";
+const FETCH_PAGE_SIZE = 1000;
+const INSERT_BATCH_SIZE = 500;
+const DISPLAY_LIMIT = 300;
 
 export default function RoomSalesPage() {
-  const [reservations, setReservations] = useState<ReservationRow[]>([]);
-  const [previewRows, setPreviewRows] = useState<ReservationRow[]>([]);
-  const [period, setPeriod] = useState<"today" | "month" | "year" | "all">(
-  "all"
-);
-  const [fileName, setFileName] = useState("");
+  /// STATES
+  const [sales, setSales] = useState<HotelSale[]>([]);
+  const [previewRows, setPreviewRows] = useState<HotelSale[]>([]);
+  const [previewFileName, setPreviewFileName] = useState("");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const getReservations = async () => {
-  const { data, error } = await supabase
-    .from("finance_hotel_reservations")
-    .select("*")
-    .order("check_in", { ascending: false });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  console.log("HOTEL RESERVATIONS DATA:", data);
-  console.log("HOTEL RESERVATIONS ERROR:", error);
-
-  if (error) {
-    console.log("GET RESERVATIONS ERROR:", error);
-    return;
-  }
-
-  setReservations(data || []);
-};
-
-  useEffect(() => {
-    getReservations();
-  }, []);
-
-  const formatMoney = (value: number) =>
-    value.toLocaleString("en-PH", {
+  /// HELPERS
+  const peso = (value: number) =>
+    new Intl.NumberFormat("en-PH", {
       style: "currency",
       currency: "PHP",
-    });
+    }).format(value || 0);
 
-  const cleanMoney = (value: any) => {
+  const toNumber = (value: any) => {
+    if (value === null || value === undefined || value === "") return 0;
+    if (typeof value === "number") return value;
+
     return (
-      Number(String(value || "").replace("₱", "").replace(/,/g, "").trim()) || 0
+      Number(
+        String(value)
+          .replaceAll("₱", "")
+          .replaceAll(",", "")
+          .replaceAll("PHP", "")
+          .trim()
+      ) || 0
     );
   };
 
-  const cleanDate = (value: any) => {
+  const getValue = (row: any, possibleKeys: string[]) => {
+    const keys = Object.keys(row);
+
+    for (const target of possibleKeys) {
+      const foundKey = keys.find(
+        (key) => key.toLowerCase().trim() === target.toLowerCase().trim()
+      );
+
+      if (foundKey) return row[foundKey];
+    }
+
+    return null;
+  };
+
+  const normalizeRoomType = (value: any) => {
+    const text = String(value || "Unknown").toLowerCase().trim();
+
+    if (text.includes("standard") || text === "str") return "Standard Room";
+    if (text.includes("deluxe") || text === "del") return "Deluxe Room";
+    if (text.includes("premium") || text.includes("superior") || text === "pre") {
+      return "Premium Room";
+    }
+    if (text.includes("family") || text === "fam") return "Family Room";
+    if (text.includes("penthouse")) return "Penthouse";
+
+    return value || "Unknown";
+  };
+
+  const normalizeDate = (value: any) => {
     if (!value) return null;
 
     if (typeof value === "number") {
-      const date = XLSX.SSF.parse_date_code(value);
-      if (!date) return null;
+      const parsed = XLSX.SSF.parse_date_code(value);
+      if (!parsed) return null;
 
-      return `${date.y}-${String(date.m).padStart(2, "0")}-${String(
-        date.d
+      return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(
+        parsed.d
       ).padStart(2, "0")}`;
     }
 
-    const parsed = new Date(value);
-    if (isNaN(parsed.getTime())) return null;
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return null;
 
-    return parsed.toISOString().split("T")[0];
+    return date.toISOString().split("T")[0];
   };
 
-  const getValue = (row: any, keys: string[]) => {
-    for (const key of keys) {
-      if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
-        return row[key];
+  const isCancelledReservation = (item: HotelSale) =>
+    String(item.status || "").toLowerCase().includes("cancel");
+
+  const getSummary = (rows: HotelSale[]) => {
+    const activeRows = rows.filter((item) => !isCancelledReservation(item));
+    const cancelledRows = rows.filter((item) => isCancelledReservation(item));
+
+    const totalSales = activeRows.reduce(
+      (sum, item) => sum + toNumber(item.total_sales),
+      0
+    );
+
+    const cancelledSales = cancelledRows.reduce(
+      (sum, item) => sum + toNumber(item.total_sales),
+      0
+    );
+
+    const amountPaid = activeRows.reduce(
+      (sum, item) => sum + toNumber(item.amount_paid),
+      0
+    );
+
+    const unpaidBalance = activeRows.reduce((sum, item) => {
+      const balance = toNumber(item.unpaid_balance);
+      return balance > 0 ? sum + balance : sum;
+    }, 0);
+
+    return {
+      totalSales,
+      amountPaid,
+      unpaidBalance,
+      reservations: activeRows.length,
+      cancelledReservations: cancelledRows.length,
+      cancelledSales,
+      unpaidRooms: activeRows.filter((item) => toNumber(item.unpaid_balance) > 0)
+        .length,
+    };
+  };
+
+  const buildRecordsFromExcelRows = (rows: any[]) => {
+    return rows.map((row, index) => {
+      const reservationNumber =
+        getValue(row, [
+          "Reservation Number",
+          "Reservation #",
+          "Reservation ID",
+          "Reservation",
+          "Confirmation Number",
+          "Booking ID",
+          "ID",
+        ]) || `IMPORT-${Date.now()}-${index}`;
+
+      return {
+        reservation_number: String(reservationNumber),
+        guest_name: String(
+          getValue(row, ["Guest Name", "Guest", "Name", "Customer"]) || ""
+        ),
+        room: String(
+          getValue(row, ["Room", "Room Number", "Accommodation"]) || ""
+        ),
+        room_type: normalizeRoomType(
+          getValue(row, ["Room Type", "Accommodation Type", "Room Category"])
+        ),
+        check_in: normalizeDate(
+          getValue(row, ["Check In", "Check-in", "Arrival", "Start Date"])
+        ),
+        check_out: normalizeDate(
+          getValue(row, ["Check Out", "Check-out", "Departure", "End Date"])
+        ),
+        nights: toNumber(getValue(row, ["Nights", "Night"])),
+        booking_source: String(
+          getValue(row, ["Booking Source", "Source", "Channel", "Origin"]) ||
+            "Unknown"
+        ),
+        status: String(
+          getValue(row, ["Status", "Reservation Status", "Booking Status"]) ||
+            ""
+        ),
+        total_sales: toNumber(
+          getValue(row, [
+            "Grand Total",
+            "Total",
+            "Total Sales",
+            "Reservation Total",
+            "Amount",
+          ])
+        ),
+        amount_paid: toNumber(
+          getValue(row, ["Amount Paid", "Paid", "Payments", "Total Paid"])
+        ),
+        unpaid_balance: toNumber(
+          getValue(row, [
+            "Balance Due",
+            "Balance",
+            "Unpaid Balance",
+            "Amount Due",
+          ])
+        ),
+      };
+    });
+  };
+
+  /// AUDIT
+  const createAuditEntry = async (
+    action: string,
+    description: string,
+    newValue?: any,
+    severity: "info" | "warning" | "critical" = "info",
+    oldValue?: any
+  ) => {
+    const { error } = await supabase.from(AUDIT_TABLE).insert({
+      module: "Hotel Sales",
+      action,
+      description,
+      severity,
+      record_id: null,
+      old_value: oldValue || null,
+      new_value: newValue || null,
+    });
+
+    if (error) {
+      console.log("HOTEL SALES AUDIT ERROR:", JSON.stringify(error, null, 2));
+    }
+  };
+
+  const getImportValidation = (rows: HotelSale[]) => {
+    const duplicateMap: Record<string, number> = {};
+
+    rows.forEach((row) => {
+      const key = String(row.reservation_number || "").trim();
+      if (!key) return;
+      duplicateMap[key] = (duplicateMap[key] || 0) + 1;
+    });
+
+    const invalidDateRows = rows.filter(
+      (row) => !row.check_in && !row.check_out
+    ).length;
+
+    const zeroTotalRows = rows.filter(
+      (row) => toNumber(row.total_sales) === 0
+    ).length;
+
+    const duplicateReservationRows = Object.values(duplicateMap).reduce(
+      (sum, count) => (count > 1 ? sum + count : sum),
+      0
+    );
+
+    const cancelledRows = rows.filter((row) =>
+      isCancelledReservation(row)
+    ).length;
+
+    const negativeBalanceRows = rows.filter(
+      (row) => toNumber(row.unpaid_balance) < 0
+    ).length;
+
+    const activeRows = rows.filter((row) => !isCancelledReservation(row));
+    const activeTotalSales = activeRows.reduce(
+      (sum, row) => sum + toNumber(row.total_sales),
+      0
+    );
+
+    return {
+      rows: rows.length,
+      activeRows: activeRows.length,
+      cancelledRows,
+      invalidDateRows,
+      zeroTotalRows,
+      duplicateReservationRows,
+      negativeBalanceRows,
+      activeTotalSales,
+      canImport: rows.length > 0 && activeTotalSales > 0,
+    };
+  };
+
+  /// FUNCTIONS
+  const getHotelSales = async () => {
+    setLoading(true);
+
+    let from = 0;
+    let allRows: HotelSale[] = [];
+
+    while (true) {
+      const { data, error } = await supabase
+        .from(RESERVATIONS_TABLE)
+        .select("*")
+        .order("check_in", { ascending: false })
+        .range(from, from + FETCH_PAGE_SIZE - 1);
+
+      if (error) {
+        console.log("HOTEL SALES ERROR:", JSON.stringify(error, null, 2));
+        setLoading(false);
+        return;
       }
+
+      const batch = (data || []) as HotelSale[];
+      allRows = [...allRows, ...batch];
+
+      if (batch.length < FETCH_PAGE_SIZE) break;
+      from += FETCH_PAGE_SIZE;
     }
 
-    return "";
+    const rows = allRows.map((item) => ({
+      ...item,
+      room_type: normalizeRoomType(item.room_type),
+      total_sales: toNumber(item.total_sales),
+      amount_paid: toNumber(item.amount_paid),
+      unpaid_balance: toNumber(item.unpaid_balance),
+    }));
+
+    setSales(rows);
+    setLoading(false);
   };
 
-  const getRoomTypeName = (roomType: string) => {
-    const value = String(roomType || "").toLowerCase();
+  const filteredSales = useMemo(() => {
+    const today = new Date();
+    const todayString = today.toISOString().split("T")[0];
+    const month = today.getMonth();
+    const year = today.getFullYear();
 
-    if (value.includes("standard")) return "Standard Room";
-    if (value.includes("deluxe")) return "Deluxe Room";
-    if (value.includes("premium")) return "Premium Room";
-    if (value.includes("family")) return "Family Room";
-    if (value.includes("penthouse")) return "Penthouse";
+    return sales.filter((item) => {
+      if (timeFilter === "all") return true;
 
-    return roomType || "Needs Review";
-  };
+      const rawDate = item.check_in || item.check_out || null;
+      if (!rawDate) return false;
 
-  const filteredRows = useMemo(() => {
-    const now = new Date();
-
-    return reservations.filter((row) => {
-      if (period === "all") return true;
-      if (!row.check_in) return false;
-
-      const date = new Date(row.check_in);
+      const date = new Date(rawDate);
       if (isNaN(date.getTime())) return false;
 
-      if (period === "today") {
-        return date.toDateString() === now.toDateString();
+      if (timeFilter === "today") {
+        return date.toISOString().split("T")[0] === todayString;
       }
 
-      if (period === "month") {
-        return (
-          date.getFullYear() === now.getFullYear() &&
-          date.getMonth() === now.getMonth()
-        );
+      if (timeFilter === "month") {
+        return date.getMonth() === month && date.getFullYear() === year;
       }
 
-      if (period === "year") {
-        return date.getFullYear() === now.getFullYear();
+      if (timeFilter === "year") {
+        return date.getFullYear() === year;
       }
 
       return true;
     });
-  }, [reservations, period]);
+  }, [sales, timeFilter]);
 
-  const totalRevenue = filteredRows.reduce(
-    (sum, row) => sum + Number(row.grand_total || 0),
-    0
+  const activeFilteredSales = useMemo(
+    () => filteredSales.filter((item) => !isCancelledReservation(item)),
+    [filteredSales],
   );
 
-  const totalPaid = filteredRows.reduce(
-    (sum, row) => sum + Number(row.amount_paid || 0),
-    0
-  );
+  const summary = useMemo(() => getSummary(filteredSales), [filteredSales]);
+  const previewSummary = useMemo(() => getSummary(previewRows), [previewRows]);
 
-  const totalBalance = filteredRows.reduce(
-    (sum, row) => sum + Number(row.balance_due || 0),
-    0
-  );
+  const salesByRoomType = useMemo(() => {
+    const grouped: Record<string, number> = {};
 
-  const totalReservations = filteredRows.length;
-
-  const unpaidRows = filteredRows
-    .filter((row) => Number(row.balance_due || 0) > 0)
-    .sort((a, b) => Number(b.balance_due || 0) - Number(a.balance_due || 0));
-
-  const revenueByRoomType = filteredRows.reduce((acc: any, row) => {
-    const key = getRoomTypeName(row.room_type);
-    acc[key] = (acc[key] || 0) + Number(row.grand_total || 0);
-    return acc;
-  }, {});
-
-  const revenueBySource = filteredRows.reduce((acc: any, row) => {
-    const key = row.booking_source || "Needs Review";
-    acc[key] = (acc[key] || 0) + Number(row.grand_total || 0);
-    return acc;
-  }, {});
-
-  const handleFileUpload = async (file: File) => {
-    setFileName(file.name);
-
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer);
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-
-    const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, {
-      defval: "",
+    activeFilteredSales.forEach((item) => {
+      const key = normalizeRoomType(item.room_type);
+      grouped[key] = (grouped[key] || 0) + toNumber(item.total_sales);
     });
 
-    const cleanedRows: ReservationRow[] = rawRows
-      .map((row: any) => {
-        const reservationNumber = String(
-          getValue(row, ["Reservation Number", "Reservation #", "RES #"])
-        ).trim();
+    return Object.entries(grouped).sort((a, b) => b[1] - a[1]);
+  }, [activeFilteredSales]);
 
-        const guestName = String(getValue(row, ["Name", "Guest Name"])).trim();
+  const salesByBookingSource = useMemo(() => {
+    const grouped: Record<string, number> = {};
 
-        const room = String(
-          getValue(row, ["Room Number", "Room", "ROOM"])
-        ).trim();
+    activeFilteredSales.forEach((item) => {
+      const key = item.booking_source || "Unknown";
+      grouped[key] = (grouped[key] || 0) + toNumber(item.total_sales);
+    });
 
-        const roomType = getRoomTypeName(
-          String(getValue(row, ["Room Type", "RoomType"])).trim()
-        );
+    return Object.entries(grouped).sort((a, b) => b[1] - a[1]);
+  }, [activeFilteredSales]);
 
-        const checkIn = cleanDate(
-          getValue(row, ["Check in Date", "Check In", "Check-In"])
-        );
+  const exportExcel = async () => {
+    const rows = filteredSales.map((item) => ({
+      "Reservation Number": item.reservation_number || "",
+      Guest: item.guest_name || "",
+      Room: item.room || "",
+      "Room Type": item.room_type || "",
+      "Check In": item.check_in || "",
+      "Check Out": item.check_out || "",
+      Nights: item.nights || 0,
+      "Booking Source": item.booking_source || "",
+      Status: item.status || "",
+      "Total Sales": toNumber(item.total_sales),
+      "Amount Paid": toNumber(item.amount_paid),
+      "Collectible Balance": Math.max(toNumber(item.unpaid_balance), 0),
+    }));
 
-        const checkOut = cleanDate(
-          getValue(row, ["Check out Date", "Check Out", "Check-Out"])
-        );
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
 
-        const nights =
-          Number(getValue(row, ["Nights", "Night", "Total Nights"])) || 0;
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Hotel Sales");
 
-        const bookingSource = String(
-          getValue(row, ["Source", "Booking Source"])
-        ).trim();
+    XLSX.writeFile(
+      workbook,
+      `hotel-sales-${timeFilter}-${new Date().toISOString().split("T")[0]}.xlsx`
+    );
 
-        const status = String(getValue(row, ["Status"])).trim();
-
-        const accommodationTotal = cleanMoney(
-          getValue(row, ["Accommodation Total"])
-        );
-
-        const grandTotal = cleanMoney(getValue(row, ["Grand Total"]));
-
-        const amountPaid = cleanMoney(getValue(row, ["Amount Paid"]));
-
-        const balanceDue = cleanMoney(getValue(row, ["Balance Due"]));
-
-        return {
-          reservation_number: reservationNumber,
-          guest_name: guestName,
-          room,
-          room_type: roomType,
-          check_in: checkIn,
-          check_out: checkOut,
-          nights,
-          booking_source: bookingSource || "Needs Review",
-          status: status || "Needs Review",
-          accommodation_total: accommodationTotal,
-          grand_total: grandTotal,
-          amount_paid: amountPaid,
-          balance_due: balanceDue,
-          import_key: reservationNumber,
-        };
-      })
-      .filter((row) => row.reservation_number && row.grand_total > 0);
-
-    setPreviewRows(cleanedRows);
+    await createAuditEntry("EXPORT_EXCEL", "Exported hotel sales Excel report", {
+      filter: timeFilter,
+      rows: rows.length,
+      activeSales: summary.totalSales,
+      amountPaid: summary.amountPaid,
+      collectibleBalance: summary.unpaidBalance,
+      cancelledReservations: summary.cancelledReservations,
+      cancelledSales: summary.cancelledSales,
+    });
   };
 
-  const importToDatabase = async () => {
-    if (previewRows.length === 0) {
-      alert("No rows to import.");
-      return;
-    }
+  const handlePreviewExcel = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
     setImporting(true);
 
-    const { error } = await supabase
-      .from("finance_hotel_reservations")
-      .upsert(previewRows, {
-        onConflict: "import_key",
-      });
+    const reader = new FileReader();
 
-    setImporting(false);
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    if (error) {
-      console.log("RESERVATION IMPORT ERROR:", error);
-      alert("Import failed. Check console.");
+        const rows = XLSX.utils.sheet_to_json<any>(worksheet, {
+          defval: "",
+        });
+
+        const records = buildRecordsFromExcelRows(rows);
+        const validation = getImportValidation(records);
+
+        if (!validation.canImport) {
+          await createAuditEntry(
+            "IMPORT_VALIDATION_FAILED",
+            `Hotel sales import validation failed for file: ${file.name}`,
+            {
+              fileName: file.name,
+              validation,
+            },
+            "warning"
+          );
+
+          alert(
+            "Import validation failed. File has no active sales total or no readable reservation rows."
+          );
+          setImporting(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        if (validation.invalidDateRows > 0 || validation.duplicateReservationRows > 0) {
+          await createAuditEntry(
+            "IMPORT_VALIDATION_WARNING",
+            `Hotel sales import validation warning for file: ${file.name}`,
+            {
+              fileName: file.name,
+              validation,
+            },
+            "warning"
+          );
+        }
+
+        setPreviewRows(records);
+        setPreviewFileName(file.name);
+        setImporting(false);
+
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } catch (error) {
+        console.log("PREVIEW PARSE ERROR:", error);
+        alert("Excel preview failed.");
+        setImporting(false);
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  const confirmImport = async () => {
+    if (previewRows.length === 0) return;
+
+    const validation = getImportValidation(previewRows);
+
+    if (!validation.canImport) {
+      await createAuditEntry(
+        "IMPORT_VALIDATION_FAILED",
+        `Hotel sales confirm import blocked: ${previewFileName}`,
+        { fileName: previewFileName, validation },
+        "warning"
+      );
+      alert("Import blocked. No active sales total found in preview.");
       return;
     }
 
-    alert("Hotel sales imported successfully.");
+    const hasExistingData = sales.length > 0;
+    const shouldReplace = hasExistingData
+      ? window.confirm(
+          `Existing hotel sales data detected (${sales.length} rows).\n\nOK = Replace existing data before import\nCancel = Append new import to existing data`
+        )
+      : false;
+
+    const confirmMessage = `${shouldReplace ? "Replace and import" : "Import"} ${
+      previewRows.length
+    } reservations?\n\nActive Sales: ${peso(
+      previewSummary.totalSales
+    )}\nAmount Paid: ${peso(previewSummary.amountPaid)}\nCollectible Balance: ${peso(
+      previewSummary.unpaidBalance
+    )}\nCancelled Excluded: ${previewSummary.cancelledReservations} reservations worth ${peso(
+      previewSummary.cancelledSales
+    )}`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setImporting(true);
+
+    if (shouldReplace) {
+      const oldSummary = getSummary(sales);
+
+      const { error: deleteError } = await supabase
+        .from(RESERVATIONS_TABLE)
+        .delete()
+        .not("id", "is", null);
+
+      if (deleteError) {
+        console.log("REPLACE DELETE ERROR:", JSON.stringify(deleteError, null, 2));
+        alert("Replace failed while clearing existing hotel sales data.");
+        setImporting(false);
+        return;
+      }
+
+      await createAuditEntry(
+        "IMPORT_REPLACE_CLEAR",
+        `Cleared existing hotel sales data before importing file: ${previewFileName}`,
+        {
+          fileName: previewFileName,
+          incomingRows: previewRows.length,
+          incomingSummary: previewSummary,
+        },
+        "warning",
+        {
+          previousRows: sales.length,
+          previousSummary: oldSummary,
+        }
+      );
+    }
+
+    for (let i = 0; i < previewRows.length; i += INSERT_BATCH_SIZE) {
+      const batch = previewRows.slice(i, i + INSERT_BATCH_SIZE);
+
+      const { error } = await supabase.from(RESERVATIONS_TABLE).insert(batch);
+
+      if (error) {
+        console.log("IMPORT ERROR:", JSON.stringify(error, null, 2));
+
+        await createAuditEntry(
+          "IMPORT_FAILED",
+          `Hotel sales import failed for file: ${previewFileName}`,
+          {
+            fileName: previewFileName,
+            failedBatchStart: i + 1,
+            failedBatchEnd: i + batch.length,
+            error,
+          },
+          "critical"
+        );
+
+        alert(`Import failed at rows ${i + 1} to ${i + batch.length}.`);
+        setImporting(false);
+        return;
+      }
+    }
+
+    await createAuditEntry(
+      shouldReplace ? "IMPORT_REPLACE" : "IMPORT_APPEND",
+      `${shouldReplace ? "Replaced" : "Imported"} hotel reservations Excel file: ${previewFileName}`,
+      {
+        fileName: previewFileName,
+        rows: previewRows.length,
+        activeSales: previewSummary.totalSales,
+        amountPaid: previewSummary.amountPaid,
+        collectibleBalance: previewSummary.unpaidBalance,
+        cancelledReservations: previewSummary.cancelledReservations,
+        cancelledSales: previewSummary.cancelledSales,
+        validation,
+      },
+      shouldReplace ? "warning" : "info"
+    );
 
     setPreviewRows([]);
-    setFileName("");
-    getReservations();
+    setPreviewFileName("");
+
+    await getHotelSales();
+    setImporting(false);
   };
 
+  const clearHotelSalesData = async () => {
+    if (sales.length === 0) {
+      alert("No hotel sales records to clear.");
+      return;
+    }
+
+    const oldSummary = getSummary(sales);
+
+    const confirmed = window.confirm(
+      `Delete all hotel sales records?\n\nRows: ${sales.length}\nActive Sales: ${peso(
+        oldSummary.totalSales
+      )}\nAmount Paid: ${peso(oldSummary.amountPaid)}\nCollectible Balance: ${peso(
+        oldSummary.unpaidBalance
+      )}\n\nThis will only clear the hotel sales import table.`
+    );
+
+    if (!confirmed) return;
+
+    setLoading(true);
+
+    const { error } = await supabase
+      .from(RESERVATIONS_TABLE)
+      .delete()
+      .not("id", "is", null);
+
+    if (error) {
+      console.log("CLEAR HOTEL SALES ERROR:", JSON.stringify(error, null, 2));
+
+      await createAuditEntry(
+        "DELETE_ALL_RECORDS_FAILED",
+        "Failed to clear all hotel sales records",
+        { error },
+        "critical",
+        { previousRows: sales.length, previousSummary: oldSummary }
+      );
+
+      alert("Failed to clear hotel sales data. Check console error.");
+      setLoading(false);
+      return;
+    }
+
+    await createAuditEntry(
+      "DELETE_ALL_RECORDS",
+      "Cleared all hotel sales records",
+      null,
+      "warning",
+      {
+        previousRows: sales.length,
+        previousSummary: oldSummary,
+      }
+    );
+
+    setSales([]);
+    setPreviewRows([]);
+    setPreviewFileName("");
+    setLoading(false);
+  };
+
+  const cancelPreview = () => {
+    setPreviewRows([]);
+    setPreviewFileName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  useEffect(() => {
+    getHotelSales();
+  }, []);
+
+  /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <section className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-semibold text-yellow-400">
+            <p className="text-sm font-bold text-yellow-400">
               Finance / Hotel Sales
             </p>
 
-            <h1 className="mt-1 text-3xl font-bold">Hotel Sales Dashboard</h1>
+            <h1 className="mt-2 text-3xl font-black">
+              Hotel Sales Dashboard
+            </h1>
 
             <p className="mt-2 text-sm text-slate-400">
               Monitor room sales, amount paid, unpaid balances, and reservations
@@ -291,333 +695,336 @@ export default function RoomSalesPage() {
             </p>
           </div>
 
-          <div className="flex rounded-xl border border-slate-800 bg-slate-900 p-1">
-            {[
-              ["today", "Today"],
-              ["month", "This Month"],
-              ["year", "This Year"],
-              ["all", "All Time"],
-            ].map(([key, label]) => (
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex rounded-xl border border-slate-700 bg-slate-900 p-1">
+              {(["today", "month", "year", "all"] as TimeFilter[]).map(
+                (filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setTimeFilter(filter)}
+                    className={`rounded-lg px-4 py-2 text-sm font-bold ${
+                      timeFilter === filter
+                        ? "bg-yellow-400 text-slate-950"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {filter === "today"
+                      ? "Today"
+                      : filter === "month"
+                      ? "This Month"
+                      : filter === "year"
+                      ? "This Year"
+                      : "All Time"}
+                  </button>
+                )
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handlePreviewExcel}
+                className="hidden"
+              />
+
               <button
-                key={key}
-                onClick={() => setPeriod(key as any)}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                  period === key
-                    ? "bg-yellow-400 text-slate-950"
-                    : "text-slate-400 hover:bg-slate-800"
-                }`}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-50"
               >
-                {label}
+                {importing ? "Reading..." : "Preview Import"}
               </button>
-            ))}
+
+              <button
+                onClick={exportExcel}
+                disabled={loading || filteredSales.length === 0}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                Export Excel
+              </button>
+
+              <button
+                onClick={clearHotelSalesData}
+                disabled={loading || importing || sales.length === 0}
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                Clear Data
+              </button>
+            </div>
           </div>
         </section>
 
-        <section className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Total Sales" value={formatMoney(totalRevenue)} />
-          <SummaryCard title="Amount Paid" value={formatMoney(totalPaid)} />
+        {previewRows.length > 0 && (
+          <section className="mb-7 rounded-xl border border-yellow-500/40 bg-yellow-950/20 p-6">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-xl font-black text-yellow-300">
+                  Import Preview
+                </h2>
+                <p className="mt-1 text-sm text-yellow-100">
+                  File: {previewFileName}. Verify totals before importing.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={cancelPreview}
+                  disabled={importing}
+                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={confirmImport}
+                  disabled={importing}
+                  className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  {importing ? "Importing..." : "Confirm Import"}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <SummaryCard
+                title="Preview Reservations"
+                value={String(previewSummary.reservations)}
+              />
+              <SummaryCard
+                title="Preview Total Sales"
+                value={peso(previewSummary.totalSales)}
+              />
+              <SummaryCard
+                title="Preview Amount Paid"
+                value={peso(previewSummary.amountPaid)}
+              />
+              <SummaryCard
+                title="Preview Collectible"
+                value={peso(previewSummary.unpaidBalance)}
+                danger
+              />
+            </div>
+
+            {(() => {
+              const validation = getImportValidation(previewRows);
+
+              return (
+                <div className="mt-4 grid grid-cols-1 gap-3 text-xs md:grid-cols-4">
+                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
+                    Cancelled excluded: {validation.cancelledRows}
+                  </div>
+                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
+                    Negative credits: {validation.negativeBalanceRows}
+                  </div>
+                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
+                    Missing dates: {validation.invalidDateRows}
+                  </div>
+                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
+                    Duplicate IDs: {validation.duplicateReservationRows}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="mt-5 max-h-64 overflow-auto rounded-xl border border-yellow-500/20">
+              <table className="w-full min-w-[1000px] text-left text-xs">
+                <thead className="bg-slate-950 text-yellow-200">
+                  <tr>
+                    <th className="p-3">Reservation</th>
+                    <th>Guest</th>
+                    <th>Room</th>
+                    <th>Room Type</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th className="text-right">Total</th>
+                    <th className="text-right">Paid</th>
+                    <th className="pr-3 text-right">Balance</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {previewRows.slice(0, 20).map((item, index) => (
+                    <tr
+                      key={`${item.reservation_number}-${index}`}
+                      className="border-t border-yellow-500/10 text-slate-200"
+                    >
+                      <td className="p-3">{item.reservation_number}</td>
+                      <td>{item.guest_name}</td>
+                      <td>{item.room}</td>
+                      <td>{item.room_type}</td>
+                      <td>{item.booking_source}</td>
+                      <td>{item.status}</td>
+                      <td className="text-right">
+                        {peso(toNumber(item.total_sales))}
+                      </td>
+                      <td className="text-right">
+                        {peso(toNumber(item.amount_paid))}
+                      </td>
+                      <td className="pr-3 text-right">
+                        {peso(toNumber(item.unpaid_balance))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {previewRows.length > 20 && (
+              <p className="mt-3 text-xs text-yellow-100">
+                Showing first 20 rows only. Full import will include all{" "}
+                {previewRows.length} rows.
+              </p>
+            )}
+          </section>
+        )}
+
+        <section className="mb-7 grid grid-cols-1 gap-5 md:grid-cols-4">
+          <SummaryCard title="Active Sales" value={peso(summary.totalSales)} />
+          <SummaryCard title="Amount Paid" value={peso(summary.amountPaid)} />
           <SummaryCard
-            title="Unpaid Balance"
-            value={formatMoney(totalBalance)}
-            danger={totalBalance > 0}
+            title="Collectible Balance"
+            value={peso(summary.unpaidBalance)}
+            danger
           />
           <SummaryCard
-            title="Reservations"
-            value={String(totalReservations)}
+            title="Active Reservations"
+            value={String(summary.reservations)}
           />
         </section>
 
-        {totalBalance > 0 && (
-          <section className="mt-8 rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
-            <h2 className="text-xl font-bold text-red-300">
-              Unpaid Rooms Alert
+        {summary.unpaidRooms > 0 && (
+          <section className="mb-7 rounded-xl border border-red-800 bg-red-950/30 p-6">
+            <h2 className="text-xl font-black text-red-200">
+              Collectible Rooms Alert
             </h2>
-
-            <p className="mt-2 text-sm text-red-200">
-              There are {unpaidRows.length} reservations with outstanding
-              balance. These should be checked in Cloudbeds.
+            <p className="mt-3 text-sm font-semibold text-red-100">
+              There are {summary.unpaidRooms} active reservations with collectible
+              balance. Cancelled reservations and negative credits are excluded.
             </p>
           </section>
         )}
 
-        <section className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <BreakdownCard
-            title="Sales by Room Type"
-            data={revenueByRoomType}
-            formatMoney={formatMoney}
-          />
+        {summary.cancelledReservations > 0 && (
+          <section className="mb-7 rounded-xl border border-yellow-700 bg-yellow-950/20 p-6">
+            <h2 className="text-xl font-black text-yellow-200">
+              Cancelled Reservations Excluded
+            </h2>
+            <p className="mt-3 text-sm font-semibold text-yellow-100">
+              {summary.cancelledReservations} cancelled reservations worth {peso(summary.cancelledSales)} are excluded from Active Sales, room type totals, and booking source totals.
+            </p>
+          </section>
+        )}
 
-          <BreakdownCard
-            title="Sales by Booking Source"
-            data={revenueBySource}
-            formatMoney={formatMoney}
-          />
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <Panel title="Sales by Room Type">
+            {salesByRoomType.length === 0 ? (
+              <EmptyState />
+            ) : (
+              salesByRoomType.map(([name, amount]) => (
+                <ListRow key={name} name={name} value={peso(amount)} />
+              ))
+            )}
+          </Panel>
+
+          <Panel title="Sales by Booking Source">
+            {salesByBookingSource.length === 0 ? (
+              <EmptyState />
+            ) : (
+              salesByBookingSource.map(([name, amount]) => (
+                <ListRow key={name} name={name} value={peso(amount)} />
+              ))
+            )}
+          </Panel>
         </section>
 
-        <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-bold">Rooms with Unpaid Balance</h2>
+        <section className="mt-7 rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <h2 className="mb-4 text-xl font-black">Reservation Records</h2>
 
-          <p className="mt-1 text-sm text-slate-400">
-            Manager view for rooms/reservations that still have balance due.
-          </p>
-
-          <div className="mt-5 max-h-[420px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1200px] border-collapse text-sm">
-              <thead className="sticky top-0 bg-slate-900">
-                <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="px-4 py-3">Room</th>
-                  <th className="px-4 py-3">Guest</th>
-                  <th className="px-4 py-3">Reservation</th>
-                  <th className="px-4 py-3">Check In</th>
-                  <th className="px-4 py-3">Check Out</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3 text-right">Paid</th>
-                  <th className="px-4 py-3 text-right">Balance</th>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1100px] text-left text-sm">
+              <thead className="text-slate-400">
+                <tr className="border-b border-slate-800">
+                  <th className="py-3">Reservation</th>
+                  <th>Guest</th>
+                  <th>Room</th>
+                  <th>Room Type</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th className="text-right">Total</th>
+                  <th className="text-right">Paid</th>
+                  <th className="text-right">Balance</th>
                 </tr>
               </thead>
 
               <tbody>
-                {unpaidRows.map((row) => (
+                {filteredSales.slice(0, DISPLAY_LIMIT).map((item, index) => (
                   <tr
-                    key={row.import_key}
-                    className="border-b border-slate-800/70 hover:bg-slate-800/40"
+                    key={item.id || item.reservation_number || index}
+                    className="border-b border-slate-800 text-slate-200"
                   >
-                    <td className="px-4 py-3 font-semibold">
-                      {row.room || "-"}
+                    <td className="py-3">{item.reservation_number || "-"}</td>
+                    <td>{item.guest_name || "-"}</td>
+                    <td>{item.room || "-"}</td>
+                    <td>{item.room_type || "-"}</td>
+                    <td>{item.booking_source || "-"}</td>
+                    <td>{item.status || "-"}</td>
+                    <td className="text-right">
+                      {peso(toNumber(item.total_sales))}
                     </td>
-                    <td className="px-4 py-3">{row.guest_name || "-"}</td>
-                    <td className="px-4 py-3">
-                      {row.reservation_number || "-"}
+                    <td className="text-right">
+                      {peso(toNumber(item.amount_paid))}
                     </td>
-                    <td className="px-4 py-3">{row.check_in || "-"}</td>
-                    <td className="px-4 py-3">{row.check_out || "-"}</td>
-                    <td className="px-4 py-3">{row.status || "-"}</td>
-                    <td className="px-4 py-3 text-right">
-                      {formatMoney(Number(row.grand_total || 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right text-emerald-400">
-                      {formatMoney(Number(row.amount_paid || 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-red-400">
-                      {formatMoney(Number(row.balance_due || 0))}
+                    <td
+                      className={`text-right font-bold ${
+                        toNumber(item.unpaid_balance) > 0
+                          ? "text-red-400"
+                          : "text-emerald-400"
+                      }`}
+                    >
+                      {peso(toNumber(item.unpaid_balance))}
                     </td>
                   </tr>
                 ))}
-
-                {unpaidRows.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 py-10 text-center text-slate-500"
-                    >
-                      No unpaid rooms found for selected period.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
+
+          {filteredSales.length > DISPLAY_LIMIT && (
+            <p className="mt-3 text-xs text-slate-400">
+              Showing first {DISPLAY_LIMIT} rows only. Export Excel still includes
+              all {filteredSales.length} records.
+            </p>
+          )}
+
+          {filteredSales.length === 0 && <EmptyState />}
         </section>
-
-        <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-bold">All Hotel Sales Records</h2>
-
-          <div className="mt-5 max-h-[480px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1300px] border-collapse text-sm">
-              <thead className="sticky top-0 bg-slate-900">
-                <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="px-4 py-3">Check In</th>
-                  <th className="px-4 py-3">Room</th>
-                  <th className="px-4 py-3">Room Type</th>
-                  <th className="px-4 py-3">Guest</th>
-                  <th className="px-4 py-3">Source</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Sales</th>
-                  <th className="px-4 py-3 text-right">Paid</th>
-                  <th className="px-4 py-3 text-right">Balance</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredRows.slice(0, 100).map((row) => (
-                  <tr
-                    key={row.import_key}
-                    className="border-b border-slate-800/70 hover:bg-slate-800/40"
-                  >
-                    <td className="px-4 py-3">{row.check_in || "-"}</td>
-                    <td className="px-4 py-3">{row.room || "-"}</td>
-                    <td className="px-4 py-3">{row.room_type || "-"}</td>
-                    <td className="px-4 py-3">{row.guest_name || "-"}</td>
-                    <td className="px-4 py-3">
-                      {row.booking_source || "-"}
-                    </td>
-                    <td className="px-4 py-3">{row.status || "-"}</td>
-                    <td className="px-4 py-3 text-right font-semibold">
-                      {formatMoney(Number(row.grand_total || 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right text-emerald-400">
-                      {formatMoney(Number(row.amount_paid || 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right text-red-400">
-                      {formatMoney(Number(row.balance_due || 0))}
-                    </td>
-                  </tr>
-                ))}
-
-                {filteredRows.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 py-10 text-center text-slate-500"
-                    >
-                      No records found for selected period.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-       <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-  <h2 className="text-xl font-bold">Import Cloudbeds Reservations</h2>
-
-  <p className="mt-2 text-sm text-slate-400">
-    Upload reservations export. OpsCore will ignore unnecessary personal
-    columns and save only sales/reporting fields.
-  </p>
-
-  <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center">
-    <input
-      type="file"
-      accept=".xlsx,.xls,.csv"
-      onChange={(e) => {
-        const file = e.target.files?.[0];
-        if (file) handleFileUpload(file);
-      }}
-      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-300"
-    />
-
-    <button
-      onClick={importToDatabase}
-      disabled={importing || previewRows.length === 0}
-      className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      {importing ? "Importing..." : "Import"}
-    </button>
-
-    {previewRows.length > 0 && (
-      <button
-        onClick={() => {
-          setPreviewRows([]);
-          setFileName("");
-        }}
-        disabled={importing}
-        className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Cancel Import
-      </button>
-    )}
-  </div>
-
-  {fileName && (
-    <p className="mt-3 text-sm text-slate-400">
-      Selected file: <span className="text-white">{fileName}</span>
-    </p>
-  )}
-
-  {previewRows.length > 0 && (
-    <div className="mt-6">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h3 className="font-bold">Import Preview</h3>
-          <p className="text-sm text-slate-400">
-            {previewRows.length} reservation rows ready for import.
-          </p>
-        </div>
-      </div>
-
-      <div className="max-h-[360px] overflow-auto rounded-xl border border-slate-800">
-        <table className="w-full min-w-[1200px] border-collapse text-sm">
-          <thead className="sticky top-0 bg-slate-900">
-            <tr className="border-b border-slate-800 text-left text-slate-400">
-              <th className="px-4 py-3">Check In</th>
-              <th className="px-4 py-3">Room</th>
-              <th className="px-4 py-3">Room Type</th>
-              <th className="px-4 py-3">Guest</th>
-              <th className="px-4 py-3">Source</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Sales</th>
-              <th className="px-4 py-3 text-right">Paid</th>
-              <th className="px-4 py-3 text-right">Balance</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {previewRows.slice(0, 100).map((row, index) => (
-              <tr
-                key={`${row.import_key}-${index}`}
-                className="border-b border-slate-800/70 hover:bg-slate-800/40"
-              >
-                <td className="px-4 py-3">{row.check_in || "-"}</td>
-                <td className="px-4 py-3">{row.room || "-"}</td>
-                <td className="px-4 py-3">{row.room_type || "-"}</td>
-                <td className="px-4 py-3">{row.guest_name || "-"}</td>
-                <td className="px-4 py-3">{row.booking_source || "-"}</td>
-                <td className="px-4 py-3">{row.status || "-"}</td>
-                <td className="px-4 py-3 text-right font-semibold">
-                  {formatMoney(Number(row.grand_total || 0))}
-                </td>
-                <td className="px-4 py-3 text-right text-emerald-400">
-                  {formatMoney(Number(row.amount_paid || 0))}
-                </td>
-                <td className="px-4 py-3 text-right text-red-400">
-                  {formatMoney(Number(row.balance_due || 0))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {previewRows.length > 100 && (
-        <p className="mt-3 text-sm text-slate-500">
-          Showing first 100 rows only. All {previewRows.length} rows will be
-          imported.
-        </p>
-      )}
-    </div>
-  )}
-
-  {previewRows.length === 0 && fileName && (
-    <p className="mt-4 text-sm text-red-400">
-      No valid rows detected. Check if the Cloudbeds export headers match the
-      importer fields.
-    </p>
-  )}
-</section>
       </main>
     </div>
   );
-
-  
 }
 
-
-
-function SummaryCard({ title, value, danger }: any) {
+function SummaryCard({
+  title,
+  value,
+  danger = false,
+}: {
+  title: string;
+  value: string;
+  danger?: boolean;
+}) {
   return (
     <div
-      className={`rounded-2xl border p-5 ${
+      className={`rounded-xl border p-5 ${
         danger
-          ? "border-red-500/30 bg-red-500/10"
+          ? "border-red-800 bg-red-950/30"
           : "border-slate-800 bg-slate-900"
       }`}
     >
       <p className="text-sm text-slate-400">{title}</p>
       <h2
-        className={`mt-2 text-2xl font-bold ${
+        className={`mt-3 text-2xl font-black ${
           danger ? "text-red-400" : "text-white"
         }`}
       >
@@ -627,34 +1034,34 @@ function SummaryCard({ title, value, danger }: any) {
   );
 }
 
-function BreakdownCard({ title, data, formatMoney }: any) {
-  const entries = Object.entries(data).sort(
-    (a: any, b: any) => Number(b[1]) - Number(a[1])
-  );
-
+function Panel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-      <h2 className="text-xl font-bold">{title}</h2>
+    <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
+      <h2 className="mb-5 text-xl font-black">{title}</h2>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
 
-      <div className="mt-5 space-y-3">
-        {entries.map(([name, amount]: any) => (
-          <div
-            key={name}
-            className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
-          >
-            <span className="font-medium">{name}</span>
-            <span className="font-bold text-emerald-400">
-              {formatMoney(Number(amount || 0))}
-            </span>
-          </div>
-        ))}
+function ListRow({ name, value }: { name: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-4 py-3">
+      <p className="font-semibold text-white">{name}</p>
+      <p className="font-black text-emerald-400">{value}</p>
+    </div>
+  );
+}
 
-        {entries.length === 0 && (
-          <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-8 text-center text-slate-500">
-            No data yet.
-          </div>
-        )}
-      </div>
+function EmptyState() {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">
+      No hotel sales records found.
     </div>
   );
 }

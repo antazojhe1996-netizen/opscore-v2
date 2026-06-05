@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function ShiftManagementPage() {
   /// STATES
@@ -24,6 +25,12 @@ export default function ShiftManagementPage() {
   };
 
   /// FUNCTIONS
+
+  const getCurrentUserEmail = async () => {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.email || "System User";
+  };
+
   const normalizeColor = (color: string) => {
     if (!color) return "blue";
     if (color.includes("green")) return "green";
@@ -57,19 +64,39 @@ export default function ShiftManagementPage() {
   };
 
   const addShift = async () => {
-    if (!shiftName.trim()) return;
+    const cleanName = shiftName.trim();
+    if (!cleanName) return;
 
-    const { error } = await supabase.from("shift_templates").insert({
-      shift_name: shiftName,
+    const newShift = {
+      shift_name: cleanName,
       start_time: startTime || null,
       end_time: endTime || null,
       color: shiftColor,
-    });
+    };
+
+    const { data, error } = await supabase
+      .from("shift_templates")
+      .insert(newShift)
+      .select()
+      .single();
 
     if (error) {
       console.log("ADD SHIFT ERROR:", error);
       return;
     }
+
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Shifts",
+      action: "CREATE_SHIFT",
+      description: `Created shift: ${cleanName}`,
+      severity: "info",
+      recordId: String(data.id),
+      oldValue: null,
+      newValue: data,
+    });
 
     resetForm();
     getShifts();
@@ -84,47 +111,89 @@ export default function ShiftManagementPage() {
   };
 
   const updateShift = async () => {
-    if (!editingId || !shiftName.trim()) return;
+    if (!editingId) return;
 
-    const { error } = await supabase
+    const cleanName = shiftName.trim();
+    if (!cleanName) return;
+
+    const oldValue = shifts.find((shift) => shift.id === editingId);
+
+    const updatedShift = {
+      shift_name: cleanName,
+      start_time: startTime || null,
+      end_time: endTime || null,
+      color: shiftColor,
+    };
+
+    const { data, error } = await supabase
       .from("shift_templates")
-      .update({
-        shift_name: shiftName,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        color: shiftColor,
-      })
-      .eq("id", editingId);
+      .update(updatedShift)
+      .eq("id", editingId)
+      .select()
+      .single();
 
     if (error) {
       console.log("UPDATE SHIFT ERROR:", error);
       return;
     }
 
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Shifts",
+      action: "UPDATE_SHIFT",
+      description: `Updated shift: ${cleanName}`,
+      severity: "warning",
+      recordId: String(editingId),
+      oldValue: oldValue || null,
+      newValue: data,
+    });
+
     resetForm();
     getShifts();
   };
 
-  const deleteShift = async (id: number) => {
+  const deleteShift = async (shift: any) => {
+    const confirmDelete = confirm(`Delete shift "${shift.shift_name}"?`);
+    if (!confirmDelete) return;
+
+    const oldValue = { ...shift };
+
     const { error } = await supabase
       .from("shift_templates")
       .delete()
-      .eq("id", id);
+      .eq("id", shift.id);
 
     if (error) {
       console.log("DELETE SHIFT ERROR:", error);
       return;
     }
 
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Shifts",
+      action: "DELETE_SHIFT",
+      description: `Deleted shift: ${shift.shift_name}`,
+      severity: "critical",
+      recordId: String(shift.id),
+      oldValue,
+      newValue: null,
+    });
+
     getShifts();
   };
 
   /// EFFECTS
+
   useEffect(() => {
     getShifts();
   }, []);
 
   /// UI
+
   return (
     <div className="flex min-h-screen bg-[#050514] text-white">
       <Sidebar />
@@ -248,7 +317,7 @@ export default function ShiftManagementPage() {
                           </button>
 
                           <button
-                            onClick={() => deleteShift(shift.id)}
+                            onClick={() => deleteShift(shift)}
                             className="text-xs font-bold text-red-400 hover:text-red-300"
                           >
                             Delete

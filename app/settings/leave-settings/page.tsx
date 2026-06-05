@@ -3,9 +3,18 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function LeaveSettingsPage() {
+  /// STATES
   const [leaveSettings, setLeaveSettings] = useState<any[]>([]);
+
+  /// FUNCTIONS
+
+  const getCurrentUserEmail = async () => {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.email || "System User";
+  };
 
   const getLeaveSettings = async () => {
     const { data, error } = await supabase
@@ -22,26 +31,52 @@ export default function LeaveSettingsPage() {
   };
 
   const updateLeaveSetting = async (
-    id: number,
-    field: string,
-    value: any
+    leave: any,
+    field: "is_enabled" | "requires_credits",
+    value: boolean
   ) => {
-    const { error } = await supabase
+    const oldValue = { ...leave };
+
+    const { data, error } = await supabase
       .from("leave_settings")
       .update({ [field]: value })
-      .eq("id", id);
+      .eq("id", leave.id)
+      .select()
+      .single();
 
     if (error) {
       console.log("UPDATE LEAVE SETTING ERROR:", error);
       return;
     }
 
+    const userEmail = await getCurrentUserEmail();
+
+    const fieldLabel =
+      field === "is_enabled" ? "availability" : "credit deduction";
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Leave Settings",
+      action: "UPDATE_LEAVE_SETTING",
+      description: `Updated ${leave.leave_type} ${fieldLabel} to ${
+        value ? "enabled" : "disabled"
+      }`,
+      severity: "warning",
+      recordId: String(leave.id),
+      oldValue,
+      newValue: data,
+    });
+
     getLeaveSettings();
   };
+
+  /// EFFECTS
 
   useEffect(() => {
     getLeaveSettings();
   }, []);
+
+  /// UI
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
@@ -88,17 +123,16 @@ export default function LeaveSettingsPage() {
                       <button
                         onClick={() =>
                           updateLeaveSetting(
-                            leave.id,
+                            leave,
                             "is_enabled",
                             !leave.is_enabled
                           )
                         }
                         className={`w-28 rounded-full border px-4 py-1 text-center text-xs font-semibold transition-all duration-200 hover:scale-105 ${
-
-                        leave.is_enabled
-                          ? "border-green-500/30 bg-green-500/20 text-green-400"
-                          : "border-red-500/30 bg-red-500/20 text-red-400"
-                      }`}
+                          leave.is_enabled
+                            ? "border-green-500/30 bg-green-500/20 text-green-400"
+                            : "border-red-500/30 bg-red-500/20 text-red-400"
+                        }`}
                       >
                         {leave.is_enabled ? "Enabled" : "Disabled"}
                       </button>
@@ -108,7 +142,7 @@ export default function LeaveSettingsPage() {
                       <button
                         onClick={() =>
                           updateLeaveSetting(
-                            leave.id,
+                            leave,
                             "requires_credits",
                             !leave.requires_credits
                           )

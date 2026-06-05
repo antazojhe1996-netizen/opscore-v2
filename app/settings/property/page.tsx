@@ -4,9 +4,19 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
+type ApartmentUnit = {
+  id: string;
+  unit_name: string;
+  tenant_name?: string | null;
+  monthly_rent?: number | null;
+  internet_fee?: number | null;
+  due_day?: number | null;
+  status?: string | null;
+};
+
 export default function PropertySettingsPage() {
   /// STATES
-  const [units, setUnits] = useState<any[]>([]);
+  const [units, setUnits] = useState<ApartmentUnit[]>([]);
 
   const [unitName, setUnitName] = useState("");
   const [tenantName, setTenantName] = useState("");
@@ -14,8 +24,9 @@ export default function PropertySettingsPage() {
   const [internetFee, setInternetFee] = useState("");
   const [dueDay, setDueDay] = useState("5");
   const [status, setStatus] = useState("Occupied");
+  const [isSaving, setIsSaving] = useState(false);
 
-  /// FUNCTIONS
+  /// HELPERS
   const formatMoney = (value: any) => {
     return `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
@@ -23,6 +34,44 @@ export default function PropertySettingsPage() {
     })}`;
   };
 
+  const createAuditLog = async ({
+    action,
+    description,
+    severity = "info",
+    oldValue = null,
+    newValue = null,
+  }: {
+    action: string;
+    description: string;
+    severity?: "info" | "warning" | "critical";
+    oldValue?: any;
+    newValue?: any;
+  }) => {
+    try {
+      await supabase.from("audit_logs").insert({
+        module: "System Settings",
+        action,
+        description,
+        severity,
+        old_value: oldValue,
+        new_value: newValue,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.log("PROPERTY SETTINGS AUDIT ERROR:", error);
+    }
+  };
+
+  const resetForm = () => {
+    setUnitName("");
+    setTenantName("");
+    setMonthlyRent("");
+    setInternetFee("");
+    setDueDay("5");
+    setStatus("Occupied");
+  };
+
+  /// FUNCTIONS
   const getUnits = async () => {
     const { data, error } = await supabase
       .from("apartment_units")
@@ -43,47 +92,83 @@ export default function PropertySettingsPage() {
       return;
     }
 
-    const { error } = await supabase.from("apartment_units").insert({
+    const newUnit = {
       unit_name: unitName.trim(),
-      tenant_name: tenantName.trim(),
+      tenant_name: tenantName.trim() || null,
       monthly_rent: Number(monthlyRent || 0),
       internet_fee: Number(internetFee || 0),
       due_day: Number(dueDay || 5),
       status,
-    });
+    };
+
+    setIsSaving(true);
+
+    const { data, error } = await supabase
+      .from("apartment_units")
+      .insert(newUnit)
+      .select()
+      .single();
+
+    setIsSaving(false);
 
     if (error) {
       console.log("ADD APARTMENT UNIT ERROR:", error);
+      await createAuditLog({
+        action: "ADD_PROPERTY_UNIT_FAILED",
+        description: `Failed to add apartment unit: ${newUnit.unit_name}`,
+        severity: "warning",
+        newValue: newUnit,
+      });
       alert("Failed to add apartment unit.");
       return;
     }
 
-    setUnitName("");
-    setTenantName("");
-    setMonthlyRent("");
-    setInternetFee("");
-    setDueDay("5");
-    setStatus("Occupied");
+    await createAuditLog({
+      action: "ADD_PROPERTY_UNIT",
+      description: `Added apartment unit: ${data?.unit_name || newUnit.unit_name}`,
+      severity: "warning",
+      oldValue: null,
+      newValue: data || newUnit,
+    });
 
-    getUnits();
+    resetForm();
+    await getUnits();
   };
 
-  const deleteUnit = async (id: string) => {
-    const confirmDelete = confirm("Delete this apartment unit?");
+  const deleteUnit = async (unit: ApartmentUnit) => {
+    const confirmDelete = confirm(
+      `Delete apartment unit "${unit.unit_name}"? This may affect apartment billing history if already used.`
+    );
+
     if (!confirmDelete) return;
 
     const { error } = await supabase
       .from("apartment_units")
       .delete()
-      .eq("id", id);
+      .eq("id", unit.id);
 
     if (error) {
       console.log("DELETE APARTMENT UNIT ERROR:", error);
-      alert("Failed to delete apartment unit.");
+      await createAuditLog({
+        action: "DELETE_PROPERTY_UNIT_FAILED",
+        description: `Failed to delete apartment unit: ${unit.unit_name}`,
+        severity: "critical",
+        oldValue: unit,
+        newValue: null,
+      });
+      alert("Failed to delete apartment unit. It may already be linked to bills or payments.");
       return;
     }
 
-    getUnits();
+    await createAuditLog({
+      action: "DELETE_PROPERTY_UNIT",
+      description: `Deleted apartment unit: ${unit.unit_name}`,
+      severity: "critical",
+      oldValue: unit,
+      newValue: null,
+    });
+
+    await getUnits();
   };
 
   /// EFFECTS
@@ -96,7 +181,7 @@ export default function PropertySettingsPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="flex-1 space-y-6 p-6">
+      <main className="min-w-0 flex-1 space-y-6 overflow-x-hidden p-6">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
             Settings
@@ -107,6 +192,24 @@ export default function PropertySettingsPage() {
           </p>
         </div>
 
+        <section className="grid grid-cols-1 gap-5 md:grid-cols-4">
+          <SummaryCard title="Total Units" value={units.length} />
+          <SummaryCard
+            title="Occupied"
+            value={units.filter((unit) => unit.status === "Occupied").length}
+          />
+          <SummaryCard
+            title="Vacant"
+            value={units.filter((unit) => unit.status === "Vacant").length}
+          />
+          <SummaryCard
+            title="Monthly Rent Base"
+            value={formatMoney(
+              units.reduce((sum, unit) => sum + Number(unit.monthly_rent || 0), 0)
+            )}
+          />
+        </section>
+
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <h2 className="text-xl font-bold">Add Apartment Unit</h2>
@@ -116,14 +219,14 @@ export default function PropertySettingsPage() {
                 value={unitName}
                 onChange={(e) => setUnitName(e.target.value)}
                 placeholder="Unit name / room number"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
               />
 
               <input
                 value={tenantName}
                 onChange={(e) => setTenantName(e.target.value)}
                 placeholder="Tenant name"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
               />
 
               <input
@@ -131,7 +234,7 @@ export default function PropertySettingsPage() {
                 value={monthlyRent}
                 onChange={(e) => setMonthlyRent(e.target.value)}
                 placeholder="Monthly rent"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
               />
 
               <input
@@ -139,7 +242,7 @@ export default function PropertySettingsPage() {
                 value={internetFee}
                 onChange={(e) => setInternetFee(e.target.value)}
                 placeholder="Default internet fee"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
               />
 
               <input
@@ -147,25 +250,34 @@ export default function PropertySettingsPage() {
                 value={dueDay}
                 onChange={(e) => setDueDay(e.target.value)}
                 placeholder="Due day"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
               />
 
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
               >
                 <option value="Occupied">Occupied</option>
                 <option value="Vacant">Vacant</option>
+                <option value="Maintenance">Maintenance</option>
                 <option value="Inactive">Inactive</option>
               </select>
 
               <button
                 onClick={addUnit}
-                className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400"
+                disabled={isSaving}
+                className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Save Apartment Unit
+                {isSaving ? "Saving..." : "Save Apartment Unit"}
               </button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+              <p className="text-sm font-bold text-amber-300">Audit Protected</p>
+              <p className="mt-1 text-xs leading-5 text-amber-100/80">
+                Added and deleted apartment units are recorded in Audit Center.
+              </p>
             </div>
           </div>
 
@@ -214,7 +326,7 @@ export default function PropertySettingsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => deleteUnit(unit.id)}
+                          onClick={() => deleteUnit(unit)}
                           className="rounded-lg bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/20"
                         >
                           Delete
@@ -239,6 +351,15 @@ export default function PropertySettingsPage() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function SummaryCard({ title, value }: { title: string; value: any }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <p className="text-sm text-slate-400">{title}</p>
+      <h2 className="mt-2 text-2xl font-black text-white">{value}</h2>
     </div>
   );
 }

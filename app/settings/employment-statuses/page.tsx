@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function EmploymentStatusPage() {
   /// STATES
@@ -14,14 +15,20 @@ export default function EmploymentStatusPage() {
   const [editingStatusId, setEditingStatusId] = useState("");
 
   /// FUNCTIONS
+
+  const getCurrentUserEmail = async () => {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.email || "System User";
+  };
+
   const getEmploymentStatuses = async () => {
     const { data, error } = await supabase
       .from("employment_statuses")
       .select("*")
-      .order("name");
+      .order("name", { ascending: true });
 
     if (error) {
-      console.log(error);
+      console.log("GET EMPLOYMENT STATUSES ERROR:", error);
       return;
     }
 
@@ -37,19 +44,39 @@ export default function EmploymentStatusPage() {
   };
 
   const addEmploymentStatus = async () => {
-    if (!employmentStatusName.trim()) return;
+    const cleanName = employmentStatusName.trim();
+    if (!cleanName) return;
 
-    const { error } = await supabase.from("employment_statuses").insert({
-      name: employmentStatusName,
+    const newStatus = {
+      name: cleanName,
       count_in_workforce: countInWorkforce,
       allow_scheduling: allowScheduling,
       show_in_reports: showInReports,
-    });
+    };
+
+    const { data, error } = await supabase
+      .from("employment_statuses")
+      .insert(newStatus)
+      .select()
+      .single();
 
     if (error) {
-      console.log(error);
+      console.log("ADD EMPLOYMENT STATUS ERROR:", error);
       return;
     }
+
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Employment Statuses",
+      action: "CREATE_EMPLOYMENT_STATUS",
+      description: `Created employment status: ${cleanName}`,
+      severity: "info",
+      recordId: data.id,
+      oldValue: null,
+      newValue: data,
+    });
 
     clearForm();
     getEmploymentStatuses();
@@ -57,59 +84,101 @@ export default function EmploymentStatusPage() {
 
   const editEmploymentStatus = (status: any) => {
     setEditingStatusId(status.id);
-    setEmploymentStatusName(status.name);
-    setCountInWorkforce(status.count_in_workforce);
-    setAllowScheduling(status.allow_scheduling);
-    setShowInReports(status.show_in_reports);
+    setEmploymentStatusName(status.name || "");
+    setCountInWorkforce(!!status.count_in_workforce);
+    setAllowScheduling(!!status.allow_scheduling);
+    setShowInReports(!!status.show_in_reports);
   };
 
   const updateEmploymentStatus = async () => {
     if (!editingStatusId) return;
-    if (!employmentStatusName.trim()) return;
 
-    const { error } = await supabase
+    const cleanName = employmentStatusName.trim();
+    if (!cleanName) return;
+
+    const oldValue = employmentStatuses.find(
+      (status) => status.id === editingStatusId
+    );
+
+    const updatedStatus = {
+      name: cleanName,
+      count_in_workforce: countInWorkforce,
+      allow_scheduling: allowScheduling,
+      show_in_reports: showInReports,
+    };
+
+    const { data, error } = await supabase
       .from("employment_statuses")
-      .update({
-        name: employmentStatusName,
-        count_in_workforce: countInWorkforce,
-        allow_scheduling: allowScheduling,
-        show_in_reports: showInReports,
-      })
-      .eq("id", editingStatusId);
+      .update(updatedStatus)
+      .eq("id", editingStatusId)
+      .select()
+      .single();
 
     if (error) {
-      console.log(error);
+      console.log("UPDATE EMPLOYMENT STATUS ERROR:", error);
       return;
     }
+
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Employment Statuses",
+      action: "UPDATE_EMPLOYMENT_STATUS",
+      description: `Updated employment status: ${cleanName}`,
+      severity: "warning",
+      recordId: editingStatusId,
+      oldValue: oldValue || null,
+      newValue: data,
+    });
 
     clearForm();
     getEmploymentStatuses();
   };
 
-  const deleteEmploymentStatus = async (id: string) => {
-    const confirmDelete = confirm("Delete this employment status?");
+  const deleteEmploymentStatus = async (status: any) => {
+    const confirmDelete = confirm(
+      `Delete employment status "${status.name}"?`
+    );
 
     if (!confirmDelete) return;
+
+    const oldValue = { ...status };
 
     const { error } = await supabase
       .from("employment_statuses")
       .delete()
-      .eq("id", id);
+      .eq("id", status.id);
 
     if (error) {
-      console.log(error);
+      console.log("DELETE EMPLOYMENT STATUS ERROR:", error);
       return;
     }
+
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Employment Statuses",
+      action: "DELETE_EMPLOYMENT_STATUS",
+      description: `Deleted employment status: ${status.name}`,
+      severity: "critical",
+      recordId: status.id,
+      oldValue,
+      newValue: null,
+    });
 
     getEmploymentStatuses();
   };
 
   /// EFFECTS
+
   useEffect(() => {
     getEmploymentStatuses();
   }, []);
 
   /// UI
+
   return (
     <div className="flex min-h-screen bg-[#050514] text-white">
       <Sidebar />
@@ -118,12 +187,15 @@ export default function EmploymentStatusPage() {
         <h1 className="text-3xl font-bold">Employment Status Management</h1>
 
         <p className="mt-2 text-slate-400">
-          Configure employment statuses and how they behave in workforce and scheduling.
+          Configure employment statuses and how they behave in workforce and
+          scheduling.
         </p>
 
         <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
           <h2 className="text-xl font-bold">
-            {editingStatusId ? "Edit Employment Status" : "Add Employment Status"}
+            {editingStatusId
+              ? "Edit Employment Status"
+              : "Add Employment Status"}
           </h2>
 
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -164,7 +236,9 @@ export default function EmploymentStatusPage() {
 
           <div className="mt-4 flex gap-3">
             <button
-              onClick={editingStatusId ? updateEmploymentStatus : addEmploymentStatus}
+              onClick={
+                editingStatusId ? updateEmploymentStatus : addEmploymentStatus
+              }
               className="rounded bg-yellow-400 px-4 py-2 font-bold text-black hover:bg-yellow-300"
             >
               {editingStatusId ? "Update Status" : "Add Status"}
@@ -250,7 +324,7 @@ export default function EmploymentStatusPage() {
                         </button>
 
                         <button
-                          onClick={() => deleteEmploymentStatus(status.id)}
+                          onClick={() => deleteEmploymentStatus(status)}
                           className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500"
                         >
                           Delete

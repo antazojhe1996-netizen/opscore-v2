@@ -13,6 +13,19 @@ type PayrollHoliday = {
   is_active: boolean;
 };
 
+type SettingField = {
+  key: string;
+  label: string;
+  type: string;
+  options?: string[];
+};
+
+type SettingGroup = {
+  title: string;
+  description: string;
+  fields: SettingField[];
+};
+
 export default function PayrollSettingsPage() {
   /// STATES
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -25,7 +38,75 @@ export default function PayrollSettingsPage() {
   const [holidayMultiplier, setHolidayMultiplier] = useState("2");
 
   /// DATA
-  const settingGroups = [
+  const defaultSettings: Record<string, string> = {
+    shift_hours: "9",
+    break_hours: "1",
+    paid_hours: "8",
+    attendance_rule: "First In / Last Out",
+    default_rate_type: "Daily",
+
+    leave_enabled: "No",
+    leave_pay_enabled: "No",
+    leave_credits_enabled: "No",
+    default_leave_credits: "0",
+
+    late_deduction_enabled: "Yes",
+    late_grace_minutes: "15",
+    undertime_deduction_enabled: "Yes",
+    undertime_grace_minutes: "0",
+    absent_deduction_enabled: "Yes",
+
+    leave_threshold_enabled: "No",
+    leave_threshold_period: "Monthly",
+    allowed_leave_count: "0",
+    excess_leave_counts_as: "Warning Only",
+
+    ot_requires_approval: "Yes",
+    ot_multiplier: "1.25",
+    early_time_in_counts_as_ot: "No",
+    after_shift_counts_as_ot: "Yes",
+
+    holiday_pay_enabled: "No",
+    holiday_pay_mode: "Manual",
+    regular_holiday_multiplier: "2",
+    special_holiday_multiplier: "1.3",
+
+    rest_day_pay_enabled: "No",
+    rest_day_multiplier: "1.3",
+    night_diff_enabled: "No",
+    night_diff_start: "22:00",
+    night_diff_end: "06:00",
+    night_diff_rate: "0.1",
+
+    benefits_enabled: "No",
+    government_contributions_enabled: "No",
+    sss_enabled: "No",
+    sss_mode: "Manual",
+    philhealth_enabled: "No",
+    philhealth_mode: "Manual",
+    pagibig_enabled: "No",
+    pagibig_mode: "Manual",
+    withholding_tax_enabled: "No",
+    tax_mode: "Manual",
+    thirteenth_month_enabled: "No",
+
+    show_sss_on_payslip: "No",
+    show_philhealth_on_payslip: "No",
+    show_pagibig_on_payslip: "No",
+    show_tax_on_payslip: "No",
+    hide_zero_government_deductions: "Yes",
+
+    require_sss_number: "No",
+    require_philhealth_number: "No",
+    require_pagibig_number: "No",
+    require_tin_number: "No",
+
+    payroll_approval_required: "Yes",
+    authorized_signatory: "",
+    payslip_footer: "This is a system-generated payslip.",
+  };
+
+  const settingGroups: SettingGroup[] = [
     {
       title: "General Payroll Rules",
       description: "Core rules used by attendance, payroll, and payslip.",
@@ -52,8 +133,6 @@ export default function PayrollSettingsPage() {
       description:
         "Approved leave is unpaid but not counted as absent unless KPI threshold is exceeded.",
       fields: [
-
-        
         {
           key: "leave_enabled",
           label: "Leave Enabled",
@@ -77,46 +156,42 @@ export default function PayrollSettingsPage() {
           label: "Default Leave Credits",
           type: "number",
         },
-
-        
       ],
-      
     },
     {
-  title: "Attendance Deductions",
-  description:
-    "Automatic payroll deductions from attendance records.",
-  fields: [
-    {
-      key: "late_deduction_enabled",
-      label: "Late Deduction Enabled",
-      type: "select",
-      options: ["Yes", "No"],
+      title: "Attendance Deductions",
+      description: "Automatic payroll deductions from attendance records.",
+      fields: [
+        {
+          key: "late_deduction_enabled",
+          label: "Late Deduction Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "late_grace_minutes",
+          label: "Late Grace Minutes",
+          type: "number",
+        },
+        {
+          key: "undertime_deduction_enabled",
+          label: "Undertime Deduction Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "undertime_grace_minutes",
+          label: "Undertime Grace Minutes",
+          type: "number",
+        },
+        {
+          key: "absent_deduction_enabled",
+          label: "Absent Deduction Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+      ],
     },
-    {
-      key: "late_grace_minutes",
-      label: "Late Grace Minutes",
-      type: "number",
-    },
-    {
-      key: "undertime_deduction_enabled",
-      label: "Undertime Deduction Enabled",
-      type: "select",
-      options: ["Yes", "No"],
-    },
-    {
-      key: "undertime_grace_minutes",
-      label: "Undertime Grace Minutes",
-      type: "number",
-    },
-    {
-      key: "absent_deduction_enabled",
-      label: "Absent Deduction Enabled",
-      type: "select",
-      options: ["Yes", "No"],
-    },
-  ],
-},
     {
       title: "Employee KPI Leave Threshold",
       description:
@@ -243,29 +318,11 @@ export default function PayrollSettingsPage() {
     {
       title: "Benefits, Tax, and Compliance",
       description:
-        "Keep disabled for now. Turn on later when the company is ready.",
+        "Future-ready compliance controls. Keep disabled for Vincent Phase 1, then enable when the company is ready.",
       fields: [
         {
           key: "benefits_enabled",
-          label: "Benefits Enabled",
-          type: "select",
-          options: ["Yes", "No"],
-        },
-        {
-          key: "sss_enabled",
-          label: "SSS Enabled",
-          type: "select",
-          options: ["Yes", "No"],
-        },
-        {
-          key: "philhealth_enabled",
-          label: "PhilHealth Enabled",
-          type: "select",
-          options: ["Yes", "No"],
-        },
-        {
-          key: "pagibig_enabled",
-          label: "Pag-IBIG Enabled",
+          label: "Benefits Module Enabled",
           type: "select",
           options: ["Yes", "No"],
         },
@@ -276,14 +333,124 @@ export default function PayrollSettingsPage() {
           options: ["Yes", "No"],
         },
         {
+          key: "sss_enabled",
+          label: "SSS Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "sss_mode",
+          label: "SSS Mode",
+          type: "select",
+          options: ["Manual", "Automatic"],
+        },
+        {
+          key: "philhealth_enabled",
+          label: "PhilHealth Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "philhealth_mode",
+          label: "PhilHealth Mode",
+          type: "select",
+          options: ["Manual", "Automatic"],
+        },
+        {
+          key: "pagibig_enabled",
+          label: "Pag-IBIG Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "pagibig_mode",
+          label: "Pag-IBIG Mode",
+          type: "select",
+          options: ["Manual", "Automatic"],
+        },
+        {
           key: "withholding_tax_enabled",
           label: "Withholding Tax Enabled",
           type: "select",
           options: ["Yes", "No"],
         },
         {
+          key: "tax_mode",
+          label: "Tax Mode",
+          type: "select",
+          options: ["Manual", "Automatic"],
+        },
+        {
           key: "thirteenth_month_enabled",
           label: "13th Month Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+      ],
+    },
+    {
+      title: "Payslip Visibility",
+      description:
+        "Controls which future compliance lines appear on the payslip. Disabled items are hidden completely, not shown as ₱0.00.",
+      fields: [
+        {
+          key: "show_sss_on_payslip",
+          label: "Show SSS on Payslip",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "show_philhealth_on_payslip",
+          label: "Show PhilHealth on Payslip",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "show_pagibig_on_payslip",
+          label: "Show Pag-IBIG on Payslip",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "show_tax_on_payslip",
+          label: "Show Withholding Tax on Payslip",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "hide_zero_government_deductions",
+          label: "Hide Zero Government Deductions",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+      ],
+    },
+    {
+      title: "Government Information Requirements",
+      description:
+        "Future-ready employee requirements. Keep disabled until government compliance details are required.",
+      fields: [
+        {
+          key: "require_sss_number",
+          label: "Require SSS Number",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "require_philhealth_number",
+          label: "Require PhilHealth Number",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "require_pagibig_number",
+          label: "Require Pag-IBIG Number",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
+          key: "require_tin_number",
+          label: "Require TIN Number",
           type: "select",
           options: ["Yes", "No"],
         },
@@ -324,6 +491,61 @@ export default function PayrollSettingsPage() {
     [holidays]
   );
 
+  const changedSettings = useMemo(() => {
+    return settingGroups
+      .flatMap((group) => group.fields)
+      .filter((field) => {
+        const currentValue = settings[field.key] || "";
+        const defaultValue = defaultSettings[field.key] || "";
+        return currentValue !== defaultValue;
+      });
+  }, [settings]);
+
+  /// HELPERS
+  const createAuditLog = async ({
+    action,
+    description,
+    severity = "info",
+    oldValue = null,
+    newValue = null,
+  }: {
+    action: string;
+    description: string;
+    severity?: "info" | "warning" | "critical";
+    oldValue?: any;
+    newValue?: any;
+  }) => {
+    try {
+      await supabase.from("audit_logs").insert({
+        module: "Payroll Settings",
+        action,
+        description,
+        severity,
+        old_value: oldValue,
+        new_value: newValue,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.log("PAYROLL SETTINGS AUDIT ERROR:", error);
+    }
+  };
+
+  const buildSettingsRows = () => {
+    return settingGroups
+      .flatMap((group) => group.fields)
+      .map((field) => ({
+        setting_key: field.key,
+        setting_value: settings[field.key] || defaultSettings[field.key] || "",
+      }));
+  };
+
+  const resetHolidayForm = () => {
+    setHolidayName("");
+    setHolidayDate("");
+    setHolidayType("Regular");
+    setHolidayMultiplier("2");
+  };
+
   /// FUNCTIONS
   const getSettings = async () => {
     const { data, error } = await supabase
@@ -342,7 +564,10 @@ export default function PayrollSettingsPage() {
       mapped[item.setting_key] = item.setting_value;
     });
 
-    setSettings(mapped);
+    setSettings({
+      ...defaultSettings,
+      ...mapped,
+    });
   };
 
   const getHolidays = async () => {
@@ -369,12 +594,9 @@ export default function PayrollSettingsPage() {
   const saveSettings = async () => {
     setIsSaving(true);
 
-    const rows = settingGroups
-      .flatMap((group) => group.fields)
-      .map((field) => ({
-        setting_key: field.key,
-        setting_value: settings[field.key] || "",
-      }));
+    const rows = buildSettingsRows();
+    const oldValue = { settings };
+    const newValue = { rows };
 
     const { error } = await supabase.from("payroll_settings").upsert(rows, {
       onConflict: "setting_key",
@@ -384,12 +606,29 @@ export default function PayrollSettingsPage() {
 
     if (error) {
       console.log("SAVE PAYROLL SETTINGS ERROR:", error);
+
+      await createAuditLog({
+        action: "SAVE_PAYROLL_SETTINGS_FAILED",
+        description: "Failed to save payroll settings.",
+        severity: "critical",
+        oldValue,
+        newValue,
+      });
+
       alert("Failed to save payroll settings.");
       return;
     }
 
+    await createAuditLog({
+      action: "SAVE_PAYROLL_SETTINGS",
+      description: `Updated payroll settings (${rows.length} setting rows).`,
+      severity: "warning",
+      oldValue,
+      newValue,
+    });
+
     alert("Payroll settings saved.");
-    getSettings();
+    await getSettings();
   };
 
   const addHoliday = async () => {
@@ -398,32 +637,58 @@ export default function PayrollSettingsPage() {
       return;
     }
 
-    setIsSaving(true);
-
-    const { error } = await supabase.from("payroll_holidays").insert({
+    const newHoliday = {
       holiday_name: holidayName.trim(),
       holiday_date: holidayDate,
       holiday_type: holidayType,
       multiplier: Number(holidayMultiplier || 1),
       is_active: true,
-    });
+    };
+
+    setIsSaving(true);
+
+    const { data, error } = await supabase
+      .from("payroll_holidays")
+      .insert(newHoliday)
+      .select()
+      .single();
 
     setIsSaving(false);
 
     if (error) {
       console.log("ADD HOLIDAY ERROR:", error);
+
+      await createAuditLog({
+        action: "ADD_PAYROLL_HOLIDAY_FAILED",
+        description: `Failed to add payroll holiday: ${newHoliday.holiday_name}`,
+        severity: "critical",
+        oldValue: null,
+        newValue: newHoliday,
+      });
+
       alert("Failed to add holiday.");
       return;
     }
 
-    setHolidayName("");
-    setHolidayDate("");
-    setHolidayType("Regular");
-    setHolidayMultiplier("2");
-    getHolidays();
+    await createAuditLog({
+      action: "ADD_PAYROLL_HOLIDAY",
+      description: `Added payroll holiday: ${data?.holiday_name || newHoliday.holiday_name}`,
+      severity: "warning",
+      oldValue: null,
+      newValue: data || newHoliday,
+    });
+
+    resetHolidayForm();
+    await getHolidays();
   };
 
   const toggleHoliday = async (holiday: PayrollHoliday) => {
+    const oldValue = { ...holiday };
+    const newValue = {
+      ...holiday,
+      is_active: !holiday.is_active,
+    };
+
     const { error } = await supabase
       .from("payroll_holidays")
       .update({
@@ -433,17 +698,40 @@ export default function PayrollSettingsPage() {
 
     if (error) {
       console.log("TOGGLE HOLIDAY ERROR:", error);
+
+      await createAuditLog({
+        action: "TOGGLE_PAYROLL_HOLIDAY_FAILED",
+        description: `Failed to ${holiday.is_active ? "disable" : "enable"} payroll holiday: ${holiday.holiday_name}`,
+        severity: "critical",
+        oldValue,
+        newValue,
+      });
+
       alert("Failed to update holiday.");
       return;
     }
 
-    getHolidays();
+    await createAuditLog({
+      action: "TOGGLE_PAYROLL_HOLIDAY",
+      description: `${holiday.holiday_name} was ${
+        holiday.is_active ? "disabled" : "enabled"
+      }.`,
+      severity: "warning",
+      oldValue,
+      newValue,
+    });
+
+    await getHolidays();
   };
 
   const deleteHoliday = async (id?: number) => {
     if (!id) return;
 
-    const confirmDelete = confirm("Delete this holiday?");
+    const holidayToDelete = holidays.find((item) => item.id === id);
+    const confirmDelete = confirm(
+      `Delete holiday "${holidayToDelete?.holiday_name || "selected holiday"}"?`
+    );
+
     if (!confirmDelete) return;
 
     const { error } = await supabase
@@ -453,11 +741,28 @@ export default function PayrollSettingsPage() {
 
     if (error) {
       console.log("DELETE HOLIDAY ERROR:", error);
+
+      await createAuditLog({
+        action: "DELETE_PAYROLL_HOLIDAY_FAILED",
+        description: `Failed to delete payroll holiday: ${holidayToDelete?.holiday_name || id}`,
+        severity: "critical",
+        oldValue: holidayToDelete || { id },
+        newValue: null,
+      });
+
       alert("Failed to delete holiday.");
       return;
     }
 
-    getHolidays();
+    await createAuditLog({
+      action: "DELETE_PAYROLL_HOLIDAY",
+      description: `Deleted payroll holiday: ${holidayToDelete?.holiday_name || id}`,
+      severity: "critical",
+      oldValue: holidayToDelete || { id },
+      newValue: null,
+    });
+
+    await getHolidays();
   };
 
   const formatMultiplier = (value: any) => {
@@ -500,7 +805,7 @@ export default function PayrollSettingsPage() {
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             title="Attendance Rule"
-            value="First In / Last Out"
+            value={settings.attendance_rule || "First In / Last Out"}
             description="Break logs are ignored."
             color="text-emerald-400"
           />
@@ -512,17 +817,34 @@ export default function PayrollSettingsPage() {
           />
           <SummaryCard
             title="OT Approval"
-            value={settings.ot_requires_approval || "Yes"
-            }
+            value={settings.ot_requires_approval || "Yes"}
             description="OT must be approved first."
             color="text-amber-400"
           />
           <SummaryCard
-            title="Benefits"
-            value={settings.benefits_enabled || "No"}
-            description="Future compliance option."
+            title="Gov Contributions"
+            value={settings.government_contributions_enabled || "No"}
+            description="Hidden when disabled."
             color="text-slate-300"
           />
+        </section>
+
+        <section className="mt-8 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
+          <h2 className="text-xl font-black text-blue-300">
+            Future-Ready Payroll Compliance
+          </h2>
+          <p className="mt-2 text-sm text-blue-100/80">
+            SSS, PhilHealth, Pag-IBIG, withholding tax, visibility, and required ID controls are prepared here.
+            Keep them disabled for Vincent Phase 1. When compliance is ready, enable the settings without redesigning payroll.
+          </p>
+        </section>
+
+        <section className="mt-8 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5">
+          <p className="text-sm font-bold text-amber-300">Audit Protected Settings</p>
+          <p className="mt-1 text-xs leading-5 text-amber-100/80">
+            Saving payroll rules, adding holidays, toggling holidays, and deleting holidays are recorded in Audit Center.
+            Changed settings compared to defaults: {changedSettings.length}.
+          </p>
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -738,12 +1060,9 @@ function HolidayTable({
                     Delete
                   </button>
                 </div>
-                
               </td>
             </tr>
           ))}
-
-          
 
           {holidays.length === 0 && (
             <tr>

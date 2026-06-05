@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function EmploymentTypesPage() {
   /// STATES
@@ -11,89 +12,145 @@ export default function EmploymentTypesPage() {
   const [editingTypeId, setEditingTypeId] = useState("");
 
   /// FUNCTIONS
+
+  const getCurrentUserEmail = async () => {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.email || "System User";
+  };
+
   const getEmploymentTypes = async () => {
     const { data, error } = await supabase
       .from("employment_types")
       .select("*")
-      .order("name");
+      .order("name", { ascending: true });
 
     if (error) {
-      console.log(error);
+      console.log("GET EMPLOYMENT TYPES ERROR:", error);
       return;
     }
 
     setEmploymentTypes(data || []);
   };
 
-  const addEmploymentType = async () => {
-    if (!employmentTypeName.trim()) return;
+  const clearForm = () => {
+    setEditingTypeId("");
+    setEmploymentTypeName("");
+  };
 
-    const { error } = await supabase.from("employment_types").insert({
-      name: employmentTypeName,
-    });
+  const addEmploymentType = async () => {
+    const cleanName = employmentTypeName.trim();
+    if (!cleanName) return;
+
+    const { data, error } = await supabase
+      .from("employment_types")
+      .insert({ name: cleanName })
+      .select()
+      .single();
 
     if (error) {
-      console.log(error);
+      console.log("ADD EMPLOYMENT TYPE ERROR:", error);
       return;
     }
 
-    setEmploymentTypeName("");
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Employment Types",
+      action: "CREATE_EMPLOYMENT_TYPE",
+      description: `Created employment type: ${cleanName}`,
+      severity: "info",
+      recordId: data.id,
+      oldValue: null,
+      newValue: data,
+    });
+
+    clearForm();
     getEmploymentTypes();
   };
 
   const editEmploymentType = (type: any) => {
     setEditingTypeId(type.id);
-    setEmploymentTypeName(type.name);
+    setEmploymentTypeName(type.name || "");
   };
 
   const updateEmploymentType = async () => {
     if (!editingTypeId) return;
-    if (!employmentTypeName.trim()) return;
 
-    const { error } = await supabase
+    const cleanName = employmentTypeName.trim();
+    if (!cleanName) return;
+
+    const oldValue = employmentTypes.find((type) => type.id === editingTypeId);
+
+    const { data, error } = await supabase
       .from("employment_types")
-      .update({ name: employmentTypeName })
-      .eq("id", editingTypeId);
+      .update({ name: cleanName })
+      .eq("id", editingTypeId)
+      .select()
+      .single();
 
     if (error) {
-      console.log(error);
+      console.log("UPDATE EMPLOYMENT TYPE ERROR:", error);
       return;
     }
 
-    setEditingTypeId("");
-    setEmploymentTypeName("");
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Employment Types",
+      action: "UPDATE_EMPLOYMENT_TYPE",
+      description: `Updated employment type from "${oldValue?.name || "-"}" to "${cleanName}"`,
+      severity: "warning",
+      recordId: editingTypeId,
+      oldValue: oldValue || null,
+      newValue: data,
+    });
+
+    clearForm();
     getEmploymentTypes();
   };
 
-  const cancelEdit = () => {
-    setEditingTypeId("");
-    setEmploymentTypeName("");
-  };
-
-  const deleteEmploymentType = async (id: string) => {
-    const confirmDelete = confirm("Delete this employment type?");
-
+  const deleteEmploymentType = async (type: any) => {
+    const confirmDelete = confirm(`Delete employment type "${type.name}"?`);
     if (!confirmDelete) return;
+
+    const oldValue = { ...type };
 
     const { error } = await supabase
       .from("employment_types")
       .delete()
-      .eq("id", id);
+      .eq("id", type.id);
 
     if (error) {
-      console.log(error);
+      console.log("DELETE EMPLOYMENT TYPE ERROR:", error);
       return;
     }
+
+    const userEmail = await getCurrentUserEmail();
+
+    await createAuditLog({
+      userName: userEmail,
+      module: "Settings / Employment Types",
+      action: "DELETE_EMPLOYMENT_TYPE",
+      description: `Deleted employment type: ${type.name}`,
+      severity: "critical",
+      recordId: type.id,
+      oldValue,
+      newValue: null,
+    });
 
     getEmploymentTypes();
   };
 
   /// EFFECTS
+
   useEffect(() => {
     getEmploymentTypes();
   }, []);
 
   /// UI
+
   return (
     <div className="flex min-h-screen bg-[#050514] text-white">
       <Sidebar />
@@ -127,7 +184,7 @@ export default function EmploymentTypesPage() {
 
             {editingTypeId && (
               <button
-                onClick={cancelEdit}
+                onClick={clearForm}
                 className="rounded bg-slate-700 px-4 py-2 font-bold text-white hover:bg-slate-600"
               >
                 Cancel
@@ -166,7 +223,7 @@ export default function EmploymentTypesPage() {
                         </button>
 
                         <button
-                          onClick={() => deleteEmploymentType(type.id)}
+                          onClick={() => deleteEmploymentType(type)}
                           className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500"
                         >
                           Delete
