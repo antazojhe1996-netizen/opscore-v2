@@ -6,12 +6,11 @@ import {
   AlertTriangle,
   Banknote,
   Brain,
+  Building2,
   DollarSign,
   Hotel,
   Info,
   Receipt,
-  RotateCcw,
-  Send,
   ShieldAlert,
   TrendingUp,
   Users,
@@ -33,12 +32,18 @@ import { supabase } from "@/app/lib/supabase";
 type RangeType = "daily" | "weekly" | "monthly" | "yearly";
 
 export default function ExecutiveDashboardPage() {
+  /// STATES
   const [rangeType, setRangeType] = useState<RangeType>("monthly");
+  const [customFromDate, setCustomFromDate] = useState("");
+  const [customToDate, setCustomToDate] = useState("");
+  const [useCustomRange, setUseCustomRange] = useState(false);
 
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
   const [hotelReservations, setHotelReservations] = useState<any[]>([]);
   const [restaurantSales, setRestaurantSales] = useState<any[]>([]);
-  const [apartmentSales, setApartmentSales] = useState<any[]>([]);
+  const [apartmentPayments, setApartmentPayments] = useState<any[]>([]);
+  const [apartmentUnits, setApartmentUnits] = useState<any[]>([]);
+  const [apartmentBills, setApartmentBills] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [payrollRows, setPayrollRows] = useState<any[]>([]);
   const [bills, setBills] = useState<any[]>([]);
@@ -48,14 +53,10 @@ export default function ExecutiveDashboardPage() {
   const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
   const [attendanceEntries, setAttendanceEntries] = useState<any[]>([]);
   const [allocationRules, setAllocationRules] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [hcRules, setHcRules] = useState<any>(null);
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
+  /// HELPERS
   const formatPeso = (value: number) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
       maximumFractionDigits: 2,
@@ -107,6 +108,195 @@ export default function ExecutiveDashboardPage() {
     return [];
   };
 
+  const getLatestFinanceDate = () => {
+    const dates = [
+      ...hotelReservations,
+      ...restaurantSales,
+      ...apartmentPayments,
+      ...expenses,
+      ...cashDrawers,
+      ...cashMovements,
+      ...attendanceEntries,
+      ...payrollPeriods,
+    ]
+      .map((row) => getDateValue(row))
+      .filter(Boolean)
+      .sort();
+
+    return dates[dates.length - 1] || todayKey;
+  };
+
+  const isWithinRange = (dateString: string) => {
+    if (!dateString) return false;
+
+    const date = new Date(`${dateString}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return false;
+
+    if (useCustomRange && customFromDate && customToDate) {
+      const from = new Date(`${customFromDate}T00:00:00`);
+      const to = new Date(`${customToDate}T23:59:59`);
+
+      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+        return false;
+      }
+
+      return date >= from && date <= to;
+    }
+
+    const anchorKey = getLatestFinanceDate();
+    const anchorDate = new Date(`${anchorKey}T00:00:00`);
+
+    if (rangeType === "daily") return dateString === anchorKey;
+
+    if (rangeType === "weekly") {
+      const weekAgo = new Date(anchorDate);
+      weekAgo.setDate(anchorDate.getDate() - 6);
+      return date >= weekAgo && date <= anchorDate;
+    }
+
+    if (rangeType === "monthly") {
+      return (
+        date.getFullYear() === anchorDate.getFullYear() &&
+        date.getMonth() === anchorDate.getMonth()
+      );
+    }
+
+    return date.getFullYear() === anchorDate.getFullYear();
+  };
+
+  const applyCustomRange = () => {
+    if (!customFromDate || !customToDate) {
+      alert("Please select From Date and To Date.");
+      return;
+    }
+
+    if (customFromDate > customToDate) {
+      alert("From Date cannot be later than To Date.");
+      return;
+    }
+
+    setUseCustomRange(true);
+  };
+
+  const resetToLatestRange = () => {
+    setUseCustomRange(false);
+    setCustomFromDate("");
+    setCustomToDate("");
+    setRangeType("monthly");
+  };
+
+  const getActiveRangeLabel = () => {
+    if (useCustomRange && customFromDate && customToDate) {
+      return customFromDate === customToDate
+        ? `Viewing ${customFromDate}`
+        : `Viewing ${customFromDate} to ${customToDate}`;
+    }
+
+    const anchorKey = getLatestFinanceDate();
+
+    if (rangeType === "daily") return `Latest day: ${anchorKey}`;
+    if (rangeType === "weekly") return `Latest 7 days ending ${anchorKey}`;
+    if (rangeType === "monthly") return `Month of ${anchorKey.slice(0, 7)}`;
+    return `Year ${anchorKey.slice(0, 4)}`;
+  };
+
+  const sumAmount = (rows: any[]) =>
+    rows
+      .filter((row) => isWithinRange(getDateValue(row)))
+      .reduce((sum, row) => sum + getAmountValue(row), 0);
+
+  const getDaysLeft = (dueDateValue: string | null) => {
+    if (!dueDateValue) return null;
+
+    const due = new Date(`${dueDateValue}T00:00:00`);
+    const now = new Date(`${todayKey}T00:00:00`);
+    const diff = due.getTime() - now.getTime();
+
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const getDrawerExpectedCash = (drawer: any) =>
+    Number(drawer.expected_cash ?? drawer.expected_amount ?? 0);
+
+  const getDrawerActualCash = (drawer: any) =>
+    Number(drawer.actual_cash ?? drawer.actual_amount ?? 0);
+
+  const getDrawerVariance = (drawer: any) => {
+    const saved = drawer.variance ?? drawer.cash_variance ?? drawer.difference;
+
+    if (saved !== undefined && saved !== null) return Number(saved || 0);
+
+    return getDrawerActualCash(drawer) - getDrawerExpectedCash(drawer);
+  };
+
+  const getDrawerStatus = (drawer: any) =>
+    String(drawer.status || drawer.drawer_status || "").toLowerCase();
+
+  const getDrawerHolder = (drawer: any) =>
+    drawer.holder_name ||
+    drawer.cashier_name ||
+    drawer.cashier ||
+    drawer.employee_name ||
+    drawer.opened_by ||
+    "Cash Holder";
+
+  const getApartmentBillTotal = (bill: any) =>
+    Number(bill.rent_amount || 0) +
+    Number(bill.electric_amount || 0) +
+    Number(bill.water_amount || 0) +
+    Number(bill.internet_amount || 0) +
+    Number(bill.other_amount || 0);
+
+  const getApartmentBillPaid = (bill: any) =>
+    (bill.apartment_payments || []).reduce(
+      (sum: number, payment: any) => sum + Number(payment.amount || 0),
+      0,
+    );
+
+  const getApartmentBillBalance = (bill: any) =>
+    getApartmentBillTotal(bill) - getApartmentBillPaid(bill);
+
+  const getApartmentBillStatus = (bill: any) => {
+    const balance = getApartmentBillBalance(bill);
+    const paid = getApartmentBillPaid(bill);
+    const dueDate = new Date(`${bill.due_date}T00:00:00`);
+    const today = new Date(`${todayKey}T00:00:00`);
+
+    if (balance <= 0) return "PAID";
+    if (paid > 0) return "PARTIAL";
+    if (today > dueDate) return "OVERDUE";
+    return "UNPAID";
+  };
+
+  const normalizeExpenseCategory = (category: string) => {
+    const value = String(category || "").toLowerCase();
+
+    if (value.includes("water")) return "Water";
+    if (value.includes("internet")) return "Internet";
+    if (value.includes("netflix")) return "Netflix";
+    if (value.includes("electric")) return "Electric";
+    if (value.includes("food")) return "Food";
+    if (value.includes("beverage")) return "Beverages";
+    if (value.includes("laundry")) return "Laundry";
+    if (value.includes("housekeeping")) return "Housekeeping";
+    if (value.includes("frontdesk") || value.includes("front desk")) return "Frontdesk";
+    if (value.includes("pool league")) return "Pool League";
+    if (value.includes("pool")) return "Pool Maintenance";
+    if (value.includes("gas") || value.includes("rfid")) return "Gas Vehicle/RFID";
+    if (value.includes("sanitary")) return "Sanitary";
+    if (value.includes("tax")) return "Taxes";
+    if (value.includes("rent")) return "Rent";
+    if (value.includes("system")) return "System Fee";
+    if (value.includes("salary") || value.includes("payroll")) return "Employee Salary";
+    if (value.includes("hotel asset")) return "Housekeeping";
+    if (value.includes("kitchen asset")) return "Food";
+    if (value.includes("apartment asset")) return "Rent";
+    if (value.includes("cash advance")) return "Employee Salary";
+
+    return category || "Uncategorized";
+  };
+
+  /// LOAD DATA
   const loadDashboardData = async () => {
     const { data: occupancy } = await supabase
       .from("occupancy_data")
@@ -119,8 +309,28 @@ export default function ExecutiveDashboardPage() {
       .order("check_in", { ascending: false });
 
     const restaurantSalesData = await getRowsFromTables(["restaurant_sales"]);
-    const apartmentSalesData = await getRowsFromTables(["apartment_payments"]);
+    const apartmentPaymentData = await getRowsFromTables(["apartment_payments"]);
     const payrollData = await getRowsFromTables(["payroll_records"]);
+
+    const { data: apartmentUnitsData } = await supabase
+      .from("apartment_units")
+      .select("*")
+      .order("unit_name", { ascending: true });
+
+    const { data: apartmentBillsData } = await supabase
+      .from("apartment_bills")
+      .select(`
+        *,
+        apartment_units (
+          unit_name,
+          tenant_name,
+          status
+        ),
+        apartment_payments (
+          amount
+        )
+      `)
+      .order("due_date", { ascending: false });
 
     const { data: expensesData } = await supabase.from("expenses").select("*");
 
@@ -159,31 +369,12 @@ export default function ExecutiveDashboardPage() {
       .select("*")
       .eq("is_active", true);
 
-    const { data: employeesData } = await supabase
-      .from("employees")
-      .select("*");
-    const { data: schedulesData } = await supabase
-      .from("schedules")
-      .select("*");
-    const { data: leavesData } = await supabase
-      .from("leave_requests")
-      .select("*");
-
-    const { data: eventsData } = await supabase
-      .from("event_addons")
-      .select("*")
-      .order("event_date", { ascending: true });
-
-    const { data: hcData } = await supabase
-      .from("hc_rule_settings")
-      .select("setting_data")
-      .eq("setting_name", "hc_rules")
-      .maybeSingle();
-
     setOccupancyData(occupancy || []);
     setHotelReservations(hotelReservationsData || []);
     setRestaurantSales(restaurantSalesData || []);
-    setApartmentSales(apartmentSalesData || []);
+    setApartmentPayments(apartmentPaymentData || []);
+    setApartmentUnits(apartmentUnitsData || []);
+    setApartmentBills(apartmentBillsData || []);
     setPayrollRows(payrollData || []);
     setExpenses(expensesData || []);
     setBills(billsData || []);
@@ -193,141 +384,19 @@ export default function ExecutiveDashboardPage() {
     setPayrollPeriods(payrollPeriodData || []);
     setAttendanceEntries(attendanceData || []);
     setAllocationRules(allocationData || []);
-    setEmployees(employeesData || []);
-    setSchedules(schedulesData || []);
-    setLeaveRequests(leavesData || []);
-    setEvents(eventsData || []);
-    setHcRules(hcData?.setting_data || null);
   };
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
-  const getLatestFinanceDate = () => {
-    const dates = [
-      ...hotelReservations,
-      ...restaurantSales,
-      ...apartmentSales,
-      ...expenses,
-      ...cashDrawers,
-      ...cashMovements,
-      ...attendanceEntries,
-      ...payrollPeriods,
-    ]
-      .map((row) => getDateValue(row))
-      .filter(Boolean)
-      .sort();
-
-    return dates[dates.length - 1] || todayKey;
-  };
-
-  const isWithinRange = (dateString: string) => {
-    if (!dateString) return false;
-
-    const anchorKey = getLatestFinanceDate();
-    const date = new Date(`${dateString}T00:00:00`);
-    const anchorDate = new Date(`${anchorKey}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) return false;
-
-    if (rangeType === "daily") return dateString === anchorKey;
-
-    if (rangeType === "weekly") {
-      const weekAgo = new Date(anchorDate);
-      weekAgo.setDate(anchorDate.getDate() - 6);
-      return date >= weekAgo && date <= anchorDate;
-    }
-
-    if (rangeType === "monthly") {
-      return (
-        date.getFullYear() === anchorDate.getFullYear() &&
-        date.getMonth() === anchorDate.getMonth()
-      );
-    }
-
-    return date.getFullYear() === anchorDate.getFullYear();
-  };
-
-  const sumAmount = (rows: any[]) =>
-    rows
-      .filter((row) => isWithinRange(getDateValue(row)))
-      .reduce((sum, row) => sum + getAmountValue(row), 0);
-
-  const getDaysLeft = (dueDateValue: string | null) => {
-    if (!dueDateValue) return null;
-
-    const due = new Date(`${dueDateValue}T00:00:00`);
-    const now = new Date(`${todayKey}T00:00:00`);
-    const diff = due.getTime() - now.getTime();
-
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
-  };
-
-  const getDrawerExpectedCash = (drawer: any) =>
-    Number(drawer.expected_cash ?? drawer.expected_amount ?? 0);
-
-  const getDrawerActualCash = (drawer: any) =>
-    Number(drawer.actual_cash ?? drawer.actual_amount ?? 0);
-
-  const getDrawerVariance = (drawer: any) => {
-    const saved = drawer.variance ?? drawer.cash_variance ?? drawer.difference;
-
-    if (saved !== undefined && saved !== null) {
-      return Number(saved || 0);
-    }
-
-    return getDrawerActualCash(drawer) - getDrawerExpectedCash(drawer);
-  };
-
-  const getDrawerStatus = (drawer: any) =>
-    String(drawer.status || drawer.drawer_status || "").toLowerCase();
-
-  const getDrawerHolder = (drawer: any) =>
-    drawer.holder_name ||
-    drawer.cashier_name ||
-    drawer.cashier ||
-    drawer.employee_name ||
-    drawer.opened_by ||
-    "Cash Holder";
-
-  const normalizeExpenseCategory = (category: string) => {
-    const value = String(category || "").toLowerCase();
-
-    if (value.includes("water")) return "Water";
-    if (value.includes("internet")) return "Internet";
-    if (value.includes("netflix")) return "Netflix";
-    if (value.includes("electric")) return "Electric";
-    if (value.includes("food")) return "Food";
-    if (value.includes("beverage")) return "Beverages";
-    if (value.includes("laundry")) return "Laundry";
-    if (value.includes("housekeeping")) return "Housekeeping";
-    if (value.includes("frontdesk") || value.includes("front desk"))
-      return "Frontdesk";
-    if (value.includes("pool league")) return "Pool League";
-    if (value.includes("pool")) return "Pool Maintenance";
-    if (value.includes("gas") || value.includes("rfid"))
-      return "Gas Vehicle/RFID";
-    if (value.includes("sanitary")) return "Sanitary";
-    if (value.includes("tax")) return "Taxes";
-    if (value.includes("rent")) return "Rent";
-    if (value.includes("system")) return "System Fee";
-    if (value.includes("salary") || value.includes("payroll"))
-      return "Employee Salary";
-    if (value.includes("hotel asset")) return "Housekeeping";
-    if (value.includes("kitchen asset")) return "Food";
-    if (value.includes("apartment asset")) return "Rent";
-    if (value.includes("cash advance")) return "Employee Salary";
-
-    return category || "Uncategorized";
-  };
-
+  /// FINANCE CALCULATIONS
   const roomRevenue = hotelReservations
     .filter((row) => isWithinRange(getDateValue(row)))
     .reduce((sum, row) => sum + Number(row.amount_paid || 0), 0);
 
   const restaurantRevenue = sumAmount(restaurantSales);
-  const apartmentRevenue = sumAmount(apartmentSales);
+  const apartmentRevenue = sumAmount(apartmentPayments);
   const totalRevenue = roomRevenue + restaurantRevenue + apartmentRevenue;
 
   const totalExpenses = sumAmount(expenses);
@@ -345,6 +414,45 @@ export default function ExecutiveDashboardPage() {
   const availableRoomsToday = Number(todayOccupancy?.available_rooms || 0);
   const occupancyToday = Number(todayOccupancy?.occupancy || 0);
 
+  /// APARTMENT CALCULATIONS
+  const apartmentOccupiedUnits = apartmentUnits.filter(
+    (unit) => String(unit.status || "").toLowerCase() === "occupied",
+  );
+
+  const apartmentVacantUnits = apartmentUnits.filter(
+    (unit) => String(unit.status || "").toLowerCase() === "vacant",
+  );
+
+  const apartmentMaintenanceUnits = apartmentUnits.filter(
+    (unit) => String(unit.status || "").toLowerCase() === "maintenance",
+  );
+
+  const apartmentInactiveUnits = apartmentUnits.filter(
+    (unit) => String(unit.status || "").toLowerCase() === "inactive",
+  );
+
+  const apartmentReceivables = apartmentBills.reduce(
+    (sum, bill) => sum + Math.max(getApartmentBillBalance(bill), 0),
+    0,
+  );
+
+  const apartmentOverdueBills = apartmentBills.filter(
+    (bill) => getApartmentBillStatus(bill) === "OVERDUE",
+  );
+
+  const apartmentOverdueTotal = apartmentOverdueBills.reduce(
+    (sum, bill) => sum + Math.max(getApartmentBillBalance(bill), 0),
+    0,
+  );
+
+  const apartmentNoBillUnits = apartmentUnits.filter((unit) => {
+    const status = String(unit.status || "").toLowerCase();
+    if (!["active", "occupied", "maintenance"].includes(status)) return false;
+
+    return !apartmentBills.some((bill) => String(bill.unit_id) === String(unit.id));
+  });
+
+  /// CASH DRAWER CALCULATIONS
   const openDrawers = cashDrawers.filter((drawer) => {
     const status = getDrawerStatus(drawer);
     return status === "open" || status === "active" || status === "pending";
@@ -374,10 +482,40 @@ export default function ExecutiveDashboardPage() {
     0,
   );
 
-  const drawerAlerts = drawerRowsForSummary.filter(
-    (drawer) =>
-      Math.abs(getDrawerVariance(drawer)) > 0 ||
-      ["open", "active", "pending"].includes(getDrawerStatus(drawer)),
+  const drawerVarianceRows = drawerRowsForSummary
+    .map((drawer) => {
+      const expected = getDrawerExpectedCash(drawer);
+      const actual = getDrawerActualCash(drawer);
+      const variance = getDrawerVariance(drawer);
+
+      return {
+        id: drawer.id,
+        cashier: getDrawerHolder(drawer),
+        businessDate: getDateValue(drawer),
+        expected,
+        actual,
+        variance,
+        status: getDrawerStatus(drawer) || "unknown",
+      };
+    })
+    .filter((drawer) => drawer.variance !== 0)
+    .sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance));
+
+  const varianceDrawerCount = drawerVarianceRows.length;
+
+  const largestShortage =
+    drawerVarianceRows
+      .filter((drawer) => drawer.variance < 0)
+      .sort((a, b) => a.variance - b.variance)[0] || null;
+
+  const largestOverage =
+    drawerVarianceRows
+      .filter((drawer) => drawer.variance > 0)
+      .sort((a, b) => b.variance - a.variance)[0] || null;
+
+  const balancedDrawerCount = Math.max(
+    drawerRowsForSummary.length - varianceDrawerCount,
+    0,
   );
 
   const cashMovementRows = cashMovements.filter((row) =>
@@ -388,8 +526,7 @@ export default function ExecutiveDashboardPage() {
     .filter(
       (row) =>
         (row.payment_type || "Cash") === "Cash" &&
-        (row.movement_type === "Opening Float" ||
-          row.movement_type === "Cash In"),
+        (row.movement_type === "Opening Float" || row.movement_type === "Cash In"),
     )
     .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
@@ -414,14 +551,18 @@ export default function ExecutiveDashboardPage() {
   const movementBasedCash =
     cashMovementCashIn - cashMovementCashOut - cashMovementRemittance;
 
-  const cashAdvanceReleased = cashMovementRows
-    .filter((row) => String(row.source || "").includes("Cash Advance"))
-    .reduce((sum, row) => sum + Math.abs(Number(row.amount || 0)), 0);
+  const cashAvailable =
+    actualCash > 0
+      ? actualCash
+      : movementBasedCash > 0
+        ? movementBasedCash
+        : Math.max(netPosition, 0);
 
   const expenseReleasedFromDrawer = cashMovementRows
     .filter((row) => String(row.source || "").includes("Expense Release"))
     .reduce((sum, row) => sum + Math.abs(Number(row.amount || 0)), 0);
 
+  /// PAYROLL / STAFF CONTROL
   const activeEmployeeBalances = employeeBalances.filter(
     (balance) =>
       String(balance.status || "Active") === "Active" &&
@@ -456,10 +597,6 @@ export default function ExecutiveDashboardPage() {
 
   const payrollForApproval = payrollRows.filter((row) =>
     ["For Approval", "Approved"].includes(String(row.status || "")),
-  );
-
-  const payrollReleased = payrollRows.filter((row) =>
-    ["Released", "Paid"].includes(String(row.status || "")),
   );
 
   const pendingPayrollReleaseAmount = payrollForApproval.reduce(
@@ -497,13 +634,7 @@ export default function ExecutiveDashboardPage() {
     (row) => Boolean(row.time_in) && !row.time_out,
   );
 
-  const cashAvailable =
-    actualCash > 0
-      ? actualCash
-      : movementBasedCash > 0
-        ? movementBasedCash
-        : Math.max(netPosition, 0);
-
+  /// BILLS / COLLECTIONS
   const unpaidBills = bills.filter((bill) => {
     const status = String(bill.status || "").toLowerCase();
     return status !== "paid" && status !== "cancelled";
@@ -543,11 +674,6 @@ export default function ExecutiveDashboardPage() {
     0,
   );
 
-  const unpaidReservations = filteredReservations.filter(
-    (row) => Number(row.balance_due || 0) > 0,
-  );
-
-  const apartmentReceivables = 0;
   const expectedCollections = outstandingGuestBalance + apartmentReceivables;
 
   const projectedCashPosition =
@@ -588,6 +714,7 @@ export default function ExecutiveDashboardPage() {
   const payrollStatus =
     payrollRatio >= 50 ? "High Risk" : payrollRatio >= 40 ? "Watch" : "Healthy";
 
+  /// PROFITABILITY
   const allocationRuleMap = allocationRules.reduce(
     (acc: Record<string, any>, rule) => {
       acc[String(rule.expense_type || "").toLowerCase()] = rule;
@@ -672,16 +799,14 @@ export default function ExecutiveDashboardPage() {
       .reduce((acc: Record<string, any>, row) => {
         const category = row.category || "Uncategorized";
 
-        if (!acc[category]) {
-          acc[category] = { category, amount: 0 };
-        }
+        if (!acc[category]) acc[category] = { category, amount: 0 };
 
         acc[category].amount += Number(row.amount || 0);
         return acc;
       }, {}),
   )
     .sort((a: any, b: any) => b.amount - a.amount)
-    .slice(0, 10) as any[];
+    .slice(0, 8) as any[];
 
   const revenueBreakdown = [
     { name: "Rooms", value: roomRevenue },
@@ -691,15 +816,12 @@ export default function ExecutiveDashboardPage() {
 
   const topRevenueSource = revenueBreakdown[0] || { name: "-", value: 0 };
   const topRevenueShare =
-    totalRevenue > 0
-      ? Math.round((topRevenueSource.value / totalRevenue) * 100)
-      : 0;
+    totalRevenue > 0 ? Math.round((topRevenueSource.value / totalRevenue) * 100) : 0;
 
+  /// ALERTS / ADVICE
   const criticalAlerts = [
     ...(cashFlowStatus === "Critical"
-      ? [
-          `Projected cash shortage: ${formatPeso(Math.abs(projectedCashPosition))}.`,
-        ]
+      ? [`Projected cash shortage: ${formatPeso(Math.abs(projectedCashPosition))}.`]
       : []),
     ...(cashFlowStatus === "Watch"
       ? [`Cash runway is tight: ${cashRunway} day(s) remaining.`]
@@ -710,65 +832,73 @@ export default function ExecutiveDashboardPage() {
     ...(Math.abs(totalVariance) > 0
       ? [`Cash drawer variance detected: ${formatPeso(totalVariance)}.`]
       : []),
+    ...drawerVarianceRows
+      .slice(0, 3)
+      .map(
+        (drawer) =>
+          `${drawer.cashier} has cash variance ${formatPeso(drawer.variance)}.`,
+      ),
     ...(openDrawers.length > 0
       ? [`${openDrawers.length} cash drawer(s) still open.`]
       : []),
-    ...(payrollNeedsRegeneration.length > 0
+    ...(apartmentReceivables > 0
+      ? [`Apartment receivables: ${formatPeso(apartmentReceivables)}.`]
+      : []),
+    ...(apartmentOverdueBills.length > 0
       ? [
-          `${payrollNeedsRegeneration.length} payroll cutoff(s) need regeneration.`,
+          `${apartmentOverdueBills.length} apartment overdue bill(s): ${formatPeso(apartmentOverdueTotal)}.`,
         ]
+      : []),
+    ...(apartmentMaintenanceUnits.length > 0
+      ? [`${apartmentMaintenanceUnits.length} apartment unit(s) under maintenance.`]
+      : []),
+    ...(apartmentNoBillUnits.length > 0
+      ? [`${apartmentNoBillUnits.length} apartment unit(s) have no bill yet.`]
+      : []),
+    ...(payrollNeedsRegeneration.length > 0
+      ? [`${payrollNeedsRegeneration.length} payroll cutoff(s) need regeneration.`]
       : []),
     ...(pendingPayrollReleaseAmount > 0
-      ? [
-          `Payroll waiting for release: ${formatPeso(pendingPayrollReleaseAmount)}.`,
-        ]
+      ? [`Payroll waiting for release: ${formatPeso(pendingPayrollReleaseAmount)}.`]
       : []),
     ...(outstandingCashAdvances > 0
-      ? [
-          `Outstanding employee cash advances: ${formatPeso(outstandingCashAdvances)}.`,
-        ]
+      ? [`Outstanding employee cash advances: ${formatPeso(outstandingCashAdvances)}.`]
       : []),
     ...(attendanceIssueRows.length > 0
-      ? [
-          `${attendanceIssueRows.length} attendance issue(s) found in selected range.`,
-        ]
+      ? [`${attendanceIssueRows.length} attendance issue(s) found in selected range.`]
       : []),
     ...(overdueBills.length > 0
-      ? [
-          `${overdueBills.length} overdue bill(s) worth ${formatPeso(overdueBillsTotal)}.`,
-        ]
+      ? [`${overdueBills.length} overdue bill(s) worth ${formatPeso(overdueBillsTotal)}.`]
       : []),
     ...(upcomingBills.length > 0
       ? [`${upcomingBills.length} bill(s) due within 14 days.`]
       : []),
-    ...(payrollRatio >= 50
-      ? [`Payroll ratio is high at ${payrollRatio}%.`]
-      : []),
+    ...(payrollRatio >= 50 ? [`Payroll ratio is high at ${payrollRatio}%.`] : []),
     ...(outstandingGuestBalance > 0
-      ? [
-          `Guest Balance Review needs verification: ${formatPeso(outstandingGuestBalance)}.`,
-        ]
+      ? [`Guest Balance Review needs verification: ${formatPeso(outstandingGuestBalance)}.`]
       : []),
     ...(allocatedExpenses.unmapped > 0
-      ? [
-          `${formatPeso(allocatedExpenses.unmapped)} expenses are not mapped to allocation rules.`,
-        ]
+      ? [`${formatPeso(allocatedExpenses.unmapped)} expenses are not mapped to allocation rules.`]
       : []),
     ...(weakestProfitCenter && weakestProfitCenter.profit < 0
       ? [`${weakestProfitCenter.name} is showing negative department profit.`]
       : []),
     ...(occupancyToday < 40 ? [`Occupancy is low at ${occupancyToday}%.`] : []),
-    ...(netPosition < 0
-      ? ["Expenses and payroll are higher than revenue."]
-      : []),
+    ...(netPosition < 0 ? ["Expenses and payroll are higher than revenue."] : []),
   ];
 
   const recommendations = [
     ...(projectedCashPosition < 0
       ? [
-          "Review Guest Balance Review items and apartment receivables before approving new cash releases.",
+          "Prioritize guest balances and apartment receivables before approving new cash releases.",
           "Delay non-critical expenses until projected cash position improves.",
         ]
+      : []),
+    ...(apartmentReceivables > 0
+      ? ["Follow up apartment tenants with outstanding balances."]
+      : []),
+    ...(apartmentNoBillUnits.length > 0
+      ? ["Create missing apartment monthly bills before accepting new payments."]
       : []),
     ...(overdueBills.length > 0
       ? ["Prioritize overdue bills and avoid new supplier commitments."]
@@ -780,9 +910,7 @@ export default function ExecutiveDashboardPage() {
       ? ["Follow up open cash drawers before end-of-day reporting."]
       : []),
     ...(payrollNeedsRegeneration.length > 0
-      ? [
-          "Regenerate outdated payroll cutoffs before sending to Payroll Manager.",
-        ]
+      ? ["Regenerate outdated payroll cutoffs before sending to Payroll Manager."]
       : []),
     ...(attendanceIssueRows.length > 0
       ? ["Review attendance issues before payroll generation."]
@@ -794,24 +922,16 @@ export default function ExecutiveDashboardPage() {
       ? ["Review schedule and overtime because payroll is above target ratio."]
       : []),
     ...(allocatedExpenses.unmapped > 0
-      ? [
-          "Review unmapped expense categories and update Expense Allocation rules.",
-        ]
+      ? ["Review unmapped expense categories and update Expense Allocation rules."]
       : []),
     ...(weakestProfitCenter && weakestProfitCenter.profit < 0
-      ? [
-          `Review ${weakestProfitCenter.name} expenses because it is currently negative.`,
-        ]
+      ? [`Review ${weakestProfitCenter.name} expenses because it is currently negative.`]
       : []),
     ...(topProfitCenter
-      ? [
-          `Protect ${topProfitCenter.name} because it is currently the strongest profit center.`,
-        ]
+      ? [`Protect ${topProfitCenter.name} because it is currently the strongest profit center.`]
       : []),
     ...(topRevenueShare >= 75 && totalRevenue > 0
-      ? [
-          `Revenue depends heavily on ${topRevenueSource.name}. Strengthen other income sources.`,
-        ]
+      ? [`Revenue depends heavily on ${topRevenueSource.name}. Strengthen other income sources.`]
       : []),
     ...(occupancyToday < 40
       ? ["Push direct bookings and OTA visibility to lift room occupancy."]
@@ -825,14 +945,25 @@ export default function ExecutiveDashboardPage() {
       (projectedCashPosition < 0 ? 35 : 0) -
       (cashRunway > 0 && cashRunway <= 7 ? 20 : 0) -
       (overdueBills.length > 0 ? 15 : 0) -
+      (apartmentOverdueBills.length > 0 ? 10 : 0) -
       (Math.abs(totalVariance) > 0 ? 10 : 0) -
       (payrollRatio >= 50 ? 15 : payrollRatio >= 40 ? 8 : 0) -
       (netPosition < 0 ? 20 : 0) -
       (allocatedExpenses.unmapped > 0 ? 8 : 0),
   );
 
-  const operationsScore = Math.max(0, 100 - (occupancyToday < 40 ? 25 : 0));
-  const collectionsScore = Math.max(0, 100 - (recoverableCash > 0 ? 20 : 0));
+  const operationsScore = Math.max(
+    0,
+    100 - (occupancyToday < 40 ? 25 : 0) - (apartmentMaintenanceUnits.length > 0 ? 8 : 0),
+  );
+
+  const collectionsScore = Math.max(
+    0,
+    100 -
+      (outstandingGuestBalance > 0 ? 10 : 0) -
+      (apartmentReceivables > 0 ? 15 : 0) -
+      (Math.abs(totalVariance) > 0 ? 10 : 0),
+  );
 
   const businessHealthScore = Math.round(
     financeScore * 0.55 + operationsScore * 0.25 + collectionsScore * 0.2,
@@ -911,7 +1042,7 @@ export default function ExecutiveDashboardPage() {
       addToMap(getDateValue(row), "revenue", getAmountValue(row)),
     );
 
-    apartmentSales.forEach((row) =>
+    apartmentPayments.forEach((row) =>
       addToMap(getDateValue(row), "revenue", getAmountValue(row)),
     );
 
@@ -937,13 +1068,17 @@ export default function ExecutiveDashboardPage() {
   }, [
     hotelReservations,
     restaurantSales,
-    apartmentSales,
+    apartmentPayments,
     expenses,
     payrollRows,
     cashDrawers,
     rangeType,
+    useCustomRange,
+    customFromDate,
+    customToDate,
   ]);
 
+  /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
@@ -958,33 +1093,71 @@ export default function ExecutiveDashboardPage() {
             <h1 className="mt-2 text-4xl font-black">Executive Dashboard</h1>
 
             <p className="mt-2 text-slate-400">
-              Cash flow, revenue, expenses, bills, payroll, and owner-level
-              survival alerts.
+              Clean owner view for cash, revenue, expenses, apartment status, payroll, and alerts.
             </p>
           </div>
 
-          <div className="flex rounded-xl border border-slate-800 bg-slate-900 p-1">
-            {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
-              (range) => (
-                <button
-                  key={range}
-                  onClick={() => setRangeType(range)}
-                  className={
-                    rangeType === range
-                      ? "rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-slate-950"
-                      : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
-                  }
-                >
-                  {range === "daily"
-                    ? "Today"
-                    : range === "weekly"
-                      ? "This Week"
-                      : range === "monthly"
-                        ? "This Month"
-                        : "This Year"}
-                </button>
-              ),
-            )}
+          <div className="w-full space-y-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 lg:w-auto">
+            <div className="flex flex-wrap gap-2">
+              {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
+                (range) => (
+                  <button
+                    key={range}
+                    onClick={() => {
+                      setUseCustomRange(false);
+                      setRangeType(range);
+                    }}
+                    className={
+                      !useCustomRange && rangeType === range
+                        ? "rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-slate-950"
+                        : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
+                    }
+                  >
+                    {range === "daily"
+                      ? "Latest Day"
+                      : range === "weekly"
+                        ? "Latest Week"
+                        : range === "monthly"
+                          ? "Latest Month"
+                          : "Latest Year"}
+                  </button>
+                ),
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+              <input
+                type="date"
+                value={customFromDate}
+                onChange={(e) => setCustomFromDate(e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
+              />
+
+              <input
+                type="date"
+                value={customToDate}
+                onChange={(e) => setCustomToDate(e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
+              />
+
+              <button
+                onClick={applyCustomRange}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500"
+              >
+                Apply
+              </button>
+
+              <button
+                onClick={resetToLatestRange}
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+              >
+                Reset
+              </button>
+            </div>
+
+            <p className="text-xs font-semibold text-amber-300">
+              {getActiveRangeLabel()}
+            </p>
           </div>
         </div>
 
@@ -996,30 +1169,26 @@ export default function ExecutiveDashboardPage() {
             danger={cashAvailable <= 0}
             success={cashAvailable > 0}
             subtitle={`${cashRunway} day runway`}
-            formula="Cash on hand today"
+            formula="Actual drawer cash, cash movement balance, or positive net position"
           />
+
           <KpiCard
             icon={<DollarSign size={22} />}
             title="Revenue"
             value={formatPeso(totalRevenue)}
             success
-            formula="All income collected"
+            formula="Rooms + restaurant + apartment collections"
           />
+
           <KpiCard
             icon={<Receipt size={22} />}
-            title="Expenses"
-            value={formatPeso(totalExpenses)}
+            title="Expenses + Payroll"
+            value={formatPeso(totalExpenses + payrollTotal)}
             danger
-            formula="Total money spent"
+            subtitle={`Payroll ${payrollRatio}%`}
+            formula="Operating expenses plus payroll"
           />
-          <KpiCard
-            icon={<Users size={22} />}
-            title="Payroll"
-            value={formatPeso(payrollTotal)}
-            danger={payrollRatio >= 40}
-            subtitle={`${payrollRatio}% of revenue`}
-            formula="Payroll share of revenue"
-          />
+
           <KpiCard
             icon={<Banknote size={22} />}
             title="Net Position"
@@ -1027,67 +1196,26 @@ export default function ExecutiveDashboardPage() {
             success={netPosition >= 0}
             danger={netPosition < 0}
             subtitle={`${profitMargin}% margin`}
-            formula="Money left after costs"
+            formula="Revenue minus expenses and payroll"
           />
-          <KpiCard
-            icon={<Hotel size={22} />}
-            title="Occupancy"
-            value={`${occupancyToday}%`}
-            danger={occupancyToday < 40}
-            subtitle={`${roomsSoldToday}/${availableRoomsToday} rooms`}
-            formula="Rooms sold vs available"
-          />
-        </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
           <KpiCard
-            icon={<Wallet size={22} />}
-            title="Drawer Cash"
-            value={formatPeso(movementBasedCash)}
-            danger={movementBasedCash < 0}
-            success={movementBasedCash >= 0}
-            subtitle={`${openDrawers.length} open drawer(s)`}
-            formula="Cash movements: in minus out/remittance"
+            icon={<ShieldAlert size={22} />}
+            title="Receivables"
+            value={formatPeso(expectedCollections)}
+            danger={expectedCollections > 0}
+            subtitle="Guest + apartment"
+            formula="Guest balance review plus apartment receivables"
           />
+
           <KpiCard
-            icon={<Receipt size={22} />}
-            title="Drawer Releases"
-            value={formatPeso(expenseReleasedFromDrawer)}
-            danger={expenseReleasedFromDrawer > 0}
-            subtitle="Cash expenses released"
-            formula="Cash Drawer source: Expense Release"
-          />
-          <KpiCard
-            icon={<Users size={22} />}
-            title="Cash Advances"
-            value={formatPeso(outstandingCashAdvances)}
-            danger={outstandingCashAdvances > 0}
-            subtitle={`${employeesWithOutstandingBalances} employee(s)`}
-            formula="Active employee balances from CA"
-          />
-          <KpiCard
-            icon={<RotateCcw size={22} />}
-            title="Payroll Outdated"
-            value={payrollNeedsRegeneration.length}
-            danger={payrollNeedsRegeneration.length > 0}
-            success={payrollNeedsRegeneration.length === 0}
-            formula="Cutoffs requiring regenerate"
-          />
-          <KpiCard
-            icon={<Send size={22} />}
-            title="For Release"
-            value={formatPeso(pendingPayrollReleaseAmount)}
-            danger={pendingPayrollReleaseAmount > 0}
-            formula="Payroll records waiting release"
-          />
-          <KpiCard
-            icon={<AlertTriangle size={22} />}
-            title="Attendance Issues"
-            value={attendanceIssueRows.length}
-            danger={attendanceIssueRows.length > 0}
-            success={attendanceIssueRows.length === 0}
-            subtitle={`${absentRows.length} absent • ${lateRows.length} late`}
-            formula="Absent, late, undertime, missing out"
+            icon={<Brain size={22} />}
+            title="Health Score"
+            value={`${businessHealthScore}/100`}
+            success={businessStatus === "Stable"}
+            danger={businessStatus === "Critical"}
+            subtitle={businessStatus}
+            formula="Cash, operations, and collections weighted score"
           />
         </section>
 
@@ -1101,60 +1229,65 @@ export default function ExecutiveDashboardPage() {
               {
                 label: "Cash Available",
                 value: formatPeso(cashAvailable),
-                formula: "Cash on hand today",
+                formula: "Current usable cash estimate",
               },
               {
                 label: "Expected Collections",
                 value: formatPeso(expectedCollections),
-                formula: "Money still collectible",
+                formula: "Guest balance + apartment receivables",
               },
               {
                 label: "Upcoming Bills",
                 value: formatPeso(upcomingBillsTotal),
-                formula: "Bills due soon",
+                formula: "Bills due within 14 days",
               },
               {
                 label: "Payroll Load",
                 value: formatPeso(payrollTotal),
-                formula: "Total staff payout",
+                formula: "Total payroll in selected range",
               },
               {
                 label: "Projected Cash",
                 value: formatPeso(projectedCashPosition),
-                formula: "Expected cash after bills",
+                formula: "Cash + collections - bills - payroll",
               },
             ]}
           />
 
           <InsightCard
-            icon={<ShieldAlert size={22} />}
-            title="Cash Recovery Center"
-            status={recoverableCash > 0 ? "Recoverable" : "Clean"}
+            icon={<Building2 size={22} />}
+            title="Apartment Status"
+            status={apartmentReceivables > 0 ? "Collect" : "Clean"}
             statusClass={
-              recoverableCash > 0
+              apartmentReceivables > 0 || apartmentOverdueBills.length > 0
                 ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
                 : "border-green-500/30 bg-green-500/10 text-green-300"
             }
             rows={[
               {
-                label: "Guest Balance Review",
-                value: formatPeso(outstandingGuestBalance),
-                formula: "Unpaid guest balance",
+                label: "Occupied / Total",
+                value: `${apartmentOccupiedUnits.length}/${apartmentUnits.length}`,
+                formula: "Occupied apartment units",
               },
               {
-                label: "Apartment Receivables",
+                label: "Vacant / Maintenance",
+                value: `${apartmentVacantUnits.length}/${apartmentMaintenanceUnits.length}`,
+                formula: "Available and under maintenance units",
+              },
+              {
+                label: "Receivables",
                 value: formatPeso(apartmentReceivables),
-                formula: "Unpaid apartment balance",
+                formula: "Apartment bills minus recorded payments",
               },
               {
-                label: "Drawer Variance",
-                value: formatPeso(Math.abs(totalVariance)),
-                formula: "Cash difference",
+                label: "Overdue",
+                value: `${apartmentOverdueBills.length} bill(s)`,
+                formula: formatPeso(apartmentOverdueTotal),
               },
               {
-                label: "Total Recovery",
-                value: formatPeso(recoverableCash),
-                formula: "Cash we can recover",
+                label: "No Bill Yet",
+                value: String(apartmentNoBillUnits.length),
+                formula: "Active/occupied/maintenance units without any bill",
               },
             ]}
           />
@@ -1165,11 +1298,6 @@ export default function ExecutiveDashboardPage() {
             status={businessStatus}
             statusClass={statusStyle}
             rows={[
-              {
-                label: "Health Score",
-                value: `${businessHealthScore}/100`,
-                formula: "Overall business condition",
-              },
               {
                 label: "Cash Status",
                 value: cashFlowStatus,
@@ -1185,6 +1313,11 @@ export default function ExecutiveDashboardPage() {
                 value: `${topRevenueSource.name} (${topRevenueShare}%)`,
                 formula: "Biggest income source",
               },
+              {
+                label: "Recoverable Cash",
+                value: formatPeso(recoverableCash),
+                formula: "Guest + apartment + drawer variance",
+              },
             ]}
           />
         </section>
@@ -1193,7 +1326,7 @@ export default function ExecutiveDashboardPage() {
           <div className="h-[520px] rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
             <h2 className="text-xl font-bold">Cash, Revenue & Expense Trend</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Owner-level trend of cash, revenue, expenses, payroll, and profit.
+              Owner-level trend without duplicate cash drawer cards.
             </p>
 
             <div className="mt-6 h-[390px]">
@@ -1265,9 +1398,7 @@ export default function ExecutiveDashboardPage() {
             </div>
           </div>
 
-          <section
-            className={`h-[520px] overflow-hidden rounded-2xl border p-5 xl:col-span-2 ${statusStyle}`}
-          >
+          <section className={`h-[520px] overflow-hidden rounded-2xl border p-5 xl:col-span-2 ${statusStyle}`}>
             <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
               <Brain size={18} /> OPSCORE AI Advisor
             </p>
@@ -1301,39 +1432,26 @@ export default function ExecutiveDashboardPage() {
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <RevenueCard
-            title="Rooms"
-            value={roomRevenue}
-            total={totalRevenue}
-            formula="Paid room sales"
-          />
-          <RevenueCard
-            title="Restaurant"
-            value={restaurantRevenue}
-            total={totalRevenue}
-            formula="Restaurant sales"
-          />
-          <RevenueCard
-            title="Apartment"
-            value={apartmentRevenue}
-            total={totalRevenue}
-            formula="Apartment collections"
-          />
+          <RevenueCard title="Rooms" value={roomRevenue} total={totalRevenue} formula="Paid room sales" />
+          <RevenueCard title="Restaurant" value={restaurantRevenue} total={totalRevenue} formula="Restaurant sales" />
+          <RevenueCard title="Apartment" value={apartmentRevenue} total={totalRevenue} formula="Apartment collections" />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
           <InsightCard
             icon={<Users size={22} />}
-            title="Payroll Control"
+            title="Payroll & Attendance"
             status={
               payrollNeedsRegeneration.length > 0
                 ? "Regenerate"
                 : pendingPayrollReleaseAmount > 0
                   ? "For Release"
-                  : "Clean"
+                  : attendanceIssueRows.length > 0
+                    ? "Review"
+                    : "Clean"
             }
             statusClass={
-              payrollNeedsRegeneration.length > 0
+              payrollNeedsRegeneration.length > 0 || attendanceIssueRows.length > 0
                 ? "border-red-500/30 bg-red-500/10 text-red-300"
                 : pendingPayrollReleaseAmount > 0
                   ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
@@ -1351,80 +1469,84 @@ export default function ExecutiveDashboardPage() {
                 formula: "Approved payroll not yet released",
               },
               {
-                label: "Released Records",
-                value: String(payrollReleased.length),
-                formula: "Released or paid payroll rows",
+                label: "Attendance Issues",
+                value: String(attendanceIssueRows.length),
+                formula: `${absentRows.length} absent • ${lateRows.length} late • ${missingOutRows.length} missing out`,
               },
               {
-                label: "Carry Forward",
-                value: formatPeso(outstandingCarryForward),
-                formula: "Unpaid balance carried to next cutoff",
+                label: "Cash Advances",
+                value: formatPeso(outstandingCashAdvances),
+                formula: `${employeesWithOutstandingBalances} employee(s) affected`,
               },
             ]}
           />
 
           <InsightCard
-            icon={<AlertTriangle size={22} />}
-            title="Attendance Control"
-            status={attendanceIssueRows.length > 0 ? "Review" : "Clean"}
+            icon={<ShieldAlert size={22} />}
+            title="Cash Recovery"
+            status={recoverableCash > 0 ? "Recoverable" : "Clean"}
             statusClass={
-              attendanceIssueRows.length > 0
-                ? "border-red-500/30 bg-red-500/10 text-red-300"
+              recoverableCash > 0
+                ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
                 : "border-green-500/30 bg-green-500/10 text-green-300"
             }
             rows={[
               {
-                label: "Attendance Rows",
-                value: String(attendanceRowsInRange.length),
-                formula: "Imported/manual attendance rows",
+                label: "Guest Balance Review",
+                value: formatPeso(outstandingGuestBalance),
+                formula: "Unpaid guest balance",
               },
               {
-                label: "Absent",
-                value: String(absentRows.length),
-                formula: "Rows marked absent",
+                label: "Apartment Receivables",
+                value: formatPeso(apartmentReceivables),
+                formula: "Unpaid apartment balance",
               },
               {
-                label: "Late",
-                value: String(lateRows.length),
-                formula: "Rows with late minutes",
+                label: "Drawer Variance",
+                value: formatPeso(Math.abs(totalVariance)),
+                formula: "Cash difference",
               },
               {
-                label: "Missing Time Out",
-                value: String(missingOutRows.length),
-                formula: "Has time in but no time out",
+                label: "Total Recovery",
+                value: formatPeso(recoverableCash),
+                formula: "Cash that needs collection/review",
               },
             ]}
           />
 
           <InsightCard
             icon={<Wallet size={22} />}
-            title="Employee Receivables"
-            status={activeEmployeeBalances.length > 0 ? "Collectible" : "Clean"}
+            title="Cash Drawer Accountability"
+            status={openDrawers.length > 0 || totalVariance !== 0 ? "Review" : "Clean"}
             statusClass={
-              activeEmployeeBalances.length > 0
+              openDrawers.length > 0 || totalVariance !== 0
                 ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
                 : "border-green-500/30 bg-green-500/10 text-green-300"
             }
             rows={[
               {
-                label: "Active Balances",
-                value: String(activeEmployeeBalances.length),
-                formula: "Open employee balance rows",
+                label: "Open / Closed Drawers",
+                value: `${openDrawers.length}/${closedDrawers.length}`,
+                formula: "Drawer status count",
               },
               {
-                label: "Cash Advances",
-                value: formatPeso(outstandingCashAdvances),
-                formula: "Open CA deductions",
+                label: "Balanced / Variance",
+                value: `${balancedDrawerCount}/${varianceDrawerCount}`,
+                formula: "Cashiers with clean vs variance drawers",
               },
               {
-                label: "Carry Forward",
-                value: formatPeso(outstandingCarryForward),
-                formula: "Negative net pay carried forward",
+                label: "Largest Shortage",
+                value: largestShortage
+                  ? `${largestShortage.cashier} ${formatPeso(largestShortage.variance)}`
+                  : formatPeso(0),
+                formula: "Most negative drawer variance",
               },
               {
-                label: "Employees Affected",
-                value: String(employeesWithOutstandingBalances),
-                formula: "Employees with active balance",
+                label: "Largest Overage",
+                value: largestOverage
+                  ? `${largestOverage.cashier} +${formatPeso(largestOverage.variance).replace("₱", "₱")}`
+                  : formatPeso(0),
+                formula: "Most positive drawer variance",
               },
             ]}
           />
@@ -1437,8 +1559,7 @@ export default function ExecutiveDashboardPage() {
             <div>
               <h2 className="text-2xl font-black">Department Profitability</h2>
               <p className="text-sm text-slate-400">
-                Revenue minus allocated expenses based on Expense Allocation
-                Rules.
+                Revenue minus allocated expenses based on Expense Allocation Rules.
               </p>
             </div>
           </div>
@@ -1458,26 +1579,10 @@ export default function ExecutiveDashboardPage() {
                   <h3 className="text-xl font-black">{department.name}</h3>
 
                   <div className="mt-5 space-y-3">
-                    <MiniRow
-                      label="Revenue"
-                      value={formatPeso(department.revenue)}
-                      formula="Income per department"
-                    />
-                    <MiniRow
-                      label="Allocated Expenses"
-                      value={formatPeso(department.allocatedExpenses)}
-                      formula="Assigned department costs"
-                    />
-                    <MiniRow
-                      label="Profit"
-                      value={formatPeso(department.profit)}
-                      formula="Income minus costs"
-                    />
-                    <MiniRow
-                      label="Margin"
-                      value={`${margin}%`}
-                      formula="Profit percentage"
-                    />
+                    <MiniRow label="Revenue" value={formatPeso(department.revenue)} formula="Income per department" />
+                    <MiniRow label="Allocated Expenses" value={formatPeso(department.allocatedExpenses)} formula="Assigned department costs" />
+                    <MiniRow label="Profit" value={formatPeso(department.profit)} formula="Income minus costs" />
+                    <MiniRow label="Margin" value={`${margin}%`} formula="Profit percentage" />
                   </div>
                 </div>
               );
@@ -1510,7 +1615,7 @@ export default function ExecutiveDashboardPage() {
           </section>
         )}
 
-        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
+        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="flex items-center gap-2 text-xl font-bold">
               <Receipt size={22} /> Top Expense Categories
@@ -1519,11 +1624,7 @@ export default function ExecutiveDashboardPage() {
             <div className="mt-5 space-y-3">
               {topExpenseCategories.length > 0 ? (
                 topExpenseCategories.map((item: any) => (
-                  <MiniRow
-                    key={item.category}
-                    label={item.category}
-                    value={formatPeso(item.amount)}
-                  />
+                  <MiniRow key={item.category} label={item.category} value={formatPeso(item.amount)} />
                 ))
               ) : (
                 <p className="text-sm text-slate-500">No expense data found.</p>
@@ -1537,111 +1638,119 @@ export default function ExecutiveDashboardPage() {
             </h2>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <MiniStat
-                title="Outstanding"
-                value={formatPeso(outstandingBills)}
-                danger={outstandingBills > 0}
-                formula="Bills not yet paid"
-              />
-              <MiniStat
-                title="Overdue"
-                value={formatPeso(overdueBillsTotal)}
-                danger={overdueBillsTotal > 0}
-                formula="Late bills"
-              />
-              <MiniStat
-                title="Due Soon"
-                value={formatPeso(upcomingBillsTotal)}
-                danger={upcomingBillsTotal > 0}
-                formula="Bills due soon"
-              />
-              <MiniStat
-                title="Payroll Load"
-                value={formatPeso(payrollTotal)}
-                danger={payrollRatio >= 40}
-                formula="Total staff payout"
-              />
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="flex items-center gap-2 text-xl font-bold">
-              <Wallet size={22} /> Cash Accountability
-            </h2>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <MiniStat
-                title="Open Drawers"
-                value={openDrawers.length}
-                danger={openDrawers.length > 0}
-                formula="Drawers not yet closed"
-              />
-              <MiniStat
-                title="Closed Drawers"
-                value={closedDrawers.length}
-                formula="Completed drawers"
-              />
-              <MiniStat
-                title="Expected Cash"
-                value={formatPeso(expectedCash)}
-                formula="Expected drawer cash"
-              />
-              <MiniStat
-                title="Variance"
-                value={formatPeso(totalVariance)}
-                danger={totalVariance !== 0}
-                formula="Cash difference"
-              />
+              <MiniStat title="Outstanding" value={formatPeso(outstandingBills)} danger={outstandingBills > 0} formula="Bills not yet paid" />
+              <MiniStat title="Overdue" value={formatPeso(overdueBillsTotal)} danger={overdueBillsTotal > 0} formula="Late bills" />
+              <MiniStat title="Due Soon" value={formatPeso(upcomingBillsTotal)} danger={upcomingBillsTotal > 0} formula="Bills due soon" />
+              <MiniStat title="Payroll Load" value={formatPeso(payrollTotal)} danger={payrollRatio >= 40} formula="Total staff payout" />
             </div>
 
-            <div className="mt-5 space-y-3">
-              {drawerRowsForSummary.length > 0 ? (
-                drawerRowsForSummary.slice(0, 5).map((drawer) => {
-                  const variance = getDrawerVariance(drawer);
-
-                  return (
-                    <div
-                      key={drawer.id}
-                      className={`rounded-xl border p-4 ${
-                        variance !== 0
-                          ? "border-red-500/20 bg-red-500/10"
-                          : "border-green-500/20 bg-green-500/10"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">
-                            {getDrawerHolder(drawer)}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            Expected {formatPeso(getDrawerExpectedCash(drawer))}{" "}
-                            • Actual {formatPeso(getDrawerActualCash(drawer))}
-                          </p>
-                        </div>
-
-                        <p
-                          className={
-                            variance !== 0
-                              ? "font-bold text-red-300"
-                              : "font-bold text-green-300"
-                          }
-                        >
-                          {formatPeso(variance)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
-                  <p className="font-semibold text-red-300">
-                    No cash drawer data found
+            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-slate-300">
+                    Cashier Variance Review
                   </p>
-                  <p className="mt-1 text-xs text-red-200">
-                    Front desk must close or submit cash drawer data daily.
+                  <p className="mt-1 text-xs text-slate-500">
+                    Shows who has shortage or overage in the selected period.
                   </p>
                 </div>
-              )}
+
+                <span
+                  className={
+                    varianceDrawerCount > 0
+                      ? "rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300"
+                      : "rounded-full bg-green-500/10 px-3 py-1 text-xs font-bold text-green-300"
+                  }
+                >
+                  {varianceDrawerCount > 0 ? `${varianceDrawerCount} variance` : "Balanced"}
+                </span>
+              </div>
+
+              <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead className="bg-slate-900 text-left text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3">Cashier</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3 text-right">Expected</th>
+                      <th className="px-4 py-3 text-right">Actual</th>
+                      <th className="px-4 py-3 text-right">Variance</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {drawerRowsForSummary.length > 0 ? (
+                      drawerRowsForSummary.slice(0, 8).map((drawer) => {
+                        const expected = getDrawerExpectedCash(drawer);
+                        const actual = getDrawerActualCash(drawer);
+                        const variance = getDrawerVariance(drawer);
+                        const status =
+                          variance < 0
+                            ? "Short"
+                            : variance > 0
+                              ? "Over"
+                              : "Balanced";
+
+                        return (
+                          <tr
+                            key={drawer.id}
+                            className="border-t border-slate-800 hover:bg-slate-900/70"
+                          >
+                            <td className="px-4 py-3 font-bold text-white">
+                              {getDrawerHolder(drawer)}
+                            </td>
+
+                            <td className="px-4 py-3 text-slate-300">
+                              {getDateValue(drawer) || "-"}
+                            </td>
+
+                            <td className="px-4 py-3 text-right">
+                              {formatPeso(expected)}
+                            </td>
+
+                            <td className="px-4 py-3 text-right">
+                              {formatPeso(actual)}
+                            </td>
+
+                            <td
+                              className={
+                                variance < 0
+                                  ? "px-4 py-3 text-right font-bold text-red-400"
+                                  : variance > 0
+                                    ? "px-4 py-3 text-right font-bold text-amber-400"
+                                    : "px-4 py-3 text-right font-bold text-emerald-400"
+                              }
+                            >
+                              {formatPeso(variance)}
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <span
+                                className={
+                                  variance < 0
+                                    ? "rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300"
+                                    : variance > 0
+                                      ? "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300"
+                                      : "rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300"
+                                }
+                              >
+                                {status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                          No cash drawer data found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         </section>
@@ -1656,15 +1765,11 @@ function recommendationFallback(
   cashAvailable: number,
 ) {
   if (totalRevenue === 0 && totalExpenses === 0) {
-    return [
-      "Import revenue and expense data to activate full AI recommendations.",
-    ];
+    return ["Import revenue and expense data to activate full AI recommendations."];
   }
 
   if (cashAvailable <= 0) {
-    return [
-      "Submit or close the latest cash drawer to update real cash position.",
-    ];
+    return ["Submit or close the latest cash drawer to update real cash position."];
   }
 
   return ["Review cash position daily before approving expenses."];
@@ -1703,6 +1808,7 @@ function KpiCard({
         <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
           {icon}
         </div>
+
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="text-sm text-slate-400">{title}</p>
@@ -1714,6 +1820,7 @@ function KpiCard({
       <h2 className="text-2xl font-bold">{value}</h2>
 
       {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+
       {formula && (
         <p className="mt-3 border-t border-white/10 pt-3 text-[11px] leading-4 text-slate-400">
           {formula}
@@ -1759,6 +1866,7 @@ function InsightCard({
               </div>
               <p className="font-black text-white">{row.value}</p>
             </div>
+
             {row.formula && (
               <p className="mt-1 text-[11px] leading-4 text-slate-400">
                 {row.formula}
@@ -1800,6 +1908,7 @@ function RevenueCard({
           formula={formula}
           source={source}
         />
+
         <MiniRow
           label="Contribution"
           value={`${share}%`}
@@ -1828,8 +1937,10 @@ function MiniRow({
           <p className="text-sm text-slate-400">{label}</p>
           <MetricHelp formula={formula} source={source} />
         </div>
+
         <p className="font-black">{value}</p>
       </div>
+
       {formula && (
         <p className="mt-1 text-[11px] leading-4 text-slate-500">{formula}</p>
       )}
@@ -1884,6 +1995,7 @@ function MiniStat({
         <p className="text-xs text-slate-500">{title}</p>
         <MetricHelp formula={formula} source={source} />
       </div>
+
       <h3
         className={
           danger
@@ -1893,6 +2005,7 @@ function MiniStat({
       >
         {value}
       </h3>
+
       {formula && (
         <p className="mt-1 text-[11px] leading-4 text-slate-500">{formula}</p>
       )}

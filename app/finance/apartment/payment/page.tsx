@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 
@@ -14,14 +15,14 @@ export default function ApartmentPaymentsPage() {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [saving, setSaving] = useState(false);
 
   /// FUNCTIONS
-  const formatMoney = (value: any) => {
-    return `₱${Number(value || 0).toLocaleString("en-PH", {
+  const formatMoney = (value: any) =>
+    `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  };
 
   const getBills = async () => {
     const { data, error } = await supabase
@@ -29,10 +30,13 @@ export default function ApartmentPaymentsPage() {
       .select(`
         *,
         apartment_units (
+          id,
           unit_name,
-          tenant_name
+          tenant_name,
+          status
         ),
         apartment_payments (
+          id,
           amount
         )
       `)
@@ -40,6 +44,7 @@ export default function ApartmentPaymentsPage() {
 
     if (error) {
       console.log("GET PAYMENT BILLS ERROR:", error);
+      alert(error.message);
       return;
     }
 
@@ -52,8 +57,16 @@ export default function ApartmentPaymentsPage() {
       .select(`
         *,
         apartment_bills (
+          id,
           bill_month,
+          due_date,
+          rent_amount,
+          electric_amount,
+          water_amount,
+          internet_amount,
+          other_amount,
           apartment_units (
+            id,
             unit_name,
             tenant_name
           )
@@ -63,13 +76,21 @@ export default function ApartmentPaymentsPage() {
 
     if (error) {
       console.log("GET PAYMENTS ERROR:", error);
+      alert(error.message);
       return;
     }
 
     setPayments(data || []);
   };
 
+  const refreshData = async () => {
+    await getBills();
+    await getPayments();
+  };
+
   const getTotalBill = (bill: any) => {
+    if (!bill) return 0;
+
     return (
       Number(bill.rent_amount || 0) +
       Number(bill.electric_amount || 0) +
@@ -80,17 +101,48 @@ export default function ApartmentPaymentsPage() {
   };
 
   const getTotalPaid = (bill: any) => {
+    if (!bill) return 0;
+
     return (bill.apartment_payments || []).reduce(
       (sum: number, payment: any) => sum + Number(payment.amount || 0),
       0
     );
   };
 
-  const getBalance = (bill: any) => {
-    return getTotalBill(bill) - getTotalPaid(bill);
+  const getBalance = (bill: any) => getTotalBill(bill) - getTotalPaid(bill);
+
+  const getBillStatus = (bill: any) => {
+    if (!bill) return "NO BILL";
+
+    const balance = getBalance(bill);
+    const paid = getTotalPaid(bill);
+    const today = new Date();
+    const dueDate = new Date(`${bill.due_date}T00:00:00`);
+
+    if (balance <= 0) return "PAID";
+    if (paid > 0) return "PARTIAL";
+    if (today > dueDate) return "OVERDUE";
+    return "UNPAID";
   };
 
-  const unpaidBills = bills.filter((bill) => getBalance(bill) > 0);
+  const getStatusStyle = (status: string) => {
+    if (status === "PAID") return "bg-emerald-500/10 text-emerald-400";
+    if (status === "PARTIAL") return "bg-amber-500/10 text-amber-400";
+    if (status === "OVERDUE") return "bg-red-500/10 text-red-400";
+    if (status === "UNPAID") return "bg-orange-500/10 text-orange-400";
+    return "bg-slate-700 text-slate-300";
+  };
+
+  const selectedBill = bills.find((bill) => String(bill.id) === String(billId));
+  const selectedBalance = selectedBill ? getBalance(selectedBill) : 0;
+
+  const resetForm = () => {
+    setBillId("");
+    setPaymentDate("");
+    setAmount("");
+    setPaymentMethod("");
+    setRemarks("");
+  };
 
   const addPayment = async () => {
     if (!billId || !paymentDate || !amount) {
@@ -98,50 +150,116 @@ export default function ApartmentPaymentsPage() {
       return;
     }
 
+    const paymentAmount = Number(amount || 0);
+
+    if (paymentAmount <= 0) {
+      alert("Payment amount must be greater than zero.");
+      return;
+    }
+
+    if (selectedBill && paymentAmount > selectedBalance) {
+      alert(`Payment is higher than the remaining balance: ${formatMoney(selectedBalance)}`);
+      return;
+    }
+
+    setSaving(true);
+
     const { error } = await supabase.from("apartment_payments").insert({
       bill_id: billId,
       payment_date: paymentDate,
-      amount: Number(amount || 0),
+      amount: paymentAmount,
       payment_method: paymentMethod,
       remarks,
     });
 
+    setSaving(false);
+
     if (error) {
       console.log("ADD PAYMENT ERROR:", error);
-      alert("Failed to record payment.");
+      alert(error.message);
       return;
     }
 
-    setBillId("");
-    setPaymentDate("");
-    setAmount("");
-    setPaymentMethod("");
-    setRemarks("");
-
-    getBills();
-    getPayments();
+    resetForm();
+    refreshData();
   };
 
   const deletePayment = async (id: string) => {
-    const confirmDelete = confirm("Delete this payment?");
+    const confirmDelete = window.confirm(
+      "Delete this payment? This will reopen the bill balance."
+    );
+
     if (!confirmDelete) return;
 
-    const { error } = await supabase.from("apartment_payments").delete().eq("id", id);
+    const { error } = await supabase
+      .from("apartment_payments")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       console.log("DELETE PAYMENT ERROR:", error);
-      alert("Failed to delete payment.");
+      alert(error.message);
       return;
     }
 
-    getBills();
-    getPayments();
+    refreshData();
   };
+
+  /// CALCULATIONS
+  const unpaidBills = bills.filter((bill) => getBalance(bill) > 0);
+
+  const totalBilled = bills.reduce((sum, bill) => sum + getTotalBill(bill), 0);
+  const totalCollected = bills.reduce((sum, bill) => sum + getTotalPaid(bill), 0);
+  const totalBalance = totalBilled - totalCollected;
+  const overdueCount = bills.filter((bill) => getBillStatus(bill) === "OVERDUE").length;
+
+  const tenantLedger = useMemo(() => {
+    const ledgerMap: Record<string, any> = {};
+
+    bills.forEach((bill) => {
+      const unit = bill.apartment_units;
+      const key = String(unit?.id || bill.unit_id || "unknown");
+
+      if (!ledgerMap[key]) {
+        ledgerMap[key] = {
+          unitName: unit?.unit_name || "-",
+          tenantName: unit?.tenant_name || "-",
+          unitStatus: unit?.status || "-",
+          totalBill: 0,
+          totalPaid: 0,
+          totalBalance: 0,
+          latestDueDate: "",
+          billCount: 0,
+          overdueCount: 0,
+        };
+      }
+
+      const billTotal = getTotalBill(bill);
+      const paidTotal = getTotalPaid(bill);
+      const balance = billTotal - paidTotal;
+
+      ledgerMap[key].totalBill += billTotal;
+      ledgerMap[key].totalPaid += paidTotal;
+      ledgerMap[key].totalBalance += balance;
+      ledgerMap[key].billCount += 1;
+
+      if (!ledgerMap[key].latestDueDate || String(bill.due_date || "") > ledgerMap[key].latestDueDate) {
+        ledgerMap[key].latestDueDate = bill.due_date || "";
+      }
+
+      if (getBillStatus(bill) === "OVERDUE") {
+        ledgerMap[key].overdueCount += 1;
+      }
+    });
+
+    return Object.values(ledgerMap).sort((a: any, b: any) =>
+      String(a.unitName || "").localeCompare(String(b.unitName || ""))
+    );
+  }, [bills]);
 
   /// EFFECTS
   useEffect(() => {
-    getBills();
-    getPayments();
+    refreshData();
   }, []);
 
   /// UI
@@ -150,74 +268,121 @@ export default function ApartmentPaymentsPage() {
       <Sidebar />
 
       <main className="flex-1 space-y-6 p-6">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-            Apartment Module
-          </p>
-          <h1 className="mt-2 text-3xl font-bold">Apartment Payments</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Record partial or full payments for rent, electric, water, internet, and other apartment charges.
-          </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+              Apartment Module
+            </p>
+
+            <h1 className="mt-2 text-3xl font-bold">Apartment Payments</h1>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Record tenant payments, monitor balances, and review apartment collection ledger.
+            </p>
+          </div>
+
+          <Link
+            href="/finance/apartment"
+            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+          >
+            ← Back to Dashboard
+          </Link>
         </div>
+
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard title="Total Billed" value={formatMoney(totalBilled)} />
+          <SummaryCard title="Total Collected" value={formatMoney(totalCollected)} color="text-emerald-400" />
+          <SummaryCard title="Total Balance" value={formatMoney(totalBalance)} color="text-red-400" />
+          <SummaryCard title="Overdue Bills" value={overdueCount} color="text-amber-400" />
+        </section>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <h2 className="text-xl font-bold">Record Payment</h2>
 
             <div className="mt-5 space-y-4">
-              <select
-                value={billId}
-                onChange={(e) => setBillId(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
-              >
-                <option value="">Select unpaid bill</option>
-                {unpaidBills.map((bill) => (
-                  <option key={bill.id} value={bill.id}>
-                    {bill.apartment_units?.unit_name} - {bill.apartment_units?.tenant_name || "No tenant"} - {bill.bill_month} - Balance {formatMoney(getBalance(bill))}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="text-sm text-slate-400">Unpaid Bill</label>
+                <select
+                  value={billId}
+                  onChange={(e) => setBillId(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                >
+                  <option value="">Select unpaid bill</option>
+                  {unpaidBills.map((bill) => (
+                    <option key={bill.id} value={bill.id}>
+                      {bill.apartment_units?.unit_name} - {bill.apartment_units?.tenant_name || "No tenant"} - {bill.bill_month} - Balance {formatMoney(getBalance(bill))}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
-              />
+              {selectedBill && (
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-400">Selected Balance</span>
+                    <span className="font-bold text-red-400">{formatMoney(selectedBalance)}</span>
+                  </div>
+                  <div className="mt-2 flex justify-between gap-3">
+                    <span className="text-slate-400">Due Date</span>
+                    <span>{selectedBill.due_date || "-"}</span>
+                  </div>
+                </div>
+              )}
 
-              <input
-                type="number"
-                placeholder="Payment amount"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
-              />
+              <div>
+                <label className="text-sm text-slate-400">Payment Date</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                />
+              </div>
 
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
-              >
-                <option value="">Payment method</option>
-                <option value="Cash">Cash</option>
-                <option value="GCash">GCash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Card">Card</option>
-                <option value="Other">Other</option>
-              </select>
+              <div>
+                <label className="text-sm text-slate-400">Amount</label>
+                <input
+                  type="number"
+                  placeholder="Payment amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                />
+              </div>
 
-              <textarea
-                placeholder="Remarks / Reference number"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                className="h-24 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
-              />
+              <div>
+                <label className="text-sm text-slate-400">Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                >
+                  <option value="">Payment method</option>
+                  <option value="Cash">Cash</option>
+                  <option value="GCash">GCash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Card">Card</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm text-slate-400">Remarks / Reference Number</label>
+                <textarea
+                  placeholder="Optional remarks"
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  className="mt-2 h-24 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                />
+              </div>
 
               <button
                 onClick={addPayment}
-                className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold hover:bg-emerald-500"
+                disabled={saving}
+                className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50"
               >
-                Save Payment
+                {saving ? "Saving..." : "Save Payment"}
               </button>
             </div>
           </div>
@@ -226,39 +391,61 @@ export default function ApartmentPaymentsPage() {
             <h2 className="mb-4 text-xl font-bold">Unpaid Bills</h2>
 
             <div className="overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[850px] text-sm">
+              <table className="w-full min-w-[950px] text-sm">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Unit</th>
                     <th className="px-4 py-3">Tenant</th>
                     <th className="px-4 py-3">Month</th>
+                    <th className="px-4 py-3">Due Date</th>
                     <th className="px-4 py-3 text-right">Total Bill</th>
                     <th className="px-4 py-3 text-right">Paid</th>
                     <th className="px-4 py-3 text-right">Balance</th>
+                    <th className="px-4 py-3">Status</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {unpaidBills.map((bill) => (
-                    <tr key={bill.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                      <td className="px-4 py-3 font-medium text-white">
-                        {bill.apartment_units?.unit_name}
-                      </td>
-                      <td className="px-4 py-3">{bill.apartment_units?.tenant_name || "-"}</td>
-                      <td className="px-4 py-3">{bill.bill_month}</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(getTotalBill(bill))}</td>
-                      <td className="px-4 py-3 text-right text-emerald-400">
-                        {formatMoney(getTotalPaid(bill))}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(getBalance(bill))}
-                      </td>
-                    </tr>
-                  ))}
+                  {unpaidBills.map((bill) => {
+                    const status = getBillStatus(bill);
+
+                    return (
+                      <tr key={bill.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                        <td className="px-4 py-3 font-medium text-white">
+                          {bill.apartment_units?.unit_name || "-"}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {bill.apartment_units?.tenant_name || "-"}
+                        </td>
+
+                        <td className="px-4 py-3">{bill.bill_month}</td>
+                        <td className="px-4 py-3">{bill.due_date}</td>
+
+                        <td className="px-4 py-3 text-right">
+                          {formatMoney(getTotalBill(bill))}
+                        </td>
+
+                        <td className="px-4 py-3 text-right text-emerald-400">
+                          {formatMoney(getTotalPaid(bill))}
+                        </td>
+
+                        <td className="px-4 py-3 text-right text-red-400">
+                          {formatMoney(getBalance(bill))}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(status)}`}>
+                            {status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {unpaidBills.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                      <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
                         No unpaid apartment bills.
                       </td>
                     </tr>
@@ -270,10 +457,56 @@ export default function ApartmentPaymentsPage() {
         </section>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h2 className="mb-4 text-xl font-bold">Tenant Ledger</h2>
+
+          <div className="overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[1000px] text-sm">
+              <thead className="bg-slate-950 text-left text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Unit</th>
+                  <th className="px-4 py-3">Tenant</th>
+                  <th className="px-4 py-3">Unit Status</th>
+                  <th className="px-4 py-3 text-right">Bills</th>
+                  <th className="px-4 py-3 text-right">Total Bill</th>
+                  <th className="px-4 py-3 text-right">Total Paid</th>
+                  <th className="px-4 py-3 text-right">Balance</th>
+                  <th className="px-4 py-3">Latest Due</th>
+                  <th className="px-4 py-3 text-right">Overdue</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {tenantLedger.map((row: any) => (
+                  <tr key={row.unitName} className="border-t border-slate-800 hover:bg-slate-800/40">
+                    <td className="px-4 py-3 font-bold text-white">{row.unitName}</td>
+                    <td className="px-4 py-3">{row.tenantName}</td>
+                    <td className="px-4 py-3">{row.unitStatus}</td>
+                    <td className="px-4 py-3 text-right">{row.billCount}</td>
+                    <td className="px-4 py-3 text-right">{formatMoney(row.totalBill)}</td>
+                    <td className="px-4 py-3 text-right text-emerald-400">{formatMoney(row.totalPaid)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-red-400">{formatMoney(row.totalBalance)}</td>
+                    <td className="px-4 py-3">{row.latestDueDate || "-"}</td>
+                    <td className="px-4 py-3 text-right text-amber-400">{row.overdueCount}</td>
+                  </tr>
+                ))}
+
+                {tenantLedger.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
+                      No tenant ledger records yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <h2 className="mb-4 text-xl font-bold">Payment History</h2>
 
           <div className="overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[1000px] text-sm">
               <thead className="bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Date</th>
@@ -283,7 +516,7 @@ export default function ApartmentPaymentsPage() {
                   <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3">Method</th>
                   <th className="px-4 py-3">Remarks</th>
-                  <th className="px-4 py-3">Action</th>
+                  <th className="px-4 py-3 text-center">Action</th>
                 </tr>
               </thead>
 
@@ -291,22 +524,30 @@ export default function ApartmentPaymentsPage() {
                 {payments.map((payment) => (
                   <tr key={payment.id} className="border-t border-slate-800 hover:bg-slate-800/40">
                     <td className="px-4 py-3">{payment.payment_date}</td>
+
                     <td className="px-4 py-3 font-medium text-white">
-                      {payment.apartment_bills?.apartment_units?.unit_name}
+                      {payment.apartment_bills?.apartment_units?.unit_name || "-"}
                     </td>
+
                     <td className="px-4 py-3">
                       {payment.apartment_bills?.apartment_units?.tenant_name || "-"}
                     </td>
-                    <td className="px-4 py-3">{payment.apartment_bills?.bill_month}</td>
+
+                    <td className="px-4 py-3">
+                      {payment.apartment_bills?.bill_month || "-"}
+                    </td>
+
                     <td className="px-4 py-3 text-right text-emerald-400">
                       {formatMoney(payment.amount)}
                     </td>
+
                     <td className="px-4 py-3">{payment.payment_method || "-"}</td>
                     <td className="px-4 py-3">{payment.remarks || "-"}</td>
-                    <td className="px-4 py-3">
+
+                    <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => deletePayment(payment.id)}
-                        className="rounded-lg bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/20"
+                        className="rounded-lg border border-red-500/40 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10"
                       >
                         Delete
                       </button>
@@ -326,6 +567,15 @@ export default function ApartmentPaymentsPage() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function SummaryCard({ title, value, color = "text-white" }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <p className="text-sm text-slate-400">{title}</p>
+      <h2 className={`mt-3 text-3xl font-bold ${color}`}>{value}</h2>
     </div>
   );
 }
