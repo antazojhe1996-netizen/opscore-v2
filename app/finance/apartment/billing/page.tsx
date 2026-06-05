@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function ApartmentBillingPage() {
   /// STATES
@@ -74,9 +75,9 @@ export default function ApartmentBillingPage() {
       return;
     }
 
-    setSaving(true);
+    const selectedUnit = units.find((item) => String(item.id) === String(unitId));
 
-    const { error } = await supabase.from("apartment_bills").insert({
+    const billPayload = {
       unit_id: unitId,
       bill_month: billMonth,
       due_date: dueDate,
@@ -85,15 +86,62 @@ export default function ApartmentBillingPage() {
       water_amount: Number(waterAmount || 0),
       internet_amount: Number(internetAmount || 0),
       other_amount: Number(otherAmount || 0),
-    });
+    };
+
+    const billTotal =
+      Number(rentAmount || 0) +
+      Number(electricAmount || 0) +
+      Number(waterAmount || 0) +
+      Number(internetAmount || 0) +
+      Number(otherAmount || 0);
+
+    setSaving(true);
+
+    const { data, error } = await supabase
+      .from("apartment_bills")
+      .insert(billPayload)
+      .select()
+      .single();
 
     setSaving(false);
 
     if (error) {
       console.log("SAVE BILL ERROR:", error);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Apartment Billing",
+        action: "Create Bill Failed",
+        description: `Failed to create bill for ${selectedUnit?.unit_name || "Unknown Unit"} (${billMonth}). Error: ${error.message}`,
+        severity: "critical",
+        newValue: {
+          ...billPayload,
+          unitName: selectedUnit?.unit_name || null,
+          tenantName: selectedUnit?.tenant_name || null,
+          total: billTotal,
+          error: error.message,
+        },
+      });
+
       alert(error.message);
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Apartment Billing",
+      action: "Create Bill",
+      description: `${selectedUnit?.unit_name || "Unknown Unit"} ${selectedUnit?.tenant_name ? `(${selectedUnit.tenant_name})` : ""} bill created for ${billMonth}. Total: ${formatMoney(billTotal)}`,
+      severity: "warning",
+      recordId: data?.id || null,
+      newValue: {
+        ...billPayload,
+        id: data?.id || null,
+        unitName: selectedUnit?.unit_name || null,
+        tenantName: selectedUnit?.tenant_name || null,
+        total: billTotal,
+      },
+    });
 
     resetForm();
     getData();
@@ -101,8 +149,33 @@ export default function ApartmentBillingPage() {
 
   const deleteBill = async (bill: any) => {
     const totalPaid = getTotalPaid(bill);
+    const totalBill = getTotalBill(bill);
+    const balance = getBalance(bill);
+    const unitName = getUnitName(bill.unit_id);
+    const tenantName = getTenantName(bill.unit_id);
 
     if (totalPaid > 0) {
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Apartment Billing",
+        action: "Delete Locked Bill Attempt",
+        description: `Attempted to delete locked bill for ${unitName} (${tenantName}) ${bill.bill_month}. Paid: ${formatMoney(totalPaid)}, Balance: ${formatMoney(balance)}`,
+        severity: "warning",
+        recordId: bill.id,
+        oldValue: {
+          ...bill,
+          unitName,
+          tenantName,
+          totalBill,
+          totalPaid,
+          balance,
+        },
+        newValue: {
+          deleteBlocked: true,
+          reason: "Bill has recorded payment",
+        },
+      });
+
       alert("This bill already has payment recorded. Delete is disabled to protect collection records.");
       return;
     }
@@ -120,9 +193,50 @@ export default function ApartmentBillingPage() {
 
     if (error) {
       console.log("DELETE BILL ERROR:", error);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Apartment Billing",
+        action: "Delete Bill Failed",
+        description: `Failed to delete bill for ${unitName} (${tenantName}) ${bill.bill_month}. Error: ${error.message}`,
+        severity: "critical",
+        recordId: bill.id,
+        oldValue: {
+          ...bill,
+          unitName,
+          tenantName,
+          totalBill,
+          totalPaid,
+          balance,
+        },
+        newValue: {
+          error: error.message,
+        },
+      });
+
       alert(error.message);
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Apartment Billing",
+      action: "Delete Bill",
+      description: `Deleted bill for ${unitName} (${tenantName}) ${bill.bill_month}. Total: ${formatMoney(totalBill)}`,
+      severity: "critical",
+      recordId: bill.id,
+      oldValue: {
+        ...bill,
+        unitName,
+        tenantName,
+        totalBill,
+        totalPaid,
+        balance,
+      },
+      newValue: {
+        deleted: true,
+      },
+    });
 
     getData();
   };

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function ApartmentPaymentsPage() {
   /// STATES
@@ -162,29 +163,85 @@ export default function ApartmentPaymentsPage() {
       return;
     }
 
+    const unitName = selectedBill?.apartment_units?.unit_name || "-";
+    const tenantName = selectedBill?.apartment_units?.tenant_name || "-";
+    const billMonth = selectedBill?.bill_month || "-";
+    const balanceBefore = selectedBalance;
+    const balanceAfter = balanceBefore - paymentAmount;
+
     setSaving(true);
 
-    const { error } = await supabase.from("apartment_payments").insert({
+    const paymentPayload = {
       bill_id: billId,
       payment_date: paymentDate,
       amount: paymentAmount,
       payment_method: paymentMethod,
       remarks,
-    });
+    };
+
+    const { data, error } = await supabase
+      .from("apartment_payments")
+      .insert(paymentPayload)
+      .select()
+      .single();
 
     setSaving(false);
 
     if (error) {
       console.log("ADD PAYMENT ERROR:", error);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Apartment Payments",
+        action: "Receive Payment Failed",
+        description: `Failed to record payment for ${unitName} (${tenantName}) ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Error: ${error.message}`,
+        severity: "critical",
+        recordId: billId,
+        newValue: {
+          ...paymentPayload,
+          unitName,
+          tenantName,
+          billMonth,
+          balanceBefore,
+          balanceAfter,
+          error: error.message,
+        },
+      });
+
       alert(error.message);
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Apartment Payments",
+      action: "Receive Payment",
+      description: `${unitName} (${tenantName}) payment received for ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Balance: ${formatMoney(balanceBefore)} → ${formatMoney(balanceAfter)}`,
+      severity: "warning",
+      recordId: data?.id || null,
+      newValue: {
+        ...paymentPayload,
+        id: data?.id || null,
+        unitName,
+        tenantName,
+        billMonth,
+        balanceBefore,
+        balanceAfter,
+      },
+    });
 
     resetForm();
     refreshData();
   };
 
   const deletePayment = async (id: string) => {
+    const payment = payments.find((item) => String(item.id) === String(id));
+
+    const unitName = payment?.apartment_bills?.apartment_units?.unit_name || "-";
+    const tenantName = payment?.apartment_bills?.apartment_units?.tenant_name || "-";
+    const billMonth = payment?.apartment_bills?.bill_month || "-";
+    const paymentAmount = Number(payment?.amount || 0);
+
     const confirmDelete = window.confirm(
       "Delete this payment? This will reopen the bill balance."
     );
@@ -198,9 +255,37 @@ export default function ApartmentPaymentsPage() {
 
     if (error) {
       console.log("DELETE PAYMENT ERROR:", error);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Apartment Payments",
+        action: "Delete Payment Failed",
+        description: `Failed to delete payment for ${unitName} (${tenantName}) ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Error: ${error.message}`,
+        severity: "critical",
+        recordId: id,
+        oldValue: payment || null,
+        newValue: {
+          error: error.message,
+        },
+      });
+
       alert(error.message);
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Apartment Payments",
+      action: "Delete Payment",
+      description: `Deleted payment for ${unitName} (${tenantName}) ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Bill balance reopened.`,
+      severity: "critical",
+      recordId: id,
+      oldValue: payment || null,
+      newValue: {
+        deleted: true,
+        balanceReopened: true,
+      },
+    });
 
     refreshData();
   };

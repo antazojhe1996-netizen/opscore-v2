@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function CashManagementPage() {
   /// STATES - DATABASE DATA
@@ -637,6 +638,21 @@ export default function CashManagementPage() {
     if (drawerError) {
       setIsSaving(false);
       console.log("OPEN DRAWER ERROR:", drawerError.message);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Cash Management",
+        action: "Open Drawer Failed",
+        description: `Failed to open drawer for ${drawerHolder}. Error: ${drawerError.message}`,
+        severity: "critical",
+        newValue: {
+          holder: drawerHolder,
+          openingFloat: Number(openingFloat || 0),
+          remarks: drawerRemarks.trim(),
+          error: drawerError.message,
+        },
+      });
+
       alert("Failed to open drawer.");
       return;
     }
@@ -660,9 +676,38 @@ export default function CashManagementPage() {
 
     if (movementError) {
       console.log("OPEN DRAWER MOVEMENT ERROR:", movementError.message);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Cash Management",
+        action: "Open Drawer Movement Failed",
+        description: `Drawer opened for ${drawerHolder}, but opening float movement failed. Error: ${movementError.message}`,
+        severity: "critical",
+        recordId: drawerData.id,
+        newValue: {
+          drawer: drawerData,
+          movementError: movementError.message,
+        },
+      });
+
       alert("Drawer opened, but opening float movement failed.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Cash Management",
+      action: "Open Drawer",
+      description: `${drawerHolder} opened cash drawer with float ${formatMoney(openingFloat)}`,
+      severity: "warning",
+      recordId: drawerData.id,
+      newValue: {
+        drawerId: drawerData.id,
+        holder: drawerHolder,
+        openingFloat: Number(openingFloat || 0),
+        remarks: drawerRemarks.trim(),
+      },
+    });
 
     resetDrawerForm();
     setShowOpenDrawer(false);
@@ -707,9 +752,44 @@ export default function CashManagementPage() {
 
     if (error) {
       console.log("CLOSE DRAWER ERROR:", error.message);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Cash Management",
+        action: "Close Drawer Failed",
+        description: `Failed to close drawer for ${activeDrawer.holder_name}. Error: ${error.message}`,
+        severity: "critical",
+        recordId: activeDrawer.id,
+        oldValue: activeDrawer,
+        newValue: {
+          expectedCash: drawerExpectedCash,
+          actualCash: Number(actualClosingCash || 0),
+          variance: drawerVariance,
+          error: error.message,
+        },
+      });
+
       alert("Failed to close drawer.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Cash Management",
+      action: "Close Drawer",
+      description: `${activeDrawer.holder_name} closed drawer. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualClosingCash)}, variance ${formatMoney(drawerVariance)}`,
+      severity: Math.abs(drawerVariance) >= 500 ? "critical" : "warning",
+      recordId: activeDrawer.id,
+      oldValue: activeDrawer,
+      newValue: {
+        status: "CLOSED",
+        closedAt,
+        expectedCash: drawerExpectedCash,
+        actualCash: Number(actualClosingCash || 0),
+        variance: drawerVariance,
+        remarks: closeRemarks.trim() || activeDrawer.remarks || "",
+      },
+    });
 
     printDrawerReport(activeDrawer, {
       ...activeDrawer,
@@ -855,9 +935,34 @@ export default function CashManagementPage() {
     if (movementError) {
       setIsSaving(false);
       console.log("SAVE CASH MOVEMENT ERROR:", movementError.message);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Cash Management",
+        action: "Cash Movement Failed",
+        description: `Failed to save ${movementType} ${source} - ${formatMoney(amountValue)}. Error: ${movementError.message}`,
+        severity: "critical",
+        newValue: {
+          businessDate,
+          movementType,
+          source,
+          paymentType,
+          amount: amountValue,
+          fromPerson: autoFrom,
+          toPerson: autoTo,
+          encodedBy: autoEncoded,
+          remarks: movementRemarks,
+          error: movementError.message,
+        },
+      });
+
       alert("Failed to save cash movement.");
       return;
     }
+
+    let createdExpenseData: any = null;
+    let createdBalanceData: any = null;
+    let balanceCreationFailed = false;
 
     if (shouldCreateExpenseFromCashOut) {
       const { data: expenseData, error: expenseError } = await supabase
@@ -898,10 +1003,26 @@ export default function CashManagementPage() {
       if (expenseError) {
         setIsSaving(false);
         console.log("AUTO CREATE EXPENSE ERROR:", expenseError.message);
+
+        await createAuditLog({
+          userName: "OPSCORE USER",
+          module: "Cash Management",
+          action: "Cash Movement Expense Link Failed",
+          description: `Cash movement saved but expense entry failed for ${source} - ${formatMoney(amountValue)}. Error: ${expenseError.message}`,
+          severity: "critical",
+          recordId: movementData.id,
+          newValue: {
+            movement: movementData,
+            error: expenseError.message,
+          },
+        });
+
         alert("Cash movement was saved, but expense entry failed. Check expenses table columns.");
         await getCashMovements();
         return;
       }
+
+      createdExpenseData = expenseData;
 
       await supabase
         .from("finance_cash_movements")
@@ -942,9 +1063,30 @@ export default function CashManagementPage() {
           .single();
 
         if (balanceError) {
+          balanceCreationFailed = true;
           console.log("AUTO CREATE CASH ADVANCE BALANCE ERROR:", balanceError.message);
+
+          await createAuditLog({
+            userName: "OPSCORE USER",
+            module: "Cash Management",
+            action: "Cash Advance Balance Failed",
+            description: `Cash advance saved to cash movement and expenses, but employee balance failed for ${cashAdvanceEmployeeName} - ${formatMoney(amountValue)}. Error: ${balanceError.message}`,
+            severity: "critical",
+            recordId: movementData.id,
+            newValue: {
+              movement: movementData,
+              expense: expenseData,
+              employee: cashAdvanceEmployeeName,
+              amount: amountValue,
+              payrollPeriod: targetPayrollPeriod,
+              error: balanceError.message,
+            },
+          });
+
           alert("Cash advance saved to cash movement and expenses, but employee balance failed.");
         } else {
+          createdBalanceData = balanceData;
+
           await supabase
             .from("expenses")
             .update({ employee_balance_id: balanceData.id })
@@ -957,6 +1099,42 @@ export default function CashManagementPage() {
         }
       }
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Cash Management",
+      action: isCashAdvanceCashOut
+        ? "Cash Advance Released"
+        : isCashExpenseCashOut
+        ? "Cash Expense Released"
+        : "Cash Movement Created",
+      description: isCashAdvanceCashOut
+        ? `${cashAdvanceEmployeeName} cash advance released from drawer - ${formatMoney(amountValue)}`
+        : isCashExpenseCashOut
+        ? `Cash expense released: ${expenseDescription.trim()} - ${formatMoney(amountValue)}`
+        : `${movementType} ${source} recorded - ${formatMoney(amountValue)}`,
+      severity:
+        isCashAdvanceCashOut || isCashExpenseCashOut || movementType === "Cash Out" || movementType === "Adjustment"
+          ? "warning"
+          : "info",
+      recordId: movementData.id,
+      newValue: {
+        movement: movementData,
+        expense: createdExpenseData,
+        employeeBalance: createdBalanceData,
+        balanceCreationFailed,
+        businessDate,
+        movementType,
+        source,
+        paymentType,
+        amount: amountValue,
+        fromPerson: autoFrom,
+        toPerson: autoTo,
+        encodedBy: autoEncoded,
+        remarks: movementRemarks,
+        payrollPeriod: targetPayrollPeriod,
+      },
+    });
 
     setIsSaving(false);
     resetForm();
@@ -986,6 +1164,19 @@ export default function CashManagementPage() {
 
     if (movementFetchError) {
       console.log("FETCH CASH MOVEMENT BEFORE DELETE ERROR:", movementFetchError.message);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Cash Management",
+        action: "Delete Cash Movement Failed",
+        description: `Failed to fetch cash movement before delete. Error: ${movementFetchError.message}`,
+        severity: "critical",
+        recordId: id,
+        newValue: {
+          error: movementFetchError.message,
+        },
+      });
+
       alert("Failed to check cash movement before delete.");
       return;
     }
@@ -1034,6 +1225,9 @@ Continue?`
 
     setIsSaving(true);
 
+    let linkedBalanceDeleted = false;
+    let fallbackBalancesDeleted = false;
+
     if (linkedExpense) {
       if (linkedExpense.employee_balance_id) {
         const { error: balanceDeleteError } = await supabase
@@ -1044,17 +1238,40 @@ Continue?`
         if (balanceDeleteError) {
           setIsSaving(false);
           console.log("DELETE LINKED EMPLOYEE BALANCE ERROR:", balanceDeleteError.message);
+
+          await createAuditLog({
+            userName: "OPSCORE USER",
+            module: "Cash Management",
+            action: "Delete Linked Employee Balance Failed",
+            description: `Failed deleting employee balance linked to cash movement ${formatMoney(movement.amount)}. Error: ${balanceDeleteError.message}`,
+            severity: "critical",
+            recordId: movement.id,
+            oldValue: {
+              movement,
+              linkedExpense,
+            },
+            newValue: {
+              error: balanceDeleteError.message,
+            },
+          });
+
           alert("Failed to delete linked employee balance.");
           return;
         }
+
+        linkedBalanceDeleted = true;
       }
 
       // Safety fallback for older rows where employee_balance_id was not saved on expenses.
-      await supabase
+      const { error: fallbackBalanceError } = await supabase
         .from("employee_balances")
         .delete()
         .eq("source_module", "Cash Drawer")
         .eq("source_id", id);
+
+      if (!fallbackBalanceError) {
+        fallbackBalancesDeleted = true;
+      }
 
       const linkedPeriodId = linkedExpense.payroll_period_id || linkedExpense.period_id;
 
@@ -1066,6 +1283,23 @@ Continue?`
       if (expenseDeleteError) {
         setIsSaving(false);
         console.log("DELETE LINKED EXPENSE ERROR:", expenseDeleteError.message);
+
+        await createAuditLog({
+          userName: "OPSCORE USER",
+          module: "Cash Management",
+          action: "Delete Linked Expense Failed",
+          description: `Failed deleting expense linked to cash movement ${formatMoney(movement.amount)}. Error: ${expenseDeleteError.message}`,
+          severity: "critical",
+          recordId: movement.id,
+          oldValue: {
+            movement,
+            linkedExpense,
+          },
+          newValue: {
+            error: expenseDeleteError.message,
+          },
+        });
+
         alert("Failed to delete linked expense entry.");
         return;
       }
@@ -1087,9 +1321,47 @@ Continue?`
 
     if (error) {
       console.log("DELETE CASH MOVEMENT ERROR:", error.message);
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Cash Management",
+        action: "Delete Cash Movement Failed",
+        description: `Linked records were checked, but failed to delete cash movement ${formatMoney(movement.amount)}. Error: ${error.message}`,
+        severity: "critical",
+        recordId: movement.id,
+        oldValue: {
+          movement,
+          linkedExpense,
+        },
+        newValue: {
+          error: error.message,
+        },
+      });
+
       alert("Linked records were checked, but failed to delete cash movement.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Cash Management",
+      action: "Delete Cash Movement",
+      description: linkedExpense
+        ? `Deleted cash movement and linked expense: ${movement.source} - ${formatMoney(movement.amount)}`
+        : `Deleted cash movement: ${movement.source} - ${formatMoney(movement.amount)}`,
+      severity: "critical",
+      recordId: movement.id,
+      oldValue: {
+        movement,
+        linkedExpense,
+      },
+      newValue: {
+        deleted: true,
+        linkedExpenseDeleted: Boolean(linkedExpense),
+        linkedBalanceDeleted,
+        fallbackBalancesDeleted,
+      },
+    });
 
     await getCashMovements();
     await getDrawers();
