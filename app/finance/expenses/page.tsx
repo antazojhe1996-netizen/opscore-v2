@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 import * as XLSX from "xlsx";
 
 export default function ExpensesPage() {
@@ -508,7 +509,6 @@ export default function ExpensesPage() {
       return;
     }
 
-
     const selectedEmployee = employees.find(
       (employee) => employee.id === selectedEmployeeId
     );
@@ -557,6 +557,8 @@ export default function ExpensesPage() {
       return;
     }
 
+    let linkedBalanceData: any = null;
+
     if (isCashAdvance && deductToPayroll === "Yes" && selectedEmployee) {
       const employeeName = `${selectedEmployee.first_name || ""} ${selectedEmployee.last_name || ""}`.trim();
 
@@ -587,6 +589,19 @@ export default function ExpensesPage() {
       if (balanceError) {
         console.log("CREATE EMPLOYEE BALANCE ERROR:", balanceError);
 
+        await createAuditLog({
+          userName: "OPSCORE USER",
+          module: "Expenses",
+          action: "Cash Advance Balance Failed",
+          description: `Expense saved but employee balance failed for ${employeeName} - ${formatCurrency(amountValue)}`,
+          severity: "critical",
+          recordId: expenseData.id,
+          newValue: {
+            expense: expensePayload,
+            error: balanceError.message,
+          },
+        });
+
         alert(
           `Expense saved, but failed to create employee balance for payroll deduction.\n\n${balanceError.message}`
         );
@@ -595,6 +610,8 @@ export default function ExpensesPage() {
         getExpenses();
         return;
       }
+
+      linkedBalanceData = balanceData;
 
       await supabase
         .from("expenses")
@@ -610,7 +627,41 @@ export default function ExpensesPage() {
           .eq("id", activePayrollPeriod.id);
       }
 
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Expenses",
+        action: "Cash Advance Created",
+        description: `${employeeName} cash advance ${formatCurrency(amountValue)} created and linked to payroll period ${
+          activePayrollPeriod?.period_name || activePayrollPeriod?.id || "No period"
+        }`,
+        severity: "warning",
+        recordId: expenseData.id,
+        newValue: {
+          expense: {
+            ...expensePayload,
+            id: expenseData.id,
+            employee_balance_id: balanceData.id,
+          },
+          employeeBalance: balanceData,
+          payrollPeriod: activePayrollPeriod,
+        },
+      });
+
       await getPayrollPeriods();
+    } else {
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Expenses",
+        action: "Create Expense",
+        description: `${category} expense created: ${description} - ${formatCurrency(amountValue)}`,
+        severity: "info",
+        recordId: expenseData.id,
+        newValue: {
+          ...expensePayload,
+          id: expenseData.id,
+          employee_balance_id: linkedBalanceData?.id || null,
+        },
+      });
     }
 
     resetManualExpenseForm();
@@ -633,20 +684,28 @@ export default function ExpensesPage() {
 
     if (!confirmDelete) return;
 
-    if (expense.employee_balance_id) {
-      await supabase
+    const linkedBalanceId = expense.employee_balance_id;
+    const linkedAdjustmentId = expense.payroll_adjustment_id;
+    const linkedPeriodId = expense.payroll_period_id || expense.period_id;
+
+    if (linkedBalanceId) {
+      const { error: balanceDeleteError } = await supabase
         .from("employee_balances")
         .delete()
-        .eq("id", expense.employee_balance_id);
+        .eq("id", linkedBalanceId);
+
+      if (balanceDeleteError) {
+        console.log("DELETE LINKED EMPLOYEE BALANCE ERROR:", balanceDeleteError);
+        alert("Failed to delete linked employee balance.");
+        return;
+      }
     }
 
-    if (expense.payroll_adjustment_id) {
-      const linkedPeriodId = expense.payroll_period_id || expense.period_id;
-
+    if (linkedAdjustmentId) {
       const { error: adjustmentError } = await supabase
         .from("payroll_adjustments")
         .delete()
-        .eq("id", expense.payroll_adjustment_id);
+        .eq("id", linkedAdjustmentId);
 
       if (adjustmentError) {
         console.log("DELETE LINKED PAYROLL ADJUSTMENT ERROR:", adjustmentError);
@@ -666,6 +725,23 @@ export default function ExpensesPage() {
       alert("Failed to delete expense.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Expenses",
+      action: expense.deduct_to_payroll ? "Delete Cash Advance Expense" : "Delete Expense",
+      description: expense.deduct_to_payroll
+        ? `Deleted payroll-linked cash advance for ${expense.employee_name || "Unknown employee"} - ${formatCurrency(expense.amount)}`
+        : `Deleted expense: ${expense.description || expense.category || "Expense"} - ${formatCurrency(expense.amount)}`,
+      severity: expense.deduct_to_payroll ? "critical" : "warning",
+      recordId: expense.id,
+      oldValue: expense,
+      newValue: {
+        deleted: true,
+        linkedBalanceDeleted: Boolean(linkedBalanceId),
+        linkedAdjustmentDeleted: Boolean(linkedAdjustmentId),
+      },
+    });
 
     getExpenses();
   };
@@ -790,6 +866,18 @@ export default function ExpensesPage() {
       alert("Failed to import expenses.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Expenses",
+      action: "Import Expenses",
+      description: `${importPreview.length} expense record(s) imported`,
+      severity: "info",
+      newValue: {
+        importedCount: importPreview.length,
+        sampleRows: importPreview.slice(0, 10),
+      },
+    });
 
     alert("Imported expenses saved successfully.");
     setImportPreview([]);

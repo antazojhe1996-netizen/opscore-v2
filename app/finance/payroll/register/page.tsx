@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 
 export default function PayrollRegisterPage() {
@@ -350,6 +351,16 @@ export default function PayrollRegisterPage() {
       return console.log("CREATE PERIOD ERROR:", error.message);
     }
 
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Create Payroll Period",
+      description: `Created payroll period: ${periodName.trim()} (${startDate} to ${endDate})`,
+      severity: "info",
+      recordId: data.id,
+      newValue: data,
+    });
+
     setPeriodName("");
     setStartDate("");
     setEndDate("");
@@ -403,6 +414,17 @@ export default function PayrollRegisterPage() {
     setAuditLogs([]);
     setPayslipAdjustments([]);
     setCheckedAuditItems([]);
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Delete Payroll Period",
+      description: `Deleted payroll period: ${selected?.period_name || selectedPeriodId}`,
+      severity: "critical",
+      recordId: selectedPeriodId,
+      oldValue: selected,
+      newValue: { deleted: true },
+    });
+
     setSelectedRecordIds([]);
 
     await getPeriods();
@@ -459,6 +481,21 @@ export default function PayrollRegisterPage() {
     await getRecords(selectedPeriodId);
     await getEmployeeBalances();
     setSelectedRecordIds([]);
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Reopen Payroll Period",
+      description: `Reopened payroll period ${selectedPeriod?.period_name || selectedPeriodId}. Reason: ${reason.trim()}`,
+      severity: "critical",
+      recordId: selectedPeriodId,
+      oldValue: selectedPeriod,
+      newValue: {
+        status: "Reopened",
+        reopen_reason: reason.trim(),
+        attendance_locked: false,
+      },
+    });
 
     alert("Payroll reopened.");
   };
@@ -810,6 +847,23 @@ export default function PayrollRegisterPage() {
     setPayslipAdjustments([]);
     setCheckedAuditItems([]);
 
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Generate Payroll",
+      description: `${generated.length} payroll record(s) generated for ${selectedPeriod?.period_name || selectedPeriodId}`,
+      severity: "info",
+      recordId: selectedPeriodId,
+      newValue: {
+        period: selectedPeriod,
+        generatedCount: generated.length,
+        totalGross: generated.reduce((sum, record) => sum + Number(record.gross_pay || 0), 0),
+        totalDeductions: generated.reduce((sum, record) => sum + Number(record.total_deductions || 0), 0),
+        totalRelease: generated.reduce((sum, record) => sum + Number(record.release_amount || 0), 0),
+        balanceDeductions: generated.reduce((sum, record) => sum + Number(record.balance_deduction || 0), 0),
+      },
+    });
+
     alert("Payroll generated using approved adjustments only.");
   };
 
@@ -859,6 +913,25 @@ export default function PayrollRegisterPage() {
     await getAdjustments(selectedPeriodId);
     await markPayrollNeedsRegeneration();
 
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Add Payroll Adjustment",
+      description: `${direction} adjustment added for ${employee.first_name} ${employee.last_name}: ${adjustmentType} ${formatMoney(adjustmentAmount)}`,
+      severity: "warning",
+      recordId: selectedPeriodId,
+      newValue: {
+        periodId: selectedPeriodId,
+        employeeId: selectedEmployeeId,
+        employeeName: `${employee.first_name} ${employee.last_name}`,
+        adjustmentType,
+        direction,
+        amount: Number(adjustmentAmount || 0),
+        remarks: adjustmentRemarks,
+        status: "Pending",
+      },
+    });
+
     alert("Adjustment saved as Pending. Payroll must be regenerated before sending to Manager.");
   };
 
@@ -890,6 +963,18 @@ export default function PayrollRegisterPage() {
     await getAdjustments(selectedPeriodId);
     await markPayrollNeedsRegeneration();
 
+    const approvedAdjustment = adjustments.find((item) => String(item.id) === String(id));
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Approve Payroll Adjustment",
+      description: `Approved payroll adjustment ${approvedAdjustment?.adjustment_type || id}`,
+      severity: "warning",
+      recordId: id,
+      oldValue: approvedAdjustment,
+      newValue: { status: "Approved", approved_at: new Date().toISOString() },
+    });
+
     alert("Adjustment approved. Generate payroll to apply.");
   };
 
@@ -916,6 +1001,18 @@ export default function PayrollRegisterPage() {
 
     await getAdjustments(selectedPeriodId);
     await markPayrollNeedsRegeneration();
+
+    const rejectedAdjustment = adjustments.find((item) => String(item.id) === String(id));
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Reject Payroll Adjustment",
+      description: `Rejected payroll adjustment ${rejectedAdjustment?.adjustment_type || id}`,
+      severity: "warning",
+      recordId: id,
+      oldValue: rejectedAdjustment,
+      newValue: { status: "Rejected" },
+    });
   };
 
   const deleteAdjustment = async (id: string) => {
@@ -939,6 +1036,18 @@ export default function PayrollRegisterPage() {
 
     await getAdjustments(selectedPeriodId);
     await markPayrollNeedsRegeneration();
+
+    const deletedAdjustment = adjustments.find((item) => String(item.id) === String(id));
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Delete Payroll Adjustment",
+      description: `Deleted payroll adjustment ${deletedAdjustment?.adjustment_type || id}`,
+      severity: "critical",
+      recordId: id,
+      oldValue: deletedAdjustment,
+      newValue: { deleted: true },
+    });
 
     alert("Adjustment deleted. Generate payroll again to update payroll.");
   };
@@ -1045,6 +1154,21 @@ This will remove it from future payroll deductions but keep the audit trail.`
     await getEmployeeBalances();
     await getPeriods();
     if (selectedPeriodId) await getRecords(selectedPeriodId);
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Cancel Employee Balance",
+      description: `Cancelled ${balance.balance_type || "employee balance"} for ${balance.employee_name || "Unknown"}: ${formatMoney(balance.remaining_balance)}. Reason: ${reason.trim()}`,
+      severity: "critical",
+      recordId: balance.id,
+      oldValue: balance,
+      newValue: {
+        status: "Cancelled",
+        remaining_balance: 0,
+        cancel_reason: reason.trim(),
+      },
+    });
 
     alert("Employee balance cancelled. Generate payroll again to update deductions.");
   };
@@ -1332,7 +1456,18 @@ const releasePayroll = async (mode: "all" | "selected") => {
     if (historyError) {
       setIsSaving(false);
       console.log("SAVE RELEASE HISTORY ERROR:", historyError);
-      alert(`Failed to save payroll release history.\n\n${historyError.message}`);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Release Payroll Failed",
+        description: `Failed to save payroll release history for ${selectedPeriod?.period_name || selectedPeriodId}: ${historyError.message}`,
+        severity: "critical",
+        recordId: selectedPeriodId,
+        newValue: { error: historyError.message, targetCount: targetRecords.length },
+      });
+      alert(`Failed to save payroll release history.
+
+${historyError.message}`);
       return;
     }
 
@@ -1350,7 +1485,18 @@ const releasePayroll = async (mode: "all" | "selected") => {
     if (recordError) {
       setIsSaving(false);
       console.log("UPDATE RELEASED RECORDS ERROR:", recordError);
-      alert(`Release history saved, but record status update failed.\n\n${recordError.message}`);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Release Payroll Partial Failure",
+        description: `Release history saved but record status update failed for ${selectedPeriod?.period_name || selectedPeriodId}: ${recordError.message}`,
+        severity: "critical",
+        recordId: selectedPeriodId,
+        newValue: { error: recordError.message, targetCount: targetRecords.length },
+      });
+      alert(`Release history saved, but record status update failed.
+
+${recordError.message}`);
       return;
     }
 
@@ -1375,6 +1521,25 @@ const releasePayroll = async (mode: "all" | "selected") => {
     setSelectedPayslipId("");
     setSelectedPayslip(null);
     setSelectedAuditRecord(null);
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Release Payroll",
+      description: `${targetRecords.length} payroll record(s) released for ${selectedPeriod?.period_name || selectedPeriodId}. Released by: ${releasedBy.trim()}`,
+      severity: "warning",
+      recordId: selectedPeriodId,
+      newValue: {
+        mode,
+        releasedBy: releasedBy.trim(),
+        recordCount: targetRecords.length,
+        grossPay: targetRecords.reduce((sum, record) => sum + Number(record.gross_pay || 0), 0),
+        totalDeductions: targetRecords.reduce((sum, record) => sum + getDisplayedTotalDeductions(record), 0),
+        releaseAmount: targetRecords.reduce((sum, record) => sum + getDisplayedReleaseAmount(record), 0),
+        carryForwardAmount: targetRecords.reduce((sum, record) => sum + getDisplayedCarryForwardAmount(record), 0),
+        recordIds: targetIds,
+      },
+    });
 
     alert("Payroll released and saved to release history.");
   };
@@ -1490,6 +1655,15 @@ This will:
 
     if (recordsError) {
       setIsSaving(false);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Send Payroll To Manager Failed",
+        description: `Failed to send payroll records to Payroll Manager for ${selectedPeriod?.period_name || selectedPeriodId}: ${recordsError.message}`,
+        severity: "critical",
+        recordId: selectedPeriodId,
+        newValue: { error: recordsError.message, targetCount: targetRecords.length },
+      });
       alert("Records failed to send to Payroll Manager.");
       return console.log("APPROVE RECORDS ERROR:", recordsError.message);
     }
@@ -1500,6 +1674,21 @@ This will:
     await getRecords(selectedPeriodId);
     await getEmployeeBalances();
     setSelectedRecordIds([]);
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Send Payroll To Manager",
+      description: `${targetRecords.length} payroll record(s) sent to Payroll Manager for ${selectedPeriod?.period_name || selectedPeriodId}`,
+      severity: "warning",
+      recordId: selectedPeriodId,
+      newValue: {
+        mode,
+        recordCount: targetRecords.length,
+        totalNet,
+        targetIds,
+      },
+    });
 
     alert("Payroll snapshot created, attendance locked, and payroll sent to Payroll Manager.");
   };

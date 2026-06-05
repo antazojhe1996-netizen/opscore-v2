@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 
 export default function PayrollManagerPage() {
   /// STATES
@@ -140,8 +141,28 @@ export default function PayrollManagerPage() {
 
     if (error) {
       console.log("CREATE/UPDATE PAYROLL EXPENSE ERROR:", error.message);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Payroll Expense Failed",
+        description: `Payroll released but expense entry failed for ${periodLabel}: ${error.message}`,
+        severity: "critical",
+        recordId: periodId,
+        newValue: { payload, error: error.message },
+      });
       alert("Payroll released, but payroll expense entry failed. Check expenses table columns.");
+      return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: existingExpense?.id ? "Update Payroll Expense" : "Create Payroll Expense",
+      description: `${existingExpense?.id ? "Updated" : "Created"} payroll release expense for ${periodLabel}: ${formatPeso(totalNetPay)}`,
+      severity: "info",
+      recordId: existingExpense?.id || periodId,
+      newValue: payload,
+    });
   };
 
   const createCarryForwardBalances = async (recordsToRelease: any[]) => {
@@ -161,6 +182,14 @@ export default function PayrollManagerPage() {
 
     if (existingError) {
       console.log("CHECK EXISTING CARRY FORWARD ERROR:", existingError.message);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Carry Forward Check Failed",
+        description: `Carry-forward duplicate check failed: ${existingError.message}`,
+        severity: "critical",
+        newValue: { error: existingError.message, sourceIds },
+      });
       alert("Payroll was released, but carry-forward duplicate check failed.");
       return;
     }
@@ -190,10 +219,28 @@ export default function PayrollManagerPage() {
 
     if (error) {
       console.log("CREATE CARRY FORWARD BALANCE ERROR:", error.message);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Create Carry Forward Failed",
+        description: `Payroll released but carry-forward balances failed: ${error.message}`,
+        severity: "critical",
+        newValue: { error: error.message, balanceRows },
+      });
       alert(
         "Payroll was released, but carry-forward balance failed to save. Check employee_balances table columns."
       );
+      return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Create Carry Forward Balances",
+      description: `${balanceRows.length} carry-forward balance(s) created from payroll release`,
+      severity: "warning",
+      newValue: { balanceRows },
+    });
   };
 
   const releasePayrollRecords = async (targetRecords: any[], label: string) => {
@@ -265,6 +312,14 @@ This will mark payroll as Released, create a Payroll expense for actual release 
 
     if (error) {
       setIsProcessing(false);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Release Payroll Failed",
+        description: `Failed to release payroll (${label}): ${error.message}`,
+        severity: "critical",
+        newValue: { error: error.message, targetCount: targetRecords.length, targetIds },
+      });
       alert("Failed to release payroll.");
       return console.log("RELEASE PAYROLL ERROR:", error.message);
     }
@@ -307,6 +362,25 @@ This will mark payroll as Released, create a Payroll expense for actual release 
     setIsProcessing(false);
     setSelectedRecordIds([]);
     await loadData();
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Release Payroll From Manager",
+      description: `${targetRecords.length} payroll record(s) released from Payroll Manager (${label})`,
+      severity: "warning",
+      newValue: {
+        label,
+        recordCount: targetRecords.length,
+        periodIds,
+        totalGross,
+        totalDeductions,
+        totalNet,
+        totalCarryForward,
+        negativeEmployees: negativeRecords.length,
+        targetIds,
+      },
+    });
 
     alert("Payroll released and expense entry created.");
   };
@@ -369,6 +443,14 @@ This will mark payroll as Released, create a Payroll expense for actual release 
 
     if (error) {
       setIsProcessing(false);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Reopen Payroll Failed",
+        description: `Failed to reopen released payroll: ${error.message}`,
+        severity: "critical",
+        newValue: { error: error.message, targetCount: targetRecords.length, targetIds },
+      });
       alert("Failed to reopen payroll.");
       return console.log("REOPEN PAYROLL ERROR:", error.message);
     }
@@ -399,6 +481,20 @@ This will mark payroll as Released, create a Payroll expense for actual release 
     setIsProcessing(false);
     setSelectedRecordIds([]);
     await loadData();
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Reopen Released Payroll",
+      description: `${targetRecords.length} released payroll record(s) reopened. Reason: ${reason.trim()}`,
+      severity: "critical",
+      newValue: {
+        reason: reason.trim(),
+        recordCount: targetRecords.length,
+        periodIds,
+        targetIds,
+      },
+    });
 
     alert("Payroll reopened. Review Payroll Register before release.");
   };
