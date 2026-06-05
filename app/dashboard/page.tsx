@@ -1325,39 +1325,74 @@ export default function ExecutiveDashboardPage() {
           </div>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-          <ExecutivePulse
-            label="Net Position"
-            value={formatPeso(netPosition)}
-            tone={netPosition >= 0 ? "good" : "bad"}
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
+          <KpiCard
+            icon={<Wallet size={22} />}
+            title="Cash Available"
+            value={formatPeso(cashAvailable)}
+            danger={cashAvailable <= 0}
+            success={cashAvailable > 0}
+            subtitle={`${cashRunway} day runway`}
+            formula="Actual drawer cash, cash movement balance, or positive net position"
           />
-          <ExecutivePulse
-            label="Profit Margin"
-            value={`${profitMargin}%`}
-            tone={profitMargin >= 0 ? "good" : "bad"}
+
+          <KpiCard
+            icon={<Hotel size={22} />}
+            title="Gross Revenue"
+            value={formatPeso(grossOperatingSales)}
+            success
+            formula="Hotel active sales + restaurant sales + apartment collections."
           />
-          <ExecutivePulse
-            label="Occupancy"
-            value={`${occupancyToday}%`}
-            tone={occupancyToday >= 50 ? "good" : "watch"}
+
+          <KpiCard
+            icon={<DollarSign size={22} />}
+            title="Collected Revenue"
+            value={formatPeso(collectedOperatingRevenue)}
+            success
+            formula="Hotel collections + restaurant sales + apartment collections."
           />
-          <ExecutivePulse
-            label="Rooms Sold"
-            value={`${roomsSoldToday}/${availableRoomsToday}`}
-            tone="neutral"
+
+          <KpiCard
+            icon={<Receipt size={22} />}
+            title="Expenses + Payroll"
+            value={formatPeso(totalExpenses + payrollTotal)}
+            danger
+            subtitle={`Payroll ${payrollRatio}%`}
+            formula="Operating expenses plus payroll"
+          />
+
+          <KpiCard
+            icon={<ShieldAlert size={22} />}
+            title="Collectible Receivables"
+            value={formatPeso(expectedCollections)}
+            danger={expectedCollections > 0}
+            subtitle="Positive guest balance"
+            formula="Hotel collectible balance + apartment receivables. Negative credits/refunds are excluded."
+          />
+
+          <KpiCard
+            icon={<Brain size={22} />}
+            title="Health Score"
+            value={`${businessHealthScore}/100`}
+            success={businessStatus === "Stable"}
+            danger={businessStatus === "Critical"}
+            subtitle={businessStatus}
+            formula="Cash, operations, and collections weighted score"
           />
         </section>
 
-        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-5">
-          <div className="h-[560px] rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20 xl:col-span-3">
+
+
+        <section className="mb-6">
+          <div className="h-[580px] rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20">
             <h2 className="text-xl font-bold">Cash, Revenue & Expense Trend</h2>
             <p className="mt-1 text-sm text-slate-400">
               Owner-level trend without duplicate cash drawer cards.
             </p>
 
-            <div className="mt-6 h-[430px] min-h-[430px] min-w-0">
+            <div className="mt-6 h-[450px] min-h-[450px] min-w-0">
               {chartReady && trendData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={430}>
+                <ResponsiveContainer width="100%" height={450}>
                   <AreaChart
                     data={trendData}
                     margin={{ top: 35, right: 30, left: 10, bottom: 10 }}
@@ -1423,33 +1458,48 @@ export default function ExecutiveDashboardPage() {
               )}
             </div>
           </div>
+        </section>
 
-          <section
-            className={`h-[560px] overflow-hidden rounded-2xl border p-5 shadow-2xl shadow-black/20 xl:col-span-2 ${statusStyle}`}
-          >
-            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
-              <Brain size={18} /> OPSCORE AI Advisor
-            </p>
+        <section className="mb-6">
+          <section className="rounded-2xl border border-violet-500/25 bg-violet-500/10 p-5 shadow-2xl shadow-violet-950/20">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-violet-300">
+                  <Brain size={18} /> OPSCORE AI Advisor
+                </p>
+                <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Automated watchlist based on cash, collections, payroll, and operations.
+                </p>
+              </div>
 
-            <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
-
-            <div className="mt-3 rounded-2xl bg-slate-950/60 p-4 text-center">
-              <p className="text-sm text-slate-400">Owner Health Score</p>
-              <h3 className="mt-1 text-4xl font-black text-white">
-                {businessHealthScore}
-              </h3>
-              <p className="text-xs text-slate-500">cash-weighted score</p>
+              <div className="grid grid-cols-2 gap-3 rounded-2xl border border-violet-400/20 bg-slate-950/60 p-4 text-center xl:min-w-[360px]">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300/70">
+                    Alerts
+                  </p>
+                  <p className="mt-1 text-3xl font-black text-white">
+                    {criticalAlerts.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300/70">
+                    Actions
+                  </p>
+                  <p className="mt-1 text-3xl font-black text-white">
+                    {recommendations.length}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
               <BriefingBox
                 title="Critical Alerts"
                 items={criticalAlerts}
                 empty="No major issue detected."
               />
-            </div>
 
-            <div className="mt-3">
               <BriefingBox
                 title="Recommended Actions"
                 items={recommendations}
@@ -1457,63 +1507,6 @@ export default function ExecutiveDashboardPage() {
               />
             </div>
           </section>
-        </section>
-
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
-          <KpiCard
-            icon={<Wallet size={22} />}
-            title="Cash Available"
-            value={formatPeso(cashAvailable)}
-            danger={cashAvailable <= 0}
-            success={cashAvailable > 0}
-            subtitle={`${cashRunway} day runway`}
-            formula="Actual drawer cash, cash movement balance, or positive net position"
-          />
-
-          <KpiCard
-            icon={<Hotel size={22} />}
-            title="Gross Revenue"
-            value={formatPeso(grossOperatingSales)}
-            success
-            formula="Hotel active sales + restaurant sales + apartment collections."
-          />
-
-          <KpiCard
-            icon={<DollarSign size={22} />}
-            title="Collected Revenue"
-            value={formatPeso(collectedOperatingRevenue)}
-            success
-            formula="Hotel collections + restaurant sales + apartment collections."
-          />
-
-          <KpiCard
-            icon={<Receipt size={22} />}
-            title="Expenses + Payroll"
-            value={formatPeso(totalExpenses + payrollTotal)}
-            danger
-            subtitle={`Payroll ${payrollRatio}%`}
-            formula="Operating expenses plus payroll"
-          />
-
-          <KpiCard
-            icon={<ShieldAlert size={22} />}
-            title="Collectible Receivables"
-            value={formatPeso(expectedCollections)}
-            danger={expectedCollections > 0}
-            subtitle="Positive guest balance"
-            formula="Hotel collectible balance + apartment receivables. Negative credits/refunds are excluded."
-          />
-
-          <KpiCard
-            icon={<Brain size={22} />}
-            title="Health Score"
-            value={`${businessHealthScore}/100`}
-            success={businessStatus === "Stable"}
-            danger={businessStatus === "Critical"}
-            subtitle={businessStatus}
-            formula="Cash, operations, and collections weighted score"
-          />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
@@ -2022,34 +2015,6 @@ export default function ExecutiveDashboardPage() {
 }
 
 
-function ExecutivePulse({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "good" | "bad" | "watch" | "neutral";
-}) {
-  const toneClass =
-    tone === "good"
-      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-      : tone === "bad"
-        ? "border-red-500/20 bg-red-500/10 text-red-300"
-        : tone === "watch"
-          ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
-          : "border-slate-800 bg-slate-900 text-slate-200";
-
-  return (
-    <div className={`rounded-2xl border px-5 py-4 ${toneClass}`}>
-      <p className="text-xs font-bold uppercase tracking-[0.22em] opacity-70">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-black text-white">{value}</p>
-    </div>
-  );
-}
-
 function recommendationFallback(
   totalRevenue: number,
   totalExpenses: number,
@@ -2138,37 +2103,65 @@ function InsightCard({
   statusClass: string;
   rows: { label: string; value: string; formula?: string; source?: string }[];
 }) {
+  const featuredRows = rows.slice(0, 2);
+  const detailRows = rows.slice(2);
+
   return (
-    <div className={`rounded-2xl border p-6 ${statusClass}`}>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-full bg-slate-950/60 p-3">{icon}</div>
-          <h2 className="text-xl font-black text-white">{title}</h2>
+    <div className="overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-500/10 shadow-2xl shadow-blue-950/20">
+      <div className="p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-blue-400/10 p-3 text-blue-300">{icon}</div>
+            <div>
+              <h2 className="text-xl font-black text-white">{title}</h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Live operational summary
+              </p>
+            </div>
+          </div>
+
+          <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-xs font-black text-blue-200">
+            {status}
+          </span>
         </div>
 
-        <span className="rounded-full bg-slate-950/50 px-3 py-1 text-xs font-black">
-          {status}
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.label} className="rounded-xl bg-slate-950/50 px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {featuredRows.map((row) => (
+            <div key={row.label} className="rounded-2xl border border-blue-400/10 bg-slate-950/60 p-4">
               <div className="flex items-center gap-2">
-                <p className="text-sm text-slate-300">{row.label}</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                  {row.label}
+                </p>
                 <MetricHelp formula={row.formula} source={row.source} />
               </div>
-              <p className="font-black text-white">{row.value}</p>
+              <p className="mt-2 text-2xl font-black text-white">{row.value}</p>
+              {row.formula && (
+                <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                  {row.formula}
+                </p>
+              )}
             </div>
+          ))}
+        </div>
 
-            {row.formula && (
-              <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                {row.formula}
-              </p>
-            )}
+        {detailRows.length > 0 && (
+          <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+            {detailRows.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between gap-3 rounded-xl border border-blue-400/10 bg-slate-950/40 px-3 py-2.5"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-sm text-slate-300">{row.label}</p>
+                  <MetricHelp formula={row.formula} source={row.source} />
+                </div>
+                <p className="shrink-0 text-sm font-black text-white">
+                  {row.value}
+                </p>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
