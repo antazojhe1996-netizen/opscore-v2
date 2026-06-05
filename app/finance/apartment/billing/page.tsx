@@ -10,13 +10,22 @@ export default function ApartmentBillingPage() {
   const [units, setUnits] = useState<any[]>([]);
   const [bills, setBills] = useState<any[]>([]);
 
+  const [unitId, setUnitId] = useState("");
+  const [billMonth, setBillMonth] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [rentAmount, setRentAmount] = useState("");
+  const [electricAmount, setElectricAmount] = useState("");
+  const [waterAmount, setWaterAmount] = useState("");
+  const [internetAmount, setInternetAmount] = useState("");
+  const [otherAmount, setOtherAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+
   /// FUNCTIONS
-  const formatMoney = (value: any) => {
-    return `₱${Number(value || 0).toLocaleString("en-PH", {
+  const formatMoney = (value: any) =>
+    `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  };
 
   const getData = async () => {
     const { data: unitsData, error: unitsError } = await supabase
@@ -48,6 +57,86 @@ export default function ApartmentBillingPage() {
     setBills(billsData || []);
   };
 
+  const resetForm = () => {
+    setUnitId("");
+    setBillMonth("");
+    setDueDate("");
+    setRentAmount("");
+    setElectricAmount("");
+    setWaterAmount("");
+    setInternetAmount("");
+    setOtherAmount("");
+  };
+
+  const saveBill = async () => {
+    if (!unitId || !billMonth || !dueDate) {
+      alert("Please complete Unit, Bill Month, and Due Date.");
+      return;
+    }
+
+    setSaving(true);
+
+    const { error } = await supabase.from("apartment_bills").insert({
+      unit_id: unitId,
+      bill_month: billMonth,
+      due_date: dueDate,
+      rent_amount: Number(rentAmount || 0),
+      electric_amount: Number(electricAmount || 0),
+      water_amount: Number(waterAmount || 0),
+      internet_amount: Number(internetAmount || 0),
+      other_amount: Number(otherAmount || 0),
+    });
+
+    setSaving(false);
+
+    if (error) {
+      console.log("SAVE BILL ERROR:", error);
+      alert(error.message);
+      return;
+    }
+
+    resetForm();
+    getData();
+  };
+
+  const deleteBill = async (bill: any) => {
+    const totalPaid = getTotalPaid(bill);
+
+    if (totalPaid > 0) {
+      alert("This bill already has payment recorded. Delete is disabled to protect collection records.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this bill permanently? This action cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("apartment_bills")
+      .delete()
+      .eq("id", bill.id);
+
+    if (error) {
+      console.log("DELETE BILL ERROR:", error);
+      alert(error.message);
+      return;
+    }
+
+    getData();
+  };
+
+  const getUnitName = (id: string) => {
+    const unit = units.find((item) => String(item.id) === String(id));
+    return unit?.unit_name || "-";
+  };
+
+  const getTenantName = (id: string) => {
+    const unit = units.find((item) => String(item.id) === String(id));
+    return unit?.tenant_name || "-";
+  };
+
   const getTotalBill = (bill: any) => {
     if (!bill) return 0;
 
@@ -69,9 +158,7 @@ export default function ApartmentBillingPage() {
     );
   };
 
-  const getBalance = (bill: any) => {
-    return getTotalBill(bill) - getTotalPaid(bill);
-  };
+  const getBalance = (bill: any) => getTotalBill(bill) - getTotalPaid(bill);
 
   const getBillStatus = (bill: any) => {
     if (!bill) return "NO BILL";
@@ -79,11 +166,11 @@ export default function ApartmentBillingPage() {
     const balance = getBalance(bill);
     const paid = getTotalPaid(bill);
     const today = new Date();
-    const dueDate = new Date(`${bill.due_date}T00:00:00`);
+    const dueDateValue = new Date(`${bill.due_date}T00:00:00`);
 
     if (balance <= 0) return "PAID";
     if (paid > 0) return "PARTIAL";
-    if (today > dueDate) return "OVERDUE";
+    if (today > dueDateValue) return "OVERDUE";
     return "UNPAID";
   };
 
@@ -92,114 +179,21 @@ export default function ApartmentBillingPage() {
     if (status === "PARTIAL") return "bg-amber-500/10 text-amber-400";
     if (status === "OVERDUE") return "bg-red-500/10 text-red-400";
     if (status === "UNPAID") return "bg-orange-500/10 text-orange-400";
-    if (status === "NO BILL") return "bg-slate-700 text-slate-300";
     return "bg-slate-700 text-slate-300";
-  };
-
-  const getUnitStatusStyle = (status: string) => {
-    const value = String(status || "").toLowerCase();
-
-    if (value === "occupied") return "bg-emerald-500/10 text-emerald-400";
-    if (value === "active") return "bg-blue-500/10 text-blue-400";
-    if (value === "vacant") return "bg-slate-700 text-slate-300";
-    if (value === "inactive") return "bg-red-500/10 text-red-400";
-
-    return "bg-slate-700 text-slate-300";
-  };
-
-  const getActionNeeded = (status: string) => {
-    if (status === "NO BILL") return "Create monthly bill";
-    if (status === "OVERDUE") return "Follow up payment";
-    if (status === "PARTIAL") return "Collect remaining balance";
-    if (status === "UNPAID") return "Awaiting payment";
-    if (status === "PAID") return "Cleared";
-    return "-";
-  };
-
-  const getActionStyle = (status: string) => {
-    if (status === "NO BILL") return "text-slate-400";
-    if (status === "OVERDUE") return "text-red-400";
-    if (status === "PARTIAL") return "text-amber-400";
-    if (status === "UNPAID") return "text-orange-400";
-    if (status === "PAID") return "text-emerald-400";
-    return "text-slate-400";
   };
 
   /// CALCULATIONS
-  const activeUnits = units.filter((unit) => {
-    const status = String(unit.status || "").toLowerCase();
-    return status === "active" || status === "occupied";
-  });
+  const activeUnits = useMemo(() => {
+    return units.filter((unit) =>
+      ["active", "occupied", "maintenance"].includes(
+        String(unit.status || "").toLowerCase()
+      )
+    );
+  }, [units]);
 
-  const occupiedUnits = units.filter(
-    (unit) => String(unit.status || "").toLowerCase() === "occupied"
-  );
-
-  const vacantUnits = units.filter(
-    (unit) => String(unit.status || "").toLowerCase() === "vacant"
-  );
-
-  const unitMonitoring = useMemo(() => {
-    return activeUnits.map((unit) => {
-      const unitBills = bills
-        .filter((bill) => String(bill.unit_id) === String(unit.id))
-        .sort((a, b) => String(b.due_date || "").localeCompare(String(a.due_date || "")));
-
-      const latestBill = unitBills[0] || null;
-
-      const totalReceivable = unitBills.reduce(
-        (sum, bill) => sum + getTotalBill(bill),
-        0
-      );
-
-      const totalPaid = unitBills.reduce(
-        (sum, bill) => sum + getTotalPaid(bill),
-        0
-      );
-
-      const totalBalance = totalReceivable - totalPaid;
-
-      const unpaidBills = unitBills.filter((bill) => getBalance(bill) > 0);
-      const overdueBills = unitBills.filter(
-        (bill) => getBillStatus(bill) === "OVERDUE"
-      );
-
-      return {
-        unit,
-        latestBill,
-        unitBills,
-        totalReceivable,
-        totalPaid,
-        totalBalance,
-        unpaidBills,
-        overdueBills,
-        status: latestBill ? getBillStatus(latestBill) : "NO BILL",
-      };
-    });
-  }, [activeUnits, bills]);
-
-  const totalReceivable = unitMonitoring.reduce(
-    (sum, row) => sum + row.totalReceivable,
-    0
-  );
-
-  const totalCollected = unitMonitoring.reduce(
-    (sum, row) => sum + row.totalPaid,
-    0
-  );
-
-  const totalUnpaid = unitMonitoring.reduce(
-    (sum, row) => sum + row.totalBalance,
-    0
-  );
-
-  const overdueCount = unitMonitoring.filter(
-    (row) => row.overdueBills.length > 0
-  ).length;
-
-  const noBillCount = unitMonitoring.filter(
-    (row) => row.status === "NO BILL"
-  ).length;
+  const totalBills = bills.reduce((sum, bill) => sum + getTotalBill(bill), 0);
+  const totalPaid = bills.reduce((sum, bill) => sum + getTotalPaid(bill), 0);
+  const totalBalance = totalBills - totalPaid;
 
   /// EFFECTS
   useEffect(() => {
@@ -212,62 +206,93 @@ export default function ApartmentBillingPage() {
       <Sidebar />
 
       <main className="flex-1 space-y-6 p-6">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-            Apartment Module
-          </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+              Apartment Module
+            </p>
 
-          <h1 className="mt-2 text-3xl font-bold">Apartment Dashboard</h1>
+            <h1 className="mt-2 text-3xl font-bold">Apartment Billing</h1>
 
-          <p className="mt-1 text-sm text-slate-400">
-            Monitor active apartments, tenant balances, collections, unpaid bills, and overdue accounts.
-          </p>
+            <p className="mt-1 text-sm text-slate-400">
+              Create monthly apartment bills for rent, utilities, and other charges.
+            </p>
+          </div>
+
+          <Link
+            href="/finance/apartment"
+            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+          >
+            ← Back to Dashboard
+          </Link>
         </div>
 
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Link
-            href="/finance/apartment/billing"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:scale-[1.02] hover:border-blue-400 hover:bg-slate-800"
-          >
-            <h2 className="text-xl font-bold">Apartment Billing</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Create monthly bills for rent, electricity, water, internet, and other charges.
-            </p>
-            <p className="mt-5 text-sm font-semibold text-blue-400">
-              Open Billing →
-            </p>
-          </Link>
-
-          <Link
-            href="/finance/apartment/payment"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:scale-[1.02] hover:border-emerald-400 hover:bg-slate-800"
-          >
-            <h2 className="text-xl font-bold">Apartment Payments</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Record partial or full payments and review collection history.
-            </p>
-            <p className="mt-5 text-sm font-semibold text-emerald-400">
-              Open Payments →
-            </p>
-          </Link>
-        </section>
-
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Active Units" value={activeUnits.length} />
-          <SummaryCard title="Occupied Units" value={occupiedUnits.length} color="text-emerald-400" />
-          <SummaryCard title="Vacant Units" value={vacantUnits.length} color="text-slate-300" />
-          <SummaryCard title="Overdue Units" value={overdueCount} color="text-amber-400" />
-        </section>
-
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Total Receivable" value={formatMoney(totalReceivable)} />
-          <SummaryCard title="Total Collected" value={formatMoney(totalCollected)} color="text-emerald-400" />
-          <SummaryCard title="Total Unpaid" value={formatMoney(totalUnpaid)} color="text-red-400" />
-          <SummaryCard title="No Bill Yet" value={noBillCount} color="text-slate-300" />
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <SummaryCard title="Total Billed" value={formatMoney(totalBills)} />
+          <SummaryCard title="Total Paid" value={formatMoney(totalPaid)} color="text-emerald-400" />
+          <SummaryCard title="Total Balance" value={formatMoney(totalBalance)} color="text-red-400" />
         </section>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="mb-4 text-xl font-bold">Active Apartment Monitoring</h2>
+          <h2 className="mb-4 text-xl font-bold">Create Bill</h2>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="text-sm text-slate-400">Unit</label>
+              <select
+                value={unitId}
+                onChange={(e) => setUnitId(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
+              >
+                <option value="">Select unit</option>
+                {activeUnits.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.unit_name} {unit.tenant_name ? `- ${unit.tenant_name}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-400">Bill Month</label>
+              <input
+                type="month"
+                value={billMonth}
+                onChange={(e) => setBillMonth(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-400">Due Date</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
+              />
+            </div>
+
+            <AmountInput label="Rent" value={rentAmount} setValue={setRentAmount} />
+            <AmountInput label="Electric" value={electricAmount} setValue={setElectricAmount} />
+            <AmountInput label="Water" value={waterAmount} setValue={setWaterAmount} />
+            <AmountInput label="Internet" value={internetAmount} setValue={setInternetAmount} />
+            <AmountInput label="Other Charges" value={otherAmount} setValue={setOtherAmount} />
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <button
+              onClick={saveBill}
+              disabled={saving}
+              className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Bill"}
+            </button>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h2 className="mb-4 text-xl font-bold">Billing History</h2>
 
           <div className="overflow-auto rounded-xl border border-slate-800">
             <table className="w-full min-w-[1200px] text-sm">
@@ -275,154 +300,73 @@ export default function ApartmentBillingPage() {
                 <tr>
                   <th className="px-4 py-3">Unit</th>
                   <th className="px-4 py-3">Tenant</th>
-                  <th className="px-4 py-3">Unit Status</th>
-                  <th className="px-4 py-3">Latest Bill Month</th>
-                  <th className="px-4 py-3 text-right">Latest Bill</th>
-                  <th className="px-4 py-3 text-right">Latest Paid</th>
-                  <th className="px-4 py-3 text-right">Latest Balance</th>
-                  <th className="px-4 py-3 text-right">Total Balance</th>
-                  <th className="px-4 py-3">Due Date</th>
-                  <th className="px-4 py-3">Bill Status</th>
-                  <th className="px-4 py-3">Action Needed</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {unitMonitoring.map((row) => {
-                  const latestBill = row.latestBill;
-                  const status = row.status;
-                  const latestBalance = latestBill ? getBalance(latestBill) : 0;
-
-                  return (
-                    <tr
-                      key={row.unit.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
-                    >
-                      <td className="px-4 py-3 font-bold text-white">
-                        {row.unit.unit_name || "-"}
-                      </td>
-
-                      <td className="px-4 py-3 text-slate-300">
-                        {row.unit.tenant_name || "No tenant name"}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getUnitStatusStyle(
-                            row.unit.status
-                          )}`}
-                        >
-                          {row.unit.status || "-"}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {latestBill?.bill_month || "-"}
-                      </td>
-
-                      <td className="px-4 py-3 text-right">
-                        {formatMoney(getTotalBill(latestBill))}
-                      </td>
-
-                      <td className="px-4 py-3 text-right text-emerald-400">
-                        {formatMoney(getTotalPaid(latestBill))}
-                      </td>
-
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(latestBalance)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right font-bold text-amber-400">
-                        {formatMoney(row.totalBalance)}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {latestBill?.due_date || "-"}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                            status
-                          )}`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-
-                      <td className={`px-4 py-3 text-xs font-bold ${getActionStyle(status)}`}>
-                        {getActionNeeded(status)}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {unitMonitoring.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={11}
-                      className="px-4 py-12 text-center text-slate-500"
-                    >
-                      No active or occupied apartment units found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="mb-4 text-xl font-bold">All Apartment Bills</h2>
-
-          <div className="overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1000px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Unit</th>
-                  <th className="px-4 py-3">Tenant</th>
                   <th className="px-4 py-3">Month</th>
-                  <th className="px-4 py-3 text-right">Total Bill</th>
+                  <th className="px-4 py-3 text-right">Rent</th>
+                  <th className="px-4 py-3 text-right">Electric</th>
+                  <th className="px-4 py-3 text-right">Water</th>
+                  <th className="px-4 py-3 text-right">Internet</th>
+                  <th className="px-4 py-3 text-right">Other</th>
+                  <th className="px-4 py-3 text-right">Total</th>
                   <th className="px-4 py-3 text-right">Paid</th>
                   <th className="px-4 py-3 text-right">Balance</th>
                   <th className="px-4 py-3">Due Date</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-center">Action</th>
                 </tr>
               </thead>
 
               <tbody>
                 {bills.map((bill) => {
-                  const unit = units.find(
-                    (item) => String(item.id) === String(bill.unit_id)
-                  );
-
+                  const paid = getTotalPaid(bill);
+                  const balance = getBalance(bill);
                   const status = getBillStatus(bill);
+                  const hasPayment = paid > 0;
 
                   return (
                     <tr
                       key={bill.id}
                       className="border-t border-slate-800 hover:bg-slate-800/40"
                     >
-                      <td className="px-4 py-3 font-medium text-white">
-                        {unit?.unit_name || "-"}
+                      <td className="px-4 py-3 font-bold">
+                        {getUnitName(bill.unit_id)}
                       </td>
 
                       <td className="px-4 py-3 text-slate-300">
-                        {unit?.tenant_name || "-"}
+                        {getTenantName(bill.unit_id)}
                       </td>
 
                       <td className="px-4 py-3">{bill.bill_month}</td>
 
                       <td className="px-4 py-3 text-right">
+                        {formatMoney(bill.rent_amount)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {formatMoney(bill.electric_amount)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {formatMoney(bill.water_amount)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {formatMoney(bill.internet_amount)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {formatMoney(bill.other_amount)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right font-bold text-amber-400">
                         {formatMoney(getTotalBill(bill))}
                       </td>
 
                       <td className="px-4 py-3 text-right text-emerald-400">
-                        {formatMoney(getTotalPaid(bill))}
+                        {formatMoney(paid)}
                       </td>
 
                       <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(getBalance(bill))}
+                        {formatMoney(balance)}
                       </td>
 
                       <td className="px-4 py-3">{bill.due_date}</td>
@@ -436,25 +380,56 @@ export default function ApartmentBillingPage() {
                           {status}
                         </span>
                       </td>
+
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => deleteBill(bill)}
+                          disabled={hasPayment}
+                          title={
+                            hasPayment
+                              ? "Delete disabled because this bill already has payment."
+                              : "Delete bill"
+                          }
+                          className="rounded-lg border border-red-500/40 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500 disabled:hover:bg-transparent"
+                        >
+                          {hasPayment ? "Locked" : "Delete"}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
 
                 {bills.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="px-4 py-12 text-center text-slate-500"
-                    >
-                      No apartment bills yet. Open Billing to create the first bill.
+                    <td colSpan={14} className="px-4 py-12 text-center text-slate-500">
+                      No apartment bills yet.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          <p className="mt-3 text-xs text-slate-500">
+            Bills with recorded payments are locked to protect collection records.
+          </p>
         </section>
       </main>
+    </div>
+  );
+}
+
+function AmountInput({ label, value, setValue }: any) {
+  return (
+    <div>
+      <label className="text-sm text-slate-400">{label}</label>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="0.00"
+        className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
+      />
     </div>
   );
 }
