@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 import * as XLSX from "xlsx";
 
 type Employee = {
@@ -303,6 +304,10 @@ export default function EmployeesPage() {
       payroll_notes: payrollNotes.trim(),
     };
 
+    const oldEmployee = editingEmployeeNo
+      ? employees.find((employee) => employee.employee_no === editingEmployeeNo)
+      : null;
+
     const query = editingEmployeeNo
       ? supabase
           .from("employees")
@@ -322,6 +327,19 @@ export default function EmployeesPage() {
       alert("Failed to save employee.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Employees",
+      action: editingEmployeeNo ? "Update Employee" : "Create Employee",
+      description: editingEmployeeNo
+        ? `Updated employee record: ${firstName} ${lastName}`
+        : `Created employee record: ${firstName} ${lastName}`,
+      severity: "info",
+      recordId: editingEmployeeNo || payload.employee_no,
+      oldValue: oldEmployee,
+      newValue: payload,
+    });
 
     clearForm();
     getEmployees();
@@ -371,12 +389,14 @@ export default function EmployeesPage() {
 
     if (!confirmArchive) return;
 
+    const updatePayload = {
+      employment_status: "Resigned",
+      payroll_active: false,
+    };
+
     const { error } = await supabase
       .from("employees")
-      .update({
-        employment_status: "Resigned",
-        payroll_active: false,
-      })
+      .update(updatePayload)
       .eq("employee_no", employee.employee_no);
 
     if (error) {
@@ -384,6 +404,20 @@ export default function EmployeesPage() {
       alert("Failed to archive employee.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Employees",
+      action: "Archive Employee",
+      description: `${employee.first_name} ${employee.last_name} archived from active operations`,
+      severity: "warning",
+      recordId: employee.employee_no,
+      oldValue: employee,
+      newValue: {
+        ...employee,
+        ...updatePayload,
+      },
+    });
 
     getEmployees();
   };
@@ -395,12 +429,14 @@ export default function EmployeesPage() {
 
     if (!confirmRestore) return;
 
+    const updatePayload = {
+      employment_status: "Active",
+      payroll_active: true,
+    };
+
     const { error } = await supabase
       .from("employees")
-      .update({
-        employment_status: "Active",
-        payroll_active: true,
-      })
+      .update(updatePayload)
       .eq("employee_no", employee.employee_no);
 
     if (error) {
@@ -408,6 +444,20 @@ export default function EmployeesPage() {
       alert("Failed to restore employee.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Employees",
+      action: "Restore Employee",
+      description: `${employee.first_name} ${employee.last_name} restored as active employee`,
+      severity: "info",
+      recordId: employee.employee_no,
+      oldValue: employee,
+      newValue: {
+        ...employee,
+        ...updatePayload,
+      },
+    });
 
     getEmployees();
   };
@@ -563,6 +613,20 @@ export default function EmployeesPage() {
       alert("Import failed. Check console.");
       return;
     }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Employees",
+      action: "Import Employees",
+      description: `${previewRows.length} employee record(s) imported from ${fileName || "uploaded file"}`,
+      severity: "info",
+      recordId: fileName || null,
+      newValue: {
+        fileName,
+        importedCount: previewRows.length,
+        sampleRows: previewRows.slice(0, 10),
+      },
+    });
 
     alert("Employees imported successfully.");
     setPreviewRows([]);

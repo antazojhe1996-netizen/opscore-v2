@@ -33,12 +33,23 @@ const menuSections = [
     items: [],
   },
   {
-    title: "Audit Center",
-    href: "/audit",
-    icon: ShieldCheck,
-    moduleKey: "always_allow",
-    items: [],
-  },
+  title: "Audit Center",
+  icon: ShieldCheck,
+  items: [
+    {
+      label: "Audit Logs",
+      href: "/admin/audit-logs",
+      icon: ClipboardList,
+      moduleKey: "always_allow",
+    },
+    {
+      label: "Database Health",
+      href: "/admin/database-health",
+      icon: Database,
+      moduleKey: "always_allow",
+    },
+  ],
+},
   {
     title: "Workforce",
     icon: Users,
