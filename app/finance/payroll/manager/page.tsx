@@ -7,9 +7,11 @@ import {
   Brain,
   CheckCircle2,
   DollarSign,
+  Eye,
   Lock,
   RotateCcw,
   Search,
+  X,
   Send,
   Users,
 } from "lucide-react";
@@ -23,6 +25,8 @@ export default function PayrollManagerPage() {
   const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
   const [payrollAdjustments, setPayrollAdjustments] = useState<any[]>([]);
   const [employeeBalances, setEmployeeBalances] = useState<any[]>([]);
+  const [payrollReleaseTransactions, setPayrollReleaseTransactions] = useState<any[]>([]);
+  const [activeAuditRecord, setActiveAuditRecord] = useState<any | null>(null);
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [periodFilter, setPeriodFilter] = useState("All");
@@ -158,6 +162,41 @@ export default function PayrollManagerPage() {
   const getPeriodLabel = (record: any) =>
     record.period_label || record.payroll_period || record.period_name || "Payroll Period";
 
+  const formatDateTime = (value: any) => {
+    if (!value) return "-";
+    return String(value).slice(0, 19).replace("T", " ");
+  };
+
+  const getReleaseTransactionsForRecord = (record: any) =>
+    payrollReleaseTransactions
+      .filter((item) => String(item.payroll_record_id) === String(record.id))
+      .sort((a, b) =>
+        String(b.created_at || b.released_at || "").localeCompare(
+          String(a.created_at || a.released_at || "")
+        )
+      );
+
+  const getAuditBalanceRowsForRecord = (record: any) =>
+    employeeBalances.filter(
+      (item) =>
+        String(item.source_id || "") === String(record.id) ||
+        String(item.remarks || "").includes(String(record.id))
+    );
+
+  const getAuditCaAppliedAmount = (record: any) => {
+    const transactionsTotal = getReleaseTransactionsForRecord(record).reduce(
+      (sum, item) => {
+        const match = String(item.remarks || "").match(/CA deduction applied:\s*₱?([\d,]+(?:\.\d+)?)/i);
+        return sum + (match ? Number(match[1].replaceAll(",", "")) : 0);
+      },
+      0
+    );
+
+    if (transactionsTotal > 0) return transactionsTotal;
+
+    return getPayrollBalanceDeductionAmount(record);
+  };
+
   /// DATA LOADERS
   const loadData = async () => {
     const { data: employeesData } = await supabase.from("employees").select("*");
@@ -179,10 +218,15 @@ export default function PayrollManagerPage() {
       "employee_balances",
     ]);
 
+    const releaseTransactions = await getRowsFromTables([
+      "payroll_release_transactions",
+    ]);
+
     setEmployees(employeesData || []);
     setPayrollRecords(records || []);
     setPayrollAdjustments(adjustments || []);
     setEmployeeBalances(balances || []);
+    setPayrollReleaseTransactions(releaseTransactions || []);
   };
 
   /// FUNCTIONS
@@ -1591,6 +1635,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                     <th className="px-4 py-3">Released By</th>
                     <th className="px-4 py-3">Released At</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1622,12 +1667,20 @@ ${partialReleaseError?.message || partialReleaseError}`);
                         {record.released_at ? String(record.released_at).slice(0, 19).replace("T", " ") : "-"}
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={getReleaseDisplayStatus(record)} /></td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setActiveAuditRecord(record)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-800"
+                        >
+                          <Eye size={14} /> View Audit
+                        </button>
+                      </td>
                     </tr>
                   ))}
 
                   {filteredReleasedPayroll.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
+                      <td colSpan={11} className="px-4 py-12 text-center text-slate-500">
                         No released payroll history found.
                       </td>
                     </tr>
@@ -1827,9 +1880,241 @@ ${partialReleaseError?.message || partialReleaseError}`);
           </div>
         </section>
       </main>
+
+      {activeAuditRecord && (
+        <PayrollAuditModal
+          record={activeAuditRecord}
+          transactions={getReleaseTransactionsForRecord(activeAuditRecord)}
+          balanceRows={getAuditBalanceRowsForRecord(activeAuditRecord)}
+          employeeName={getEmployeeName(activeAuditRecord)}
+          periodLabel={getPeriodLabel(activeAuditRecord)}
+          formatPeso={formatPeso}
+          formatDateTime={formatDateTime}
+          getRecordGross={getRecordGross}
+          getRecordDeduction={getRecordDeduction}
+          getRecordAmount={getRecordAmount}
+          getAlreadyReleasedAmount={getAlreadyReleasedAmount}
+          getReleaseBaseAmount={getReleaseBaseAmount}
+          getOutstandingPayrollAmount={getOutstandingPayrollAmount}
+          getAuditCaAppliedAmount={getAuditCaAppliedAmount}
+          getReleaseDisplayStatus={getReleaseDisplayStatus}
+          onClose={() => setActiveAuditRecord(null)}
+        />
+      )}
     </div>
   );
 }
+
+function PayrollAuditModal({
+  record,
+  transactions,
+  balanceRows,
+  employeeName,
+  periodLabel,
+  formatPeso,
+  formatDateTime,
+  getRecordGross,
+  getRecordDeduction,
+  getRecordAmount,
+  getAlreadyReleasedAmount,
+  getReleaseBaseAmount,
+  getOutstandingPayrollAmount,
+  getAuditCaAppliedAmount,
+  getReleaseDisplayStatus,
+  onClose,
+}: any) {
+  const caApplied = getAuditCaAppliedAmount(record);
+  const releasedAmount =
+    getAlreadyReleasedAmount(record) ||
+    record.paid_amount ||
+    record.amount_released ||
+    getReleaseBaseAmount(record);
+
+  // Single source of truth for audit remaining salary.
+  // Do not read remaining_amount / remaining_payroll_balance directly here because
+  // old regenerated or manually tested rows can keep stale values.
+  const remainingBalance = getOutstandingPayrollAmount(record);
+
+  const releaseType =
+    remainingBalance > 0
+      ? "Partial Release"
+      : Number(releasedAmount || 0) > 0
+      ? "Full Release"
+      : "No Release Recorded";
+
+  const timelineRows = [
+    ["Generated", record.snapshot_created_at || record.generated_at || record.created_at],
+    ["Approved", record.approved_at || record.reviewed_at],
+    ["Released", record.released_at],
+    ["Reopened", record.reopened_at],
+  ].filter(([, value]) => value);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-6">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
+              Payroll Audit
+            </p>
+            <h2 className="mt-2 text-2xl font-black text-white">{employeeName}</h2>
+            <p className="mt-1 text-sm text-slate-400">{periodLabel}</p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-slate-700 p-2 text-slate-300 hover:bg-slate-800"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(90vh-110px)] overflow-auto p-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <MiniStat title="Release Type" value={releaseType} success={remainingBalance <= 0} danger={remainingBalance > 0} />
+            <MiniStat title="Released Amount" value={formatPeso(releasedAmount)} success />
+            <MiniStat title="CA Applied" value={formatPeso(caApplied)} danger={caApplied > 0} />
+            <MiniStat title="Remaining Salary" value={formatPeso(remainingBalance)} danger={remainingBalance > 0} />
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <h3 className="text-lg font-black">Payroll Snapshot</h3>
+              <div className="mt-4 space-y-2 text-sm">
+                <AuditLine label="Status" value={<StatusBadge status={getReleaseDisplayStatus(record)} />} />
+                <AuditLine label="Department" value={record.department || "-"} />
+                <AuditLine label="Position" value={record.position || "-"} />
+                <AuditLine label="Gross Pay" value={formatPeso(getRecordGross(record))} />
+                <AuditLine label="Deductions" value={formatPeso(getRecordDeduction(record))} danger />
+                <AuditLine label="Computed Net" value={formatPeso(getRecordAmount(record))} success />
+                <AuditLine label="Released By" value={record.released_by || "-"} />
+                <AuditLine label="Released At" value={formatDateTime(record.released_at)} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <h3 className="text-lg font-black">Timeline</h3>
+              <div className="mt-4 space-y-3">
+                {timelineRows.map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
+                    <p className="mt-1 font-bold text-slate-200">{formatDateTime(value)}</p>
+                  </div>
+                ))}
+
+                {timelineRows.length === 0 && (
+                  <p className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-6 text-center text-sm text-slate-500">
+                    No timeline dates saved on this payroll record.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h3 className="text-lg font-black">Release Transactions</h3>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[900px] text-sm">
+                <thead className="bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Released By</th>
+                    <th className="px-4 py-3 text-right">Net Pay</th>
+                    <th className="px-4 py-3 text-right">Released</th>
+                    <th className="px-4 py-3 text-right">Remaining</th>
+                    <th className="px-4 py-3">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((item: any) => (
+                    <tr key={item.id} className="border-t border-slate-800">
+                      <td className="px-4 py-3">{formatDateTime(item.created_at || item.released_at)}</td>
+                      <td className="px-4 py-3">{item.released_by || "-"}</td>
+                      <td className="px-4 py-3 text-right">{formatPeso(item.net_pay)}</td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatPeso(item.release_amount)}</td>
+                      <td className="px-4 py-3 text-right text-yellow-300">{formatPeso(item.remaining_balance)}</td>
+                      <td className="px-4 py-3 text-slate-400">{item.remarks || "-"}</td>
+                    </tr>
+                  ))}
+
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                        No release transaction row found. Showing payroll record audit only.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h3 className="text-lg font-black">Related Balance Records</h3>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[850px] text-sm">
+                <thead className="bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3 text-right">Original</th>
+                    <th className="px-4 py-3 text-right">Remaining</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {balanceRows.map((item: any) => (
+                    <tr key={item.id} className="border-t border-slate-800">
+                      <td className="px-4 py-3">{item.balance_type || "Balance"}</td>
+                      <td className="px-4 py-3 text-right">{formatPeso(item.original_amount)}</td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">{formatPeso(item.remaining_balance)}</td>
+                      <td className="px-4 py-3"><StatusBadge status={item.status || "-"} /></td>
+                      <td className="px-4 py-3 text-slate-400">{item.remarks || "-"}</td>
+                    </tr>
+                  ))}
+
+                  {balanceRows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                        No related balance rows found for this payroll record.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {record.reopen_reason && (
+            <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
+              <h3 className="text-lg font-black text-red-300">Reopen History</h3>
+              <p className="mt-2 text-sm text-red-100">{record.reopen_reason}</p>
+              <p className="mt-1 text-xs text-red-200/80">
+                Reopened At: {formatDateTime(record.reopened_at)}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuditLine({ label, value, success, danger }: any) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+      <span className="text-slate-400">{label}</span>
+      <span
+        className={`text-right font-black ${
+          danger ? "text-red-400" : success ? "text-emerald-400" : "text-white"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function PayrollComparisonCard({ title, period, rows }: any) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">

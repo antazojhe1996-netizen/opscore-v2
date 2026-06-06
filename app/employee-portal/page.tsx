@@ -39,6 +39,21 @@ type LeaveRequest = {
   created_at?: string | null;
 };
 
+type EmployeeBalance = {
+  id?: string;
+  employee_id?: string | null;
+  employee_name?: string | null;
+  balance_type?: string | null;
+  original_amount?: number | null;
+  remaining_balance?: number | null;
+  status?: string | null;
+  source_module?: string | null;
+  source_id?: string | null;
+  period_id?: string | null;
+  remarks?: string | null;
+  created_at?: string | null;
+};
+
 type PayslipRow = {
   id?: string;
   payroll_period_id?: string | null;
@@ -81,6 +96,7 @@ type PortalTab =
   | "performance"
   | "leave"
   | "payslip"
+  | "cashadvance"
   | "profile";
 
 export default function EmployeePortalPage() {
@@ -92,6 +108,8 @@ export default function EmployeePortalPage() {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceEntry[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
   const [payslips, setPayslips] = useState<PayslipRow[]>([]);
+  const [employeeBalances, setEmployeeBalances] = useState<EmployeeBalance[]>([]);
+  const [activePayslip, setActivePayslip] = useState<PayslipRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PortalTab>("home");
@@ -134,6 +152,7 @@ export default function EmployeePortalPage() {
     { key: "performance", label: "Performance", icon: "⭐" },
     { key: "leave", label: "Leave", icon: "📝" },
     { key: "payslip", label: "Payslips", icon: "💰" },
+    { key: "cashadvance", label: "Cash Advances", icon: "💵" },
     { key: "profile", label: "Profile", icon: "👤" },
   ];
 
@@ -537,6 +556,47 @@ export default function EmployeePortalPage() {
     (entry) => String(entry.status || "").toLowerCase() === "absent"
   ).length;
 
+  const activeEmployeeBalances = employeeBalances.filter(
+    (item) => String(item.status || "Active").toLowerCase() === "active"
+  );
+
+  const cashAdvanceBalances = employeeBalances.filter((item) => {
+    const type = String(item.balance_type || "").toLowerCase();
+    const source = String(item.source_module || "").toLowerCase();
+    return type.includes("cash") || type.includes("advance") || source.includes("cash");
+  });
+
+  const payrollSalaryBalances = employeeBalances.filter((item) => {
+    const type = String(item.balance_type || "").toLowerCase();
+    return type.includes("payroll balance") || type.includes("salary");
+  });
+
+  const totalActiveBalance = activeEmployeeBalances.reduce(
+    (sum, item) => sum + Number(item.remaining_balance || 0),
+    0
+  );
+
+  const totalCashAdvanceRemaining = cashAdvanceBalances
+    .filter((item) => String(item.status || "Active").toLowerCase() === "active")
+    .reduce((sum, item) => sum + Number(item.remaining_balance || 0), 0);
+
+  const latestPayslip = payslips[0] || null;
+
+  const portalNotifications = [
+    ...(latestPayslip
+      ? [`Latest payslip available: ${getPayslipPeriodLabel(latestPayslip)}.`]
+      : []),
+    ...(totalCashAdvanceRemaining > 0
+      ? [`Active cash advance balance: ${formatMoney(totalCashAdvanceRemaining)}.`]
+      : []),
+    ...(schedule?.scheduled_shift
+      ? [`Today schedule: ${schedule.scheduled_shift} ${formatTime(schedule.scheduled_in)} - ${formatTime(schedule.scheduled_out)}.`]
+      : ["No schedule loaded for today."]),
+    ...(leaveHistory.some((leave) => String(leave.status || "").toLowerCase() === "pending")
+      ? ["You have pending leave request(s)."]
+      : []),
+  ];
+
   /// FUNCTIONS
   const loadCurrentUser = () => {
     const storedUser = localStorage.getItem("opscore_current_employee");
@@ -748,6 +808,34 @@ export default function EmployeePortalPage() {
     setPayslips(data || []);
   };
 
+  const getEmployeeBalances = async (employeeId: string) => {
+    const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
+    const employeeNameFilter = employeeName.trim();
+
+    const filters = [
+      `employee_id.eq.${employeeId}`,
+      employeeNameFilter ? `employee_name.eq.${employeeNameFilter}` : "",
+      employeeNo ? `remarks.ilike.%${employeeNo}%` : "",
+    ].filter(Boolean);
+
+    const query = supabase
+      .from("employee_balances")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    const { data, error } =
+      filters.length > 0 ? await query.or(filters.join(",")) : await query.eq("employee_id", employeeId);
+
+    if (error) {
+      console.log("EMPLOYEE BALANCES ERROR:", error.message);
+      setEmployeeBalances([]);
+      return;
+    }
+
+    setEmployeeBalances(data || []);
+  };
+
   const reloadEmployeeData = async (employeeId: string) => {
     await Promise.all([
       getTodayAttendance(employeeId),
@@ -756,6 +844,7 @@ export default function EmployeePortalPage() {
       getAttendanceHistory(employeeId),
       getLeaveHistory(employeeId),
       getPayslips(employeeId),
+      getEmployeeBalances(employeeId),
     ]);
   };
 
@@ -997,6 +1086,22 @@ export default function EmployeePortalPage() {
               formatTime={formatTime}
               onScheduleClick={() => openTab("schedule")}
             />
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <h2 className="text-lg font-black">Notifications</h2>
+              <p className="mt-1 text-sm text-slate-400">Important updates from your employee portal.</p>
+
+              <div className="mt-4 space-y-3">
+                {portalNotifications.map((message, index) => (
+                  <div
+                    key={`${message}-${index}`}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-200"
+                  >
+                    {message}
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         )}
 
@@ -1059,13 +1164,16 @@ export default function EmployeePortalPage() {
             </p>
 
             <div className="mt-4 max-h-[70vh] overflow-auto rounded-2xl border border-slate-800">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[920px] text-sm">
                 <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Schedule</th>
                     <th className="px-4 py-3">Time In</th>
                     <th className="px-4 py-3">Time Out</th>
+                    <th className="px-4 py-3 text-right">Late</th>
+                    <th className="px-4 py-3 text-right">Undertime</th>
+                    <th className="px-4 py-3 text-right">OT</th>
                     <th className="px-4 py-3">Status</th>
                   </tr>
                 </thead>
@@ -1086,6 +1194,9 @@ export default function EmployeePortalPage() {
                       </td>
                       <td className="px-4 py-3">{formatTime(entry.time_in)}</td>
                       <td className="px-4 py-3">{formatTime(entry.time_out)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-orange-300">{entry.late_minutes || 0}m</td>
+                      <td className="px-4 py-3 text-right font-bold text-red-300">{entry.undertime_minutes || 0}m</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-300">{entry.ot_minutes || 0}m</td>
                       <td className="px-4 py-3">
                         <StatusBadge status={entry.status || "Pending"} />
                       </td>
@@ -1094,7 +1205,7 @@ export default function EmployeePortalPage() {
 
                   {attendanceHistory.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                      <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
                         No attendance history yet.
                       </td>
                     </tr>
@@ -1258,12 +1369,21 @@ export default function EmployeePortalPage() {
                       <Info label="Net Pay" value={formatMoney(net)} />
                     </div>
 
-                    <button
-                      onClick={() => downloadPayslipPDF(payslip)}
-                      className="mt-4 w-full rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300"
-                    >
-                      Download / Print PDF
-                    </button>
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        onClick={() => setActivePayslip(payslip)}
+                        className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800"
+                      >
+                        View Payslip
+                      </button>
+
+                      <button
+                        onClick={() => downloadPayslipPDF(payslip)}
+                        className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300"
+                      >
+                        Download / Print PDF
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1271,6 +1391,58 @@ export default function EmployeePortalPage() {
               {payslips.length === 0 && (
                 <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
                   No payslips found yet. Ask payroll to generate a payroll snapshot first.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+
+        {activeTab === "cashadvance" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-black">My Cash Advances & Balances</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Track cash advances, payroll balances, deductions, and remaining amounts.
+            </p>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Info label="Active Balances" value={activeEmployeeBalances.length} />
+              <Info label="Cash Advance Remaining" value={formatMoney(totalCashAdvanceRemaining)} />
+              <Info label="Total Active Balance" value={formatMoney(totalActiveBalance)} />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {employeeBalances.map((balance) => (
+                <div
+                  key={balance.id || `${balance.balance_type}-${balance.created_at}`}
+                  className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-black text-white">{balance.balance_type || "Employee Balance"}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Source: {balance.source_module || "-"} • {formatDate(String(balance.created_at || "").slice(0, 10))}
+                      </p>
+                    </div>
+                    <StatusBadge status={balance.status || "Active"} />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Info label="Original Amount" value={formatMoney(balance.original_amount || 0)} />
+                    <Info label="Remaining Balance" value={formatMoney(balance.remaining_balance || 0)} />
+                  </div>
+
+                  {balance.remarks && (
+                    <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300">
+                      {balance.remarks}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {employeeBalances.length === 0 && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
+                  No cash advances or balances found.
                 </div>
               )}
             </div>
@@ -1297,7 +1469,122 @@ export default function EmployeePortalPage() {
           </section>
         )}
       </section>
+
+      {activePayslip && (
+        <PortalPayslipModal
+          payslip={activePayslip}
+          employeeName={employeeName}
+          employeeNumber={employeeNumber}
+          employeeDepartment={employeeDepartment}
+          formatMoney={formatMoney}
+          formatDate={formatDate}
+          getPayslipPeriodLabel={getPayslipPeriodLabel}
+          getPayslipGross={getPayslipGross}
+          getPayslipDeductions={getPayslipDeductions}
+          getPayslipNet={getPayslipNet}
+          onDownload={() => downloadPayslipPDF(activePayslip)}
+          onClose={() => setActivePayslip(null)}
+        />
+      )}
     </main>
+  );
+}
+
+
+function PortalPayslipModal({
+  payslip,
+  employeeName,
+  employeeNumber,
+  employeeDepartment,
+  formatMoney,
+  formatDate,
+  getPayslipPeriodLabel,
+  getPayslipGross,
+  getPayslipDeductions,
+  getPayslipNet,
+  onDownload,
+  onClose,
+}: any) {
+  const gross = getPayslipGross(payslip);
+  const deductions = getPayslipDeductions(payslip);
+  const net = getPayslipNet(payslip);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/70 p-4 backdrop-blur-sm">
+      <section className="w-full max-w-3xl rounded-3xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
+        <div className="flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-400">OPSCORE Payslip</p>
+            <h2 className="mt-2 text-2xl font-black">{getPayslipPeriodLabel(payslip)}</h2>
+            <p className="mt-1 text-sm text-slate-400">Review your payroll summary before printing or saving as PDF.</p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">Net Pay</p>
+          <h3 className="mt-2 text-4xl font-black text-emerald-300">{formatMoney(net)}</h3>
+          <p className="mt-1 text-sm text-emerald-100/80">Amount payable after approved deductions.</p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Info label="Employee" value={employeeName} />
+          <Info label="Employee No." value={employeeNumber} />
+          <Info label="Department" value={employeeDepartment} />
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <h3 className="font-black text-emerald-300">Earnings</h3>
+            <div className="mt-3 space-y-2 text-sm">
+              <LineItem label="Basic Pay" value={formatMoney(payslip.basic_pay || 0)} />
+              <LineItem label="OT Pay" value={formatMoney(payslip.ot_pay || 0)} />
+              <LineItem label="Allowances / Incentives" value={formatMoney(Number(payslip.allowances || 0) + Number(payslip.incentives || 0))} />
+              <LineItem label="Gross Pay" value={formatMoney(gross)} strong />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <h3 className="font-black text-red-300">Deductions</h3>
+            <div className="mt-3 space-y-2 text-sm">
+              <LineItem label="Late Deduction" value={formatMoney(payslip.late_deduction || 0)} />
+              <LineItem label="Undertime Deduction" value={formatMoney(payslip.undertime_deduction || 0)} />
+              <LineItem label="Absent Deduction" value={formatMoney(payslip.absence_deduction || 0)} />
+              <LineItem label="Cash Advance / Other" value={formatMoney(Number(payslip.cash_advance || 0) + Number(payslip.other_deductions || 0))} />
+              <LineItem label="Total Deductions" value={formatMoney(deductions)} strong />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Info label="Gross Pay" value={formatMoney(gross)} />
+          <Info label="Deductions" value={formatMoney(deductions)} />
+          <Info label="Issued" value={payslip.created_at ? formatDate(String(payslip.created_at).slice(0, 10)) : "-"} />
+        </div>
+
+        <button
+          onClick={onDownload}
+          className="mt-5 w-full rounded-2xl bg-amber-400 px-5 py-4 text-sm font-black text-slate-950 hover:bg-amber-300"
+        >
+          Download / Print PDF
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function LineItem({ label, value, strong }: { label: string; value: any; strong?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 ${strong ? "font-black text-white" : "text-slate-300"}`}>
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
   );
 }
 
