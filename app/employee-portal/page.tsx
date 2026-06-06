@@ -39,17 +39,45 @@ type LeaveRequest = {
   created_at?: string | null;
 };
 
+type PayslipRow = {
+  id?: string;
+  employee_id?: string;
+  period_name?: string | null;
+  payroll_period?: string | null;
+  cutoff_name?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  gross_pay?: number | null;
+  total_earnings?: number | null;
+  total_deductions?: number | null;
+  deductions?: number | null;
+  net_pay?: number | null;
+  final_pay?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+};
+
+type PortalTab =
+  | "home"
+  | "schedule"
+  | "attendance"
+  | "performance"
+  | "leave"
+  | "payslip"
+  | "profile";
+
 export default function EmployeePortalPage() {
   /// STATES
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
   const [schedule, setSchedule] = useState<any>(null);
   const [weeklySchedules, setWeeklySchedules] = useState<PortalSchedule[]>([]);
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceEntry[]>(
-    []
-  );
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceEntry[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
+  const [payslips, setPayslips] = useState<PayslipRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PortalTab>("home");
 
   const [leaveType, setLeaveType] = useState("Vacation Leave");
   const [startDate, setStartDate] = useState("");
@@ -81,6 +109,16 @@ export default function EmployeePortalPage() {
       scheduled_out: "08:00",
     },
   };
+
+  const menuItems: { key: PortalTab; label: string; icon: string }[] = [
+    { key: "home", label: "Home", icon: "🏠" },
+    { key: "schedule", label: "My Schedule", icon: "📅" },
+    { key: "attendance", label: "Attendance", icon: "🕒" },
+    { key: "performance", label: "Performance", icon: "⭐" },
+    { key: "leave", label: "Leave", icon: "📝" },
+    { key: "payslip", label: "Payslips", icon: "💰" },
+    { key: "profile", label: "Profile", icon: "👤" },
+  ];
 
   /// CALCULATIONS
   const calculateDays = () => {
@@ -136,7 +174,9 @@ export default function EmployeePortalPage() {
     return `${hour12}:${String(minutes).padStart(2, "0")} ${suffix}`;
   };
 
-  const formatDate = (date: string) => {
+  const formatDate = (date?: string | null) => {
+    if (!date) return "-";
+
     const parsed = new Date(`${date}T00:00:00`);
 
     if (Number.isNaN(parsed.getTime())) return date;
@@ -154,6 +194,16 @@ export default function EmployeePortalPage() {
 
     return parsed.toLocaleDateString("en-PH", {
       weekday: "short",
+    });
+  };
+
+  const formatMoney = (value: any) => {
+    const amount = Number(value || 0);
+
+    return amount.toLocaleString("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
     });
   };
 
@@ -230,6 +280,25 @@ export default function EmployeePortalPage() {
       ? "Needs Coaching"
       : "Critical";
 
+  const presentCount = attendanceHistory.filter((entry) => {
+    const status = String(entry.status || "").toLowerCase();
+    return ["present", "completed", "late", "undertime", "overtime"].includes(
+      status
+    );
+  }).length;
+
+  const lateCount = attendanceHistory.filter(
+    (entry) => Number(entry.late_minutes || 0) > 0
+  ).length;
+
+  const undertimeCount = attendanceHistory.filter(
+    (entry) => Number(entry.undertime_minutes || 0) > 0
+  ).length;
+
+  const absentCount = attendanceHistory.filter(
+    (entry) => String(entry.status || "").toLowerCase() === "absent"
+  ).length;
+
   /// FUNCTIONS
   const loadCurrentUser = () => {
     const storedUser = localStorage.getItem("opscore_current_employee");
@@ -249,6 +318,11 @@ export default function EmployeePortalPage() {
     localStorage.removeItem("opscore_current_employee_name");
 
     window.location.href = "/login";
+  };
+
+  const openTab = (tab: PortalTab) => {
+    setActiveTab(tab);
+    setMenuOpen(false);
   };
 
   const getShiftDetails = async (shiftName: string | null) => {
@@ -401,6 +475,23 @@ export default function EmployeePortalPage() {
     setLeaveHistory(data || []);
   };
 
+  const getPayslips = async (employeeId: string) => {
+    const { data, error } = await supabase
+      .from("payroll_snapshots")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .order("created_at", { ascending: false })
+      .limit(12);
+
+    if (error) {
+      console.log("PAYSLIP HISTORY ERROR:", error.message);
+      setPayslips([]);
+      return;
+    }
+
+    setPayslips(data || []);
+  };
+
   const reloadEmployeeData = async (employeeId: string) => {
     await Promise.all([
       getTodayAttendance(employeeId),
@@ -408,6 +499,7 @@ export default function EmployeePortalPage() {
       getWeeklySchedules(employeeId),
       getAttendanceHistory(employeeId),
       getLeaveHistory(employeeId),
+      getPayslips(employeeId),
     ]);
   };
 
@@ -528,343 +620,465 @@ export default function EmployeePortalPage() {
 
   /// UI
   return (
-    <main className="min-h-screen bg-slate-950 p-4 text-white sm:p-6">
-      <section className="mx-auto max-w-4xl">
-        <div id="quick-attendance" className="rounded-3xl border border-amber-400/30 bg-gradient-to-br from-slate-900 via-slate-900 to-amber-500/10 p-5 shadow-xl shadow-black/20">
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-300">Quick Attendance</p>
-          <h2 className="mt-2 text-2xl font-black">Time In / Time Out</h2>
-          <p className="mt-1 text-sm text-slate-400">Open the app, tap once, then close. No scrolling needed.</p>
+    <main className="min-h-screen bg-slate-950 text-white">
+      {menuOpen && (
+        <button
+          aria-label="Close employee portal menu"
+          onClick={() => setMenuOpen(false)}
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm"
+        />
+      )}
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <Info label="Time In" value={formatTime(todayAttendance?.time_in)} />
-            <Info
-              label="Time Out"
-              value={formatTime(todayAttendance?.time_out)}
-            />
-            <Info
-              label="Status"
-              value={todayAttendance?.status || "Not timed in"}
-            />
-            <Info
-              label="Late Minutes"
-              value={todayAttendance?.late_minutes ?? 0}
-            />
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              onClick={handleTimeIn}
-              disabled={loading || !!todayAttendance?.time_in || !currentUser}
-              className="rounded-2xl bg-emerald-500 px-5 py-5 text-base font-black text-slate-950 shadow-lg shadow-emerald-950/30 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Time In
-            </button>
-
-            <button
-              onClick={handleTimeOut}
-              disabled={
-                loading ||
-                !todayAttendance?.time_in ||
-                !!todayAttendance?.time_out
-              }
-              className="rounded-2xl bg-amber-400 px-5 py-5 text-base font-black text-slate-950 shadow-lg shadow-amber-950/30 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Time Out
-            </button>
-          </div>
+      <aside
+        className={`fixed left-0 top-0 z-40 h-full w-80 max-w-[86vw] transform border-r border-slate-800 bg-slate-950 p-5 shadow-2xl shadow-black/40 transition-transform duration-300 ${
+          menuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-400">
+            OPSCORE
+          </p>
+          <h2 className="mt-3 text-xl font-black">{employeeName}</h2>
+          <p className="mt-1 text-sm text-slate-400">{employeeDepartment}</p>
+          <p className="mt-1 text-xs text-slate-500">Employee #{employeeNumber}</p>
         </div>
 
+        <nav className="mt-5 space-y-2">
+          {menuItems.map((item) => {
+            const active = activeTab === item.key;
 
-
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">
-                OPSCORE Employee Portal
-              </p>
-
-              <h1 className="mt-3 text-2xl font-black sm:text-3xl">
-                {employeeName}
-              </h1>
-
-              <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">
-                  {employeeDepartment}
-                </span>
-
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">
-                  Employee #{employeeNumber}
-                </span>
-
-                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-emerald-300">
-                  Active Session
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-sm font-black text-emerald-300">
-              Active Session
-            </div>
-          </div>
-        </div>
-
-        <nav className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-3">
-          <div className="flex gap-2 overflow-x-auto">
-            <a href="#today-schedule" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Today</a>
-            <a href="#weekly-schedule" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Week</a>
-            <a href="#performance" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Performance</a>
-            <a href="#attendance-history" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">History</a>
-            <a href="#leave" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Leave</a>
-            <a href="#account" className="min-w-max rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20">Account</a>
-          </div>
+            return (
+              <button
+                key={item.key}
+                onClick={() => openTab(item.key)}
+                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
+                  active
+                    ? "bg-amber-400 text-slate-950"
+                    : "bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        <div id="today-schedule" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-slate-400">Today&apos;s Schedule</p>
-              <h2 className="text-2xl font-black">
-                {schedule?.scheduled_shift || "No schedule"}
-              </h2>
+        <button
+          onClick={logout}
+          className="mt-5 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
+        >
+          Logout
+        </button>
+      </aside>
+
+      <section className="mx-auto max-w-5xl p-4 pb-10 sm:p-6">
+        <header className="sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-900 bg-slate-950/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-lg font-black text-amber-400"
+            >
+              ☰
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-black uppercase tracking-[0.25em] text-amber-400">
+                OPSCORE Employee App
+              </p>
+              <h1 className="truncate text-lg font-black sm:text-2xl">
+                {menuItems.find((item) => item.key === activeTab)?.label || "Home"}
+              </h1>
             </div>
 
-            <div className="text-left sm:text-right">
-              <p className="text-sm text-slate-400">Shift Time</p>
-              <p className="text-lg font-black text-amber-400">
-                {formatTime(schedule?.scheduled_in)} -{" "}
-                {formatTime(schedule?.scheduled_out)}
-              </p>
+            <div className="hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-300 sm:block">
+              Active
             </div>
           </div>
-        </div>
+        </header>
 
-        <div id="weekly-schedule" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-lg font-black">This Week</h2>
+        {activeTab === "home" && (
+          <div className="space-y-5">
+            <section className="rounded-3xl border border-amber-400/30 bg-amber-400/10 p-5 shadow-xl shadow-black/20">
+              <p className="text-sm font-bold text-amber-200">Quick Attendance</p>
+              <h2 className="mt-2 text-3xl font-black">Time In / Time Out</h2>
+              <p className="mt-1 text-sm text-slate-300">
+                Use this first when starting or ending your shift.
+              </p>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-            {weeklySchedules.map((item) => {
-              const isToday = item.day === today;
-
-              return (
-                <div
-                  key={item.day}
-                  className={`rounded-2xl border p-4 ${
-                    isToday
-                      ? "border-amber-400/50 bg-amber-400/10"
-                      : "border-slate-800 bg-slate-950"
-                  }`}
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  onClick={handleTimeIn}
+                  disabled={loading || !!todayAttendance?.time_in || !currentUser}
+                  className="rounded-2xl bg-emerald-500 px-5 py-5 text-lg font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-                    {formatWeekday(item.day)}
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-slate-300">
-                    {formatDate(item.day)}
-                  </p>
-                  <p
-                    className={`mt-3 text-lg font-black ${
-                      item.shift === "OFF" ? "text-slate-500" : "text-amber-400"
-                    }`}
-                  >
-                    {item.shift}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {formatTime(item.scheduled_in)} -{" "}
-                    {formatTime(item.scheduled_out)}
-                  </p>
-                </div>
-              );
-            })}
+                  Time In
+                </button>
+
+                <button
+                  onClick={handleTimeOut}
+                  disabled={
+                    loading ||
+                    !todayAttendance?.time_in ||
+                    !!todayAttendance?.time_out
+                  }
+                  className="rounded-2xl bg-amber-400 px-5 py-5 text-lg font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Time Out
+                </button>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Info label="Time In" value={formatTime(todayAttendance?.time_in)} />
+                <Info label="Time Out" value={formatTime(todayAttendance?.time_out)} />
+                <Info label="Status" value={todayAttendance?.status || "Not timed in"} />
+                <Info label="Late" value={todayAttendance?.late_minutes ?? 0} />
+              </div>
+            </section>
+
+            <TodayScheduleCard
+              schedule={schedule}
+              formatTime={formatTime}
+              onScheduleClick={() => openTab("schedule")}
+            />
           </div>
-        </div>
+        )}
 
-        <div id="performance" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-black">Attendance Performance</h2>
-              <p className="text-sm text-slate-400">
-                Based on your last 30 attendance records.
-              </p>
-            </div>
+        {activeTab === "schedule" && (
+          <div className="space-y-5">
+            <TodayScheduleCard
+              schedule={schedule}
+              formatTime={formatTime}
+              onScheduleClick={() => {}}
+            />
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4">
-              <p className="text-xs uppercase tracking-widest text-slate-500">
-                Score
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <h2 className="text-lg font-black">This Week</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Your published schedule for the current week.
               </p>
-              <p className="text-3xl font-black text-amber-400">
-                {attendanceScore}
-              </p>
-              <p className="text-xs font-bold text-slate-400">
-                {attendanceScoreLabel}
-              </p>
-            </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
+                {weeklySchedules.map((item) => {
+                  const isToday = item.day === today;
+
+                  return (
+                    <div
+                      key={item.day}
+                      className={`rounded-2xl border p-4 ${
+                        isToday
+                          ? "border-amber-400/50 bg-amber-400/10"
+                          : "border-slate-800 bg-slate-950"
+                      }`}
+                    >
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+                        {formatWeekday(item.day)}
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-slate-300">
+                        {formatDate(item.day)}
+                      </p>
+                      <p
+                        className={`mt-3 text-lg font-black ${
+                          item.shift === "OFF" ? "text-slate-500" : "text-amber-400"
+                        }`}
+                      >
+                        {item.shift}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatTime(item.scheduled_in)} - {formatTime(item.scheduled_out)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </div>
-        </div>
+        )}
 
-        <div id="attendance-history" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-lg font-black">Attendance History</h2>
+        {activeTab === "attendance" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-black">Attendance History</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Your latest attendance entries from the last 30 days.
+            </p>
 
-          <div className="mt-4 max-h-80 overflow-auto rounded-2xl border border-slate-800">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Schedule</th>
-                  <th className="px-4 py-3">Time In</th>
-                  <th className="px-4 py-3">Time Out</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {attendanceHistory.map((entry) => (
-                  <tr key={entry.id || entry.attendance_date} className="border-t border-slate-800">
-                    <td className="px-4 py-3 font-bold">
-                      {formatDate(entry.attendance_date)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-bold text-amber-400">
-                        {entry.scheduled_shift || "-"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {formatTime(entry.scheduled_in)} -{" "}
-                        {formatTime(entry.scheduled_out)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">{formatTime(entry.time_in)}</td>
-                    <td className="px-4 py-3">{formatTime(entry.time_out)}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={entry.status || "Pending"} />
-                    </td>
+            <div className="mt-4 max-h-[70vh] overflow-auto rounded-2xl border border-slate-800">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Schedule</th>
+                    <th className="px-4 py-3">Time In</th>
+                    <th className="px-4 py-3">Time Out</th>
+                    <th className="px-4 py-3">Status</th>
                   </tr>
+                </thead>
+
+                <tbody>
+                  {attendanceHistory.map((entry) => (
+                    <tr key={entry.id || entry.attendance_date} className="border-t border-slate-800">
+                      <td className="px-4 py-3 font-bold">
+                        {formatDate(entry.attendance_date)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-bold text-amber-400">
+                          {entry.scheduled_shift || "-"}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatTime(entry.scheduled_in)} - {formatTime(entry.scheduled_out)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">{formatTime(entry.time_in)}</td>
+                      <td className="px-4 py-3">{formatTime(entry.time_out)}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={entry.status || "Pending"} />
+                      </td>
+                    </tr>
+                  ))}
+
+                  {attendanceHistory.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                        No attendance history yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "performance" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-black">Attendance Performance</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Based on your latest attendance records.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 px-6 py-5">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Score</p>
+                <p className="text-4xl font-black text-amber-400">{attendanceScore}</p>
+                <p className="text-sm font-bold text-slate-400">{attendanceScoreLabel}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Info label="Present" value={presentCount} />
+              <Info label="Late" value={lateCount} />
+              <Info label="Undertime" value={undertimeCount} />
+              <Info label="Absent" value={absentCount} />
+            </div>
+          </section>
+        )}
+
+        {activeTab === "leave" && (
+          <div className="space-y-5">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <h2 className="text-lg font-black">Leave Request</h2>
+
+              <div className="mt-4 grid grid-cols-1 gap-3">
+                <select
+                  value={leaveType}
+                  onChange={(e) => setLeaveType(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
+                >
+                  <option>Vacation Leave</option>
+                  <option>Sick Leave</option>
+                  <option>Emergency Leave</option>
+                  <option>Unpaid Leave</option>
+                </select>
+
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
+                />
+
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
+                />
+
+                <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm">
+                  Days: <span className="font-bold text-amber-400">{leaveDays}</span>
+                </div>
+
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Reason"
+                  className="min-h-28 rounded-xl border border-slate-700 bg-slate-950 p-3"
+                />
+
+                <button
+                  onClick={submitLeaveRequest}
+                  disabled={loading || !currentUser}
+                  className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Submit Leave Request
+                </button>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <h2 className="text-lg font-black">My Leave Requests</h2>
+
+              <div className="mt-4 space-y-3">
+                {leaveHistory.map((leave) => (
+                  <div
+                    key={leave.id || `${leave.start_date}-${leave.end_date}`}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-black text-white">{leave.leave_type}</p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {formatDate(leave.start_date)} - {formatDate(leave.end_date)} • {leave.days} day(s)
+                        </p>
+                        <p className="mt-2 text-sm text-slate-300">{leave.reason}</p>
+                      </div>
+
+                      <StatusBadge status={leave.status} />
+                    </div>
+                  </div>
                 ))}
 
-                {attendanceHistory.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                      No attendance history yet.
-                    </td>
-                  </tr>
+                {leaveHistory.length === 0 && (
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
+                    No leave requests yet.
+                  </div>
                 )}
-              </tbody>
-            </table>
+              </div>
+            </section>
           </div>
-        </div>
+        )}
 
-        <div id="leave" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-lg font-black">Leave Request</h2>
+        {activeTab === "payslip" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-black">My Payslips</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Released payroll records will appear here.
+            </p>
 
-          <div className="mt-4 grid grid-cols-1 gap-3">
-            <select
-              value={leaveType}
-              onChange={(e) => setLeaveType(e.target.value)}
-              className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-            >
-              <option>Vacation Leave</option>
-              <option>Sick Leave</option>
-              <option>Emergency Leave</option>
-              <option>Unpaid Leave</option>
-            </select>
+            <div className="mt-4 space-y-3">
+              {payslips.map((payslip) => {
+                const gross = payslip.gross_pay ?? payslip.total_earnings ?? 0;
+                const deductions =
+                  payslip.total_deductions ?? payslip.deductions ?? 0;
+                const net = payslip.net_pay ?? payslip.final_pay ?? 0;
+                const period =
+                  payslip.period_name ||
+                  payslip.payroll_period ||
+                  payslip.cutoff_name ||
+                  `${formatDate(payslip.start_date)} - ${formatDate(payslip.end_date)}`;
 
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-            />
+                return (
+                  <div
+                    key={payslip.id || period}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-black text-white">{period}</p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {formatDate(payslip.start_date)} - {formatDate(payslip.end_date)}
+                        </p>
+                      </div>
+                      <StatusBadge status={payslip.status || "Released"} />
+                    </div>
 
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-            />
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Info label="Gross" value={formatMoney(gross)} />
+                      <Info label="Deductions" value={formatMoney(deductions)} />
+                      <Info label="Net Pay" value={formatMoney(net)} />
+                    </div>
+                  </div>
+                );
+              })}
 
-            <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm">
-              Days:{" "}
-              <span className="font-bold text-amber-400">{leaveDays}</span>
+              {payslips.length === 0 && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
+                  No payslips released yet.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "profile" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-black">My Profile</h2>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Info label="Name" value={employeeName} />
+              <Info label="Employee No." value={employeeNumber} />
+              <Info label="Department" value={currentUser?.department || "-"} />
+              <Info label="Position" value={currentUser?.position || "-"} />
             </div>
 
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason"
-              className="min-h-28 rounded-xl border border-slate-700 bg-slate-950 p-3"
-            />
-
             <button
-              onClick={submitLeaveRequest}
-              disabled={loading || !currentUser}
-              className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={logout}
+              className="mt-5 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm font-black text-red-300 hover:bg-red-500/20"
             >
-              Submit Leave Request
+              Logout
             </button>
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-lg font-black">My Leave Requests</h2>
-
-          <div className="mt-4 space-y-3">
-            {leaveHistory.map((leave) => (
-              <div
-                key={leave.id || `${leave.start_date}-${leave.end_date}`}
-                className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-black text-white">{leave.leave_type}</p>
-                    <p className="mt-1 text-sm text-slate-400">
-                      {formatDate(leave.start_date)} - {formatDate(leave.end_date)} •{" "}
-                      {leave.days} day(s)
-                    </p>
-                    <p className="mt-2 text-sm text-slate-300">
-                      {leave.reason}
-                    </p>
-                  </div>
-
-                  <StatusBadge status={leave.status} />
-                </div>
-              </div>
-            ))}
-
-            {leaveHistory.length === 0 && (
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
-                No leave requests yet.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div id="account" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-lg font-black">Account</h2>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Info label="Name" value={employeeName} />
-            <Info label="Department" value={employeeDepartment} />
-            <Info label="Employee No." value={employeeNumber} />
-          </div>
-
-          <button
-            onClick={logout}
-            className="mt-4 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 font-black text-red-300 hover:bg-red-500/20"
-          >
-            Logout
-          </button>
-        </div>
-
+          </section>
+        )}
       </section>
     </main>
+  );
+}
+
+function TodayScheduleCard({
+  schedule,
+  formatTime,
+  onScheduleClick,
+}: {
+  schedule: any;
+  formatTime: (time?: string | null) => string;
+  onScheduleClick: () => void;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-slate-400">Today&apos;s Schedule</p>
+          <h2 className="text-2xl font-black">
+            {schedule?.scheduled_shift || "No schedule"}
+          </h2>
+        </div>
+
+        <div className="text-left sm:text-right">
+          <p className="text-sm text-slate-400">Shift Time</p>
+          <p className="text-lg font-black text-amber-400">
+            {formatTime(schedule?.scheduled_in)} - {formatTime(schedule?.scheduled_out)}
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={onScheduleClick}
+        className="mt-4 rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+      >
+        View Weekly Schedule
+      </button>
+    </section>
   );
 }
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <p className="text-xs uppercase tracking-widest text-slate-500">
-        {label}
-      </p>
+      <p className="text-xs uppercase tracking-widest text-slate-500">{label}</p>
       <p className="mt-1 text-lg font-bold">{value}</p>
     </div>
   );
@@ -876,7 +1090,8 @@ function StatusBadge({ status }: { status: string }) {
   const style =
     normalized === "approved" ||
     normalized === "present" ||
-    normalized === "completed"
+    normalized === "completed" ||
+    normalized === "released"
       ? "bg-emerald-500/10 text-emerald-400"
       : normalized === "pending"
       ? "bg-amber-500/10 text-amber-400"
