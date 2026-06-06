@@ -86,7 +86,8 @@ export default function EmployeesPage() {
 
   const [emergencyContactName, setEmergencyContactName] = useState("");
   const [emergencyContactNumber, setEmergencyContactNumber] = useState("");
-  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState("");
+  const [emergencyContactRelationship, setEmergencyContactRelationship] =
+    useState("");
 
   const [sssNo, setSssNo] = useState("");
   const [philhealthNo, setPhilhealthNo] = useState("");
@@ -105,11 +106,12 @@ export default function EmployeesPage() {
   const [payrollActive, setPayrollActive] = useState("Yes");
   const [payrollNotes, setPayrollNotes] = useState("");
   const [portalEnabled, setPortalEnabled] = useState("Yes");
-  const [attendanceSourcePreference, setAttendanceSourcePreference] = useState("Biometrics");
+  const [attendanceSourcePreference, setAttendanceSourcePreference] =
+    useState("Biometrics");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -122,7 +124,11 @@ export default function EmployeesPage() {
   const genderOptions = ["Male", "Female", "Prefer not to say"];
   const civilStatusOptions = ["Single", "Married", "Widowed", "Separated"];
   const yesNoOptions = ["Yes", "No"];
-  const attendanceSourceOptions = ["Biometrics", "Employee Portal", "Manual Review"];
+  const attendanceSourceOptions = [
+    "Biometrics",
+    "Employee Portal",
+    "Manual Review",
+  ];
 
   /// FUNCTIONS
   const formatMoney = (value: any) =>
@@ -142,7 +148,12 @@ export default function EmployeesPage() {
   };
 
   const cleanMoney = (value: any) =>
-    Number(String(value || "").replace("₱", "").replace(/,/g, "").trim()) || 0;
+    Number(
+      String(value || "")
+        .replace("₱", "")
+        .replace(/,/g, "")
+        .trim(),
+    ) || 0;
 
   const cleanDate = (value: any) => {
     if (!value) return null;
@@ -152,7 +163,7 @@ export default function EmployeesPage() {
       if (!date) return null;
 
       return `${date.y}-${String(date.m).padStart(2, "0")}-${String(
-        date.d
+        date.d,
       ).padStart(2, "0")}`;
     }
 
@@ -372,7 +383,9 @@ export default function EmployeesPage() {
     setAddress(employee.address || "");
     setEmergencyContactName(employee.emergency_contact_name || "");
     setEmergencyContactNumber(employee.emergency_contact_number || "");
-    setEmergencyContactRelationship(employee.emergency_contact_relationship || "");
+    setEmergencyContactRelationship(
+      employee.emergency_contact_relationship || "",
+    );
     setSssNo(employee.sss_no || "");
     setPhilhealthNo(employee.philhealth_no || "");
     setPagibigNo(employee.pagibig_no || "");
@@ -388,20 +401,22 @@ export default function EmployeesPage() {
     setPayrollActive(employee.payroll_active === false ? "No" : "Yes");
     setPayrollNotes(employee.payroll_notes || "");
     setPortalEnabled(employee.portal_enabled === false ? "No" : "Yes");
-    setAttendanceSourcePreference(employee.attendance_source_preference || "Biometrics");
+    setAttendanceSourcePreference(
+      employee.attendance_source_preference || "Biometrics",
+    );
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const archiveEmployee = async (employee: Employee) => {
     const confirmArchive = confirm(
-      `Archive ${employee.first_name} ${employee.last_name}? This will keep history but remove the employee from active operations.`
+      `Archive ${employee.first_name} ${employee.last_name}? This will keep history but remove the employee from active operations.`,
     );
 
     if (!confirmArchive) return;
 
     const updatePayload = {
-      employment_status: "Resigned",
+      employment_status: "Archived",
       payroll_active: false,
     };
 
@@ -435,7 +450,7 @@ export default function EmployeesPage() {
 
   const restoreEmployee = async (employee: Employee) => {
     const confirmRestore = confirm(
-      `Restore ${employee.first_name} ${employee.last_name} as Active?`
+      `Restore ${employee.first_name} ${employee.last_name} as Active?`,
     );
 
     if (!confirmRestore) return;
@@ -487,15 +502,15 @@ export default function EmployeesPage() {
     const cleanedRows = rawRows
       .map((row: any, index: number) => {
         const first = String(
-          getValue(row, ["First Name", "first_name", "FirstName"])
+          getValue(row, ["First Name", "first_name", "FirstName"]),
         ).trim();
 
         const last = String(
-          getValue(row, ["Last Name", "last_name", "LastName"])
+          getValue(row, ["Last Name", "last_name", "LastName"]),
         ).trim();
 
         const fullName = String(
-          getValue(row, ["Name", "Employee Name", "Full Name"])
+          getValue(row, ["Name", "Employee Name", "Full Name"]),
         ).trim();
 
         let firstNameValue = first;
@@ -509,7 +524,12 @@ export default function EmployeesPage() {
 
         const employeeNoValue =
           String(
-            getValue(row, ["Employee No", "Employee Number", "Employee ID", "ID"])
+            getValue(row, [
+              "Employee No",
+              "Employee Number",
+              "Employee ID",
+              "ID",
+            ]),
           ).trim() || `EMP-${Date.now()}-${index}`;
 
         const rateTypeValue =
@@ -522,7 +542,7 @@ export default function EmployeesPage() {
             "Daily Rate",
             "daily_rate",
             "Rate",
-          ])
+          ]),
         );
 
         return {
@@ -530,78 +550,106 @@ export default function EmployeesPage() {
           first_name: firstNameValue,
           last_name: lastNameValue,
           email: String(
-            getValue(row, ["Email", "email", "Email Address"])
+            getValue(row, ["Email", "email", "Email Address"]),
           ).trim(),
-          department: String(getValue(row, ["Department", "department"])).trim(),
+          department: String(
+            getValue(row, ["Department", "department"]),
+          ).trim(),
           position: String(getValue(row, ["Position", "position"])).trim(),
           employment_status:
             String(
-              getValue(row, ["Status", "Employment Status", "employment_status"])
+              getValue(row, [
+                "Status",
+                "Employment Status",
+                "employment_status",
+              ]),
             ).trim() || "Active",
           employment_type:
-            String(getValue(row, ["Employment Type", "employment_type"])).trim() ||
-            "Regular",
+            String(
+              getValue(row, ["Employment Type", "employment_type"]),
+            ).trim() || "Regular",
           contact_number: String(
-            getValue(row, ["Contact", "Contact Number", "contact_number"])
+            getValue(row, ["Contact", "Contact Number", "contact_number"]),
           ).trim(),
           hire_date:
-            cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])) ||
-            null,
+            cleanDate(
+              getValue(row, ["Hire Date", "Date Hired", "hire_date"]),
+            ) || null,
           birth_date:
-            cleanDate(getValue(row, ["Birth Date", "Birthday", "birth_date"])) ||
-            null,
+            cleanDate(
+              getValue(row, ["Birth Date", "Birthday", "birth_date"]),
+            ) || null,
           gender: String(getValue(row, ["Gender", "gender"])).trim(),
           civil_status: String(
-            getValue(row, ["Civil Status", "civil_status"])
+            getValue(row, ["Civil Status", "civil_status"]),
           ).trim(),
           address: String(getValue(row, ["Address", "address"])).trim(),
           emergency_contact_name: String(
-            getValue(row, ["Emergency Contact Name", "emergency_contact_name"])
+            getValue(row, ["Emergency Contact Name", "emergency_contact_name"]),
           ).trim(),
           emergency_contact_number: String(
-            getValue(row, ["Emergency Contact Number", "emergency_contact_number"])
+            getValue(row, [
+              "Emergency Contact Number",
+              "emergency_contact_number",
+            ]),
           ).trim(),
           emergency_contact_relationship: String(
             getValue(row, [
               "Emergency Contact Relationship",
               "emergency_contact_relationship",
-            ])
+            ]),
           ).trim(),
           sss_no: String(getValue(row, ["SSS No", "SSS", "sss_no"])).trim(),
           philhealth_no: String(
-            getValue(row, ["PhilHealth No", "PhilHealth", "philhealth_no"])
+            getValue(row, ["PhilHealth No", "PhilHealth", "philhealth_no"]),
           ).trim(),
           pagibig_no: String(
-            getValue(row, ["Pag-IBIG No", "PagIBIG", "pagibig_no"])
+            getValue(row, ["Pag-IBIG No", "PagIBIG", "pagibig_no"]),
           ).trim(),
           tin_no: String(getValue(row, ["TIN No", "TIN", "tin_no"])).trim(),
           has_resume:
-            String(getValue(row, ["Has Resume", "Resume"])).toLowerCase() === "yes",
+            String(getValue(row, ["Has Resume", "Resume"])).toLowerCase() ===
+            "yes",
           has_valid_id:
-            String(getValue(row, ["Has Valid ID", "Valid ID"])).toLowerCase() === "yes",
+            String(
+              getValue(row, ["Has Valid ID", "Valid ID"]),
+            ).toLowerCase() === "yes",
           has_contract:
-            String(getValue(row, ["Has Contract", "Contract"])).toLowerCase() === "yes",
+            String(
+              getValue(row, ["Has Contract", "Contract"]),
+            ).toLowerCase() === "yes",
           has_nbi_clearance:
-            String(getValue(row, ["Has NBI", "NBI Clearance"])).toLowerCase() === "yes",
+            String(
+              getValue(row, ["Has NBI", "NBI Clearance"]),
+            ).toLowerCase() === "yes",
           has_medical:
-            String(getValue(row, ["Has Medical", "Medical"])).toLowerCase() === "yes",
+            String(getValue(row, ["Has Medical", "Medical"])).toLowerCase() ===
+            "yes",
           has_training_records:
-            String(getValue(row, ["Has Training Records", "Training Records"])).toLowerCase() === "yes",
+            String(
+              getValue(row, ["Has Training Records", "Training Records"]),
+            ).toLowerCase() === "yes",
           daily_rate: basicRateValue,
-          rate_type: rateTypes.includes(rateTypeValue) ? rateTypeValue : "Daily",
+          rate_type: rateTypes.includes(rateTypeValue)
+            ? rateTypeValue
+            : "Daily",
           basic_rate: basicRateValue,
           payroll_active:
             String(
-              getValue(row, ["Payroll Active", "payroll_active"])
+              getValue(row, ["Payroll Active", "payroll_active"]),
             ).toLowerCase() === "no"
               ? false
               : true,
           payroll_notes: String(
-            getValue(row, ["Payroll Notes", "Notes", "payroll_notes"])
+            getValue(row, ["Payroll Notes", "Notes", "payroll_notes"]),
           ).trim(),
           portal_enabled:
             String(
-              getValue(row, ["Portal Enabled", "portal_enabled", "Portal Access"])
+              getValue(row, [
+                "Portal Enabled",
+                "portal_enabled",
+                "Portal Access",
+              ]),
             ).toLowerCase() === "no"
               ? false
               : true,
@@ -611,7 +659,7 @@ export default function EmployeesPage() {
                 "Attendance Source",
                 "attendance_source_preference",
                 "Attendance Source Preference",
-              ])
+              ]),
             ).trim() || "Biometrics",
           created_at: new Date().toISOString(),
         };
@@ -710,17 +758,25 @@ export default function EmployeesPage() {
   }, []);
 
   /// CALCULATIONS
-  const inactiveStatuses = ["resigned", "terminated", "inactive", "awol"];
+  const inactiveStatuses = [
+    "archived",
+    "resigned",
+    "terminated",
+    "inactive",
+    "awol",
+  ];
 
   const activeEmployeeRows = employees.filter(
     (emp) =>
       !inactiveStatuses.includes(
-        String(emp.employment_status || "").toLowerCase()
-      )
+        String(emp.employment_status || "").toLowerCase(),
+      ),
   );
 
   const archivedEmployeeRows = employees.filter((emp) =>
-    inactiveStatuses.includes(String(emp.employment_status || "").toLowerCase())
+    inactiveStatuses.includes(
+      String(emp.employment_status || "").toLowerCase(),
+    ),
   );
 
   const totalEmployees = employees.length;
@@ -728,10 +784,12 @@ export default function EmployeesPage() {
   const archivedEmployees = archivedEmployeeRows.length;
 
   const payrollActiveCount = activeEmployeeRows.filter(
-    (emp) => emp.payroll_active !== false
+    (emp) => emp.payroll_active !== false,
   ).length;
 
-  const missingEmailCount = activeEmployeeRows.filter((emp) => !emp.email).length;
+  const missingEmailCount = activeEmployeeRows.filter(
+    (emp) => !emp.email,
+  ).length;
 
   const incomplete201Count = activeEmployeeRows.filter(
     (emp) =>
@@ -740,11 +798,12 @@ export default function EmployeesPage() {
       !emp.emergency_contact_name ||
       !emp.emergency_contact_number ||
       !emp.has_valid_id ||
-      !emp.has_contract
+      !emp.has_contract,
   ).length;
 
   const missingGovInfoCount = activeEmployeeRows.filter(
-    (emp) => !emp.sss_no || !emp.philhealth_no || !emp.pagibig_no || !emp.tin_no
+    (emp) =>
+      !emp.sss_no || !emp.philhealth_no || !emp.pagibig_no || !emp.tin_no,
   ).length;
 
   const totalMonthlyPayrollEstimate = activeEmployeeRows.reduce((sum, emp) => {
@@ -763,7 +822,7 @@ export default function EmployeesPage() {
       acc[dept] = (acc[dept] || 0) + 1;
       return acc;
     },
-    {}
+    {},
   );
 
   const topDepartments = Object.entries(departmentCounts)
@@ -783,544 +842,746 @@ export default function EmployeesPage() {
       !emp.emergency_contact_name ||
       !emp.emergency_contact_number ||
       !emp.has_valid_id ||
-      !emp.has_contract
+      !emp.has_contract,
   );
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
-      const search = `${emp.employee_no} ${emp.first_name} ${emp.last_name} ${emp.email} ${emp.department} ${emp.position} ${emp.employment_status} ${emp.rate_type}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
+    const normalizedStatusFilter = String(
+      statusFilter || "Active",
+    ).toLowerCase();
+
+    const sourceEmployees =
+      normalizedStatusFilter === "archived"
+        ? archivedEmployeeRows
+        : normalizedStatusFilter === "all"
+          ? employees
+          : activeEmployeeRows.filter(
+              (emp) =>
+                String(emp.employment_status || "").toLowerCase() ===
+                normalizedStatusFilter,
+            );
+
+    return sourceEmployees.filter((emp) => {
+      const search =
+        `${emp.employee_no} ${emp.first_name} ${emp.last_name} ${emp.email} ${emp.department} ${emp.position} ${emp.employment_status} ${emp.rate_type}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
 
       const matchesDepartment =
         departmentFilter === "ALL" || emp.department === departmentFilter;
 
-      const matchesStatus =
-        statusFilter === "ALL" || emp.employment_status === statusFilter;
-
-      return search && matchesDepartment && matchesStatus;
+      return search && matchesDepartment;
     });
-  }, [employees, searchTerm, departmentFilter, statusFilter]);
+  }, [
+    employees,
+    activeEmployeeRows,
+    archivedEmployeeRows,
+    searchTerm,
+    departmentFilter,
+    statusFilter,
+  ]);
 
   /// UI
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6 xl:p-8">
-        <div className="w-full">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 xl:p-8">
+        <div className="mx-auto w-full max-w-[1800px]">
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Employee Masterlist</h1>
-            <p className="mt-2 text-slate-400">
-              Manage employee records, payroll profile, department assignment,
-              and import/export controls.
-            </p>
+            <div>
+              <h1 className="text-3xl font-bold">Employee Masterlist</h1>
+              <p className="mt-2 text-slate-400">
+                Manage employee records, payroll profile, department assignment,
+                and import/export controls.
+              </p>
+            </div>
+
+            <button
+              onClick={exportEmployees}
+              className="w-fit rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+            >
+              Export Employees
+            </button>
           </div>
 
-          <button
-            onClick={exportEmployees}
-            className="w-fit rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
-          >
-            Export Employees
-          </button>
-        </div>
+          <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-7">
+            <KpiCard
+              icon={<Users size={22} />}
+              title="Total Employees"
+              value={totalEmployees}
+            />
+            <KpiCard
+              icon={<BadgeCheck size={22} />}
+              title="Active Employees"
+              value={activeEmployees}
+              success
+            />
+            <KpiCard
+              icon={<Briefcase size={22} />}
+              title="Archived"
+              value={archivedEmployees}
+            />
+            <KpiCard
+              icon={<Briefcase size={22} />}
+              title="Payroll Active"
+              value={payrollActiveCount}
+            />
+            <KpiCard
+              icon={<Mail size={22} />}
+              title="Missing Email"
+              value={missingEmailCount}
+              danger={missingEmailCount > 0}
+            />
+            <KpiCard
+              icon={<AlertTriangle size={22} />}
+              title="Incomplete 201"
+              value={incomplete201Count}
+              danger={incomplete201Count > 0}
+            />
+            <KpiCard
+              icon={<DollarSignIcon />}
+              title="Est. Monthly Payroll"
+              value={formatMoney(totalMonthlyPayrollEstimate)}
+            />
+          </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-          <KpiCard icon={<Users size={22} />} title="Total Employees" value={totalEmployees} />
-          <KpiCard icon={<BadgeCheck size={22} />} title="Active Employees" value={activeEmployees} success />
-          <KpiCard icon={<Briefcase size={22} />} title="Payroll Active" value={payrollActiveCount} />
-          <KpiCard icon={<Mail size={22} />} title="Missing Email" value={missingEmailCount} danger={missingEmailCount > 0} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Incomplete 201" value={incomplete201Count} danger={incomplete201Count > 0} />
-          <KpiCard icon={<DollarSignIcon />} title="Est. Monthly Payroll" value={formatMoney(totalMonthlyPayrollEstimate)} />
-        </section>
+          <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
+            <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 xl:col-span-8">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="flex items-center gap-2 text-xl font-bold">
+                    <UserPlus size={22} />{" "}
+                    {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Required fields are marked with an asterisk.
+                  </p>
+                </div>
 
-        <section className="mb-6 grid grid-cols-1 items-start gap-6 2xl:grid-cols-5">
-          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 2xl:col-span-3">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <h2 className="flex items-center gap-2 text-xl font-bold">
-                  <UserPlus size={22} /> {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
-                </h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Required fields are marked with an asterisk.
+                {editingEmployeeNo && (
+                  <span className="rounded-full border border-blue-500/40 px-3 py-1 text-xs font-black text-blue-400">
+                    Editing {editingEmployeeNo}
+                  </span>
+                )}
+              </div>
+
+              {formError && (
+                <p className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
+                  {formError}
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <FormPanel title="Personal Details">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Input
+                      label="Employee No"
+                      value={employeeNo}
+                      setValue={setEmployeeNo}
+                      placeholder="Auto if blank"
+                    />
+                    <Input
+                      label="Email"
+                      type="email"
+                      value={email}
+                      setValue={setEmail}
+                      placeholder="employee@email.com"
+                    />
+                    <Input
+                      label="First Name *"
+                      value={firstName}
+                      setValue={setFirstName}
+                    />
+                    <Input
+                      label="Last Name *"
+                      value={lastName}
+                      setValue={setLastName}
+                    />
+                    <Input
+                      label="Contact Number"
+                      value={contactNumber}
+                      setValue={setContactNumber}
+                    />
+                    <Input
+                      label="Hire Date"
+                      type="date"
+                      value={hireDate}
+                      setValue={setHireDate}
+                    />
+                    <Input
+                      label="Birth Date"
+                      type="date"
+                      value={birthDate}
+                      setValue={setBirthDate}
+                    />
+                    <Select
+                      label="Gender"
+                      value={gender}
+                      setValue={setGender}
+                      options={genderOptions}
+                    />
+                    <Select
+                      label="Civil Status"
+                      value={civilStatus}
+                      setValue={setCivilStatus}
+                      options={civilStatusOptions}
+                    />
+                    <Input
+                      label="Address"
+                      value={address}
+                      setValue={setAddress}
+                    />
+                  </div>
+                </FormPanel>
+
+                <FormPanel title="Government Information">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Input label="SSS No." value={sssNo} setValue={setSssNo} />
+                    <Input
+                      label="PhilHealth No."
+                      value={philhealthNo}
+                      setValue={setPhilhealthNo}
+                    />
+                    <Input
+                      label="Pag-IBIG No."
+                      value={pagibigNo}
+                      setValue={setPagibigNo}
+                    />
+                    <Input label="TIN No." value={tinNo} setValue={setTinNo} />
+                  </div>
+                </FormPanel>
+
+                <FormPanel title="Emergency Contact">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Input
+                      label="Contact Person"
+                      value={emergencyContactName}
+                      setValue={setEmergencyContactName}
+                    />
+                    <Input
+                      label="Contact Number"
+                      value={emergencyContactNumber}
+                      setValue={setEmergencyContactNumber}
+                    />
+                    <Input
+                      label="Relationship"
+                      value={emergencyContactRelationship}
+                      setValue={setEmergencyContactRelationship}
+                    />
+                  </div>
+                </FormPanel>
+
+                <FormPanel title="201 File Checklist">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                    <Select
+                      label="Resume / Bio Data"
+                      value={hasResume}
+                      setValue={setHasResume}
+                      options={yesNoOptions}
+                    />
+                    <Select
+                      label="Valid ID"
+                      value={hasValidId}
+                      setValue={setHasValidId}
+                      options={yesNoOptions}
+                    />
+                    <Select
+                      label="Employment Contract"
+                      value={hasContract}
+                      setValue={setHasContract}
+                      options={yesNoOptions}
+                    />
+                    <Select
+                      label="NBI Clearance"
+                      value={hasNbiClearance}
+                      setValue={setHasNbiClearance}
+                      options={yesNoOptions}
+                    />
+                    <Select
+                      label="Medical / Health Cert"
+                      value={hasMedical}
+                      setValue={setHasMedical}
+                      options={yesNoOptions}
+                    />
+                    <Select
+                      label="Training Records"
+                      value={hasTrainingRecords}
+                      setValue={setHasTrainingRecords}
+                      options={yesNoOptions}
+                    />
+                  </div>
+                </FormPanel>
+
+                <FormPanel title="Work Assignment">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Select
+                      label="Department *"
+                      value={department}
+                      setValue={setDepartment}
+                      options={departments.map((d) => d.name)}
+                    />
+                    <Select
+                      label="Position *"
+                      value={position}
+                      setValue={setPosition}
+                      options={positions.map((p) => p.name)}
+                    />
+                    <Select
+                      label="Status *"
+                      value={employmentStatus}
+                      setValue={setEmploymentStatus}
+                      options={employmentStatuses.map((s) => s.name)}
+                    />
+                    <Select
+                      label="Employment Type *"
+                      value={employmentType}
+                      setValue={setEmploymentType}
+                      options={employmentTypes.map((t) => t.name)}
+                    />
+                  </div>
+                </FormPanel>
+
+                <FormPanel title="Payroll Profile">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                    <Select
+                      label="Rate Type *"
+                      value={rateType}
+                      setValue={setRateType}
+                      options={rateTypes}
+                    />
+                    <Input
+                      label="Basic Rate *"
+                      type="number"
+                      value={basicRate}
+                      setValue={setBasicRate}
+                    />
+                    <Select
+                      label="Payroll Active"
+                      value={payrollActive}
+                      setValue={setPayrollActive}
+                      options={["Yes", "No"]}
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="text-sm font-semibold text-slate-300">
+                      Payroll Notes
+                    </label>
+                    <textarea
+                      value={payrollNotes}
+                      onChange={(e) => setPayrollNotes(e.target.value)}
+                      rows={3}
+                      className="mt-2 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
+                </FormPanel>
+
+                <FormPanel title="Portal & Attendance Settings">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Select
+                      label="Portal Access"
+                      value={portalEnabled}
+                      setValue={setPortalEnabled}
+                      options={yesNoOptions}
+                    />
+
+                    <Select
+                      label="Official Attendance Source"
+                      value={attendanceSourcePreference}
+                      setValue={setAttendanceSourcePreference}
+                      options={attendanceSourceOptions}
+                    />
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">
+                    <p className="font-black">How this works</p>
+                    <p className="mt-1 text-blue-100/80">
+                      Portal Access controls whether the employee can open the
+                      mobile portal for schedule, performance, leave, and
+                      payslips. Official Attendance Source controls which time
+                      record should be followed for payroll.
+                    </p>
+                  </div>
+
+                  <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+                    <p className="font-black">Recommended setup</p>
+                    <p className="mt-1 text-amber-100/80">
+                      Keep Portal Access enabled for most employees so they can
+                      view their information even if Biometrics remains their
+                      official attendance source.
+                    </p>
+                  </div>
+                </FormPanel>
+
+                <FormPanel title="Employee Health Check">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <MiniStat
+                      title="Archived Employees"
+                      value={archivedEmployees}
+                    />
+                    <MiniStat
+                      title="Records With Issues"
+                      value={employeesWithIssues.length}
+                      danger={employeesWithIssues.length > 0}
+                    />
+                    <MiniStat
+                      title="Missing Gov Info"
+                      value={missingGovInfoCount}
+                      danger={missingGovInfoCount > 0}
+                    />
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {topDepartments.length > 0 ? (
+                      topDepartments.map((dept) => (
+                        <div
+                          key={dept.name}
+                          className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                        >
+                          <p className="text-sm font-semibold">{dept.name}</p>
+                          <p className="font-bold text-yellow-400">
+                            {dept.count}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        No department data found.
+                      </p>
+                    )}
+                  </div>
+                </FormPanel>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <button
+                  onClick={saveEmployee}
+                  disabled={isSaving}
+                  className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  {isSaving
+                    ? "Saving..."
+                    : editingEmployeeNo
+                      ? "Update Employee"
+                      : "Save Employee"}
+                </button>
+
+                <button
+                  onClick={clearForm}
+                  className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                >
+                  {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
+                </button>
+              </div>
+            </div>
+
+            <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 xl:col-span-4">
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                <FileSpreadsheet size={22} /> Import Employees
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Import Excel/CSV employee records. Preview first before saving.
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImportFile(file);
+                  }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+                />
+
+                <button
+                  onClick={importEmployees}
+                  disabled={isImporting || previewRows.length === 0}
+                  className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {isImporting ? "Importing..." : "Import Preview Rows"}
+                </button>
+
+                {fileName && (
+                  <p className="text-sm text-slate-400">
+                    Selected:{" "}
+                    <span className="font-bold text-white">{fileName}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
+                <p className="text-sm font-bold text-slate-300">
+                  Supported headers
+                </p>
+                <p className="mt-2 text-xs leading-6 text-slate-500">
+                  Employee No, First Name, Last Name, Email, Department,
+                  Position, Status, Employment Type, Rate Type, Basic Rate,
+                  Portal Enabled, Attendance Source, Contact, Hire Date, SSS No,
+                  PhilHealth No, Pag-IBIG No, TIN No, Emergency Contact.
                 </p>
               </div>
 
-              {editingEmployeeNo && (
-                <span className="rounded-full border border-blue-500/40 px-3 py-1 text-xs font-black text-blue-400">
-                  Editing {editingEmployeeNo}
-                </span>
+              {previewRows.length > 0 && (
+                <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
+                  <table className="w-full min-w-[900px] text-sm">
+                    <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3">Employee No</th>
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Department</th>
+                        <th className="px-4 py-3">Position</th>
+                        <th className="px-4 py-3 text-right">Rate</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {previewRows.slice(0, 50).map((row, index) => (
+                        <tr
+                          key={`${row.employee_no}-${index}`}
+                          className="border-t border-slate-800"
+                        >
+                          <td className="px-4 py-3">{row.employee_no}</td>
+                          <td className="px-4 py-3 font-bold">
+                            {row.first_name} {row.last_name}
+                          </td>
+                          <td className="px-4 py-3">{row.department}</td>
+                          <td className="px-4 py-3">{row.position}</td>
+                          <td className="px-4 py-3 text-right">
+                            {formatMoney(row.basic_rate)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
+          </section>
 
-            {formError && (
-              <p className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
-                {formError}
-              </p>
-            )}
-
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <FormPanel title="Personal Details">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Input label="Employee No" value={employeeNo} setValue={setEmployeeNo} placeholder="Auto if blank" />
-                  <Input label="Email" type="email" value={email} setValue={setEmail} placeholder="employee@email.com" />
-                  <Input label="First Name *" value={firstName} setValue={setFirstName} />
-                  <Input label="Last Name *" value={lastName} setValue={setLastName} />
-                  <Input label="Contact Number" value={contactNumber} setValue={setContactNumber} />
-                  <Input label="Hire Date" type="date" value={hireDate} setValue={setHireDate} />
-                  <Input label="Birth Date" type="date" value={birthDate} setValue={setBirthDate} />
-                  <Select label="Gender" value={gender} setValue={setGender} options={genderOptions} />
-                  <Select label="Civil Status" value={civilStatus} setValue={setCivilStatus} options={civilStatusOptions} />
-                  <Input label="Address" value={address} setValue={setAddress} />
-                </div>
-              </FormPanel>
-
-              <FormPanel title="Government Information">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Input label="SSS No." value={sssNo} setValue={setSssNo} />
-                  <Input label="PhilHealth No." value={philhealthNo} setValue={setPhilhealthNo} />
-                  <Input label="Pag-IBIG No." value={pagibigNo} setValue={setPagibigNo} />
-                  <Input label="TIN No." value={tinNo} setValue={setTinNo} />
-                </div>
-              </FormPanel>
-
-              <FormPanel title="Emergency Contact">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Input label="Contact Person" value={emergencyContactName} setValue={setEmergencyContactName} />
-                  <Input label="Contact Number" value={emergencyContactNumber} setValue={setEmergencyContactNumber} />
-                  <Input label="Relationship" value={emergencyContactRelationship} setValue={setEmergencyContactRelationship} />
-                </div>
-              </FormPanel>
-
-              <FormPanel title="201 File Checklist">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                  <Select label="Resume / Bio Data" value={hasResume} setValue={setHasResume} options={yesNoOptions} />
-                  <Select label="Valid ID" value={hasValidId} setValue={setHasValidId} options={yesNoOptions} />
-                  <Select label="Employment Contract" value={hasContract} setValue={setHasContract} options={yesNoOptions} />
-                  <Select label="NBI Clearance" value={hasNbiClearance} setValue={setHasNbiClearance} options={yesNoOptions} />
-                  <Select label="Medical / Health Cert" value={hasMedical} setValue={setHasMedical} options={yesNoOptions} />
-                  <Select label="Training Records" value={hasTrainingRecords} setValue={setHasTrainingRecords} options={yesNoOptions} />
-                </div>
-              </FormPanel>
-
-              <FormPanel title="Work Assignment">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Select label="Department *" value={department} setValue={setDepartment} options={departments.map((d) => d.name)} />
-                  <Select label="Position *" value={position} setValue={setPosition} options={positions.map((p) => p.name)} />
-                  <Select label="Status *" value={employmentStatus} setValue={setEmploymentStatus} options={employmentStatuses.map((s) => s.name)} />
-                  <Select label="Employment Type *" value={employmentType} setValue={setEmploymentType} options={employmentTypes.map((t) => t.name)} />
-                </div>
-              </FormPanel>
-
-              <FormPanel title="Payroll Profile">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                  <Select label="Rate Type *" value={rateType} setValue={setRateType} options={rateTypes} />
-                  <Input label="Basic Rate *" type="number" value={basicRate} setValue={setBasicRate} />
-                  <Select label="Payroll Active" value={payrollActive} setValue={setPayrollActive} options={["Yes", "No"]} />
-                </div>
-
-                <div className="mt-4">
-                  <label className="text-sm font-semibold text-slate-300">
-                    Payroll Notes
-                  </label>
-                  <textarea
-                    value={payrollNotes}
-                    onChange={(e) => setPayrollNotes(e.target.value)}
-                    rows={3}
-                    className="mt-2 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                  />
-                </div>
-              </FormPanel>
-
-              <FormPanel title="Portal & Attendance Settings">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Select
-                    label="Portal Access"
-                    value={portalEnabled}
-                    setValue={setPortalEnabled}
-                    options={yesNoOptions}
-                  />
-
-                  <Select
-                    label="Official Attendance Source"
-                    value={attendanceSourcePreference}
-                    setValue={setAttendanceSourcePreference}
-                    options={attendanceSourceOptions}
-                  />
-                </div>
-
-                <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">
-                  <p className="font-black">How this works</p>
-                  <p className="mt-1 text-blue-100/80">
-                    Portal Access controls whether the employee can open the
-                    mobile portal for schedule, performance, leave, and payslips.
-                    Official Attendance Source controls which time record should
-                    be followed for payroll.
-                  </p>
-                </div>
-
-                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
-                  <p className="font-black">Recommended setup</p>
-                  <p className="mt-1 text-amber-100/80">
-                    Keep Portal Access enabled for most employees so they can
-                    view their information even if Biometrics remains their
-                    official attendance source.
-                  </p>
-                </div>
-              </FormPanel>
-
-              <FormPanel title="Employee Health Check">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <MiniStat title="Archived Employees" value={archivedEmployees} />
-                  <MiniStat title="Records With Issues" value={employeesWithIssues.length} danger={employeesWithIssues.length > 0} />
-                  <MiniStat title="Missing Gov Info" value={missingGovInfoCount} danger={missingGovInfoCount > 0} />
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  {topDepartments.length > 0 ? (
-                    topDepartments.map((dept) => (
-                      <div
-                        key={dept.name}
-                        className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
-                      >
-                        <p className="text-sm font-semibold">{dept.name}</p>
-                        <p className="font-bold text-yellow-400">{dept.count}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-500">No department data found.</p>
-                  )}
-                </div>
-              </FormPanel>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <button
-                onClick={saveEmployee}
-                disabled={isSaving}
-                className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-              >
-                {isSaving
-                  ? "Saving..."
-                  : editingEmployeeNo
-                  ? "Update Employee"
-                  : "Save Employee"}
-              </button>
-
-              <button
-                onClick={clearForm}
-                className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
-              >
-                {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
-              </button>
-            </div>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 2xl:col-span-2">
-            <h2 className="flex items-center gap-2 text-xl font-bold">
-              <FileSpreadsheet size={22} /> Import Employees
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Import Excel/CSV employee records. Preview first before saving.
-            </p>
-
-            <div className="mt-5 space-y-3">
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImportFile(file);
-                }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-              />
-
-              <button
-                onClick={importEmployees}
-                disabled={isImporting || previewRows.length === 0}
-                className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {isImporting ? "Importing..." : "Import Preview Rows"}
-              </button>
-
-              {fileName && (
-                <p className="text-sm text-slate-400">
-                  Selected: <span className="font-bold text-white">{fileName}</span>
+          <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6">
+            <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Employee List</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Default view shows Active employees only. Use Archived
+                  Employees to restore records.
                 </p>
-              )}
+              </div>
+
+              <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-3 xl:w-auto">
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-3 text-slate-500"
+                  />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search employee..."
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none"
+                  />
+                </div>
+
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="ALL">All Departments</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="Active">Active Employees</option>
+                  <option value="Archived">Archived Employees</option>
+                  <option value="All">All Employees</option>
+                </select>
+              </div>
             </div>
 
-            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-sm font-bold text-slate-300">
-                Supported headers
-              </p>
-              <p className="mt-2 text-xs leading-6 text-slate-500">
-                Employee No, First Name, Last Name, Email, Department, Position,
-                Status, Employment Type, Rate Type, Basic Rate, Portal Enabled,
-                Attendance Source, Contact, Hire Date, SSS No, PhilHealth No,
-                Pag-IBIG No, TIN No, Emergency Contact.
-              </p>
-            </div>
+            <div className="max-h-[680px] overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1450px] text-sm">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Employee</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Department</th>
+                    <th className="px-4 py-3">Position</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Rate Type</th>
+                    <th className="px-4 py-3 text-right">Basic Rate</th>
+                    <th className="px-4 py-3">Payroll</th>
+                    <th className="px-4 py-3">Portal</th>
+                    <th className="px-4 py-3">Attendance Source</th>
+                    <th className="px-4 py-3">Gov IDs</th>
+                    <th className="px-4 py-3">201 File</th>
+                    <th className="px-4 py-3">Action</th>
+                  </tr>
+                </thead>
 
-            {previewRows.length > 0 && (
-              <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
-                <table className="w-full min-w-[900px] text-sm">
-                  <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">Employee No</th>
-                      <th className="px-4 py-3">Name</th>
-                      <th className="px-4 py-3">Department</th>
-                      <th className="px-4 py-3">Position</th>
-                      <th className="px-4 py-3 text-right">Rate</th>
-                    </tr>
-                  </thead>
+                <tbody>
+                  {filteredEmployees.map((emp) => {
+                    const isArchived = inactiveStatuses.includes(
+                      String(emp.employment_status || "").toLowerCase(),
+                    );
 
-                  <tbody>
-                    {previewRows.slice(0, 50).map((row, index) => (
+                    return (
                       <tr
-                        key={`${row.employee_no}-${index}`}
-                        className="border-t border-slate-800"
+                        key={emp.id}
+                        className="border-t border-slate-800 hover:bg-slate-800/40"
                       >
-                        <td className="px-4 py-3">{row.employee_no}</td>
-                        <td className="px-4 py-3 font-bold">
-                          {row.first_name} {row.last_name}
+                        <td className="px-4 py-3">
+                          <p className="font-black">
+                            {emp.first_name} {emp.last_name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {emp.employee_no}
+                          </p>
                         </td>
-                        <td className="px-4 py-3">{row.department}</td>
-                        <td className="px-4 py-3">{row.position}</td>
-                        <td className="px-4 py-3 text-right">
-                          {formatMoney(row.basic_rate)}
+
+                        <td className="px-4 py-3">
+                          {emp.email ? (
+                            <span className="text-slate-300">{emp.email}</span>
+                          ) : (
+                            <span className="text-red-400">No email</span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">{emp.department}</td>
+                        <td className="px-4 py-3">{emp.position}</td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={emp.employment_status} />
+                        </td>
+                        <td className="px-4 py-3">{emp.employment_type}</td>
+                        <td className="px-4 py-3 text-yellow-400">
+                          {emp.rate_type || "Daily"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold">
+                          {formatMoney(emp.basic_rate || emp.daily_rate)}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {emp.payroll_active === false ? (
+                            <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
+                              Inactive
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                              Active
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {emp.portal_enabled === false ? (
+                            <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
+                              Disabled
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-400">
+                              Enabled
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${
+                              (emp.attendance_source_preference ||
+                                "Biometrics") === "Employee Portal"
+                                ? "bg-amber-500/10 text-amber-400"
+                                : (emp.attendance_source_preference ||
+                                      "Biometrics") === "Manual Review"
+                                  ? "bg-purple-500/10 text-purple-400"
+                                  : "bg-emerald-500/10 text-emerald-400"
+                            }`}
+                          >
+                            {emp.attendance_source_preference || "Biometrics"}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {emp.sss_no &&
+                          emp.philhealth_no &&
+                          emp.pagibig_no &&
+                          emp.tin_no ? (
+                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                              Complete
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-bold text-yellow-300">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {emp.has_valid_id && emp.has_contract ? (
+                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                              Ready
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
+                              Incomplete
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => editEmployee(emp)}
+                              className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold hover:bg-blue-500"
+                            >
+                              <Pencil size={12} /> Edit
+                            </button>
+
+                            {isArchived ? (
+                              <button
+                                onClick={() => restoreEmployee(emp)}
+                                className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold hover:bg-emerald-500"
+                              >
+                                Restore
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => archiveEmployee(emp)}
+                                className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600"
+                              >
+                                Archive
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </section>
+                    );
+                  })}
 
-        <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6">
-          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Employee List</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Search, filter, edit, export, or archive employee records.
-              </p>
-            </div>
-
-            <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-3 xl:w-auto">
-              <div className="relative">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-3 text-slate-500"
-                />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search employee..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none"
-                />
-              </div>
-
-              <select
-                value={departmentFilter}
-                onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-              >
-                <option value="ALL">All Departments</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.name}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-              >
-                <option value="ALL">All Status</option>
-                {employmentStatuses.map((status) => (
-                  <option key={status.id} value={status.name}>
-                    {status.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="max-h-[680px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1650px] text-sm">
-              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">Position</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Rate Type</th>
-                  <th className="px-4 py-3 text-right">Basic Rate</th>
-                  <th className="px-4 py-3">Payroll</th>
-                  <th className="px-4 py-3">Portal</th>
-                  <th className="px-4 py-3">Attendance Source</th>
-                  <th className="px-4 py-3">Gov IDs</th>
-                  <th className="px-4 py-3">201 File</th>
-                  <th className="px-4 py-3">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredEmployees.map((emp) => {
-                  const isArchived = inactiveStatuses.includes(
-                    String(emp.employment_status || "").toLowerCase()
-                  );
-
-                  return (
-                    <tr
-                      key={emp.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-black">
-                          {emp.first_name} {emp.last_name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {emp.employee_no}
-                        </p>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {emp.email ? (
-                          <span className="text-slate-300">{emp.email}</span>
-                        ) : (
-                          <span className="text-red-400">No email</span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">{emp.department}</td>
-                      <td className="px-4 py-3">{emp.position}</td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={emp.employment_status} />
-                      </td>
-                      <td className="px-4 py-3">{emp.employment_type}</td>
-                      <td className="px-4 py-3 text-yellow-400">
-                        {emp.rate_type || "Daily"}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold">
-                        {formatMoney(emp.basic_rate || emp.daily_rate)}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {emp.payroll_active === false ? (
-                          <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
-                            Inactive
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                            Active
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {emp.portal_enabled === false ? (
-                          <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
-                            Disabled
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-400">
-                            Enabled
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            (emp.attendance_source_preference || "Biometrics") ===
-                            "Employee Portal"
-                              ? "bg-amber-500/10 text-amber-400"
-                              : (emp.attendance_source_preference || "Biometrics") ===
-                                "Manual Review"
-                              ? "bg-purple-500/10 text-purple-400"
-                              : "bg-emerald-500/10 text-emerald-400"
-                          }`}
-                        >
-                          {emp.attendance_source_preference || "Biometrics"}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {emp.sss_no && emp.philhealth_no && emp.pagibig_no && emp.tin_no ? (
-                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                            Complete
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-bold text-yellow-300">
-                            Pending
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {emp.has_valid_id && emp.has_contract ? (
-                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                            Ready
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
-                            Incomplete
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => editEmployee(emp)}
-                            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold hover:bg-blue-500"
-                          >
-                            <Pencil size={12} /> Edit
-                          </button>
-
-                          {isArchived ? (
-                            <button
-                              onClick={() => restoreEmployee(emp)}
-                              className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold hover:bg-emerald-500"
-                            >
-                              Restore
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => archiveEmployee(emp)}
-                              className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600"
-                            >
-                              Archive
-                            </button>
-                          )}
-                        </div>
+                  {filteredEmployees.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={14}
+                        className="px-4 py-12 text-center text-slate-500"
+                      >
+                        No employees found.
                       </td>
                     </tr>
-                  );
-                })}
-
-                {filteredEmployees.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={14}
-                      className="px-4 py-12 text-center text-slate-500"
-                    >
-                      No employees found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </main>
     </div>
@@ -1352,8 +1613,8 @@ function KpiCard({
         danger
           ? "border-red-500/20 bg-red-500/10"
           : success
-          ? "border-green-500/20 bg-green-500/10"
-          : "border-slate-800 bg-slate-900"
+            ? "border-green-500/20 bg-green-500/10"
+            : "border-slate-800 bg-slate-900"
       }`}
     >
       <div className="mb-3 flex items-center gap-3">
@@ -1462,13 +1723,13 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "active"
       ? "bg-emerald-500/10 text-emerald-400"
       : normalized === "probationary"
-      ? "bg-blue-500/10 text-blue-400"
-      : normalized === "resigned" ||
-        normalized === "terminated" ||
-        normalized === "inactive" ||
-        normalized === "awol"
-      ? "bg-red-500/10 text-red-400"
-      : "bg-slate-500/10 text-slate-300";
+        ? "bg-blue-500/10 text-blue-400"
+        : normalized === "resigned" ||
+            normalized === "terminated" ||
+            normalized === "inactive" ||
+            normalized === "awol"
+          ? "bg-red-500/10 text-red-400"
+          : "bg-slate-500/10 text-slate-300";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ${style}`}>
