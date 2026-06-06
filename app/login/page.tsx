@@ -15,33 +15,43 @@ import {
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
-import Image from "next/image";
 
 type LoginEmployee = {
   id: string;
   employee_no: string | null;
   first_name: string | null;
   last_name: string | null;
-  email: string | null;
+  email?: string | null;
   employment_status: string | null;
-  system_role_id: string | null;
+  system_role_id?: string | null;
 };
 
 export default function LoginPage() {
   const router = useRouter();
 
+  /// STATES
   const [emailOrEmployeeNo, setEmailOrEmployeeNo] = useState("");
   const [employeeNo, setEmployeeNo] = useState("");
   const [showEmployeeNo, setShowEmployeeNo] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    const currentEmployeeId = localStorage.getItem("opscore_current_employee_id");
-    if (currentEmployeeId) router.replace("/dashboard");
-  }, [router]);
+  /// DATA
+  const employeeSessionKey = "opscore_current_employee";
+  const employeeIdKey = "opscore_current_employee_id";
+  const employeeNameKey = "opscore_current_employee_name";
 
+  /// CALCULATIONS
   const normalize = (value: string) => value.trim().toLowerCase();
+
+  /// FUNCTIONS
+  useEffect(() => {
+    const currentEmployeeId = localStorage.getItem(employeeIdKey);
+
+    if (currentEmployeeId) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   const login = async () => {
     if (isLoading) return;
@@ -50,7 +60,9 @@ export default function LoginPage() {
     const employeeNoInput = employeeNo.trim();
 
     if (!identifier || !employeeNoInput) {
-      setErrorMessage("Enter your email or employee number, then your employee number.");
+      setErrorMessage(
+        "Enter your email or employee number, then your employee number."
+      );
       return;
     }
 
@@ -79,7 +91,9 @@ export default function LoginPage() {
       return;
     }
 
-    const savedEmployeeNo = String(employee.employee_no || "").trim().toLowerCase();
+    const savedEmployeeNo = String(employee.employee_no || "")
+      .trim()
+      .toLowerCase();
 
     if (savedEmployeeNo !== employeeNoInput.toLowerCase()) {
       setErrorMessage("Employee number does not match this account.");
@@ -91,19 +105,17 @@ export default function LoginPage() {
       return;
     }
 
-    if (!employee.system_role_id) {
-      setErrorMessage("No system role assigned. Ask admin to assign access first.");
-      return;
-    }
+    const employeeName = `${employee.first_name || ""} ${
+      employee.last_name || ""
+    }`.trim();
 
-    localStorage.setItem("opscore_current_employee_id", employee.id);
-    localStorage.setItem(
-      "opscore_current_employee_name",
-      `${employee.first_name || ""} ${employee.last_name || ""}`.trim()
-    );
+    localStorage.setItem(employeeIdKey, employee.id);
+    localStorage.setItem(employeeNameKey, employeeName);
+    localStorage.setItem(employeeSessionKey, JSON.stringify(employee));
 
     window.dispatchEvent(new Event("storage"));
-    router.replace("/dashboard");
+
+    router.replace("/employee-portal");
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -111,6 +123,7 @@ export default function LoginPage() {
     login();
   };
 
+  /// UI
   return (
     <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
       <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
@@ -124,23 +137,19 @@ export default function LoginPage() {
 
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div>
-                <div>
                 <img
-                    src="/images/vincent-logo.png"
-                    alt="Vincent Resort Hotel"
-                    className="h-50 w-auto object-contain"
+                  src="/images/vincent-logo.png"
+                  alt="Vincent Resort Hotel"
+                  className="h-50 w-auto object-contain"
                 />
-                </div>
 
-        
-
-                <h2 className="mt-3 text-3xl font-black text-white-400">
+                <h2 className="mt-3 text-3xl font-black text-white">
                   Hotel Operations & Financial Solutions
                 </h2>
 
                 <p className="mt-5 max-w-xl text-base leading-7 text-slate-400">
-                  Built for owners and managers who need complete visibility over
-                  operations.
+                  Built for owners and managers who need complete visibility
+                  over operations.
                 </p>
               </div>
 
@@ -196,7 +205,7 @@ export default function LoginPage() {
                 </p>
                 <h2 className="mt-3 text-4xl font-black">Welcome back</h2>
                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                  Sign in to continue to your hotel operations dashboard.
+                  Sign in to continue to your employee portal.
                 </p>
               </div>
 
@@ -209,8 +218,10 @@ export default function LoginPage() {
                     <UserCheck size={18} className="text-slate-500" />
                     <input
                       value={emailOrEmployeeNo}
-                      onChange={(event) => setEmailOrEmployeeNo(event.target.value)}
-                      placeholder="ex. admin@hotel.com or EMP-001"
+                      onChange={(event) =>
+                        setEmailOrEmployeeNo(event.target.value)
+                      }
+                      placeholder="ex. BIO-001"
                       className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
                     />
                   </div>
@@ -234,7 +245,11 @@ export default function LoginPage() {
                       onClick={() => setShowEmployeeNo((prev) => !prev)}
                       className="rounded-lg p-1 text-slate-500 hover:bg-slate-800 hover:text-white"
                     >
-                      {showEmployeeNo ? <EyeOff size={17} /> : <Eye size={17} />}
+                      {showEmployeeNo ? (
+                        <EyeOff size={17} />
+                      ) : (
+                        <Eye size={17} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -251,20 +266,18 @@ export default function LoginPage() {
                   disabled={isLoading}
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-amber-400/10 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isLoading ? "Checking access..." : "Enter Dashboard"}
+                  {isLoading ? "Checking access..." : "Enter Employee Portal"}
                   {!isLoading && <ArrowRight size={18} />}
                 </button>
               </form>
 
               <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                <div className="text-center text-xs text-white/60">
-                 <div className="text-center text-xs text-white/50">
-                    <p>Powered by OPSCORE</p>
+                <div className="text-center text-xs text-white/50">
+                  <p>Powered by OPSCORE</p>
 
-                    <p className="mt-1 font-semibold text-white/80">
-                        Developed & Designed by Jherome Antazo
-                    </p>
-                    </div>
+                  <p className="mt-1 font-semibold text-white/80">
+                    Developed & Designed by Jherome Antazo
+                  </p>
                 </div>
               </div>
             </div>
@@ -290,6 +303,7 @@ function FeatureCard({
         <div className="rounded-xl bg-amber-400/10 p-3 text-amber-300">
           {icon}
         </div>
+
         <div>
           <h3 className="font-black">{title}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">
