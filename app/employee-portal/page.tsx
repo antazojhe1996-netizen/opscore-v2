@@ -733,7 +733,7 @@ export default function EmployeePortalPage() {
     const query = supabase
       .from("payroll_snapshots")
       .select("*")
-      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(12);
 
     const { data, error } =
@@ -1222,7 +1222,7 @@ export default function EmployeePortalPage() {
           <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
             <h2 className="text-lg font-black">My Payslips</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Released payroll records will appear here.
+              Your payroll snapshots and downloadable payslips will appear here.
             </p>
 
             <div className="mt-4 space-y-3">
@@ -1262,7 +1262,7 @@ export default function EmployeePortalPage() {
                       onClick={() => downloadPayslipPDF(payslip)}
                       className="mt-4 w-full rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300"
                     >
-                      Download PDF
+                      Download / Print PDF
                     </button>
                   </div>
                 );
@@ -1270,7 +1270,7 @@ export default function EmployeePortalPage() {
 
               {payslips.length === 0 && (
                 <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
-                  No payslips released yet.
+                  No payslips found yet. Ask payroll to generate a payroll snapshot first.
                 </div>
               )}
             </div>
