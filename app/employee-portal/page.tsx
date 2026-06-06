@@ -530,6 +530,52 @@ export default function EmployeePortalPage() {
   return (
     <main className="min-h-screen bg-slate-950 p-4 text-white sm:p-6">
       <section className="mx-auto max-w-4xl">
+        <div id="quick-attendance" className="rounded-3xl border border-amber-400/30 bg-gradient-to-br from-slate-900 via-slate-900 to-amber-500/10 p-5 shadow-xl shadow-black/20">
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-300">Quick Attendance</p>
+          <h2 className="mt-2 text-2xl font-black">Time In / Time Out</h2>
+          <p className="mt-1 text-sm text-slate-400">Open the app, tap once, then close. No scrolling needed.</p>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Info label="Time In" value={formatTime(todayAttendance?.time_in)} />
+            <Info
+              label="Time Out"
+              value={formatTime(todayAttendance?.time_out)}
+            />
+            <Info
+              label="Status"
+              value={todayAttendance?.status || "Not timed in"}
+            />
+            <Info
+              label="Late Minutes"
+              value={todayAttendance?.late_minutes ?? 0}
+            />
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              onClick={handleTimeIn}
+              disabled={loading || !!todayAttendance?.time_in || !currentUser}
+              className="rounded-2xl bg-emerald-500 px-5 py-5 text-base font-black text-slate-950 shadow-lg shadow-emerald-950/30 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Time In
+            </button>
+
+            <button
+              onClick={handleTimeOut}
+              disabled={
+                loading ||
+                !todayAttendance?.time_in ||
+                !!todayAttendance?.time_out
+              }
+              className="rounded-2xl bg-amber-400 px-5 py-5 text-base font-black text-slate-950 shadow-lg shadow-amber-950/30 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Time Out
+            </button>
+          </div>
+        </div>
+
+
+
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -556,16 +602,24 @@ export default function EmployeePortalPage() {
               </div>
             </div>
 
-            <button
-              onClick={logout}
-              className="rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
-            >
-              Logout
-            </button>
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-sm font-black text-emerald-300">
+              Active Session
+            </div>
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <nav className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+          <div className="flex gap-2 overflow-x-auto">
+            <a href="#today-schedule" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Today</a>
+            <a href="#weekly-schedule" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Week</a>
+            <a href="#performance" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Performance</a>
+            <a href="#attendance-history" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">History</a>
+            <a href="#leave" className="min-w-max rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-300 hover:bg-slate-800">Leave</a>
+            <a href="#account" className="min-w-max rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20">Account</a>
+          </div>
+        </nav>
+
+        <div id="today-schedule" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-slate-400">Today&apos;s Schedule</p>
@@ -584,7 +638,7 @@ export default function EmployeePortalPage() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div id="weekly-schedule" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <h2 className="text-lg font-black">This Week</h2>
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
@@ -623,49 +677,7 @@ export default function EmployeePortalPage() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-lg font-black">Attendance</h2>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <Info label="Time In" value={formatTime(todayAttendance?.time_in)} />
-            <Info
-              label="Time Out"
-              value={formatTime(todayAttendance?.time_out)}
-            />
-            <Info
-              label="Status"
-              value={todayAttendance?.status || "Not timed in"}
-            />
-            <Info
-              label="Late Minutes"
-              value={todayAttendance?.late_minutes ?? 0}
-            />
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              onClick={handleTimeIn}
-              disabled={loading || !!todayAttendance?.time_in || !currentUser}
-              className="rounded-xl bg-emerald-500 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Time In
-            </button>
-
-            <button
-              onClick={handleTimeOut}
-              disabled={
-                loading ||
-                !todayAttendance?.time_in ||
-                !!todayAttendance?.time_out
-              }
-              className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Time Out
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div id="performance" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-black">Attendance Performance</h2>
@@ -688,7 +700,7 @@ export default function EmployeePortalPage() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div id="attendance-history" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <h2 className="text-lg font-black">Attendance History</h2>
 
           <div className="mt-4 max-h-80 overflow-auto rounded-2xl border border-slate-800">
@@ -738,7 +750,7 @@ export default function EmployeePortalPage() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div id="leave" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <h2 className="text-lg font-black">Leave Request</h2>
 
           <div className="mt-4 grid grid-cols-1 gap-3">
@@ -824,6 +836,24 @@ export default function EmployeePortalPage() {
             )}
           </div>
         </div>
+
+        <div id="account" className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h2 className="text-lg font-black">Account</h2>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Info label="Name" value={employeeName} />
+            <Info label="Department" value={employeeDepartment} />
+            <Info label="Employee No." value={employeeNumber} />
+          </div>
+
+          <button
+            onClick={logout}
+            className="mt-4 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 font-black text-red-300 hover:bg-red-500/20"
+          >
+            Logout
+          </button>
+        </div>
+
       </section>
     </main>
   );
