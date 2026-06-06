@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
-  CheckCircle,
   ClipboardList,
   UserCheck,
   Users,
@@ -379,7 +378,13 @@ export default function WorkforcePage() {
         required > 0 ? Math.min(100, Math.round((scheduledCount / required) * 100)) : 100,
       status: gap < 0 ? "LOW STAFF" : gap > 0 ? "OVER STAFF" : "NORMAL",
       priority:
-        gap <= -3 ? "High" : gap < 0 ? "Medium" : gap > 0 ? "Review" : "Normal",
+        gap <= -3
+          ? "High"
+          : gap < 0
+          ? "Medium"
+          : gap > 0 || noSchedule.length > 0
+          ? "Review"
+          : "Normal",
       action:
         gap < 0
           ? `Need ${Math.abs(gap)} more staff`
@@ -483,7 +488,7 @@ export default function WorkforcePage() {
       ? "Draft Data"
       : missingStaff >= 5
       ? "Needs Attention"
-      : missingStaff > 0
+      : missingStaff > 0 || noScheduleEmployees.length > 0
       ? "Watchlist"
       : "Stable";
 
@@ -583,7 +588,7 @@ export default function WorkforcePage() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
             <h2 className="text-xl font-bold">Needs Attention</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Departments with shortage, excess manpower, leave impact, or missing published schedule.
+              Departments with shortage, excess manpower, leave impact, no schedule alerts, or missing published schedule.
             </p>
 
             <div className="mt-5 overflow-hidden rounded-xl border border-slate-800">
@@ -642,7 +647,7 @@ export default function WorkforcePage() {
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <h2 className="text-xl font-bold">Department Coverage</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Required, scheduled, available, leave, OFF, gap, and published status.
+            Required, scheduled, available, leave, no schedule, RD, shift colors, gap, and published status.
           </p>
 
           <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

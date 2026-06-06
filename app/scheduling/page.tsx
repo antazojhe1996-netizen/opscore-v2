@@ -1169,21 +1169,12 @@ export default function SchedulingPage() {
 
     if (shiftName === "OFF") return "OFF";
     if (shiftName === "RD") return "RD";
-    if (shift?.time_label && !shift?.start_time && !shift?.end_time) return shift.shift_name;
 
-    const shortName = shiftName.includes("AM")
-      ? "AM"
-      : shiftName.includes("PM")
-      ? "PM"
-      : shiftName.includes("Mid")
-      ? "MID"
-      : shiftName.includes("GY")
-      ? "GY"
-      : shiftName;
+    if (!shift?.start_time || !shift?.end_time) {
+      return shiftName;
+    }
 
-    if (!shift?.start_time || !shift?.end_time) return shortName;
-
-    return `${shortName} ${shift.start_time.slice(0, 5)}-${shift.end_time.slice(0, 5)}`;
+    return `${shift.start_time.slice(0, 5)} - ${shift.end_time.slice(0, 5)}`;
   };
 
   /// EFFECTS
@@ -1765,7 +1756,7 @@ export default function SchedulingPage() {
 
                       {currentShift === "OFF" && (
                         <p className="text-center text-[10px] font-bold text-red-300">
-                          No schedule
+                          Unscheduled
                         </p>
                       )}
 
