@@ -49,7 +49,12 @@ export default function PerformanceKpiSettingsPage() {
     "Custom",
   ];
 
-  const defaultKpis = [
+  const applyToOptions = [
+    { label: "ALL DEPARTMENTS", value: "ALL" },
+    ...departments.map((dept) => ({ label: dept.name, value: dept.name })),
+  ];
+
+  const defaultKpis: KpiSetting[] = [
     {
       metric_key: "late",
       metric_label: "Late Occurrence",
@@ -118,11 +123,13 @@ export default function PerformanceKpiSettingsPage() {
     const { data, error } = await supabase
       .from("performance_kpi_settings")
       .select("*")
+      .order("applies_to_department", { ascending: true })
       .order("category", { ascending: true })
       .order("metric_label", { ascending: true });
 
     if (error) {
       console.log("GET PERFORMANCE KPI SETTINGS ERROR:", error.message);
+      alert(`Failed to load KPI settings: ${error.message}`);
       return;
     }
 
@@ -137,6 +144,7 @@ export default function PerformanceKpiSettingsPage() {
 
     if (error) {
       console.log("GET DEPARTMENTS ERROR:", error.message);
+      alert(`Failed to load departments: ${error.message}`);
       return;
     }
 
@@ -159,7 +167,7 @@ export default function PerformanceKpiSettingsPage() {
 
     if (error) {
       console.log("SEED KPI SETTINGS ERROR:", error.message);
-      alert("Failed to create default KPI settings.");
+      alert(`Failed to create default KPI settings: ${error.message}`);
       return;
     }
 
@@ -176,20 +184,29 @@ export default function PerformanceKpiSettingsPage() {
   };
 
   const updateRow = async (row: KpiSetting) => {
-    if (!row.metric_key || !row.metric_label) {
+    const cleanKey = normalizeMetricKey(row.metric_key);
+    const cleanLabel = String(row.metric_label || "").trim();
+    const cleanApplyTo = row.applies_to_department || "ALL";
+
+    if (!cleanKey || !cleanLabel) {
       alert("Metric key and label are required.");
+      return;
+    }
+
+    if (Number(row.deduction_points || 0) < 0 || Number(row.weight_percent || 0) < 0) {
+      alert("Deduction and weight cannot be negative.");
       return;
     }
 
     setIsSaving(true);
 
     const payload = {
-      metric_key: normalizeMetricKey(row.metric_key),
-      metric_label: row.metric_label.trim(),
+      metric_key: cleanKey,
+      metric_label: cleanLabel,
       category: row.category || "Custom",
       deduction_points: Number(row.deduction_points || 0),
       weight_percent: Number(row.weight_percent || 0),
-      applies_to_department: row.applies_to_department || "ALL",
+      applies_to_department: cleanApplyTo,
       is_enabled: row.is_enabled === true,
     };
 
@@ -203,7 +220,7 @@ export default function PerformanceKpiSettingsPage() {
 
     if (error) {
       console.log("SAVE KPI SETTING ERROR:", error.message);
-      alert("Failed to save KPI setting.");
+      alert(`Failed to save KPI setting: ${error.message}`);
       return;
     }
 
@@ -217,27 +234,37 @@ export default function PerformanceKpiSettingsPage() {
       newValue: payload,
     });
 
-    getKpiSettings();
+    await getKpiSettings();
   };
 
   const addNewMetric = async () => {
     const cleanKey = normalizeMetricKey(metricKey || metricLabel);
+    const cleanLabel = metricLabel.trim();
+    const cleanDeduction = Number(deductionPoints || 0);
+    const cleanWeight = Number(weightPercent || 0);
+    const cleanApplyTo = appliesToDepartment || "ALL";
 
-    if (!cleanKey || !metricLabel.trim()) {
+    if (!cleanKey || !cleanLabel) {
       alert("Please enter metric key and label.");
+      return;
+    }
+
+    if (cleanDeduction < 0 || cleanWeight < 0) {
+      alert("Deduction and weight cannot be negative.");
       return;
     }
 
     await updateRow({
       metric_key: cleanKey,
-      metric_label: metricLabel.trim(),
+      metric_label: cleanLabel,
       category,
-      deduction_points: Number(deductionPoints || 0),
-      weight_percent: Number(weightPercent || 0),
-      applies_to_department: appliesToDepartment,
+      deduction_points: cleanDeduction,
+      weight_percent: cleanWeight,
+      applies_to_department: cleanApplyTo,
       is_enabled: true,
     });
 
+    setSelectedDepartment(cleanApplyTo);
     setMetricKey("");
     setMetricLabel("");
     setCategory("Attendance");
@@ -252,14 +279,18 @@ export default function PerformanceKpiSettingsPage() {
     const confirmed = confirm(`Delete KPI setting: ${row.metric_label}?`);
     if (!confirmed) return;
 
+    setIsSaving(true);
+
     const { error } = await supabase
       .from("performance_kpi_settings")
       .delete()
       .eq("id", row.id);
 
+    setIsSaving(false);
+
     if (error) {
       console.log("DELETE KPI SETTING ERROR:", error.message);
-      alert("Failed to delete KPI setting.");
+      alert(`Failed to delete KPI setting: ${error.message}`);
       return;
     }
 
@@ -276,19 +307,6 @@ export default function PerformanceKpiSettingsPage() {
     getKpiSettings();
   };
 
-  const duplicateForDepartment = async (row: KpiSetting, department: string) => {
-    if (!department || department === "ALL") {
-      alert("Please select a department override.");
-      return;
-    }
-
-    await updateRow({
-      ...row,
-      id: undefined,
-      applies_to_department: department,
-    });
-  };
-
   /// EFFECTS
   useEffect(() => {
     getKpiSettings();
@@ -298,7 +316,10 @@ export default function PerformanceKpiSettingsPage() {
   /// CALCULATIONS
   const filteredRows = useMemo(() => {
     return settingsRows.filter((row) => {
-      if (selectedDepartment === "ALL") return row.applies_to_department === "ALL";
+      if (selectedDepartment === "ALL") {
+        return row.applies_to_department === "ALL";
+      }
+
       return (
         row.applies_to_department === "ALL" ||
         row.applies_to_department === selectedDepartment
@@ -312,7 +333,11 @@ export default function PerformanceKpiSettingsPage() {
     0
   );
 
-  const departmentOverrides = settingsRows.filter(
+  const allDepartmentRules = settingsRows.filter(
+    (row) => row.applies_to_department === "ALL"
+  ).length;
+
+  const specificDepartmentRules = settingsRows.filter(
     (row) => row.applies_to_department !== "ALL"
   ).length;
 
@@ -333,7 +358,7 @@ export default function PerformanceKpiSettingsPage() {
             <h1 className="mt-2 text-4xl font-black">Performance KPI Settings</h1>
 
             <p className="mt-2 max-w-4xl text-sm text-slate-400">
-              Configure deductions, weights, and department-specific KPI rules used by Performance Monitoring.
+              Configure attendance and performance metrics. Use ALL DEPARTMENTS for current shared rules, then add department-only KPIs later when QA standards are ready.
             </p>
           </div>
 
@@ -348,16 +373,16 @@ export default function PerformanceKpiSettingsPage() {
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <KpiCard icon={<Settings size={22} />} title="Total KPI Rules" value={settingsRows.length} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Enabled Rules" value={enabledRows.length} success />
-          <KpiCard icon={<BarChart3 size={22} />} title="Active Weight" value={`${totalWeight}%`} danger={totalWeight !== 100} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Department Overrides" value={departmentOverrides} danger={departmentOverrides > 0} />
+          <KpiCard icon={<CheckCircle2 size={22} />} title="Enabled In View" value={enabledRows.length} success />
+          <KpiCard icon={<BarChart3 size={22} />} title="View Weight" value={`${totalWeight}%`} danger={totalWeight !== 100} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Dept Rules" value={specificDepartmentRules} danger={specificDepartmentRules > 0} />
         </section>
 
         {totalWeight !== 100 && enabledRows.length > 0 && (
           <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 text-yellow-200">
-            <p className="font-black">Weight total is {totalWeight}%.</p>
+            <p className="font-black">Current view weight total is {totalWeight}%.</p>
             <p className="mt-1 text-sm text-yellow-100/80">
-              Recommended total is 100%. Performance Monitoring can still run, but score weighting may be unbalanced.
+              Recommended total is 100%. For now, keep shared KPIs under ALL DEPARTMENTS unless a department has a separate QA metric.
             </p>
           </section>
         )}
@@ -370,18 +395,22 @@ export default function PerformanceKpiSettingsPage() {
           <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
             <Input label="Metric Key" value={metricKey} setValue={setMetricKey} placeholder="auto_from_label" />
             <Input label="Metric Label" value={metricLabel} setValue={setMetricLabel} placeholder="Example: Late Occurrence" />
-
             <Select label="Category" value={category} setValue={setCategory} options={categoryOptions} />
-
             <Input label="Deduction Points" type="number" value={deductionPoints} setValue={setDeductionPoints} />
             <Input label="Weight %" type="number" value={weightPercent} setValue={setWeightPercent} />
-
-            <Select
-              label="Applies To"
+            <SelectWithLabel
+              label="Apply To"
               value={appliesToDepartment}
               setValue={setAppliesToDepartment}
-              options={["ALL", ...departments.map((dept) => dept.name)]}
+              options={applyToOptions}
             />
+          </div>
+
+          <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-100">
+            <p className="font-black">Recommended V1 setup</p>
+            <p className="mt-1 text-blue-100/80">
+              Use ALL DEPARTMENTS for Late, Undertime, Absent, Missing Timeout, No Schedule, and Review Flag. Use a specific department only for future QA metrics like Room Cleaning Score or Cash Variance.
+            </p>
           </div>
 
           <button
@@ -389,7 +418,7 @@ export default function PerformanceKpiSettingsPage() {
             disabled={isSaving}
             className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
           >
-            Add Metric
+            {isSaving ? "Saving..." : "Add Metric"}
           </button>
         </section>
 
@@ -398,26 +427,27 @@ export default function PerformanceKpiSettingsPage() {
             <div>
               <h2 className="text-xl font-black">KPI Rules</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Edit deduction and weight values. Use department overrides when a department needs a different rule.
+                All Departments view shows shared KPI rules only. A department view shows shared rules plus rules assigned to that department.
               </p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-300">
+                  Shared: {allDepartmentRules}
+                </span>
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-blue-300">
+                  Department-only: {specificDepartmentRules}
+                </span>
+              </div>
             </div>
 
-            <select
+            <SelectNative
               value={selectedDepartment}
-              onChange={(event) => setSelectedDepartment(event.target.value)}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm outline-none"
-            >
-              <option value="ALL">Global Rules</option>
-              {departments.map((dept) => (
-                <option key={dept.id || dept.name} value={dept.name}>
-                  {dept.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedDepartment}
+              options={applyToOptions}
+            />
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1200px] text-sm">
+          <div className="overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[1050px] text-sm">
               <thead className="bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Enabled</th>
@@ -426,8 +456,7 @@ export default function PerformanceKpiSettingsPage() {
                   <th className="px-4 py-3">Category</th>
                   <th className="px-4 py-3">Deduction</th>
                   <th className="px-4 py-3">Weight</th>
-                  <th className="px-4 py-3">Applies To</th>
-                  <th className="px-4 py-3">Override</th>
+                  <th className="px-4 py-3">Apply To</th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
@@ -441,15 +470,14 @@ export default function PerformanceKpiSettingsPage() {
                     categoryOptions={categoryOptions}
                     saveRow={updateRow}
                     deleteRow={deleteRow}
-                    duplicateForDepartment={duplicateForDepartment}
                     isSaving={isSaving}
                   />
                 ))}
 
                 {filteredRows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
-                      No KPI settings found. Click Create Default KPIs.
+                    <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                      No KPI settings found. Click Create Default KPIs or add a new metric.
                     </td>
                   </tr>
                 )}
@@ -474,7 +502,6 @@ function EditableKpiRow({
   categoryOptions,
   saveRow,
   deleteRow,
-  duplicateForDepartment,
   isSaving,
 }: {
   row: KpiSetting;
@@ -482,11 +509,9 @@ function EditableKpiRow({
   categoryOptions: string[];
   saveRow: (row: KpiSetting) => void;
   deleteRow: (row: KpiSetting) => void;
-  duplicateForDepartment: (row: KpiSetting, department: string) => void;
   isSaving: boolean;
 }) {
   const [draft, setDraft] = useState<KpiSetting>(row);
-  const [overrideDepartment, setOverrideDepartment] = useState("");
 
   useEffect(() => {
     setDraft(row);
@@ -500,7 +525,7 @@ function EditableKpiRow({
   };
 
   return (
-    <tr className="border-t border-slate-800">
+    <tr className="border-t border-slate-800 hover:bg-slate-800/40">
       <td className="px-4 py-3">
         <input
           type="checkbox"
@@ -514,7 +539,7 @@ function EditableKpiRow({
         <input
           value={draft.metric_key}
           onChange={(event) => updateDraft("metric_key", event.target.value)}
-          className="w-36 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none"
+          className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none"
         />
       </td>
 
@@ -522,7 +547,7 @@ function EditableKpiRow({
         <input
           value={draft.metric_label}
           onChange={(event) => updateDraft("metric_label", event.target.value)}
-          className="w-56 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none"
+          className="w-64 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none"
         />
       </td>
 
@@ -560,11 +585,11 @@ function EditableKpiRow({
 
       <td className="px-4 py-3">
         <select
-          value={draft.applies_to_department}
+          value={draft.applies_to_department || "ALL"}
           onChange={(event) => updateDraft("applies_to_department", event.target.value)}
-          className="w-44 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none"
+          className="w-52 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none"
         >
-          <option value="ALL">ALL</option>
+          <option value="ALL">ALL DEPARTMENTS</option>
           {departments.map((dept) => (
             <option key={dept.id || dept.name} value={dept.name}>
               {dept.name}
@@ -575,35 +600,11 @@ function EditableKpiRow({
 
       <td className="px-4 py-3">
         <div className="flex gap-2">
-          <select
-            value={overrideDepartment}
-            onChange={(event) => setOverrideDepartment(event.target.value)}
-            className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none"
-          >
-            <option value="">Department</option>
-            {departments.map((dept) => (
-              <option key={dept.id || dept.name} value={dept.name}>
-                {dept.name}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={() => duplicateForDepartment(draft, overrideDepartment)}
-            disabled={!overrideDepartment || isSaving}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-black hover:bg-blue-500 disabled:opacity-50"
-          >
-            Copy
-          </button>
-        </div>
-      </td>
-
-      <td className="px-4 py-3">
-        <div className="flex gap-2">
           <button
             onClick={() => saveRow(draft)}
             disabled={isSaving}
             className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black hover:bg-emerald-500 disabled:opacity-50"
+            title="Save KPI rule"
           >
             <Save size={13} />
           </button>
@@ -612,6 +613,7 @@ function EditableKpiRow({
             onClick={() => deleteRow(draft)}
             disabled={isSaving || !draft.id}
             className="rounded-lg bg-red-600 px-3 py-2 text-xs font-black hover:bg-red-500 disabled:opacity-50"
+            title="Delete KPI rule"
           >
             <Trash2 size={13} />
           </button>
@@ -694,5 +696,40 @@ function Select({ label, value, setValue, options }: any) {
         ))}
       </select>
     </div>
+  );
+}
+
+function SelectWithLabel({ label, value, setValue, options }: any) {
+  return (
+    <div>
+      <label className="text-sm font-semibold text-slate-300">{label}</label>
+      <select
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+      >
+        {options.map((option: { label: string; value: string }) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function SelectNative({ value, onChange, options }: any) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none xl:w-72"
+    >
+      {options.map((option: { label: string; value: string }) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }

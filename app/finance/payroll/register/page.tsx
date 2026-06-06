@@ -50,6 +50,7 @@ export default function PayrollRegisterPage() {
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
 
   const deductionTypes = [
     "Resto Unpaid",
@@ -78,12 +79,47 @@ export default function PayrollRegisterPage() {
   const payrollIsOutdated = Boolean(selectedPeriod?.needs_regeneration);
 
   const isLocked =
-    periodStatus === "Approved" ||
     periodStatus === "Released" ||
+    periodStatus === "Partially Released" ||
     periodStatus === "Paid" ||
-    periodStatus === "For Approval";
+    (periodStatus === "Approved" && selectedPeriod?.attendance_locked === true);
 
   const canEditPayroll = !isLocked;
+
+  const closedRegisterStatuses = [
+    "For Approval",
+    "Approved",
+    "Released",
+    "Partially Released",
+    "Paid",
+    "Cancelled",
+  ];
+
+  const isRecordClosedForRegister = (record: any) => {
+    const status = String(record.status || "").trim();
+    const releaseStatus = String(record.release_status || "").trim();
+    const paidAmount = Number(record.paid_amount || record.released_amount || 0);
+    const hasReleaseDate = Boolean(record.released_at);
+
+    return (
+      closedRegisterStatuses.includes(status) ||
+      closedRegisterStatuses.includes(releaseStatus) ||
+      paidAmount > 0 ||
+      hasReleaseDate
+    );
+  };
+
+  const isRecordSendableFromRegister = (record: any) => {
+    const status = String(record.status || "Draft").trim();
+    const releaseStatus = String(record.release_status || "Pending").trim();
+
+    if (isRecordClosedForRegister(record)) return false;
+    if (["For Approval", "Approved"].includes(status)) return false;
+    if (["For Approval", "Approved"].includes(releaseStatus)) return false;
+
+    return true;
+  };
+
   const isSettingEnabled = (
     activeSettings: Record<string, string>,
     key: string
@@ -300,19 +336,165 @@ export default function PayrollRegisterPage() {
     await getPeriods();
   };
 
+  const getMaxBalanceDeductionForRecord = (record: any) => {
+    return getActiveBalancesForEmployee(record.employee_id).reduce(
+      (sum, balance) => sum + Number(balance.remaining_balance || 0),
+      0
+    );
+  };
 
-  const balanceAppliesToSelectedPeriod = (balance: any) => {
-    const source = String(balance.source_module || "");
-    const balancePeriodId = balance.period_id ? String(balance.period_id) : "";
+  const recomputeRecordTotals = (record: any, balanceDeductionValue: number) => {
+    const autoDeduction = getAutoDeductionTotal(record);
+    const governmentDeduction = getGovernmentDeductionTotal(record);
+    const manualDeduction = Number(record.manual_deduction || 0);
+    const grossPay = Number(record.gross_pay || 0);
 
-    // Cash Drawer / Expenses cash advances are tied to the cutoff that covers
-    // the transaction date. Never deduct a future/other-cutoff CA in this period.
-    if (["Cash Drawer", "Expenses"].includes(source) && balancePeriodId) {
-      return balancePeriodId === String(selectedPeriodId);
+    const totalDeductions =
+      autoDeduction + manualDeduction + balanceDeductionValue + governmentDeduction;
+
+    const netPay = grossPay - totalDeductions;
+    const releaseAmount = Math.max(netPay, 0);
+    const carryForwardAmount = Math.max(Math.abs(Math.min(netPay, 0)), 0);
+
+    return {
+      balance_deduction: balanceDeductionValue,
+      total_deductions: totalDeductions,
+      net_pay: netPay,
+      release_amount: releaseAmount,
+      carry_forward_amount: carryForwardAmount,
+    };
+  };
+
+  const updateRecordBalanceDeduction = async (record: any, rawValue: any) => {
+    if (!canEditPayroll) {
+      alert("This payroll is locked. Reopen first before editing CA deductions.");
+      return;
     }
 
-    // Carry-forward balances from Payroll Manager must remain available for the
-    // next payroll even if their source period is the previous cutoff.
+    const maxBalance = getMaxBalanceDeductionForRecord(record);
+    const requestedAmount = Math.max(0, Number(rawValue || 0));
+    const safeAmount = Math.min(requestedAmount, maxBalance);
+
+    if (requestedAmount > maxBalance) {
+      alert(`Balance deduction cannot exceed active CA balance: ${formatMoney(maxBalance)}.`);
+    }
+
+    const updatedTotals = recomputeRecordTotals(record, safeAmount);
+
+    setIsSaving(true);
+
+    const { error } = await supabase
+      .from("payroll_records")
+      .update(updatedTotals)
+      .eq("id", record.id);
+
+    setIsSaving(false);
+
+    if (error) {
+      console.log("UPDATE BALANCE DEDUCTION ERROR:", error.message);
+      alert(`Failed to update CA deduction.
+
+${error.message}`);
+      return;
+    }
+
+    setBalanceDrafts((prev) => ({
+      ...prev,
+      [record.id]: String(safeAmount),
+    }));
+
+    setRecords((prev) =>
+      prev.map((item) =>
+        String(item.id) === String(record.id)
+          ? {
+              ...item,
+              ...updatedTotals,
+            }
+          : item
+      )
+    );
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Update CA Deduction",
+      description: `${record.employee_name} CA deduction set to ${formatMoney(safeAmount)} for ${selectedPeriod?.period_name || selectedPeriodId}`,
+      severity: "warning",
+      recordId: record.id,
+      oldValue: record,
+      newValue: updatedTotals,
+    });
+  };
+
+  const applyReleasedBalanceDeductions = async (targetRecords: any[]) => {
+    for (const record of targetRecords) {
+      let remainingDeduction = Number(record.balance_deduction || 0);
+
+      if (remainingDeduction <= 0) continue;
+
+      const balances = getActiveBalancesForEmployee(record.employee_id).sort((a, b) =>
+        String(a.created_at || "").localeCompare(String(b.created_at || ""))
+      );
+
+      for (const balance of balances) {
+        if (remainingDeduction <= 0) break;
+
+        const currentBalance = Number(balance.remaining_balance || 0);
+        const appliedAmount = Math.min(currentBalance, remainingDeduction);
+        const newRemainingBalance = Math.max(currentBalance - appliedAmount, 0);
+        const newStatus = newRemainingBalance <= 0 ? "Paid" : "Active";
+
+        const { error } = await supabase
+          .from("employee_balances")
+          .update({
+            remaining_balance: newRemainingBalance,
+            status: newStatus,
+            last_deduction_amount: appliedAmount,
+            last_deduction_period_id: selectedPeriodId,
+            last_deduction_at: new Date().toISOString(),
+          })
+          .eq("id", balance.id);
+
+        if (error) {
+          console.log("APPLY BALANCE DEDUCTION ERROR:", error.message);
+          throw new Error(error.message);
+        }
+
+        await createAuditLog({
+          userName: "OPSCORE USER",
+          module: "Payroll",
+          action: "Apply CA Deduction",
+          description: `${record.employee_name} CA deduction ${formatMoney(appliedAmount)} applied. Remaining: ${formatMoney(newRemainingBalance)}`,
+          severity: "warning",
+          recordId: balance.id,
+          oldValue: balance,
+          newValue: {
+            payrollRecordId: record.id,
+            periodId: selectedPeriodId,
+            appliedAmount,
+            remaining_balance: newRemainingBalance,
+            status: newStatus,
+          },
+        });
+
+        remainingDeduction -= appliedAmount;
+      }
+    }
+  };
+
+
+  const balanceAppliesToSelectedPeriod = (balance: any) => {
+    const remaining = Number(balance.remaining_balance || 0);
+    const status = String(balance.status || "Active");
+
+    // V3 rule:
+    // Active employee balances are available for deduction until fully paid.
+    // Do not lock CA to the same payroll period because Cash Drawer / Expenses
+    // can create a CA in one cutoff while the deduction is decided later.
+    // The payroll admin controls the actual amount through "CA Deduct This Cutoff".
+    if (status !== "Active") return false;
+    if (remaining <= 0) return false;
+
     return true;
   };
 
@@ -702,6 +884,15 @@ export default function PayrollRegisterPage() {
       net_pay: netPay,
       release_amount: releaseAmount,
       carry_forward_amount: carryForwardAmount,
+
+      // Payroll Manager V3 release tracking.
+      // These fields keep release history stable and prevent partial releases
+      // from disappearing after a refresh or future manager action.
+      paid_amount: 0,
+      remaining_amount: releaseAmount,
+      release_status: "Pending",
+      remaining_payroll_balance: releaseAmount,
+
       period_label: selectedPeriod?.period_name || "Payroll Period",
     };
   };
@@ -723,7 +914,7 @@ export default function PayrollRegisterPage() {
     }
 
     const confirmGenerate = confirm(
-      "Generate payroll using approved adjustments only? Existing records for this period will be replaced."
+      "Generate payroll using approved adjustments only? Draft / editable records for this period will be refreshed. Released or partially released payroll records will be preserved."
     );
 
     if (!confirmGenerate) return;
@@ -748,10 +939,65 @@ export default function PayrollRegisterPage() {
 
     const latestBalances = latestBalancesData || [];
 
-    await supabase.from("payroll_records").delete().eq("period_id", selectedPeriodId);
+    const { data: existingPeriodRecords, error: existingRecordsError } = await supabase
+      .from("payroll_records")
+      .select("*")
+      .eq("period_id", selectedPeriodId);
+
+    if (existingRecordsError) {
+      setIsSaving(false);
+      alert("Failed to check existing payroll records before generation.");
+      return console.log("CHECK EXISTING PAYROLL RECORDS ERROR:", existingRecordsError.message);
+    }
+
+    const protectedExistingRecords = (existingPeriodRecords || []).filter((record) => {
+      const status = String(record.status || "");
+      const releaseStatus = String(record.release_status || "");
+      const paidAmount = Number(record.paid_amount || 0);
+      const remainingAmount = Number(record.remaining_amount || 0);
+
+      return (
+        status === "For Approval" ||
+        status === "Approved" ||
+        status === "Released" ||
+        status === "Paid" ||
+        status === "Partially Released" ||
+        releaseStatus === "For Approval" ||
+        releaseStatus === "Approved" ||
+        releaseStatus === "Released" ||
+        releaseStatus === "Partially Released" ||
+        paidAmount > 0 ||
+        (remainingAmount > 0 && status !== "Draft")
+      );
+    });
+
+    const protectedEmployeeIds = new Set(
+      protectedExistingRecords.map((record) => String(record.employee_id))
+    );
+
+    const editableExistingIds = (existingPeriodRecords || [])
+      .filter((record) => !protectedExistingRecords.some((protectedRecord) => String(protectedRecord.id) === String(record.id)))
+      .map((record) => record.id);
+
+    if (editableExistingIds.length > 0) {
+      const { error: deleteEditableError } = await supabase
+        .from("payroll_records")
+        .delete()
+        .in("id", editableExistingIds);
+
+      if (deleteEditableError) {
+        setIsSaving(false);
+        alert("Failed to refresh editable payroll records.");
+        return console.log("DELETE EDITABLE PAYROLL RECORDS ERROR:", deleteEditableError.message);
+      }
+    }
+
+    const employeesToGenerate = employees.filter(
+      (employee) => !protectedEmployeeIds.has(String(employee.id))
+    );
 
     const generated = await Promise.all(
-      employees.map(async (employee) => {
+      employeesToGenerate.map(async (employee) => {
         const attendance = await getAttendanceSummary(employee.id);
 
         const approvedPeriodAdjustments = adjustments.filter(
@@ -807,10 +1053,9 @@ export default function PayrollRegisterPage() {
           absent_days: attendance.absentDays,
           ot_minutes: attendance.otMinutes,
           holiday_worked_dates: attendance.holidayWorkedDates,
-          balance_deductions: activeBalanceAdjustments.reduce(
-            (sum, item) => sum + Number(item.amount || 0),
-            0
-          ),
+          // CA / employee balances are intentionally not auto-deducted in full.
+          // Payroll admin sets the partial amount in the Final Payroll Register.
+          balance_deductions: 0,
           remarks: "",
         };
 
@@ -818,15 +1063,18 @@ export default function PayrollRegisterPage() {
       })
     );
 
-    const { error } = await supabase.from("payroll_records").insert(generated);
+    if (generated.length > 0) {
+      const { error } = await supabase.from("payroll_records").insert(generated);
+
+      if (error) {
+        setIsSaving(false);
+        console.log("GENERATE PAYROLL ERROR:", error);
+        alert(`Failed to generate payroll.\n\n${error.message}`);
+        return;
+      }
+    }
 
     setIsSaving(false);
-
-    if (error) {
-      console.log("GENERATE PAYROLL ERROR:", error);
-      alert(`Failed to generate payroll.\n\n${error.message}`);
-      return;
-    }
 
     await supabase
       .from("payroll_periods")
@@ -857,6 +1105,7 @@ export default function PayrollRegisterPage() {
       newValue: {
         period: selectedPeriod,
         generatedCount: generated.length,
+        preservedReleasedCount: protectedExistingRecords.length,
         totalGross: generated.reduce((sum, record) => sum + Number(record.gross_pay || 0), 0),
         totalDeductions: generated.reduce((sum, record) => sum + Number(record.total_deductions || 0), 0),
         totalRelease: generated.reduce((sum, record) => sum + Number(record.release_amount || 0), 0),
@@ -864,7 +1113,7 @@ export default function PayrollRegisterPage() {
       },
     });
 
-    alert("Payroll generated using approved adjustments only.");
+    alert(`Payroll generated. CA balances are available for manual partial deduction. Preserved released/partial records: ${protectedExistingRecords.length}.`);
   };
 
   const addAdjustment = async () => {
@@ -1381,169 +1630,6 @@ This will remove it from future payroll deductions but keep the audit trail.`
     return true;
   };
 
-const releasePayroll = async (mode: "all" | "selected") => {
-    if (!selectedPeriodId || records.length === 0) {
-      alert("Select a payroll period with generated records first.");
-      return;
-    }
-
-    const targetRecords =
-      mode === "all"
-        ? records
-        : records.filter((record) => selectedRecordIds.includes(String(record.id)));
-
-    if (targetRecords.length === 0) {
-      alert("No employee records selected for release.");
-      return;
-    }
-
-    const confirmed = confirm(
-      `Release payroll?\n\nMode: ${
-        mode === "all" ? "Release All" : "Release Selected"
-      }\nEmployees: ${targetRecords.length}\nRelease Amount: ${formatMoney(
-        targetRecords.reduce(
-          (sum, record) => sum + getDisplayedReleaseAmount(record),
-          0
-        )
-      )}\n\nThis will save permanent payroll release history.`
-    );
-
-    if (!confirmed) return;
-
-    const releasedBy =
-      prompt("Released by:", settings.authorized_signatory || "Payroll Admin") ||
-      "Payroll Admin";
-
-    setIsSaving(true);
-
-    const now = new Date().toISOString();
-
-    const snapshotOk = await createPayrollSnapshots(
-      targetRecords,
-      "Release Snapshot"
-    );
-
-    if (!snapshotOk) {
-      setIsSaving(false);
-      return;
-    }
-
-    const historyRows = targetRecords.map((record) => ({
-      payroll_record_id: record.id,
-      employee_id: record.employee_id,
-      employee_no: record.employee_no,
-      employee_name: record.employee_name,
-      department: record.department,
-      period_id: selectedPeriodId,
-      cutoff_label:
-        record.period_label || selectedPeriod?.period_name || "Payroll Period",
-      gross_pay: Number(record.gross_pay || 0),
-      total_deductions: getDisplayedTotalDeductions(record),
-      net_pay: getDisplayedNetPay(record),
-      released_amount: getDisplayedReleaseAmount(record),
-      carry_forward_amount: getDisplayedCarryForwardAmount(record),
-      released_by: releasedBy.trim(),
-      released_at: now,
-      remarks: record.remarks || "",
-    }));
-
-    const { error: historyError } = await supabase
-      .from("payroll_release_history")
-      .upsert(historyRows, {
-        onConflict: "payroll_record_id",
-      });
-
-    if (historyError) {
-      setIsSaving(false);
-      console.log("SAVE RELEASE HISTORY ERROR:", historyError);
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Payroll",
-        action: "Release Payroll Failed",
-        description: `Failed to save payroll release history for ${selectedPeriod?.period_name || selectedPeriodId}: ${historyError.message}`,
-        severity: "critical",
-        recordId: selectedPeriodId,
-        newValue: { error: historyError.message, targetCount: targetRecords.length },
-      });
-      alert(`Failed to save payroll release history.
-
-${historyError.message}`);
-      return;
-    }
-
-    const targetIds = targetRecords.map((record) => record.id);
-
-    const { error: recordError } = await supabase
-      .from("payroll_records")
-      .update({
-        status: "Released",
-        released_by: releasedBy.trim(),
-        released_at: now,
-      })
-      .in("id", targetIds);
-
-    if (recordError) {
-      setIsSaving(false);
-      console.log("UPDATE RELEASED RECORDS ERROR:", recordError);
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Payroll",
-        action: "Release Payroll Partial Failure",
-        description: `Release history saved but record status update failed for ${selectedPeriod?.period_name || selectedPeriodId}: ${recordError.message}`,
-        severity: "critical",
-        recordId: selectedPeriodId,
-        newValue: { error: recordError.message, targetCount: targetRecords.length },
-      });
-      alert(`Release history saved, but record status update failed.
-
-${recordError.message}`);
-      return;
-    }
-
-    const { error: periodError } = await supabase
-      .from("payroll_periods")
-      .update({
-        status: mode === "all" ? "Released" : "Partially Released",
-        released_by: releasedBy.trim(),
-        released_at: now,
-      })
-      .eq("id", selectedPeriodId);
-
-    if (periodError) {
-      console.log("UPDATE RELEASED PERIOD ERROR:", periodError.message);
-    }
-
-    setIsSaving(false);
-
-    await getPeriods();
-    await getRecords(selectedPeriodId);
-    setSelectedRecordIds([]);
-    setSelectedPayslipId("");
-    setSelectedPayslip(null);
-    setSelectedAuditRecord(null);
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Payroll",
-      action: "Release Payroll",
-      description: `${targetRecords.length} payroll record(s) released for ${selectedPeriod?.period_name || selectedPeriodId}. Released by: ${releasedBy.trim()}`,
-      severity: "warning",
-      recordId: selectedPeriodId,
-      newValue: {
-        mode,
-        releasedBy: releasedBy.trim(),
-        recordCount: targetRecords.length,
-        grossPay: targetRecords.reduce((sum, record) => sum + Number(record.gross_pay || 0), 0),
-        totalDeductions: targetRecords.reduce((sum, record) => sum + getDisplayedTotalDeductions(record), 0),
-        releaseAmount: targetRecords.reduce((sum, record) => sum + getDisplayedReleaseAmount(record), 0),
-        carryForwardAmount: targetRecords.reduce((sum, record) => sum + getDisplayedCarryForwardAmount(record), 0),
-        recordIds: targetIds,
-      },
-    });
-
-    alert("Payroll released and saved to release history.");
-  };
-
   const sendPayrollToManager = async (mode: "all" | "selected") => {
     if (!selectedPeriodId || records.length === 0) return;
 
@@ -1554,10 +1640,12 @@ ${recordError.message}`);
       return;
     }
 
+    const sendableRecords = records.filter((record) => isRecordSendableFromRegister(record));
+
     const targetRecords =
       mode === "all"
-        ? records
-        : records.filter((record) => selectedRecordIds.includes(String(record.id)));
+        ? sendableRecords
+        : sendableRecords.filter((record) => selectedRecordIds.includes(String(record.id)));
 
     if (targetRecords.length === 0) {
       alert("No selected employees.");
@@ -1589,7 +1677,7 @@ ${recordError.message}`);
 
     const confirmMessage = `Send Payroll to Manager?
 
-Mode: ${mode === "all" ? "Approve All" : "Approve Selected"}
+Mode: ${mode === "all" ? "Send All Ready" : "Send Selected"}
 Employees: ${targetRecords.length}
 Gross Pay: ${formatMoney(targetGross)}
 Deductions: ${formatMoney(targetDeductions)}
@@ -1631,8 +1719,8 @@ This will:
       .from("payroll_periods")
       .update({
         status: mode === "all" ? "Approved" : "Partially Approved",
-        attendance_locked: true,
-        attendance_locked_at: now,
+        attendance_locked: mode === "all",
+        attendance_locked_at: mode === "all" ? now : null,
         snapshot_created_at: now,
         needs_regeneration: false,
       })
@@ -1690,7 +1778,7 @@ This will:
       },
     });
 
-    alert("Payroll snapshot created, attendance locked, and payroll sent to Payroll Manager.");
+    alert("Payroll snapshot created, attendance locked, and payroll sent to Payroll Manager for release.");
   };
 
   useEffect(() => {
@@ -1709,40 +1797,44 @@ This will:
     }
   }, [selectedPeriodId]);
 
+  const editableRegisterRecords = useMemo(() => {
+    return records.filter((record) => !isRecordClosedForRegister(record));
+  }, [records]);
+
   const filteredRecords = useMemo(() => {
-    return records.filter((record) =>
+    return editableRegisterRecords.filter((record) =>
       `${record.employee_name} ${record.department} ${record.position}`
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
     );
-  }, [records, searchTerm]);
+  }, [editableRegisterRecords, searchTerm]);
 
-  const totalGross = records.reduce(
+  const totalGross = editableRegisterRecords.reduce(
     (sum, record) => sum + Number(record.gross_pay || 0),
     0
   );
 
-  const totalDeductions = records.reduce(
+  const totalDeductions = editableRegisterRecords.reduce(
     (sum, record) => sum + getDisplayedTotalDeductions(record),
     0
   );
 
-  const totalNet = records.reduce(
+  const totalNet = editableRegisterRecords.reduce(
     (sum, record) => sum + getDisplayedNetPay(record),
     0
   );
 
-  const totalReleaseAmount = records.reduce(
+  const totalReleaseAmount = editableRegisterRecords.reduce(
     (sum, record) => sum + getDisplayedReleaseAmount(record),
     0
   );
 
-  const totalCarryForwardAmount = records.reduce(
+  const totalCarryForwardAmount = editableRegisterRecords.reduce(
     (sum, record) => sum + getDisplayedCarryForwardAmount(record),
     0
   );
 
-  const totalGovernmentDeductions = records.reduce(
+  const totalGovernmentDeductions = editableRegisterRecords.reduce(
     (sum, record) =>
       sum +
       Number(record.sss_deduction || 0) +
@@ -1764,7 +1856,7 @@ This will:
     (item) => String(item.status || "Pending") === "Rejected"
   );
 
-  const selectedRecords = records.filter((record) =>
+  const selectedRecords = editableRegisterRecords.filter((record) =>
     selectedRecordIds.includes(String(record.id))
   );
 
@@ -2038,7 +2130,7 @@ This will:
           <KpiCard icon={<DollarSign size={22} />} title="Gross Pay" value={formatMoney(totalGross)} />
           <KpiCard icon={<Trash2 size={22} />} title="Deductions" value={formatMoney(totalDeductions)} danger={totalDeductions > 0} />
           <KpiCard icon={<CheckCircle2 size={22} />} title="Computed Net" value={formatMoney(totalNet)} success={totalNet >= 0} danger={totalNet < 0} />
-          <KpiCard icon={<Send size={22} />} title="Release Amount" value={formatMoney(totalReleaseAmount)} success />
+          <KpiCard icon={<Send size={22} />} title="To Manager Amount" value={formatMoney(totalReleaseAmount)} success />
           <KpiCard icon={<RotateCcw size={22} />} title="Carry Forward" value={formatMoney(totalCarryForwardAmount)} danger={totalCarryForwardAmount > 0} />
           {(showGovernmentSection || showTax) && (
             <KpiCard
@@ -2181,13 +2273,21 @@ This will:
                 ))}
               </select>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <button
                   onClick={generatePayroll}
                   disabled={isSaving || !selectedPeriodId || isLocked}
                   className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
                 >
                   Generate
+                </button>
+
+                <button
+                  onClick={reopenPayroll}
+                  disabled={isSaving || !selectedPeriodId || !isLocked}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RotateCcw size={16} /> Reopen
                 </button>
 
                 <button
@@ -2200,12 +2300,9 @@ This will:
               </div>
 
               {selectedPeriodId && isLocked && (
-                <button
-                  onClick={reopenPayroll}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm font-black text-yellow-300 hover:bg-yellow-500/20"
-                >
-                  <RotateCcw size={16} /> Reopen Payroll
-                </button>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold leading-5 text-amber-200">
+                  This payroll is locked. Click <span className="font-black">Reopen</span> to unlock attendance, regenerate payroll, or edit partial CA deductions.
+                </div>
               )}
 
               {selectedPeriod && (
@@ -2475,7 +2572,7 @@ This will:
                 <p className="mt-1 text-xs text-yellow-100/80">
                   Gross: {formatMoney(selectedGross)} • Deductions:{" "}
                   {formatMoney(selectedDeductions)} • Computed Net:{" "}
-                  {formatMoney(selectedNet)} • Release: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
+                  {formatMoney(selectedNet)} • To Manager: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
                   {(showGovernmentSection || showTax) && (
                     <> • Gov/Tax: {formatMoney(selectedGovernmentDeductions)}</>
                   )}
@@ -2492,19 +2589,12 @@ This will:
 
                 <button
                   onClick={() => sendPayrollToManager("selected")}
-                  disabled={Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+                  disabled={selectedRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
                   className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
                 >
-                  <Send size={16} /> Approve Selected
+                  <Send size={16} /> Send Selected to Manager
                 </button>
 
-                <button
-                  onClick={() => releasePayroll("selected")}
-                  disabled={Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  <CheckCircle2 size={16} /> Release Selected
-                </button>
               </div>
             </div>
           </section>
@@ -2513,9 +2603,9 @@ This will:
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="text-xl font-bold">Payroll Review</h2>
+              <h2 className="text-xl font-bold">Final Payroll Register</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Review computed payroll before sending to Payroll Manager.
+                Review final computed payroll. Set partial CA deduction, then send selected employees to Payroll Manager for actual release.
               </p>
             </div>
 
@@ -2529,20 +2619,20 @@ This will:
               </button>
 
               <button
-                onClick={() => sendPayrollToManager("all")}
-                disabled={records.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+                onClick={() =>
+                  selectedRecordIds.length > 0
+                    ? sendPayrollToManager("selected")
+                    : sendPayrollToManager("all")
+                }
+                disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
                 className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
               >
-                <Send size={16} /> Approve All & Send
+                <Send size={16} />
+                {selectedRecordIds.length > 0
+                  ? `Send Selected (${selectedRecordIds.length})`
+                  : "Send All Ready"}
               </button>
 
-              <button
-                onClick={() => releasePayroll("all")}
-                disabled={records.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white hover:bg-emerald-500 disabled:opacity-50"
-              >
-                <CheckCircle2 size={16} /> Release All
-              </button>
 
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-3 text-slate-500" />
@@ -2569,7 +2659,7 @@ This will:
 
           {!selectedPeriod?.needs_regeneration && (
           <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1780px] text-sm">
+            <table className="w-full min-w-[1900px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Select</th>
@@ -2589,9 +2679,9 @@ This will:
                   {(showGovernmentSection || showTax) && (
                     <th className="px-4 py-3 text-right">Gov / Tax</th>
                   )}
-                  <th className="px-4 py-3 text-right">Balance Ded.</th>
+                  <th className="px-4 py-3 text-right">CA Deduct This Cutoff</th>
                   <th className="px-4 py-3 text-right">Computed Net</th>
-                  <th className="px-4 py-3 text-right">Release</th>
+                  <th className="px-4 py-3 text-right">To Manager</th>
                   <th className="px-4 py-3 text-right">Carry Forward</th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
@@ -2648,7 +2738,36 @@ This will:
                           {formatMoney(governmentDeduction)}
                         </td>
                       )}
-                      <td className="px-4 py-3 text-right text-yellow-300">{formatMoney(record.balance_deduction)}</td>
+                      <td className="px-4 py-3 text-right">
+                        {(() => {
+                          const maxBalance = getMaxBalanceDeductionForRecord(record);
+                          const draftValue = balanceDrafts[record.id] ?? String(Number(record.balance_deduction || 0));
+
+                          return (
+                            <div className="flex flex-col items-end gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                max={maxBalance}
+                                value={draftValue}
+                                disabled={!canEditPayroll || maxBalance <= 0 || isSaving}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setBalanceDrafts((prev) => ({
+                                    ...prev,
+                                    [record.id]: value,
+                                  }));
+                                }}
+                                onBlur={(event) => updateRecordBalanceDeduction(record, event.target.value)}
+                                className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-right text-xs font-black text-yellow-300 outline-none disabled:opacity-40"
+                              />
+                              <p className="text-[10px] text-slate-500">
+                                Max CA: {formatMoney(maxBalance)}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td
                         className={`px-4 py-3 text-right font-black ${
                           displayedNetPay < 0 ? "text-red-400" : "text-emerald-400"

@@ -27,6 +27,8 @@ export default function PayrollManagerPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [periodFilter, setPeriodFilter] = useState("All");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<"queue" | "partial" | "history">("queue");
 
   /// HELPERS
   const formatPeso = (value: any) =>
@@ -68,7 +70,87 @@ export default function PayrollManagerPage() {
   const getRecordDeduction = (record: any) =>
     Number(record.total_deductions || record.deductions || record.total_deduction || 0);
 
-  const getReleaseAmount = (record: any) => Math.max(getRecordAmount(record), 0);
+  const getAlreadyReleasedAmount = (record: any) =>
+    Number(record.paid_amount || record.amount_released || 0);
+
+  const hasNumericValue = (value: any) =>
+    value !== null && value !== undefined && value !== "" && !Number.isNaN(Number(value));
+
+  const getReleaseBaseAmount = (record: any) => {
+    // Source of truth for Payroll Manager release is the final computed net pay
+    // from Payroll Register. release_amount can become stale after CA edits,
+    // so prefer net_pay first, then fall back to release_amount for legacy rows.
+    const base = Number(
+      record.net_pay ??
+        record.net_amount ??
+        record.release_amount ??
+        record.total_pay ??
+        record.amount ??
+        0
+    );
+
+    return Math.max(base, 0);
+  };
+
+  const getOutstandingPayrollAmount = (record: any) => {
+    const baseAmount = getReleaseBaseAmount(record);
+    const paidAmount = getAlreadyReleasedAmount(record);
+    const status = normalizeStatus(record.status);
+    const releaseStatus = normalizeStatus(record.release_status);
+    const remainingAmount = hasNumericValue(record.remaining_amount)
+      ? Number(record.remaining_amount)
+      : null;
+    const remainingPayrollBalance = hasNumericValue(record.remaining_payroll_balance)
+      ? Number(record.remaining_payroll_balance)
+      : null;
+
+    // Fresh records from Payroll Register may still have legacy/stale remaining_amount
+    // from earlier Generate runs. Before any Manager release happens, the true due
+    // amount is the final computed net pay from Register, not remaining_amount.
+    if (paidAmount <= 0 && ["Pending", "For Approval", "Approved"].includes(releaseStatus || status)) {
+      return baseAmount;
+    }
+
+    if (paidAmount > 0) {
+      if (remainingAmount !== null) return Math.max(remainingAmount, 0);
+      if (remainingPayrollBalance !== null) return Math.max(remainingPayrollBalance, 0);
+      return Math.max(baseAmount - paidAmount, 0);
+    }
+
+    if (releaseStatus === "Released" || status === "Paid") return 0;
+
+    if (remainingAmount !== null && remainingAmount > 0) return remainingAmount;
+    if (remainingPayrollBalance !== null && remainingPayrollBalance > 0) return remainingPayrollBalance;
+
+    return baseAmount;
+  };
+
+  const getReleaseAmount = (record: any) => getOutstandingPayrollAmount(record);
+
+  const getReleaseDisplayStatus = (record: any) => {
+    const outstanding = getOutstandingPayrollAmount(record);
+    const paidAmount = getAlreadyReleasedAmount(record);
+    const releaseStatus = normalizeStatus(record.release_status);
+    const status = normalizeStatus(record.status);
+
+    if (outstanding > 0 && paidAmount > 0) return "Partially Released";
+    if (outstanding > 0) return releaseStatus || status || "Pending";
+    if (paidAmount > 0 || releaseStatus === "Released" || status === "Released" || status === "Paid") return "Released";
+
+    return releaseStatus || status || "Pending";
+  };
+
+  const getReleaseDraftAmount = (record: any) => {
+    const outstanding = getOutstandingPayrollAmount(record);
+    const rawValue = releaseDrafts[String(record.id)];
+
+    if (rawValue === undefined || rawValue === "") return outstanding;
+
+    return Math.min(Math.max(Number(rawValue || 0), 0), outstanding);
+  };
+
+  const getRemainingAfterRelease = (record: any) =>
+    Math.max(getOutstandingPayrollAmount(record) - getReleaseDraftAmount(record), 0);
 
   const getCarryForwardAmount = (record: any) =>
     Math.max(Math.abs(Math.min(getRecordAmount(record), 0)), 0);
@@ -110,7 +192,7 @@ export default function PayrollManagerPage() {
     const firstRecord = recordsToRelease[0];
     const periodLabel = getPeriodLabel(firstRecord);
     const totalNetPay = recordsToRelease.reduce(
-      (sum, record) => sum + getReleaseAmount(record),
+      (sum, record) => sum + getReleaseDraftAmount(record),
       0
     );
 
@@ -243,6 +325,335 @@ export default function PayrollManagerPage() {
     });
   };
 
+
+  const createOrUpdatePayrollBalance = async (
+    record: any,
+    remainingBalance: number
+  ) => {
+    const employeeName = getEmployeeName(record);
+    const sourceId = record.id;
+
+    const { data: existingBalance, error: existingError } = await supabase
+      .from("employee_balances")
+      .select("*")
+      .eq("source_module", "Payroll Manager")
+      .eq("source_id", sourceId)
+      .maybeSingle();
+
+    if (existingError) {
+      console.log("CHECK PAYROLL BALANCE ERROR:", existingError.message);
+      throw new Error(existingError.message);
+    }
+
+    if (remainingBalance <= 0) {
+      if (existingBalance?.id) {
+        const { error } = await supabase
+          .from("employee_balances")
+          .update({
+            remaining_balance: 0,
+            status: "Paid",
+            remarks: `${existingBalance.remarks || ""} Fully paid from Payroll Manager on ${new Date().toISOString()}.`.trim(),
+          })
+          .eq("id", existingBalance.id);
+
+        if (error) throw new Error(error.message);
+      }
+
+      return;
+    }
+
+    const payload = {
+      employee_id: record.employee_id || null,
+      employee_name: employeeName,
+      balance_type: "Payroll Balance",
+      original_amount: Number(record.net_pay || record.release_amount || getRecordAmount(record) || 0),
+      remaining_balance: remainingBalance,
+      status: "Active",
+      source_module: "Payroll Manager",
+      source_id: sourceId,
+      period_id: record.period_id || null,
+      remarks: `Partial salary release from ${getPeriodLabel(record)}. Payroll Record ID: ${sourceId}. Remaining salary balance: ${formatPeso(remainingBalance)}.`,
+    };
+
+    const { error } = existingBalance?.id
+      ? await supabase.from("employee_balances").update(payload).eq("id", existingBalance.id)
+      : await supabase.from("employee_balances").insert(payload);
+
+    if (error) throw new Error(error.message);
+  };
+
+  const getPayrollBalanceDeductionAmount = (record: any) =>
+    Math.max(
+      0,
+      Number(
+        record.balance_deduction ??
+          record.cash_advance_deduction ??
+          record.ca_deduction ??
+          record.balance_deductions ??
+          0
+      )
+    );
+
+  const getDeductionAppliedMarker = (record: any) =>
+    `CA_DEDUCTION_APPLIED:${String(record.id)}`;
+
+  const cashAdvanceAlreadyApplied = async (record: any) => {
+    const marker = getDeductionAppliedMarker(record);
+    const employeeId = record.employee_id ? String(record.employee_id) : "";
+    const employeeName = getEmployeeName(record);
+
+    // Source of truth for "already applied" is the employee_balances row itself.
+    // Old transaction rows can exist even when the balance update failed, so we do
+    // not trust payroll_release_transactions for this check.
+    if (employeeId) {
+      const byId = await supabase
+        .from("employee_balances")
+        .select("id, remarks")
+        .eq("employee_id", employeeId)
+        .ilike("remarks", `%${marker}%`)
+        .limit(1);
+
+      if (!byId.error && byId.data && byId.data.length > 0) return true;
+    }
+
+    if (employeeName) {
+      const byName = await supabase
+        .from("employee_balances")
+        .select("id, remarks")
+        .eq("employee_name", employeeName)
+        .ilike("remarks", `%${marker}%`)
+        .limit(1);
+
+      if (!byName.error && byName.data && byName.data.length > 0) return true;
+    }
+
+    return false;
+  };
+
+  const loadDeductibleEmployeeBalances = async (record: any) => {
+    const employeeId = record.employee_id ? String(record.employee_id) : "";
+    const employeeName = getEmployeeName(record);
+
+    let balances: any[] = [];
+
+    if (employeeId) {
+      const byId = await supabase
+        .from("employee_balances")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .eq("status", "Active")
+        .gt("remaining_balance", 0)
+        .order("created_at", { ascending: true });
+
+      if (byId.error) {
+        console.log("LOAD CA BALANCES BY ID ERROR:", byId.error.message);
+        throw new Error(byId.error.message);
+      }
+
+      balances = byId.data || [];
+    }
+
+    if (balances.length === 0 && employeeName) {
+      const byName = await supabase
+        .from("employee_balances")
+        .select("*")
+        .eq("employee_name", employeeName)
+        .eq("status", "Active")
+        .gt("remaining_balance", 0)
+        .order("created_at", { ascending: true });
+
+      if (byName.error) {
+        console.log("LOAD CA BALANCES BY NAME ERROR:", byName.error.message);
+        throw new Error(byName.error.message);
+      }
+
+      balances = byName.data || [];
+    }
+
+    return balances.filter((balance: any) => {
+      const type = String(balance.balance_type || "").toLowerCase();
+      const source = String(balance.source_module || "").toLowerCase();
+
+      // Salary partial balances are handled by createOrUpdatePayrollBalance().
+      // This function only deducts employee advances / cash drawer / expense balances.
+      if (source === "payroll manager") return false;
+      if (type.includes("payroll balance")) return false;
+
+      return true;
+    });
+  };
+
+  const previewCashAdvanceApplications = async (recordsToRelease: any[]) => {
+    const previews: Record<string, any> = {};
+
+    for (const record of recordsToRelease) {
+      const deductionNeeded = getPayrollBalanceDeductionAmount(record);
+
+      if (deductionNeeded <= 0) continue;
+
+      const alreadyApplied = await cashAdvanceAlreadyApplied(record);
+
+      if (alreadyApplied) {
+        previews[String(record.id)] = {
+          skipped: true,
+          appliedAmount: 0,
+          reason: "CA deduction already applied for this payroll record.",
+        };
+        continue;
+      }
+
+      const balances = await loadDeductibleEmployeeBalances(record);
+      const availableBalance = balances.reduce(
+        (sum, balance) => sum + Number(balance.remaining_balance || 0),
+        0
+      );
+
+      if (availableBalance < deductionNeeded) {
+        throw new Error(
+          `${getEmployeeName(record)} has insufficient active CA balance. Needed: ${formatPeso(
+            deductionNeeded
+          )}. Available: ${formatPeso(availableBalance)}.`
+        );
+      }
+
+      previews[String(record.id)] = {
+        skipped: false,
+        appliedAmount: deductionNeeded,
+        balances,
+      };
+    }
+
+    return previews;
+  };
+
+  const applyCashAdvanceDeductions = async (
+    recordsToRelease: any[],
+    caPreviews: Record<string, any>
+  ) => {
+    const appliedMap: Record<string, number> = {};
+
+    for (const record of recordsToRelease) {
+      let remainingDeduction = getPayrollBalanceDeductionAmount(record);
+      const preview = caPreviews[String(record.id)];
+
+      if (remainingDeduction <= 0 || preview?.skipped) {
+        appliedMap[String(record.id)] = 0;
+        continue;
+      }
+
+      const employeeName = getEmployeeName(record);
+      const balances = preview?.balances || (await loadDeductibleEmployeeBalances(record));
+
+      for (const balance of balances) {
+        if (remainingDeduction <= 0) break;
+
+        const currentBalance = Number(balance.remaining_balance || 0);
+        const appliedAmount = Math.min(currentBalance, remainingDeduction);
+        const newRemainingBalance = Math.max(currentBalance - appliedAmount, 0);
+        const newStatus = newRemainingBalance <= 0 ? "Paid" : "Active";
+
+        const marker = getDeductionAppliedMarker(record);
+        const updatedRemarks = `${balance.remarks || ""} | Payroll deduction applied from Manager: ${formatPeso(
+          appliedAmount
+        )}. Remaining: ${formatPeso(newRemainingBalance)}. ${marker}.`.trim();
+
+        // Keep the update payload limited to columns that are confirmed in your
+        // employee_balances table screenshots. Extra columns here can silently
+        // break the CA deduction flow depending on schema cache.
+        const { error: updateError } = await supabase
+          .from("employee_balances")
+          .update({
+            remaining_balance: newRemainingBalance,
+            status: newStatus,
+            remarks: updatedRemarks,
+          })
+          .eq("id", balance.id);
+
+        if (updateError) {
+          console.log("APPLY CA BALANCE ERROR:", updateError.message);
+          throw new Error(updateError.message);
+        }
+
+        await createAuditLog({
+          userName: "OPSCORE USER",
+          module: "Payroll",
+          action: "Apply CA Deduction From Manager",
+          description: `${employeeName} CA deduction ${formatPeso(
+            appliedAmount
+          )} applied from Payroll Manager. Remaining CA: ${formatPeso(
+            newRemainingBalance
+          )}`,
+          severity: "warning",
+          recordId: balance.id,
+          oldValue: balance,
+          newValue: {
+            payrollRecordId: record.id,
+            periodId: record.period_id || null,
+            appliedAmount,
+            remaining_balance: newRemainingBalance,
+            status: newStatus,
+          },
+        });
+
+        appliedMap[String(record.id)] =
+          Number(appliedMap[String(record.id)] || 0) + appliedAmount;
+
+        remainingDeduction -= appliedAmount;
+      }
+
+      if (remainingDeduction > 0) {
+        throw new Error(
+          `${employeeName} CA deduction was not fully applied. Unapplied amount: ${formatPeso(
+            remainingDeduction
+          )}.`
+        );
+      }
+    }
+
+    return appliedMap;
+  };
+
+  const savePayrollReleaseTransactions = async (
+    recordsToRelease: any[],
+    releasedBy: string,
+    caAppliedMap: Record<string, number> = {}
+  ) => {
+    const transactionRows = recordsToRelease.map((record) => {
+      const releaseAmount = getReleaseDraftAmount(record);
+      const remainingBalance = getRemainingAfterRelease(record);
+      const caApplied = Number(caAppliedMap[String(record.id)] || 0);
+      const caMarker =
+        caApplied > 0
+          ? ` CA deduction applied: ${formatPeso(caApplied)}. ${getDeductionAppliedMarker(record)}.`
+          : "";
+
+      return {
+        payroll_record_id: record.id,
+        payroll_period_id: record.period_id || null,
+        employee_id: record.employee_id || null,
+        employee_name: getEmployeeName(record),
+        net_pay: getRecordAmount(record),
+        release_amount: releaseAmount,
+        remaining_balance: remainingBalance,
+        release_batch: getPeriodLabel(record),
+        released_by: releasedBy,
+        remarks:
+          remainingBalance > 0
+            ? `Partial salary release. Remaining balance: ${formatPeso(remainingBalance)}.${caMarker}`
+            : `Full salary release.${caMarker}`,
+      };
+    });
+
+    const { error } = await supabase
+      .from("payroll_release_transactions")
+      .insert(transactionRows);
+
+    if (error) {
+      console.log("SAVE PAYROLL RELEASE TRANSACTIONS ERROR:", error.message);
+      throw new Error(error.message);
+    }
+  };
+
   const releasePayrollRecords = async (targetRecords: any[], label: string) => {
     if (targetRecords.length === 0) {
       alert("No approved payroll records selected for release.");
@@ -268,8 +679,18 @@ export default function PayrollManagerPage() {
       0
     );
 
-    const totalNet = targetRecords.reduce(
-      (sum, record) => sum + getReleaseAmount(record),
+    const totalOutstanding = targetRecords.reduce(
+      (sum, record) => sum + getOutstandingPayrollAmount(record),
+      0
+    );
+
+    const totalReleaseNow = targetRecords.reduce(
+      (sum, record) => sum + getReleaseDraftAmount(record),
+      0
+    );
+
+    const totalRemainingSalaryBalance = targetRecords.reduce(
+      (sum, record) => sum + getRemainingAfterRelease(record),
       0
     );
 
@@ -285,15 +706,20 @@ Mode: ${label}
 Employees: ${targetRecords.length}
 Gross Pay: ${formatPeso(totalGross)}
 Deductions: ${formatPeso(totalDeductions)}
-Release Amount: ${formatPeso(totalNet)}
+Outstanding Payroll: ${formatPeso(totalOutstanding)}
+Release Now: ${formatPeso(totalReleaseNow)}
+Remaining Salary Balance: ${formatPeso(totalRemainingSalaryBalance)}
 Carry Forward: ${formatPeso(totalCarryForward)}
 
 Employees with carry forward: ${negativeRecords.length}
 
-This will mark payroll as Released, create a Payroll expense for actual release amount, and save carry-forward balances.`
+This will record the actual released amount only. Any unpaid salary balance will remain outstanding.`
     );
 
     if (!confirmed) return;
+
+    const releasedBy =
+      prompt("Released by:", "Payroll Admin") || "Payroll Admin";
 
     setIsProcessing(true);
 
@@ -302,39 +728,108 @@ This will mark payroll as Released, create a Payroll expense for actual release 
       new Set(targetRecords.map((record) => record.period_id).filter(Boolean))
     );
 
-    const { error } = await supabase
-      .from("payroll_records")
-      .update({
-        status: "Released",
-        released_at: new Date().toISOString(),
-      })
-      .in("id", targetIds);
+    let caPreviews: Record<string, any> = {};
+    let caAppliedMap: Record<string, number> = {};
 
-    if (error) {
+    try {
+      // Validate CA balances before touching payroll status. This prevents
+      // "Partially Released" records when the CA balance cannot be found/applied.
+      caPreviews = await previewCashAdvanceApplications(targetRecords);
+    } catch (validationError: any) {
       setIsProcessing(false);
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
-        action: "Release Payroll Failed",
-        description: `Failed to release payroll (${label}): ${error.message}`,
+        action: "Payroll Release Validation Failed",
+        description: `Release blocked before payroll status update: ${validationError?.message || validationError}`,
         severity: "critical",
-        newValue: { error: error.message, targetCount: targetRecords.length, targetIds },
+        newValue: {
+          error: validationError?.message || String(validationError),
+          targetCount: targetRecords.length,
+        },
       });
-      alert("Failed to release payroll.");
-      return console.log("RELEASE PAYROLL ERROR:", error.message);
+      alert(`Release blocked before saving payroll status.
+
+${validationError?.message || validationError}`);
+      return;
     }
 
-    await Promise.all(
-      targetRecords.map((record) =>
-        supabase
+    const statusResults = await Promise.all(
+      targetRecords.map((record) => {
+        const releaseNow = getReleaseDraftAmount(record);
+        const previousReleased = getAlreadyReleasedAmount(record);
+        const totalReleased = previousReleased + releaseNow;
+        const remainingSalaryBalance = getRemainingAfterRelease(record);
+        const newStatus =
+          remainingSalaryBalance > 0 ? "Partially Released" : "Released";
+
+        return supabase
           .from("payroll_records")
           .update({
-            paid_amount: getReleaseAmount(record),
+            status: newStatus,
+            release_status: newStatus,
+            paid_amount: totalReleased,
+            remaining_amount: remainingSalaryBalance,
+            remaining_payroll_balance: remainingSalaryBalance,
             carry_forward_amount: getCarryForwardAmount(record),
+            released_at: new Date().toISOString(),
+            released_by: releasedBy.trim(),
           })
-          .eq("id", record.id)
-      )
+          .eq("id", record.id);
+      })
     );
+
+    const failedStatusUpdate = statusResults.find((result: any) => result.error);
+
+    if (failedStatusUpdate?.error) {
+      setIsProcessing(false);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Payroll Status Update Failed",
+        description: `Release blocked because payroll record update failed: ${failedStatusUpdate.error.message}`,
+        severity: "critical",
+        newValue: {
+          error: failedStatusUpdate.error.message,
+          targetCount: targetRecords.length,
+        },
+      });
+      alert(`Payroll release failed before balance update.
+
+${failedStatusUpdate.error.message}`);
+      return;
+    }
+
+    try {
+      caAppliedMap = await applyCashAdvanceDeductions(targetRecords, caPreviews);
+      await savePayrollReleaseTransactions(
+        targetRecords,
+        releasedBy.trim(),
+        caAppliedMap
+      );
+      await Promise.all(
+        targetRecords.map((record) =>
+          createOrUpdatePayrollBalance(record, getRemainingAfterRelease(record))
+        )
+      );
+    } catch (partialReleaseError: any) {
+      setIsProcessing(false);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Partial Payroll Release Balance Failed",
+        description: `Payroll status was updated but CA/salary balance tracking failed: ${partialReleaseError?.message || partialReleaseError}`,
+        severity: "critical",
+        newValue: {
+          error: partialReleaseError?.message || String(partialReleaseError),
+          targetCount: targetRecords.length,
+        },
+      });
+      alert(`Payroll status was updated, but CA/salary balance tracking failed.
+
+${partialReleaseError?.message || partialReleaseError}`);
+      return;
+    }
 
     await createCarryForwardBalances(targetRecords);
 
@@ -347,13 +842,21 @@ This will mark payroll as Released, create a Payroll expense for actual release 
         (record) =>
           record.period_id === periodId &&
           !targetIds.includes(record.id) &&
-          ["For Approval", "Approved"].includes(normalizeStatus(record.status))
+          getOutstandingPayrollAmount(record) > 0
+      );
+
+      const periodHasRemainingSalaryBalance = targetRecords.some(
+        (record) =>
+          record.period_id === periodId && getRemainingAfterRelease(record) > 0
       );
 
       await supabase
         .from("payroll_periods")
         .update({
-          status: remainingApproved.length > 0 ? "Partially Released" : "Released",
+          status:
+            remainingApproved.length > 0 || periodHasRemainingSalaryBalance
+              ? "Partially Released"
+              : "Released",
           released_at: new Date().toISOString(),
         })
         .eq("id", periodId);
@@ -375,7 +878,7 @@ This will mark payroll as Released, create a Payroll expense for actual release 
         periodIds,
         totalGross,
         totalDeductions,
-        totalNet,
+        totalReleaseNow,
         totalCarryForward,
         negativeEmployees: negativeRecords.length,
         targetIds,
@@ -507,12 +1010,23 @@ This will mark payroll as Released, create a Payroll expense for actual release 
   /// CALCULATIONS
   const approvedPayroll = payrollRecords.filter((record) => {
     const status = normalizeStatus(record.status);
-    return status === "For Approval" || status === "Approved";
+    const releaseStatus = normalizeStatus(record.release_status);
+    const blockedStatuses = ["Draft", "Rejected", "Cancelled", "Reopened"];
+
+    if (blockedStatuses.includes(status)) return false;
+    if (releaseStatus === "Released" && getOutstandingPayrollAmount(record) <= 0) return false;
+
+    return getOutstandingPayrollAmount(record) > 0;
   });
 
   const releasedPayroll = payrollRecords.filter((record) => {
     const status = normalizeStatus(record.status);
-    return status === "Released" || status === "Paid";
+    const releaseStatus = normalizeStatus(record.release_status);
+
+    return (
+      getOutstandingPayrollAmount(record) <= 0 &&
+      (status === "Released" || status === "Paid" || releaseStatus === "Released")
+    );
   });
 
   const pendingAdjustments = payrollAdjustments.filter(
@@ -528,7 +1042,11 @@ This will mark payroll as Released, create a Payroll expense for actual release 
   );
 
   const periodOptions = Array.from(
-    new Set(approvedPayroll.map((record) => getPeriodLabel(record)).filter(Boolean))
+    new Set(
+      [...approvedPayroll, ...releasedPayroll]
+        .map((record) => getPeriodLabel(record))
+        .filter(Boolean)
+    )
   );
 
   const filteredApprovedPayroll = approvedPayroll.filter((record) => {
@@ -771,6 +1289,38 @@ This will mark payroll as Released, create a Payroll expense for actual release 
 
   const releaseBlocked = pendingAdjustments.length > 0;
 
+  const filteredReleasedPayroll = releasedPayroll.filter((record) => {
+    const text = `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const periodMatch =
+      periodFilter === "All" || getPeriodLabel(record) === periodFilter;
+
+    return text && periodMatch;
+  });
+
+  const releaseQueuePayroll = filteredApprovedPayroll.filter(
+    (record) => getAlreadyReleasedAmount(record) <= 0
+  );
+
+  const partialReleasePayroll = filteredApprovedPayroll.filter(
+    (record) =>
+      getAlreadyReleasedAmount(record) > 0 && getOutstandingPayrollAmount(record) > 0
+  );
+
+  const visibleReleaseRows =
+    activeTab === "partial" ? partialReleasePayroll : releaseQueuePayroll;
+
+  const tabRows =
+    activeTab === "history" ? filteredReleasedPayroll : visibleReleaseRows;
+
+  const totalReleasedHistory = filteredReleasedPayroll.reduce(
+    (sum, record) =>
+      sum + Number(record.paid_amount || record.amount_released || getReleaseBaseAmount(record) || 0),
+    0
+  );
+
   const toggleSelect = (id: any) => {
     const key = String(id);
     setSelectedRecordIds((prev) =>
@@ -779,7 +1329,17 @@ This will mark payroll as Released, create a Payroll expense for actual release 
   };
 
   const selectAllReady = () => {
-    setSelectedRecordIds(readyForRelease.map((record) => String(record.id)));
+    if (activeTab === "history") {
+      setSelectedRecordIds(filteredReleasedPayroll.map((record) => String(record.id)));
+      return;
+    }
+
+    if (activeTab === "partial") {
+      setSelectedRecordIds(partialReleasePayroll.map((record) => String(record.id)));
+      return;
+    }
+
+    setSelectedRecordIds(releaseQueuePayroll.map((record) => String(record.id)));
   };
 
   const clearSelection = () => {
@@ -796,7 +1356,7 @@ This will mark payroll as Released, create a Payroll expense for actual release 
           <div>
             <h1 className="text-3xl font-bold">Payroll Manager</h1>
             <p className="mt-2 text-slate-400">
-              Release approved payroll only. CA/deduction approvals must be completed in Payroll Register.
+              Release approved payroll only. Released records stay in history and cannot be released again.
             </p>
           </div>
 
@@ -807,9 +1367,7 @@ This will mark payroll as Released, create a Payroll expense for actual release 
                 : "border-green-500/30 bg-green-500/10 text-green-300"
             }`}
           >
-            <p className="text-xs uppercase tracking-[0.18em]">
-              Release Status
-            </p>
+            <p className="text-xs uppercase tracking-[0.18em]">Release Status</p>
             <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
               {releaseBlocked ? (
                 <>
@@ -824,255 +1382,82 @@ This will mark payroll as Released, create a Payroll expense for actual release 
           </div>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <KpiCard icon={<Users size={22} />} title="For Release" value={filteredApprovedPayroll.length} danger={filteredApprovedPayroll.length > 0} />
-          <KpiCard icon={<DollarSign size={22} />} title="For Release Amount" value={formatPeso(totalPendingNet)} />
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
+          <KpiCard icon={<Users size={22} />} title="Release Queue" value={releaseQueuePayroll.length} danger={releaseQueuePayroll.length > 0} />
+          <KpiCard icon={<RotateCcw size={22} />} title="Partial Releases" value={partialReleasePayroll.length} danger={partialReleasePayroll.length > 0} />
+          <KpiCard icon={<DollarSign size={22} />} title="Outstanding Payroll" value={formatPeso(totalPendingNet)} />
+          <KpiCard icon={<CheckCircle2 size={22} />} title="Released History" value={filteredReleasedPayroll.length} success />
+          <KpiCard icon={<DollarSign size={22} />} title="Released Total" value={formatPeso(totalReleasedHistory)} success />
           <KpiCard icon={<AlertTriangle size={22} />} title="Pending Register Approval" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
-          <KpiCard icon={<Brain size={22} />} title="Carry Forward Employees" value={negativePayroll.length} danger={negativePayroll.length > 0} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Released Payroll" value={releasedPayroll.length} success />
         </section>
-
-
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <h2 className="text-xl font-black">Payroll Summary Comparison</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Compares the selected/latest payroll period against the previous payroll period.
-                </p>
-              </div>
-
-              <div
-                className={`rounded-xl border px-4 py-3 text-sm font-black ${
-                  payrollDifference > 0
-                    ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-                    : payrollDifference < 0
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                    : "border-slate-700 bg-slate-950 text-slate-300"
-                }`}
-              >
-                {payrollComparisonStatus}
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <MiniStat
-                title="Current Payroll"
-                value={formatPeso(currentPayrollSummary.release)}
-                success={currentPayrollSummary.release > 0}
-              />
-              <MiniStat
-                title="Previous Payroll"
-                value={formatPeso(previousPayrollSummary.release)}
-              />
-              <MiniStat
-                title="Difference"
-                value={`${payrollDifference >= 0 ? "+" : ""}${formatPeso(
-                  payrollDifference
-                )}`}
-                danger={payrollDifference > 0}
-                success={payrollDifference < 0}
-              />
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <PayrollComparisonCard
-                title="Current Breakdown"
-                period={currentPayrollSummary.periodLabel}
-                rows={[
-                  ["Employees", currentPayrollSummary.employees],
-                  ["Gross Pay", formatPeso(currentPayrollSummary.gross)],
-                  ["Basic Pay", formatPeso(currentPayrollSummary.basicPay)],
-                  ["OT Pay", formatPeso(currentPayrollSummary.ot)],
-                  ["Holiday Pay", formatPeso(currentPayrollSummary.holiday)],
-                  ["Allowances", formatPeso(currentPayrollSummary.allowance)],
-                  ["Deductions", formatPeso(currentPayrollSummary.deductions)],
-                  ["Cash Advance / Balances", formatPeso(currentPayrollSummary.balanceDeduction)],
-                  ["Release Amount", formatPeso(currentPayrollSummary.release)],
-                  ["Carry Forward", formatPeso(currentPayrollSummary.carryForward)],
-                ]}
-              />
-
-              <PayrollComparisonCard
-                title="Previous Breakdown"
-                period={previousPayrollSummary.periodLabel}
-                rows={[
-                  ["Employees", previousPayrollSummary.employees],
-                  ["Gross Pay", formatPeso(previousPayrollSummary.gross)],
-                  ["Basic Pay", formatPeso(previousPayrollSummary.basicPay)],
-                  ["OT Pay", formatPeso(previousPayrollSummary.ot)],
-                  ["Holiday Pay", formatPeso(previousPayrollSummary.holiday)],
-                  ["Allowances", formatPeso(previousPayrollSummary.allowance)],
-                  ["Deductions", formatPeso(previousPayrollSummary.deductions)],
-                  ["Cash Advance / Balances", formatPeso(previousPayrollSummary.balanceDeduction)],
-                  ["Release Amount", formatPeso(previousPayrollSummary.release)],
-                  ["Carry Forward", formatPeso(previousPayrollSummary.carryForward)],
-                ]}
-              />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6 xl:col-span-2">
-            <h2 className="flex items-center gap-2 text-xl font-black text-yellow-300">
-              <Brain size={22} /> Payroll Insight
-            </h2>
-
-            <div className="mt-4 rounded-xl bg-slate-950/70 p-4">
-              <p className="text-sm font-bold text-white">
-                {currentPayrollSummary.periodLabel}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Compared with {previousPayrollSummary.periodLabel}
-              </p>
-              <p className="mt-3 text-sm text-yellow-100">
-                Payroll {payrollComparisonStatus.toLowerCase()}.
-              </p>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <p className="text-sm font-black text-white">Main movement drivers</p>
-              {payrollIncreaseDrivers.map((driver) => (
-                <div
-                  key={driver.label}
-                  className="flex items-center justify-between rounded-xl bg-slate-950 px-4 py-3 text-sm"
-                >
-                  <span className="text-slate-300">{driver.label}</span>
-                  <span
-                    className={`font-black ${
-                      driver.difference > 0
-                        ? "text-red-300"
-                        : driver.difference < 0
-                        ? "text-emerald-300"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {driver.difference >= 0 ? "+" : ""}
-                    {formatPeso(driver.difference)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 text-xs leading-5 text-slate-300">
-              Use this summary before releasing payroll. If payroll increased, check OT,
-              holiday pay, allowances, or headcount before approval.
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
-          <h2 className="flex items-center gap-2 text-xl font-bold text-yellow-300">
-            <Brain size={22} /> AI Payroll Release Check
-          </h2>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {aiAlerts.map((alert, index) => (
-              <div
-                key={index}
-                className={`rounded-xl border p-4 text-sm ${
-                  alert.includes("negative") || alert.includes("pending")
-                    ? "border-red-500/20 bg-red-500/10 text-red-200"
-                    : "border-yellow-500/20 bg-slate-950/70 text-yellow-200"
-                }`}
-              >
-                ⚠ {alert}
-              </div>
-            ))}
-
-            {aiAlerts.length === 0 && (
-              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
-                ✅ No payroll release alerts detected.
-              </div>
-            )}
-          </div>
-        </section>
-
-        {selectedRecordIds.length > 0 && (
-          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 backdrop-blur">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="text-sm font-black text-yellow-300">
-                  {selectedRecordIds.length} payroll record(s) selected
-                </p>
-                <p className="mt-1 text-xs text-yellow-100/80">
-                  Release Amount: {formatPeso(selectedNet)} • Carry Forward:{" "}
-                  {formatPeso(selectedCarryForward)}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={clearSelection}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
-                >
-                  Clear
-                </button>
-
-                <button
-                  onClick={() => releasePayroll("selected")}
-                  disabled={
-                    isProcessing ||
-                    pendingAdjustments.length > 0
-                  }
-                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  <Send size={16} /> Release Selected
-                </button>
-
-                <button
-                  onClick={reopenPayroll}
-                  disabled={isProcessing}
-                  className="flex items-center gap-2 rounded-xl border border-yellow-500/40 px-5 py-2 text-sm font-black text-yellow-300 hover:bg-yellow-500/10 disabled:opacity-50"
-                >
-                  <RotateCcw size={16} /> Reopen Selected
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Payroll Batch Release Summary</h2>
+                <h2 className="text-xl font-bold">Payroll Manager Tabs</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Release is allowed only after Register audit and adjustment approval.
+                  Release Queue is for new approved payroll. Partial Releases are unpaid salary balances. Released History is read-only audit view.
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={selectAllReady}
-                  disabled={readyForRelease.length === 0}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
-                >
-                  Select All Ready
-                </button>
-
-                <button
-                  onClick={() => releasePayroll("all")}
-                  disabled={
-                    isProcessing ||
-                    readyForRelease.length === 0 ||
-                    releaseBlocked
-                  }
-                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  <Send size={16} /> Release All Payroll
-                </button>
-              </div>
+              <button
+                onClick={selectAllReady}
+                disabled={tabRows.length === 0}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+              >
+                Select Visible
+              </button>
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <MiniStat title="Employees" value={filteredApprovedPayroll.length} />
-              <MiniStat title="Gross Pay" value={formatPeso(totalPendingGross)} />
-              <MiniStat title="Deductions" value={formatPeso(totalPendingDeductions)} danger />
-              <MiniStat title="Release Amount" value={formatPeso(totalPendingNet)} success />
-              <MiniStat title="Ready" value={readyForRelease.length} success />
-              <MiniStat title="Carry Forward" value={formatPeso(totalCarryForward)} danger={totalCarryForward > 0} />
+              <button
+                onClick={() => {
+                  setActiveTab("queue");
+                  setSelectedRecordIds([]);
+                }}
+                className={`rounded-2xl border p-4 text-left ${
+                  activeTab === "queue"
+                    ? "border-yellow-400 bg-yellow-400 text-slate-950"
+                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.18em]">Tab 1</p>
+                <h3 className="mt-1 text-lg font-black">Release Queue</h3>
+                <p className="mt-1 text-sm opacity-80">{releaseQueuePayroll.length} waiting</p>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab("partial");
+                  setSelectedRecordIds([]);
+                }}
+                className={`rounded-2xl border p-4 text-left ${
+                  activeTab === "partial"
+                    ? "border-yellow-400 bg-yellow-400 text-slate-950"
+                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.18em]">Tab 2</p>
+                <h3 className="mt-1 text-lg font-black">Partial Releases</h3>
+                <p className="mt-1 text-sm opacity-80">{partialReleasePayroll.length} remaining</p>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab("history");
+                  setSelectedRecordIds([]);
+                }}
+                className={`rounded-2xl border p-4 text-left ${
+                  activeTab === "history"
+                    ? "border-yellow-400 bg-yellow-400 text-slate-950"
+                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.18em]">Tab 3</p>
+                <h3 className="mt-1 text-lg font-black">Released History</h3>
+                <p className="mt-1 text-sm opacity-80">{filteredReleasedPayroll.length} released</p>
+              </button>
             </div>
 
             {pendingAdjustments.length > 0 && (
@@ -1083,30 +1468,6 @@ This will mark payroll as Released, create a Payroll expense for actual release 
                 <p className="mt-1 text-sm text-red-200">
                   Approve/reject CA, deductions, or adjustments in Register, then generate payroll again before release.
                 </p>
-              </div>
-            )}
-
-            {negativePayroll.length > 0 && (
-              <div className="mt-5 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
-                <p className="font-black text-yellow-300">
-                  Carry-forward warning: negative net pay will be released as ₱0.
-                </p>
-                <p className="mt-1 text-sm text-yellow-100/80">
-                  The remaining deduction will be saved to Employee Balances for the next cutoff.
-                </p>
-                <div className="mt-3 space-y-2">
-                  {negativePayroll.map((record) => (
-                    <div
-                      key={record.id}
-                      className="flex items-center justify-between rounded-lg bg-slate-950 px-4 py-2 text-sm"
-                    >
-                      <span>{getEmployeeName(record)}</span>
-                      <span className="font-black text-yellow-300">
-                        Carry Forward {formatPeso(getCarryForwardAmount(record))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </div>
@@ -1141,102 +1502,242 @@ This will mark payroll as Released, create a Payroll expense for actual release 
           </div>
         </section>
 
+        {selectedRecordIds.length > 0 && (
+          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 backdrop-blur">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="text-sm font-black text-yellow-300">
+                  {selectedRecordIds.length} payroll record(s) selected
+                </p>
+                <p className="mt-1 text-xs text-yellow-100/80">
+                  {activeTab === "history"
+                    ? "Released records are read-only. Use reopen only when there is a verified payroll correction."
+                    : `Release Amount: ${formatPeso(selectedNet)} • Carry Forward: ${formatPeso(selectedCarryForward)}`}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={clearSelection}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
+                >
+                  Clear
+                </button>
+
+                {activeTab === "history" ? (
+                  <button
+                    onClick={reopenPayroll}
+                    disabled={isProcessing}
+                    className="flex items-center gap-2 rounded-xl border border-yellow-500/40 px-5 py-2 text-sm font-black text-yellow-300 hover:bg-yellow-500/10 disabled:opacity-50"
+                  >
+                    <RotateCcw size={16} /> Reopen Selected
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => releasePayroll("selected")}
+                    disabled={isProcessing || pendingAdjustments.length > 0}
+                    className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                  >
+                    <Send size={16} /> Release Selected
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-bold">Payroll Release Queue</h2>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">
+                {activeTab === "queue"
+                  ? "Payroll Release Queue"
+                  : activeTab === "partial"
+                  ? "Partial Releases"
+                  : "Released History"}
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                {activeTab === "queue"
+                  ? "New approved payroll records waiting for first release."
+                  : activeTab === "partial"
+                  ? "Employees with remaining salary balance after partial release."
+                  : "Read-only released payroll history. Select records only when reopening is required."}
+              </p>
+            </div>
+
+            {activeTab !== "history" && (
+              <button
+                onClick={() => releasePayroll("selected")}
+                disabled={isProcessing || selectedRecordIds.length === 0 || releaseBlocked}
+                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+              >
+                <Send size={16} /> Release Selected
+              </button>
+            )}
+          </div>
 
           <div className="mt-5 max-h-[620px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1400px] text-sm">
-              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Select</th>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Period</th>
-                  <th className="px-4 py-3 text-right">Gross</th>
-                  <th className="px-4 py-3 text-right">Deductions</th>
-                  <th className="px-4 py-3 text-right">Computed Net</th>
-                  <th className="px-4 py-3 text-right">Release</th>
-                  <th className="px-4 py-3 text-right">Carry Forward</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
+            {activeTab === "history" ? (
+              <table className="w-full min-w-[1250px] text-sm">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Select</th>
+                    <th className="px-4 py-3">Employee</th>
+                    <th className="px-4 py-3">Period</th>
+                    <th className="px-4 py-3 text-right">Gross</th>
+                    <th className="px-4 py-3 text-right">Deductions</th>
+                    <th className="px-4 py-3 text-right">Net</th>
+                    <th className="px-4 py-3 text-right">Released</th>
+                    <th className="px-4 py-3">Released By</th>
+                    <th className="px-4 py-3">Released At</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredReleasedPayroll.map((record) => (
+                    <tr key={record.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedRecordIds.includes(String(record.id))}
+                          onChange={() => toggleSelect(record.id)}
+                          className="h-4 w-4 accent-yellow-400"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-black">{getEmployeeName(record)}</p>
+                        <p className="text-xs text-slate-500">
+                          {record.department || "-"} • {record.position || "-"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">{getPeriodLabel(record)}</td>
+                      <td className="px-4 py-3 text-right">{formatPeso(getRecordGross(record))}</td>
+                      <td className="px-4 py-3 text-right text-red-400">{formatPeso(getRecordDeduction(record))}</td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatPeso(getRecordAmount(record))}</td>
+                      <td className="px-4 py-3 text-right font-black text-blue-300">
+                        {formatPeso(record.paid_amount || record.amount_released || getReleaseBaseAmount(record))}
+                      </td>
+                      <td className="px-4 py-3">{record.released_by || "-"}</td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {record.released_at ? String(record.released_at).slice(0, 19).replace("T", " ") : "-"}
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={getReleaseDisplayStatus(record)} /></td>
+                    </tr>
+                  ))}
 
-              <tbody>
-                {filteredApprovedPayroll.map((record) => (
-                  <tr
-                    key={record.id}
-                    className={`border-t border-slate-800 hover:bg-slate-800/40 ${
-                      getRecordAmount(record) < 0 ? "bg-red-500/10" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedRecordIds.includes(String(record.id))}
-                        onChange={() => toggleSelect(record.id)}
-                        className="h-4 w-4 accent-yellow-400"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-black">{getEmployeeName(record)}</p>
-                      <p className="text-xs text-slate-500">
-                        {record.department || "-"} • {record.position || "-"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">{getPeriodLabel(record)}</td>
-                    <td className="px-4 py-3 text-right">{formatPeso(getRecordGross(record))}</td>
-                    <td className="px-4 py-3 text-right text-red-400">
-                      {formatPeso(getRecordDeduction(record))}
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-right font-black ${
-                        getRecordAmount(record) < 0
-                          ? "text-red-400"
-                          : "text-emerald-400"
+                  {filteredReleasedPayroll.length === 0 && (
+                    <tr>
+                      <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
+                        No released payroll history found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full min-w-[1400px] text-sm">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Select</th>
+                    <th className="px-4 py-3">Employee</th>
+                    <th className="px-4 py-3">Period</th>
+                    <th className="px-4 py-3 text-right">Gross</th>
+                    <th className="px-4 py-3 text-right">Deductions</th>
+                    <th className="px-4 py-3 text-right">Computed Net</th>
+                    <th className="px-4 py-3 text-right">Released</th>
+                    <th className="px-4 py-3 text-right">Outstanding</th>
+                    <th className="px-4 py-3 text-right">Release Now</th>
+                    <th className="px-4 py-3 text-right">Remaining</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {visibleReleaseRows.map((record) => (
+                    <tr
+                      key={record.id}
+                      className={`border-t border-slate-800 hover:bg-slate-800/40 ${
+                        getRecordAmount(record) < 0 ? "bg-red-500/10" : ""
                       }`}
                     >
-                      {formatPeso(getRecordAmount(record))}
-                    </td>
-                    <td className="px-4 py-3 text-right font-black text-emerald-400">
-                      {formatPeso(getReleaseAmount(record))}
-                    </td>
-                    <td className="px-4 py-3 text-right font-black text-yellow-300">
-                      {formatPeso(getCarryForwardAmount(record))}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={record.status || "For Approval"} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => releaseSinglePayroll(record)}
-                        disabled={
-                          isProcessing ||
-                          releaseBlocked
-                        }
-                        className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        Release
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedRecordIds.includes(String(record.id))}
+                          onChange={() => toggleSelect(record.id)}
+                          className="h-4 w-4 accent-yellow-400"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-black">{getEmployeeName(record)}</p>
+                        <p className="text-xs text-slate-500">
+                          {record.department || "-"} • {record.position || "-"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">{getPeriodLabel(record)}</td>
+                      <td className="px-4 py-3 text-right">{formatPeso(getRecordGross(record))}</td>
+                      <td className="px-4 py-3 text-right text-red-400">{formatPeso(getRecordDeduction(record))}</td>
+                      <td className={`px-4 py-3 text-right font-black ${getRecordAmount(record) < 0 ? "text-red-400" : "text-emerald-400"}`}>
+                        {formatPeso(getRecordAmount(record))}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-blue-300">{formatPeso(getAlreadyReleasedAmount(record))}</td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatPeso(getOutstandingPayrollAmount(record))}</td>
+                      <td className="px-4 py-3 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          max={getOutstandingPayrollAmount(record)}
+                          value={releaseDrafts[String(record.id)] ?? String(getOutstandingPayrollAmount(record))}
+                          onChange={(event) => {
+                            const maxAmount = getOutstandingPayrollAmount(record);
+                            const requestedAmount = Math.max(0, Number(event.target.value || 0));
+                            const safeAmount = Math.min(requestedAmount, maxAmount);
 
-                {filteredApprovedPayroll.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
-                      No approved payroll records waiting for release.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                            setReleaseDrafts((prev) => ({
+                              ...prev,
+                              [String(record.id)]: String(safeAmount),
+                            }));
+                          }}
+                          className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-right text-xs font-black text-emerald-300 outline-none"
+                        />
+                        <p className="mt-1 text-right text-[10px] text-slate-500">
+                          Max {formatPeso(getOutstandingPayrollAmount(record))}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">{formatPeso(getRemainingAfterRelease(record))}</td>
+                      <td className="px-4 py-3"><StatusBadge status={getReleaseDisplayStatus(record)} /></td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => releaseSinglePayroll(record)}
+                          disabled={isProcessing || releaseBlocked}
+                          className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
+                        >
+                          Release
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {visibleReleaseRows.length === 0 && (
+                    <tr>
+                      <td colSpan={12} className="px-4 py-12 text-center text-slate-500">
+                        {activeTab === "queue"
+                          ? "No new approved payroll records waiting for release."
+                          : "No partially released payroll records with remaining balance."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
 
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Active carry-forward balances created from negative payroll releases.
+            Active employee balances only. Payroll Balance rows are remaining salary; Cash Advance rows are employee liabilities.
           </p>
 
           <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
@@ -1260,12 +1761,8 @@ This will mark payroll as Released, create a Payroll expense for actual release 
                       <td className="px-4 py-3 font-bold">{item.employee_name || "Unknown Employee"}</td>
                       <td className="px-4 py-3">{item.balance_type || "Balance"}</td>
                       <td className="px-4 py-3 text-right">{formatPeso(item.original_amount)}</td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">
-                        {formatPeso(item.remaining_balance)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={item.status || "Active"} />
-                      </td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">{formatPeso(item.remaining_balance)}</td>
+                      <td className="px-4 py-3"><StatusBadge status={item.status || "Active"} /></td>
                       <td className="px-4 py-3 text-slate-400">{item.remarks || "-"}</td>
                     </tr>
                   ))}
@@ -1314,9 +1811,7 @@ This will mark payroll as Released, create a Payroll expense for actual release 
                     <td className="px-4 py-3">{item.adjustment_type || item.type || item.category || "Adjustment"}</td>
                     <td className="px-4 py-3 text-slate-300">{item.description || item.remarks || "-"}</td>
                     <td className="px-4 py-3 text-right font-bold">{formatPeso(item.amount || 0)}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={item.status || "Pending"} />
-                    </td>
+                    <td className="px-4 py-3"><StatusBadge status={item.status || "Pending"} /></td>
                   </tr>
                 ))}
 
@@ -1335,8 +1830,6 @@ This will mark payroll as Released, create a Payroll expense for actual release 
     </div>
   );
 }
-
-
 function PayrollComparisonCard({ title, period, rows }: any) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
