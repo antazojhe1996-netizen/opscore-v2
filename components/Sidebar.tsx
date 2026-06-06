@@ -50,7 +50,8 @@ const menuSections = [
       { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
       { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
       { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
-{ label: "Performance Monitoring", href: "/performance", icon: BarChart3, moduleKey: "always_allow" },      { label: "Employee Portal", href: "/employee-portal", icon: User, moduleKey: "employees" },
+      { label: "Performance Monitoring", href: "/performance", icon: BarChart3, moduleKey: "always_allow" },
+      { label: "Employee Portal", href: "/employee-portal", icon: User, moduleKey: "employees" },
     ],
   },
   {
@@ -104,8 +105,6 @@ const menuSections = [
       { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "settings" },
       { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3, moduleKey: "settings" },
       { label: "Performance KPI", href: "/settings/performance-kpi", icon: BarChart3, moduleKey: "settings" },
-      { label: "Event Add-ons", href: "/settings/event-addons", icon: CalendarDays, moduleKey: "settings" },
-      { label: "Occupancy Import", href: "/settings/occupancy-import", icon: Database, moduleKey: "settings" },
       { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "settings" },
       { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "settings" },
       { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "settings" },
@@ -183,11 +182,14 @@ export default function Sidebar() {
     );
   };
 
-  const isItemActive = (href: string) => {
-    if (href === "/finance") return pathname === "/finance";
-    if (href === "/settings") return pathname === "/settings";
-    return pathname === href || pathname.startsWith(`${href}/`);
+  const normalizePath = (value: string) => {
+    if (value.length > 1 && value.endsWith("/")) return value.slice(0, -1);
+    return value;
   };
+
+  const currentPath = normalizePath(pathname || "/");
+
+  const isExactActive = (href: string) => normalizePath(href) === currentPath;
 
   const visibleSections = menuSections
     .map((section: any) => {
@@ -204,11 +206,6 @@ export default function Sidebar() {
       return { ...section, items: visibleItems };
     })
     .filter(Boolean);
-
-  const isSectionActive = (section: any) => {
-    if (section.href) return isItemActive(section.href);
-    return section.items.some((item: any) => isItemActive(item.href));
-  };
 
   return (
     <aside className="sticky top-0 z-[9999] h-screen w-56 shrink-0 border-r border-slate-800 bg-slate-950 px-3 py-4 text-white">
@@ -227,9 +224,10 @@ export default function Sidebar() {
         <nav className="space-y-1.5">
           {visibleSections.map((section: any) => {
             const Icon = section.icon;
-            const active = isSectionActive(section);
 
             if (section.href) {
+              const active = isExactActive(section.href);
+
               return (
                 <Link
                   key={section.title}
@@ -252,11 +250,7 @@ export default function Sidebar() {
                 <button
                   type="button"
                   title={section.title}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${
-                    active
-                      ? "bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/10"
-                      : "text-slate-400 hover:bg-slate-900 hover:text-white"
-                  }`}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-400 transition hover:bg-slate-900 hover:text-white"
                 >
                   <Icon size={16} />
                   <span className="min-w-0 flex-1 truncate">{section.title}</span>
@@ -274,7 +268,7 @@ export default function Sidebar() {
                   <div className="space-y-1">
                     {section.items.map((item: any) => {
                       const ItemIcon = item.icon;
-                      const itemActive = isItemActive(item.href);
+                      const itemActive = isExactActive(item.href);
 
                       return (
                         <Link
@@ -283,7 +277,7 @@ export default function Sidebar() {
                           title={item.label}
                           className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs transition ${
                             itemActive
-                              ? "bg-slate-900 font-black text-amber-400"
+                              ? "bg-amber-400 font-black text-slate-950 shadow-lg shadow-amber-400/10"
                               : "text-slate-400 hover:bg-slate-900 hover:text-white"
                           }`}
                         >
