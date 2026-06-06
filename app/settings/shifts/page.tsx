@@ -17,12 +17,45 @@ export default function ShiftManagementPage() {
   /// DATA
   const colorMap: any = {
     blue: { bg: "#1d4ed840", text: "#93c5fd" },
+    sky: { bg: "#0284c740", text: "#7dd3fc" },
+    cyan: { bg: "#0891b240", text: "#67e8f9" },
+    teal: { bg: "#0f766e40", text: "#5eead4" },
     green: { bg: "#15803d40", text: "#86efac" },
+    emerald: { bg: "#04785740", text: "#6ee7b7" },
+    lime: { bg: "#65a30d40", text: "#bef264" },
     yellow: { bg: "#ca8a0440", text: "#fde047" },
-    purple: { bg: "#7e22ce40", text: "#d8b4fe" },
+    amber: { bg: "#d9770640", text: "#fcd34d" },
+    orange: { bg: "#ea580c40", text: "#fdba74" },
     red: { bg: "#b91c1c40", text: "#fca5a5" },
+    rose: { bg: "#be123c40", text: "#fda4af" },
+    pink: { bg: "#be185d40", text: "#f9a8d4" },
+    purple: { bg: "#7e22ce40", text: "#d8b4fe" },
+    violet: { bg: "#6d28d940", text: "#c4b5fd" },
+    indigo: { bg: "#4338ca40", text: "#a5b4fc" },
+    slate: { bg: "#33415566", text: "#cbd5e1" },
     gray: { bg: "#47556966", text: "#cbd5e1" },
   };
+
+  const colorOptions = [
+    "blue",
+    "sky",
+    "cyan",
+    "teal",
+    "green",
+    "emerald",
+    "lime",
+    "yellow",
+    "amber",
+    "orange",
+    "red",
+    "rose",
+    "pink",
+    "purple",
+    "violet",
+    "indigo",
+    "slate",
+    "gray",
+  ];
 
   /// FUNCTIONS
 
@@ -32,13 +65,38 @@ export default function ShiftManagementPage() {
   };
 
   const normalizeColor = (color: string) => {
-    if (!color) return "blue";
-    if (color.includes("green")) return "green";
-    if (color.includes("yellow")) return "yellow";
-    if (color.includes("purple")) return "purple";
-    if (color.includes("red")) return "red";
-    if (color.includes("slate") || color.includes("gray")) return "gray";
+    const cleanColor = String(color || "").toLowerCase().trim();
+
+    if (colorMap[cleanColor]) return cleanColor;
+    if (cleanColor.includes("sky")) return "sky";
+    if (cleanColor.includes("cyan")) return "cyan";
+    if (cleanColor.includes("teal")) return "teal";
+    if (cleanColor.includes("emerald")) return "emerald";
+    if (cleanColor.includes("green")) return "green";
+    if (cleanColor.includes("lime")) return "lime";
+    if (cleanColor.includes("yellow")) return "yellow";
+    if (cleanColor.includes("amber")) return "amber";
+    if (cleanColor.includes("orange")) return "orange";
+    if (cleanColor.includes("rose")) return "rose";
+    if (cleanColor.includes("pink")) return "pink";
+    if (cleanColor.includes("purple")) return "purple";
+    if (cleanColor.includes("violet")) return "violet";
+    if (cleanColor.includes("indigo")) return "indigo";
+    if (cleanColor.includes("red")) return "red";
+    if (cleanColor.includes("slate")) return "slate";
+    if (cleanColor.includes("gray")) return "gray";
+
     return "blue";
+  };
+
+  const buildTimeLabel = (name: string, start?: string, end?: string) => {
+    const cleanName = name.trim();
+
+    if (start && end) {
+      return `${start} - ${end}`;
+    }
+
+    return cleanName;
   };
 
   const getShifts = async () => {
@@ -48,7 +106,7 @@ export default function ShiftManagementPage() {
       .order("id", { ascending: true });
 
     if (error) {
-      console.log("GET SHIFTS ERROR:", error);
+      console.log("GET SHIFTS ERROR:", error.message || error);
       return;
     }
 
@@ -71,6 +129,7 @@ export default function ShiftManagementPage() {
       shift_name: cleanName,
       start_time: startTime || null,
       end_time: endTime || null,
+      time_label: buildTimeLabel(cleanName, startTime, endTime),
       color: shiftColor,
     };
 
@@ -81,7 +140,7 @@ export default function ShiftManagementPage() {
       .single();
 
     if (error) {
-      console.log("ADD SHIFT ERROR:", error);
+      console.log("ADD SHIFT ERROR:", error.message || error);
       return;
     }
 
@@ -122,6 +181,7 @@ export default function ShiftManagementPage() {
       shift_name: cleanName,
       start_time: startTime || null,
       end_time: endTime || null,
+      time_label: buildTimeLabel(cleanName, startTime, endTime),
       color: shiftColor,
     };
 
@@ -133,7 +193,7 @@ export default function ShiftManagementPage() {
       .single();
 
     if (error) {
-      console.log("UPDATE SHIFT ERROR:", error);
+      console.log("UPDATE SHIFT ERROR:", error.message || error);
       return;
     }
 
@@ -166,7 +226,7 @@ export default function ShiftManagementPage() {
       .eq("id", shift.id);
 
     if (error) {
-      console.log("DELETE SHIFT ERROR:", error);
+      console.log("DELETE SHIFT ERROR:", error.message || error);
       return;
     }
 
@@ -210,7 +270,7 @@ export default function ShiftManagementPage() {
             {editingId ? "Edit Shift" : "Add Shift"}
           </h2>
 
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
             <input
               className="flex-1 rounded bg-slate-800 p-2 text-white outline-none placeholder:text-slate-400"
               placeholder="Shift Name"
@@ -220,34 +280,33 @@ export default function ShiftManagementPage() {
 
             <input
               type="time"
-              className="w-44 rounded bg-slate-800 p-2 text-white outline-none"
+              className="rounded bg-slate-800 p-2 text-white outline-none"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
             />
 
             <input
               type="time"
-              className="w-44 rounded bg-slate-800 p-2 text-white outline-none"
+              className="rounded bg-slate-800 p-2 text-white outline-none"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
             />
 
             <select
-              className="w-36 rounded bg-slate-800 p-2 text-white outline-none"
+              className="rounded bg-slate-800 p-2 text-white outline-none"
               value={shiftColor}
               onChange={(e) => setShiftColor(e.target.value)}
             >
-              <option value="blue">Blue</option>
-              <option value="green">Green</option>
-              <option value="yellow">Yellow</option>
-              <option value="purple">Purple</option>
-              <option value="red">Red</option>
-              <option value="gray">Gray</option>
+              {colorOptions.map((color) => (
+                <option key={color} value={color}>
+                  {color.charAt(0).toUpperCase() + color.slice(1)}
+                </option>
+              ))}
             </select>
 
             <button
               onClick={editingId ? updateShift : addShift}
-              className="w-32 rounded bg-yellow-400 px-4 py-2 font-bold text-black hover:bg-yellow-300"
+              className="rounded bg-yellow-400 px-4 py-2 font-bold text-black hover:bg-yellow-300"
             >
               {editingId ? "Update" : "Add"}
             </button>
@@ -261,6 +320,15 @@ export default function ShiftManagementPage() {
               Cancel Edit
             </button>
           )}
+
+          <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">
+            <p className="font-black">Tip</p>
+            <p className="mt-1 text-blue-100/80">
+              Use <span className="font-bold text-white">RD</span> for official rest day.
+              Use <span className="font-bold text-white">OFF</span> only when the employee has no schedule assigned yet.
+              RD and OFF can be saved without start/end time.
+            </p>
+          </div>
         </div>
 
         <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
@@ -273,6 +341,7 @@ export default function ShiftManagementPage() {
                   <th className="w-[180px] p-4">Shift Name</th>
                   <th className="p-4">Start Time</th>
                   <th className="p-4">End Time</th>
+                  <th className="p-4">Time Label</th>
                   <th className="w-32 p-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -307,6 +376,10 @@ export default function ShiftManagementPage() {
                         {shift.end_time || "—"}
                       </td>
 
+                      <td className="p-4 text-slate-300">
+                        {shift.time_label || buildTimeLabel(shift.shift_name || "", shift.start_time, shift.end_time)}
+                      </td>
+
                       <td className="w-32 p-4">
                         <div className="flex justify-end gap-3">
                           <button
@@ -330,7 +403,7 @@ export default function ShiftManagementPage() {
 
                 {shifts.length === 0 && (
                   <tr>
-                    <td className="p-4 text-slate-400" colSpan={4}>
+                    <td className="p-4 text-slate-400" colSpan={5}>
                       No shifts yet.
                     </td>
                   </tr>

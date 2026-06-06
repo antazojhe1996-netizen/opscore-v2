@@ -13,6 +13,8 @@ type Employee = {
   department: string;
   position?: string;
   employment_status?: string;
+  portal_enabled?: boolean;
+  attendance_source_preference?: "Biometrics" | "Employee Portal" | "Manual Review" | string | null;
 };
 
 type AttendanceEntry = {
@@ -29,6 +31,7 @@ type AttendanceEntry = {
   ot_minutes?: number;
   status?: string;
   remarks?: string;
+  attendance_source?: "Biometrics" | "Employee Portal" | "Manual Entry" | "Mixed" | string | null;
 };
 
 type ImportPreviewRow = {
@@ -253,6 +256,89 @@ export default function AttendancePage() {
   const getShiftTemplate = (shiftName?: string | null) =>
     shiftTemplates.find((shift) => shift.shift_name === shiftName);
 
+  const normalizeColor = (color?: string | null) => {
+    const cleanColor = String(color || "").toLowerCase().trim();
+
+    if (!cleanColor) return "slate";
+    if (cleanColor.includes("sky")) return "sky";
+    if (cleanColor.includes("cyan")) return "cyan";
+    if (cleanColor.includes("teal")) return "teal";
+    if (cleanColor.includes("emerald")) return "emerald";
+    if (cleanColor.includes("green")) return "green";
+    if (cleanColor.includes("lime")) return "lime";
+    if (cleanColor.includes("yellow")) return "yellow";
+    if (cleanColor.includes("amber")) return "amber";
+    if (cleanColor.includes("orange")) return "orange";
+    if (cleanColor.includes("rose")) return "rose";
+    if (cleanColor.includes("pink")) return "pink";
+    if (cleanColor.includes("purple")) return "purple";
+    if (cleanColor.includes("violet")) return "violet";
+    if (cleanColor.includes("indigo")) return "indigo";
+    if (cleanColor.includes("red")) return "red";
+    if (cleanColor.includes("slate")) return "slate";
+    if (cleanColor.includes("gray")) return "gray";
+    if (cleanColor.includes("blue")) return "blue";
+
+    return "slate";
+  };
+
+  const getColorClasses = (color?: string | null) => {
+    const normalized = normalizeColor(color);
+
+    if (normalized === "blue") return "border-blue-500/40 bg-blue-500/15 text-blue-300";
+    if (normalized === "sky") return "border-sky-500/40 bg-sky-500/15 text-sky-300";
+    if (normalized === "cyan") return "border-cyan-500/40 bg-cyan-500/15 text-cyan-300";
+    if (normalized === "teal") return "border-teal-500/40 bg-teal-500/15 text-teal-300";
+    if (normalized === "green") return "border-green-500/40 bg-green-500/15 text-green-300";
+    if (normalized === "emerald") return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
+    if (normalized === "lime") return "border-lime-500/40 bg-lime-500/15 text-lime-300";
+    if (normalized === "yellow") return "border-yellow-500/40 bg-yellow-500/15 text-yellow-300";
+    if (normalized === "amber") return "border-amber-500/40 bg-amber-500/15 text-amber-300";
+    if (normalized === "orange") return "border-orange-500/40 bg-orange-500/15 text-orange-300";
+    if (normalized === "red") return "border-red-500/40 bg-red-500/15 text-red-300";
+    if (normalized === "rose") return "border-rose-500/40 bg-rose-500/15 text-rose-300";
+    if (normalized === "pink") return "border-pink-500/40 bg-pink-500/15 text-pink-300";
+    if (normalized === "purple") return "border-purple-500/40 bg-purple-500/15 text-purple-300";
+    if (normalized === "violet") return "border-violet-500/40 bg-violet-500/15 text-violet-300";
+    if (normalized === "indigo") return "border-indigo-500/40 bg-indigo-500/15 text-indigo-300";
+    if (normalized === "gray") return "border-gray-500/40 bg-gray-500/15 text-gray-300";
+
+    return "border-slate-500/40 bg-slate-500/15 text-slate-300";
+  };
+
+  const getShiftColorClass = (shiftName?: string | null) => {
+    const shift = getShiftTemplate(shiftName);
+    return getColorClasses(shift?.color);
+  };
+
+  const isUnscheduledShift = (shiftName?: string | null) => shiftName === "OFF";
+  const isRestDayShift = (shiftName?: string | null) => shiftName === "RD";
+  const isLeaveShift = (shiftName?: string | null) => shiftName === "Leave";
+  const isWorkingShift = (shiftName?: string | null) =>
+    !!shiftName &&
+    !isUnscheduledShift(shiftName) &&
+    !isRestDayShift(shiftName) &&
+    !isLeaveShift(shiftName);
+
+  const getShiftTimeLabel = (shiftName?: string | null) => {
+    if (!shiftName) return "OFF";
+    if (shiftName === "OFF") return "OFF";
+    if (shiftName === "RD") return "RD";
+    if (shiftName === "Leave") return "Leave";
+
+    const shift = getShiftTemplate(shiftName);
+    const start = shift?.start_time ? String(shift.start_time).slice(0, 5) : "";
+    const end = shift?.end_time ? String(shift.end_time).slice(0, 5) : "";
+
+    if (start && end) return `${start} - ${end}`;
+
+    return shiftName;
+  };
+
+  const getScheduleLabel = (shiftName?: string | null) => {
+    return getShiftTimeLabel(shiftName);
+  };
+
   const isOnLeave = (employee: Employee, date: string) => {
     const keys = [
       String(employee.id || "").toLowerCase(),
@@ -269,6 +355,54 @@ export default function AttendancePage() {
         date <= String(leave.end_date)
       );
     });
+  };
+
+
+  const getAttendanceSourcePreference = (employee?: Employee | null) => {
+    return String(
+      employee?.attendance_source_preference ||
+        (employee?.portal_enabled ? "Employee Portal" : "Biometrics")
+    );
+  };
+
+  const getExistingSource = (entry?: AttendanceEntry | null) => {
+    const source = String(entry?.attendance_source || "").trim();
+    if (source) return source;
+
+    const remarks = String(entry?.remarks || "").toLowerCase();
+
+    if (remarks.includes("employee portal")) return "Employee Portal";
+    if (remarks.includes("biometrics")) return "Biometrics";
+    if (remarks.includes("manual")) return "Manual Entry";
+
+    return "";
+  };
+
+  const hasTimeConflict = (
+    existing?: AttendanceEntry | null,
+    incoming?: Pick<AttendanceEntry, "time_in" | "time_out"> | null
+  ) => {
+    if (!existing || !incoming) return false;
+
+    const existingTimeIn = existing.time_in || "";
+    const existingTimeOut = existing.time_out || "";
+    const incomingTimeIn = incoming.time_in || "";
+    const incomingTimeOut = incoming.time_out || "";
+
+    const timeInConflict =
+      !!existingTimeIn && !!incomingTimeIn && existingTimeIn !== incomingTimeIn;
+
+    const timeOutConflict =
+      !!existingTimeOut && !!incomingTimeOut && existingTimeOut !== incomingTimeOut;
+
+    return timeInConflict || timeOutConflict;
+  };
+
+  const buildSourceConflictRemarks = (
+    existingSource: string,
+    incomingSource: string
+  ) => {
+    return `Review Required: ${incomingSource} conflicted with existing ${existingSource} attendance.`;
   };
 
   const computeTimeMetrics = ({
@@ -438,19 +572,6 @@ export default function AttendancePage() {
       };
     }
 
-    if (shiftName === "OFF") {
-      return {
-        scheduled_shift: "OFF",
-        scheduled_in: null,
-        scheduled_out: null,
-        late_minutes: 0,
-        undertime_minutes: 0,
-        ot_minutes: 0,
-        status: "RD",
-        review_reason: "",
-      };
-    }
-
     if (!schedule && !hasScheduleOverride) {
       return {
         scheduled_shift: "OFF",
@@ -459,8 +580,34 @@ export default function AttendancePage() {
         late_minutes: 0,
         undertime_minutes: 0,
         ot_minutes: 0,
+        status: "Unscheduled",
+        review_reason: "No schedule assigned.",
+      };
+    }
+
+    if (shiftName === "OFF") {
+      return {
+        scheduled_shift: "OFF",
+        scheduled_in: null,
+        scheduled_out: null,
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
+        status: "Unscheduled",
+        review_reason: "No schedule assigned.",
+      };
+    }
+
+    if (shiftName === "RD") {
+      return {
+        scheduled_shift: "RD",
+        scheduled_in: null,
+        scheduled_out: null,
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
         status: "RD",
-        review_reason: "No schedule found.",
+        review_reason: "",
       };
     }
 
@@ -678,6 +825,7 @@ export default function AttendancePage() {
       time_in: "",
       time_out: "",
       remarks: "",
+      attendance_source: "Manual Entry",
     };
 
     const updated: AttendanceEntry = {
@@ -733,6 +881,7 @@ export default function AttendancePage() {
       time_in: "",
       time_out: "",
       remarks: "",
+      attendance_source: "Manual Entry",
     };
 
     const updated: AttendanceEntry = {
@@ -1055,45 +1204,118 @@ export default function AttendancePage() {
       (row) => row.matched && row.employee_id
     );
 
-    const imported: AttendanceEntry[] = matchedRows.map((row) => ({
-      employee_id: row.employee_id!,
-      attendance_date: row.attendance_date,
-      scheduled_shift: null,
-      scheduled_in: null,
-      scheduled_out: null,
-      time_in: row.time_in,
-      time_out: row.time_out,
-      late_minutes: row.late_minutes,
-      undertime_minutes: row.undertime_minutes,
-      ot_minutes: row.ot_minutes,
-      status: row.status,
-      remarks: "Imported from biometrics",
-    }));
+    let conflictCount = 0;
+    let skippedPortalCount = 0;
 
     setEntries((prev) => {
       const merged = [...prev];
 
-      imported.forEach((item) => {
-        const index = merged.findIndex(
-          (entry) =>
-            entry.employee_id === item.employee_id &&
-            entry.attendance_date === item.attendance_date
+      matchedRows.forEach((row) => {
+        const employee = employees.find(
+          (emp) => String(emp.id) === String(row.employee_id)
         );
 
-        if (index >= 0) {
-          merged[index] = {
-            ...merged[index],
-            ...item,
-          };
-        } else {
-          merged.push(item);
+        const preference = getAttendanceSourcePreference(employee);
+        const incomingSource = "Biometrics";
+
+        const incoming: AttendanceEntry = {
+          employee_id: row.employee_id!,
+          attendance_date: row.attendance_date,
+          scheduled_shift: null,
+          scheduled_in: null,
+          scheduled_out: null,
+          time_in: row.time_in,
+          time_out: row.time_out,
+          late_minutes: row.late_minutes,
+          undertime_minutes: row.undertime_minutes,
+          ot_minutes: row.ot_minutes,
+          status: row.status,
+          remarks: "Imported from biometrics",
+          attendance_source: incomingSource,
+        };
+
+        const index = merged.findIndex(
+          (entry) =>
+            entry.employee_id === incoming.employee_id &&
+            entry.attendance_date === incoming.attendance_date
+        );
+
+        if (index < 0) {
+          merged.push(incoming);
+          return;
         }
+
+        const existing = merged[index];
+        const existingSource = getExistingSource(existing);
+        const conflict = hasTimeConflict(existing, incoming);
+
+        if (
+          preference === "Employee Portal" &&
+          existingSource === "Employee Portal" &&
+          conflict
+        ) {
+          conflictCount += 1;
+          skippedPortalCount += 1;
+
+          merged[index] = {
+            ...existing,
+            status: "Review Required",
+            remarks: buildSourceConflictRemarks(existingSource, incomingSource),
+            attendance_source: "Mixed",
+          };
+
+          return;
+        }
+
+        if (preference === "Manual Review" && conflict) {
+          conflictCount += 1;
+
+          merged[index] = {
+            ...existing,
+            status: "Review Required",
+            remarks: buildSourceConflictRemarks(existingSource || "existing", incomingSource),
+            attendance_source: "Mixed",
+          };
+
+          return;
+        }
+
+        if (preference === "Employee Portal" && existingSource === "Employee Portal") {
+          skippedPortalCount += 1;
+          return;
+        }
+
+        merged[index] = {
+          ...existing,
+          ...incoming,
+          remarks:
+            existing.remarks && existing.remarks.includes("Schedule override")
+              ? `${existing.remarks} | Imported from biometrics`
+              : "Imported from biometrics",
+          attendance_source: incomingSource,
+        };
       });
 
       return merged;
     });
 
-    setImportStatus(`Confirmed ${imported.length} imported row(s).`);
+    const statusMessageParts = [
+      `Confirmed ${matchedRows.length} imported row(s).`,
+    ];
+
+    if (skippedPortalCount > 0) {
+      statusMessageParts.push(
+        `${skippedPortalCount} portal-controlled row(s) were protected from biometrics overwrite.`
+      );
+    }
+
+    if (conflictCount > 0) {
+      statusMessageParts.push(
+        `${conflictCount} source conflict(s) marked as Review Required.`
+      );
+    }
+
+    setImportStatus(statusMessageParts.join(" "));
     setImportPreview([]);
   };
 
@@ -1110,7 +1332,7 @@ export default function AttendancePage() {
       return;
     }
 
-    if (!selectedEmployee) return;
+    if (missingEntryRows.length === 0) return;
 
     missingEntryRows.forEach((row) => {
       updateLocalEntry(
@@ -1133,7 +1355,7 @@ export default function AttendancePage() {
     }
 
     const sourceRows =
-      selectedEmployee && attendanceRows.length > 0
+      reviewEmployees.length > 0 && attendanceRows.length > 0
         ? attendanceRows.map((row) => ({
             employee_id: row.employee.id,
             attendance_date: row.date,
@@ -1147,6 +1369,7 @@ export default function AttendancePage() {
             ot_minutes: row.ot_minutes,
             status: row.status,
             remarks: row.entry?.remarks || "",
+            attendance_source: row.entry?.attendance_source || getExistingSource(row.entry) || "Manual Entry",
           }))
         : entries.map((entry) => ({
             employee_id: entry.employee_id,
@@ -1161,6 +1384,7 @@ export default function AttendancePage() {
             ot_minutes: entry.ot_minutes || 0,
             status: entry.status || "Present",
             remarks: entry.remarks || "",
+            attendance_source: entry.attendance_source || getExistingSource(entry) || "Manual Entry",
           }));
 
     if (sourceRows.length === 0) {
@@ -1227,23 +1451,31 @@ export default function AttendancePage() {
     return employees.find((emp) => emp.id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
 
+  const reviewEmployees = useMemo(() => {
+    if (selectedEmployeeId === "ALL_EMPLOYEES") return employeeOptions;
+    if (selectedEmployee) return [selectedEmployee];
+    return [];
+  }, [selectedEmployeeId, selectedEmployee, employeeOptions]);
+
   const attendanceRows = useMemo(() => {
-    if (!selectedEmployee) return [];
+    if (reviewEmployees.length === 0) return [];
 
-    return getDateRange().map((date) => {
-      const entry = getEntry(selectedEmployee.id, date);
-      const computed = computeEntry(selectedEmployee, date, entry);
+    return reviewEmployees.flatMap((employee) =>
+      getDateRange().map((date) => {
+        const entry = getEntry(employee.id, date);
+        const computed = computeEntry(employee, date, entry);
 
-      return {
-        key: `${selectedEmployee.id}-${date}`,
-        employee: selectedEmployee,
-        date,
-        entry,
-        ...computed,
-      };
-    });
+        return {
+          key: `${employee.id}-${date}`,
+          employee,
+          date,
+          entry,
+          ...computed,
+        };
+      })
+    );
   }, [
-    selectedEmployee,
+    reviewEmployees,
     entries,
     schedules,
     approvedLeaves,
@@ -1268,18 +1500,14 @@ export default function AttendancePage() {
   );
 
   const payrollIssueRows = attendanceRows.filter((row) => {
-    const isWorkingDay =
-      row.scheduled_shift !== "OFF" &&
-      row.scheduled_shift !== "RD" &&
-      row.scheduled_shift !== "Leave";
+    const isWorkingDay = isWorkingShift(row.scheduled_shift);
 
     const missingTime =
       isWorkingDay && !row.entry?.time_in && !row.entry?.time_out;
 
     const missingOut = isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
 
-    const noSchedule =
-      row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
+    const noSchedule = isUnscheduledShift(row.scheduled_shift);
 
     const reviewRequired = row.status === "Review Required";
 
@@ -1287,33 +1515,31 @@ export default function AttendancePage() {
   });
 
   const missingEntryRows = payrollIssueRows.filter((row) => {
-    const isWorkingDay =
-      row.scheduled_shift !== "OFF" &&
-      row.scheduled_shift !== "RD" &&
-      row.scheduled_shift !== "Leave";
+    const isWorkingDay = isWorkingShift(row.scheduled_shift);
 
     return isWorkingDay && !row.entry?.time_in && !row.entry?.time_out;
   });
 
   const missingOutRows = payrollIssueRows.filter((row) => {
-    const isWorkingDay =
-      row.scheduled_shift !== "OFF" &&
-      row.scheduled_shift !== "RD" &&
-      row.scheduled_shift !== "Leave";
+    const isWorkingDay = isWorkingShift(row.scheduled_shift);
 
     return isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
   });
 
-  const noScheduleRows = attendanceRows.filter((row) => {
-    return row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
-  });
+  const noScheduleRows = attendanceRows.filter((row) =>
+    isUnscheduledShift(row.scheduled_shift)
+  );
+
+  const restDayRows = attendanceRows.filter((row) =>
+    isRestDayShift(row.scheduled_shift)
+  );
 
   const reviewRequiredRows = attendanceRows.filter(
     (row) => row.status === "Review Required"
   );
 
   const payrollReady =
-    !!selectedEmployee && attendanceRows.length > 0 && payrollIssueRows.length === 0;
+    reviewEmployees.length > 0 && attendanceRows.length > 0 && payrollIssueRows.length === 0;
 
   const attendanceLocked = lockedPayrollPeriods.length > 0;
 
@@ -1381,7 +1607,8 @@ export default function AttendancePage() {
           <SummaryCard title="Absent" value={absentCount} color="text-red-400" />
           <SummaryCard title="Missing" value={missingEntryRows.length} color="text-red-400" />
           <SummaryCard title="Missing Out" value={missingOutRows.length} color="text-orange-400" />
-          <SummaryCard title="No Schedule" value={noScheduleRows.length} color="text-purple-400" />
+          <SummaryCard title="No Schedule" value={noScheduleRows.length} color="text-red-400" />
+          <SummaryCard title="Rest Day" value={restDayRows.length} color="text-lime-400" />
           <SummaryCard title="Review Required" value={reviewRequiredRows.length} color="text-orange-400" />
           <SummaryCard title="OT Hours" value={(totalOtMinutes / 60).toFixed(2)} color="text-blue-400" />
         </section>
@@ -1390,7 +1617,7 @@ export default function AttendancePage() {
           <div className="mb-5">
             <h2 className="text-2xl font-black">Payroll Cutoff Filters</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Select one employee and review attendance by payroll cutoff range.
+              Select one employee or all employees and review attendance by payroll cutoff range.
             </p>
           </div>
 
@@ -1418,6 +1645,7 @@ export default function AttendancePage() {
               className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm outline-none"
             >
               <option value="">Select Employee</option>
+              <option value="ALL_EMPLOYEES">All Employees</option>
 
               {employeeOptions.map((emp) => (
                 <option key={emp.id} value={emp.id}>
@@ -1461,7 +1689,7 @@ export default function AttendancePage() {
           </section>
         )}
 
-        {selectedEmployee && (
+        {reviewEmployees.length > 0 && (
           <section
             className={`mb-8 rounded-3xl border p-6 ${
               payrollReady
@@ -1481,7 +1709,7 @@ export default function AttendancePage() {
 
                 <p className="mt-1 text-sm text-slate-300">
                   Missing Entries: {missingEntryRows.length} • Missing Time Out:{" "}
-                  {missingOutRows.length} • No Schedule: {noScheduleRows.length} • Review Required: {reviewRequiredRows.length}
+                  {missingOutRows.length} • Unscheduled: {noScheduleRows.length} • Review Required: {reviewRequiredRows.length}
                 </p>
               </div>
 
@@ -1501,11 +1729,12 @@ export default function AttendancePage() {
                 <table className="w-full min-w-[900px] text-sm">
                   <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                     <tr>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Issue</th>
-                      <th className="px-4 py-3">Schedule</th>
-                      <th className="px-4 py-3">Time In</th>
-                      <th className="px-4 py-3">Time Out</th>
+                      <th className="px-4 py-3 align-middle">Employee</th>
+                      <th className="px-4 py-3 align-middle">Date</th>
+                      <th className="px-4 py-3 align-middle">Issue</th>
+                      <th className="px-4 py-3 align-middle">Schedule</th>
+                      <th className="px-4 py-3 align-middle">Time In</th>
+                      <th className="px-4 py-3 align-middle">Time Out</th>
                     </tr>
                   </thead>
 
@@ -1532,22 +1761,33 @@ export default function AttendancePage() {
                         !row.entry?.time_out
                       ) {
                         issue = "Missing Time Out";
-                      } else if (
-                        row.scheduled_shift === "OFF" &&
-                        !getSchedule(row.employee.id, row.date)
-                      ) {
-                        issue = "No Schedule Found";
+                      } else if (isUnscheduledShift(row.scheduled_shift)) {
+                        issue = "Unscheduled Employee";
                       }
 
                       return (
                         <tr key={`issue-${row.key}`} className="border-t border-slate-800">
-                          <td className="px-4 py-3 font-bold">{row.date}</td>
-                          <td className="px-4 py-3 font-black text-red-300">
+                          <td className="px-4 py-3 align-middle">
+                            <p className="font-black">
+                              {row.employee.first_name} {row.employee.last_name}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {row.employee.employee_no || "-"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 align-middle font-bold">{row.date}</td>
+                          <td className="px-4 py-3 align-middle font-black text-red-300">
                             {issue}
                           </td>
-                          <td className="px-4 py-3">{row.scheduled_shift}</td>
-                          <td className="px-4 py-3">{row.entry?.time_in || "--:--"}</td>
-                          <td className="px-4 py-3">{row.entry?.time_out || "--:--"}</td>
+                          <td className="px-4 py-3 align-middle">
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getShiftColorClass(row.scheduled_shift)}`}
+                            >
+                              {getScheduleLabel(row.scheduled_shift)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 align-middle">{row.entry?.time_in || "--:--"}</td>
+                          <td className="px-4 py-3 align-middle">{row.entry?.time_out || "--:--"}</td>
                         </tr>
                       );
                     })}
@@ -1591,44 +1831,44 @@ export default function AttendancePage() {
               <table className="w-full min-w-[1100px] text-sm">
                 <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                   <tr>
-                    <th className="px-4 py-3">Excel Name</th>
-                    <th className="px-4 py-3">Matched Employee</th>
-                    <th className="px-4 py-3">Employee No</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Time In</th>
-                    <th className="px-4 py-3">Time Out</th>
+                    <th className="px-4 py-3 align-middle">Excel Name</th>
+                    <th className="px-4 py-3 align-middle">Matched Employee</th>
+                    <th className="px-4 py-3 align-middle">Employee No</th>
+                    <th className="px-4 py-3 align-middle">Date</th>
+                    <th className="px-4 py-3 align-middle">Time In</th>
+                    <th className="px-4 py-3 align-middle">Time Out</th>
                     <th className="px-4 py-3 text-right">Late</th>
                     <th className="px-4 py-3 text-right">UT</th>
                     <th className="px-4 py-3 text-right">OT</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Match</th>
+                    <th className="px-4 py-3 align-middle">Status</th>
+                    <th className="px-4 py-3 align-middle">Match</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {importPreview.map((row, index) => (
                     <tr key={index} className="border-t border-slate-800">
-                      <td className="px-4 py-3 font-bold">{row.employee_name}</td>
+                      <td className="px-4 py-3 align-middle font-bold">{row.employee_name}</td>
                       <td className="px-4 py-3 font-bold text-emerald-300">
                         {row.matched_employee_name || "-"}
                       </td>
-                      <td className="px-4 py-3">{row.matched_employee_no || "-"}</td>
-                      <td className="px-4 py-3">{row.attendance_date}</td>
-                      <td className="px-4 py-3">{row.time_in || "--:--"}</td>
-                      <td className="px-4 py-3">{row.time_out || "--:--"}</td>
-                      <td className="px-4 py-3 text-right text-amber-400">
+                      <td className="px-4 py-3 align-middle">{row.matched_employee_no || "-"}</td>
+                      <td className="px-4 py-3 align-middle">{row.attendance_date}</td>
+                      <td className="px-4 py-3 align-middle">{row.time_in || "--:--"}</td>
+                      <td className="px-4 py-3 align-middle">{row.time_out || "--:--"}</td>
+                      <td className="px-4 py-3 align-middle text-right text-amber-400">
                         {row.late_minutes}
                       </td>
-                      <td className="px-4 py-3 text-right text-red-400">
+                      <td className="px-4 py-3 align-middle text-right text-red-400">
                         {row.undertime_minutes}
                       </td>
-                      <td className="px-4 py-3 text-right text-blue-400">
+                      <td className="px-4 py-3 align-middle text-right text-blue-400">
                         {row.ot_minutes}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-middle">
                         <StatusBadge status={row.status} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-middle">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-black ${
                             row.matched
@@ -1650,47 +1890,64 @@ export default function AttendancePage() {
         <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-6">
             <h2 className="text-2xl font-black">
-              {selectedEmployee
+              {selectedEmployeeId === "ALL_EMPLOYEES"
+                ? "All Employees Attendance Review"
+                : selectedEmployee
                 ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
                 : "Attendance Review"}
             </h2>
 
             <p className="mt-1 text-sm text-slate-400">
-              {selectedEmployee
+              {selectedEmployeeId === "ALL_EMPLOYEES"
+                ? `${reviewEmployees.length} employee(s) selected • ${getDateRange().length} day(s)`
+                : selectedEmployee
                 ? `${selectedEmployee.department} • ${selectedEmployee.position || "-"}`
-                : "Select an employee to review attendance."}
+                : "Select an employee or All Employees to review attendance."}
             </p>
           </div>
 
           <div className="max-h-[720px] overflow-auto rounded-2xl border border-slate-800">
-            <table className="w-full min-w-[1250px] text-sm">
+            <table className="w-full min-w-[1450px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
                 <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Schedule</th>
-                  <th className="px-4 py-3">Time In</th>
-                  <th className="px-4 py-3">Time Out</th>
+                  <th className="px-4 py-3 align-middle">Employee</th>
+                  <th className="px-4 py-3 align-middle">Date</th>
+                  <th className="px-4 py-3 align-middle">Schedule</th>
+                  <th className="px-4 py-3 align-middle">Time In</th>
+                  <th className="px-4 py-3 align-middle">Time Out</th>
                   <th className="px-4 py-3 text-right">Late</th>
                   <th className="px-4 py-3 text-right">Undertime</th>
                   <th className="px-4 py-3 text-right">OT</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Remarks</th>
-                </tr>
+                  <th className="px-4 py-3 align-middle">Status</th>
+                  <th className="px-4 py-3 align-middle">Source</th>
+                  <th className="px-4 py-3 align-middle">Remarks</th>
+                  <th className="w-16 px-4 py-3 text-center align-middle">⚠</th>
+</tr>
               </thead>
 
               <tbody>
                 {attendanceRows.map((row) => (
                   <tr
                     key={row.key}
-                    className={`border-t border-slate-800 hover:bg-slate-800/40 ${
+                    className={`border-t border-slate-800 align-middle hover:bg-slate-800/40 ${
                       payrollIssueRows.some((issue) => issue.key === row.key)
                         ? "bg-red-500/5"
                         : ""
                     }`}
                   >
-                    <td className="px-4 py-3 font-bold">{row.date}</td>
+                    <td className="px-4 py-3 align-middle">
+                      <p className="font-black">
+                        {row.employee.first_name} {row.employee.last_name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {row.employee.employee_no || "-"} • {row.employee.department || "-"}
+                      </p>
+                    </td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle font-bold">{row.date}</td>
+
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex items-center">
                       <select
                         value={row.scheduled_shift}
                         disabled={attendanceLocked}
@@ -1701,74 +1958,88 @@ export default function AttendancePage() {
                             e.target.value
                           )
                         }
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-amber-400 outline-none disabled:opacity-50"
+                        className={`w-44 rounded-lg border px-3 py-2 text-center text-sm font-black outline-none disabled:opacity-50 ${getShiftColorClass(row.scheduled_shift)}`}
                       >
-                        <option value="OFF">OFF</option>
+                        {!shiftTemplates.some((shift) => shift.shift_name === "OFF") && (
+                          <option value="OFF">OFF</option>
+                        )}
 
                         {shiftTemplates.map((shift) => (
-                          <option key={shift.id} value={shift.shift_name}>
-                            {shift.shift_name}
+                          <option
+                            key={shift.id}
+                            value={shift.shift_name}
+                            className="bg-slate-900 text-white"
+                          >
+                            {getShiftTimeLabel(shift.shift_name)}
                           </option>
                         ))}
+
+                        {!shiftTemplates.some((shift) => shift.shift_name === "RD") && (
+                          <option value="RD">RD</option>
+                        )}
                       </select>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        {row.scheduled_in || "--:--"} - {" "}
-                        {row.scheduled_out || "--:--"}
-                      </p>
+                      </div>
                     </td>
 
-                    <td className="px-4 py-3">
-                      <input
-                        type="time"
-                        value={row.entry?.time_in || ""}
-                        disabled={attendanceLocked}
-                        onChange={(e) =>
-                          updateLocalEntry(
-                            row.employee,
-                            row.date,
-                            "time_in",
-                            e.target.value
-                          )
-                        }
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
-                      />
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex items-center">
+                        <input
+                          type="time"
+                          value={row.entry?.time_in || ""}
+                          disabled={attendanceLocked}
+                          onChange={(e) =>
+                            updateLocalEntry(
+                              row.employee,
+                              row.date,
+                              "time_in",
+                              e.target.value
+                            )
+                          }
+                          className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                        />
+                      </div>
                     </td>
 
-                    <td className="px-4 py-3">
-                      <input
-                        type="time"
-                        value={row.entry?.time_out || ""}
-                        disabled={attendanceLocked}
-                        onChange={(e) =>
-                          updateLocalEntry(
-                            row.employee,
-                            row.date,
-                            "time_out",
-                            e.target.value
-                          )
-                        }
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
-                      />
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex items-center">
+                        <input
+                          type="time"
+                          value={row.entry?.time_out || ""}
+                          disabled={attendanceLocked}
+                          onChange={(e) =>
+                            updateLocalEntry(
+                              row.employee,
+                              row.date,
+                              "time_out",
+                              e.target.value
+                            )
+                          }
+                          className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                        />
+                      </div>
                     </td>
 
-                    <td className="px-4 py-3 text-right font-bold text-amber-400">
+                    <td className="px-4 py-3 align-middle text-right font-bold text-amber-400">
                       {row.late_minutes}
                     </td>
 
-                    <td className="px-4 py-3 text-right font-bold text-red-400">
+                    <td className="px-4 py-3 align-middle text-right font-bold text-red-400">
                       {row.undertime_minutes}
                     </td>
 
-                    <td className="px-4 py-3 text-right font-bold text-blue-400">
+                    <td className="px-4 py-3 align-middle text-right font-bold text-blue-400">
                       {row.ot_minutes}
                     </td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
                       <StatusBadge status={row.status} />
                     </td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
+                      <SourceBadge source={row.entry?.attendance_source || getExistingSource(row.entry) || "-"} />
+                    </td>
+
+                    <td className="px-4 py-3 align-middle">
                       <input
                         value={row.entry?.remarks || ""}
                         disabled={attendanceLocked}
@@ -1782,11 +2053,20 @@ export default function AttendancePage() {
                         }
                         className="w-72 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
                       />
+                    </td>
 
-                      {row.review_reason && (
-                        <p className="mt-1 max-w-xs text-xs font-bold text-orange-300">
-                          ⚠ {row.review_reason}
-                        </p>
+                    <td className="w-16 px-4 py-3 text-center align-middle">
+                      {(row.review_reason || isUnscheduledShift(row.scheduled_shift)) ? (
+                        <span
+                          title={row.review_reason || "No schedule assigned"}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-lg font-black text-red-400"
+                        >
+                          ⚠
+                        </span>
+                      ) : (
+                        <span className="inline-flex h-8 w-8 items-center justify-center text-slate-700">
+                          -
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -1794,7 +2074,7 @@ export default function AttendancePage() {
 
                 {attendanceRows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-14 text-center text-slate-500">
+                    <td colSpan={12} className="px-4 py-14 text-center text-slate-500">
                       Select an employee to review attendance by date range.
                     </td>
                   </tr>
@@ -1817,6 +2097,28 @@ function SummaryCard({ title, value, color = "text-white" }: any) {
   );
 }
 
+
+function SourceBadge({ source }: { source: string }) {
+  const normalized = String(source || "-");
+
+  const style =
+    normalized === "Employee Portal"
+      ? "bg-blue-500/10 text-blue-400"
+      : normalized === "Biometrics"
+      ? "bg-emerald-500/10 text-emerald-400"
+      : normalized === "Mixed"
+      ? "bg-orange-500/10 text-orange-400"
+      : normalized === "Manual Entry"
+      ? "bg-purple-500/10 text-purple-400"
+      : "bg-slate-700 text-slate-300";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-black ${style}`}>
+      {normalized}
+    </span>
+  );
+}
+
 function StatusBadge({ status }: any) {
   const style =
     status === "Present"
@@ -1832,7 +2134,9 @@ function StatusBadge({ status }: any) {
       : status === "Leave"
       ? "bg-blue-500/10 text-blue-400"
       : status === "RD"
-      ? "bg-slate-700 text-slate-300"
+      ? "bg-lime-500/10 text-lime-400"
+      : status === "Unscheduled"
+      ? "bg-red-500/10 text-red-400"
       : "bg-slate-700 text-slate-300";
 
   return (

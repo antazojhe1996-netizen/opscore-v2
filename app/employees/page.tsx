@@ -33,6 +33,8 @@ type Employee = {
   basic_rate: number;
   payroll_active: boolean;
   payroll_notes: string;
+  portal_enabled?: boolean;
+  attendance_source_preference?: string;
   hire_date: string;
   contact_number: string;
 
@@ -102,6 +104,8 @@ export default function EmployeesPage() {
   const [basicRate, setBasicRate] = useState("");
   const [payrollActive, setPayrollActive] = useState("Yes");
   const [payrollNotes, setPayrollNotes] = useState("");
+  const [portalEnabled, setPortalEnabled] = useState("Yes");
+  const [attendanceSourcePreference, setAttendanceSourcePreference] = useState("Biometrics");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("ALL");
@@ -118,6 +122,7 @@ export default function EmployeesPage() {
   const genderOptions = ["Male", "Female", "Prefer not to say"];
   const civilStatusOptions = ["Single", "Married", "Widowed", "Separated"];
   const yesNoOptions = ["Yes", "No"];
+  const attendanceSourceOptions = ["Biometrics", "Employee Portal", "Manual Review"];
 
   /// FUNCTIONS
   const formatMoney = (value: any) =>
@@ -231,6 +236,8 @@ export default function EmployeesPage() {
     setBasicRate("");
     setPayrollActive("Yes");
     setPayrollNotes("");
+    setPortalEnabled("Yes");
+    setAttendanceSourcePreference("Biometrics");
     setFormError("");
   };
 
@@ -302,6 +309,8 @@ export default function EmployeesPage() {
       basic_rate: Number(basicRate || 0),
       payroll_active: payrollActive === "Yes",
       payroll_notes: payrollNotes.trim(),
+      portal_enabled: portalEnabled === "Yes",
+      attendance_source_preference: attendanceSourcePreference,
     };
 
     const oldEmployee = editingEmployeeNo
@@ -378,6 +387,8 @@ export default function EmployeesPage() {
     setBasicRate(String(employee.basic_rate || employee.daily_rate || ""));
     setPayrollActive(employee.payroll_active === false ? "No" : "Yes");
     setPayrollNotes(employee.payroll_notes || "");
+    setPortalEnabled(employee.portal_enabled === false ? "No" : "Yes");
+    setAttendanceSourcePreference(employee.attendance_source_preference || "Biometrics");
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -588,6 +599,20 @@ export default function EmployeesPage() {
           payroll_notes: String(
             getValue(row, ["Payroll Notes", "Notes", "payroll_notes"])
           ).trim(),
+          portal_enabled:
+            String(
+              getValue(row, ["Portal Enabled", "portal_enabled", "Portal Access"])
+            ).toLowerCase() === "no"
+              ? false
+              : true,
+          attendance_source_preference:
+            String(
+              getValue(row, [
+                "Attendance Source",
+                "attendance_source_preference",
+                "Attendance Source Preference",
+              ])
+            ).trim() || "Biometrics",
           created_at: new Date().toISOString(),
         };
       })
@@ -647,6 +672,8 @@ export default function EmployeesPage() {
       "Rate Type": emp.rate_type,
       "Basic Rate": emp.basic_rate || emp.daily_rate || 0,
       "Payroll Active": emp.payroll_active === false ? "No" : "Yes",
+      "Portal Enabled": emp.portal_enabled === false ? "No" : "Yes",
+      "Attendance Source": emp.attendance_source_preference || "Biometrics",
       "Contact Number": emp.contact_number,
       "Hire Date": emp.hire_date,
       "Birth Date": emp.birth_date,
@@ -906,6 +933,43 @@ export default function EmployeesPage() {
                 </div>
               </FormPanel>
 
+              <FormPanel title="Portal & Attendance Settings">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Select
+                    label="Portal Access"
+                    value={portalEnabled}
+                    setValue={setPortalEnabled}
+                    options={yesNoOptions}
+                  />
+
+                  <Select
+                    label="Official Attendance Source"
+                    value={attendanceSourcePreference}
+                    setValue={setAttendanceSourcePreference}
+                    options={attendanceSourceOptions}
+                  />
+                </div>
+
+                <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">
+                  <p className="font-black">How this works</p>
+                  <p className="mt-1 text-blue-100/80">
+                    Portal Access controls whether the employee can open the
+                    mobile portal for schedule, performance, leave, and payslips.
+                    Official Attendance Source controls which time record should
+                    be followed for payroll.
+                  </p>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+                  <p className="font-black">Recommended setup</p>
+                  <p className="mt-1 text-amber-100/80">
+                    Keep Portal Access enabled for most employees so they can
+                    view their information even if Biometrics remains their
+                    official attendance source.
+                  </p>
+                </div>
+              </FormPanel>
+
               <FormPanel title="Employee Health Check">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <MiniStat title="Archived Employees" value={archivedEmployees} />
@@ -993,8 +1057,9 @@ export default function EmployeesPage() {
               </p>
               <p className="mt-2 text-xs leading-6 text-slate-500">
                 Employee No, First Name, Last Name, Email, Department, Position,
-                Status, Employment Type, Rate Type, Basic Rate, Contact, Hire Date,
-                SSS No, PhilHealth No, Pag-IBIG No, TIN No, Emergency Contact.
+                Status, Employment Type, Rate Type, Basic Rate, Portal Enabled,
+                Attendance Source, Contact, Hire Date, SSS No, PhilHealth No,
+                Pag-IBIG No, TIN No, Emergency Contact.
               </p>
             </div>
 
@@ -1099,6 +1164,8 @@ export default function EmployeesPage() {
                   <th className="px-4 py-3">Rate Type</th>
                   <th className="px-4 py-3 text-right">Basic Rate</th>
                   <th className="px-4 py-3">Payroll</th>
+                  <th className="px-4 py-3">Portal</th>
+                  <th className="px-4 py-3">Attendance Source</th>
                   <th className="px-4 py-3">Gov IDs</th>
                   <th className="px-4 py-3">201 File</th>
                   <th className="px-4 py-3">Action</th>
@@ -1159,6 +1226,34 @@ export default function EmployeesPage() {
                       </td>
 
                       <td className="px-4 py-3">
+                        {emp.portal_enabled === false ? (
+                          <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
+                            Disabled
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-400">
+                            Enabled
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            (emp.attendance_source_preference || "Biometrics") ===
+                            "Employee Portal"
+                              ? "bg-amber-500/10 text-amber-400"
+                              : (emp.attendance_source_preference || "Biometrics") ===
+                                "Manual Review"
+                              ? "bg-purple-500/10 text-purple-400"
+                              : "bg-emerald-500/10 text-emerald-400"
+                          }`}
+                        >
+                          {emp.attendance_source_preference || "Biometrics"}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3">
                         {emp.sss_no && emp.philhealth_no && emp.pagibig_no && emp.tin_no ? (
                           <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
                             Complete
@@ -1215,7 +1310,7 @@ export default function EmployeesPage() {
                 {filteredEmployees.length === 0 && (
                   <tr>
                     <td
-                      colSpan={12}
+                      colSpan={14}
                       className="px-4 py-12 text-center text-slate-500"
                     >
                       No employees found.

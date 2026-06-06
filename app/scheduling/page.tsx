@@ -39,6 +39,7 @@ type ShiftTemplate = {
   shift_name: string;
   start_time: string | null;
   end_time: string | null;
+  time_label?: string | null;
   color: string | null;
 };
 
@@ -81,11 +82,12 @@ export default function SchedulingPage() {
 
   /// DATA
   const defaultShifts: ShiftTemplate[] = [
-    { id: 1, shift_name: "AM Shift", start_time: "07:00", end_time: "16:00", color: "blue" },
-    { id: 2, shift_name: "PM Shift", start_time: "14:00", end_time: "23:00", color: "purple" },
-    { id: 3, shift_name: "Mid Shift", start_time: "11:00", end_time: "20:00", color: "green" },
-    { id: 4, shift_name: "GY Shift", start_time: "23:00", end_time: "08:00", color: "yellow" },
-    { id: 5, shift_name: "OFF", start_time: null, end_time: null, color: "gray" },
+    { id: 1, shift_name: "AM Shift", start_time: "07:00", end_time: "16:00", color: "yellow" },
+    { id: 2, shift_name: "PM Shift", start_time: "14:00", end_time: "23:59", color: "green" },
+    { id: 3, shift_name: "Mid Shift", start_time: "11:00", end_time: "20:00", color: "purple" },
+    { id: 4, shift_name: "GY Shift", start_time: "23:00", end_time: "08:00", color: "blue" },
+    { id: 5, shift_name: "OFF", start_time: null, end_time: null, color: "red" },
+    { id: 6, shift_name: "RD", start_time: null, end_time: null, color: "lime" },
   ];
 
   /// HELPERS
@@ -99,7 +101,8 @@ export default function SchedulingPage() {
   const normalizeShiftName = (value: string) => {
     const clean = String(value || "").trim().toLowerCase();
 
-    if (!clean || clean === "off" || clean === "rd" || clean === "rest day") return "OFF";
+    if (!clean || clean === "off") return "OFF";
+    if (clean === "rd" || clean === "rest day" || clean === "day off") return "RD";
     if (clean === "am" || clean.includes("am")) return "AM Shift";
     if (clean === "pm" || clean.includes("pm")) return "PM Shift";
     if (clean === "mid" || clean.includes("mid")) return "Mid Shift";
@@ -573,6 +576,11 @@ export default function SchedulingPage() {
     return found?.shift || "OFF";
   };
 
+  const isUnscheduledShift = (shiftName: string) => shiftName === "OFF";
+  const isRestDayShift = (shiftName: string) => shiftName === "RD";
+  const isWorkingShift = (shiftName: string) =>
+    !isUnscheduledShift(shiftName) && !isRestDayShift(shiftName);
+
   const getCurrentUser = async () => {
     const localUser =
       typeof window !== "undefined"
@@ -792,10 +800,16 @@ export default function SchedulingPage() {
         const employee = findEmployeeForImport(employeeNo, excelName);
 
         const validShift =
-          shift === "OFF" || shifts.some((item) => item.shift_name === shift);
+          shift === "OFF" ||
+          shift === "RD" ||
+          shifts.some((item) => item.shift_name === shift);
 
         const blockedByLeave =
-          !!employee && !!day && shift !== "OFF" && hasApprovedLeaveOnDate(employee, day);
+          !!employee &&
+          !!day &&
+          shift !== "OFF" &&
+          shift !== "RD" &&
+          hasApprovedLeaveOnDate(employee, day);
 
         let remarks = "Ready";
         if (!employee) remarks = "Employee not found";
@@ -1101,12 +1115,27 @@ export default function SchedulingPage() {
   };
 
   const normalizeColor = (color?: string | null) => {
-    if (!color) return "blue";
-    if (color.includes("green")) return "green";
-    if (color.includes("yellow")) return "yellow";
-    if (color.includes("purple")) return "purple";
-    if (color.includes("red")) return "red";
-    if (color.includes("gray") || color.includes("slate")) return "gray";
+    const cleanColor = String(color || "").toLowerCase().trim();
+
+    if (!cleanColor) return "blue";
+    if (cleanColor.includes("sky")) return "sky";
+    if (cleanColor.includes("cyan")) return "cyan";
+    if (cleanColor.includes("teal")) return "teal";
+    if (cleanColor.includes("emerald")) return "emerald";
+    if (cleanColor.includes("green")) return "green";
+    if (cleanColor.includes("lime")) return "lime";
+    if (cleanColor.includes("yellow")) return "yellow";
+    if (cleanColor.includes("amber")) return "amber";
+    if (cleanColor.includes("orange")) return "orange";
+    if (cleanColor.includes("rose")) return "rose";
+    if (cleanColor.includes("pink")) return "pink";
+    if (cleanColor.includes("purple")) return "purple";
+    if (cleanColor.includes("violet")) return "violet";
+    if (cleanColor.includes("indigo")) return "indigo";
+    if (cleanColor.includes("red")) return "red";
+    if (cleanColor.includes("slate")) return "slate";
+    if (cleanColor.includes("gray")) return "gray";
+
     return "blue";
   };
 
@@ -1114,12 +1143,24 @@ export default function SchedulingPage() {
     const shift = shifts.find((item) => item.shift_name === shiftName);
     const color = normalizeColor(shift?.color);
 
-    if (shiftName === "OFF") return "border-slate-700 bg-slate-800 text-slate-400";
     if (color === "blue") return "border-blue-500/40 bg-blue-500/15 text-blue-300";
-    if (color === "green") return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
-    if (color === "yellow") return "border-amber-500/40 bg-amber-500/15 text-amber-300";
-    if (color === "purple") return "border-purple-500/40 bg-purple-500/15 text-purple-300";
+    if (color === "sky") return "border-sky-500/40 bg-sky-500/15 text-sky-300";
+    if (color === "cyan") return "border-cyan-500/40 bg-cyan-500/15 text-cyan-300";
+    if (color === "teal") return "border-teal-500/40 bg-teal-500/15 text-teal-300";
+    if (color === "green") return "border-green-500/40 bg-green-500/15 text-green-300";
+    if (color === "emerald") return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
+    if (color === "lime") return "border-lime-500/40 bg-lime-500/15 text-lime-300";
+    if (color === "yellow") return "border-yellow-500/40 bg-yellow-500/15 text-yellow-300";
+    if (color === "amber") return "border-amber-500/40 bg-amber-500/15 text-amber-300";
+    if (color === "orange") return "border-orange-500/40 bg-orange-500/15 text-orange-300";
     if (color === "red") return "border-red-500/40 bg-red-500/15 text-red-300";
+    if (color === "rose") return "border-rose-500/40 bg-rose-500/15 text-rose-300";
+    if (color === "pink") return "border-pink-500/40 bg-pink-500/15 text-pink-300";
+    if (color === "purple") return "border-purple-500/40 bg-purple-500/15 text-purple-300";
+    if (color === "violet") return "border-violet-500/40 bg-violet-500/15 text-violet-300";
+    if (color === "indigo") return "border-indigo-500/40 bg-indigo-500/15 text-indigo-300";
+    if (color === "slate" || color === "gray") return "border-slate-500/40 bg-slate-500/15 text-slate-300";
+
     return "border-slate-700 bg-slate-800 text-slate-400";
   };
 
@@ -1127,6 +1168,8 @@ export default function SchedulingPage() {
     const shift = shifts.find((item) => item.shift_name === shiftName);
 
     if (shiftName === "OFF") return "OFF";
+    if (shiftName === "RD") return "RD";
+    if (shift?.time_label && !shift?.start_time && !shift?.end_time) return shift.shift_name;
 
     const shortName = shiftName.includes("AM")
       ? "AM"
@@ -1198,7 +1241,8 @@ export default function SchedulingPage() {
   const currentHC = visibleDays.map((day) =>
     filteredEmployees.filter(
       (employee) =>
-        getShift(employee.id, day.key) !== "OFF" && !isEmployeeOnLeave(employee, day.key)
+        isWorkingShift(getShift(employee.id, day.key)) &&
+        !isEmployeeOnLeave(employee, day.key)
     ).length
   );
 
@@ -1219,13 +1263,47 @@ export default function SchedulingPage() {
     return sum + filteredEmployees.filter((employee) => isEmployeeOnLeave(employee, day.key)).length;
   }, 0);
 
-  const offCells = Math.max(totalScheduledCells - workingCells - leaveCells, 0);
+  const restDayCells = visibleDays.reduce((sum, day) => {
+    return (
+      sum +
+      filteredEmployees.filter(
+        (employee) =>
+          isRestDayShift(getShift(employee.id, day.key)) &&
+          !isEmployeeOnLeave(employee, day.key)
+      ).length
+    );
+  }, 0);
 
-  const unscheduledEmployees = filteredEmployees.filter((employee) =>
-    visibleDays.every(
-      (day) => getShift(employee.id, day.key) === "OFF" && !isEmployeeOnLeave(employee, day.key)
-    )
-  ).length;
+  const unscheduledCells = visibleDays.reduce((sum, day) => {
+    return (
+      sum +
+      filteredEmployees.filter(
+        (employee) =>
+          isUnscheduledShift(getShift(employee.id, day.key)) &&
+          !isEmployeeOnLeave(employee, day.key)
+      ).length
+    );
+  }, 0);
+
+  const offCells = unscheduledCells;
+
+  const unscheduledRows = filteredEmployees.flatMap((employee) =>
+    visibleDays
+      .filter(
+        (day) =>
+          isUnscheduledShift(getShift(employee.id, day.key)) &&
+          !isEmployeeOnLeave(employee, day.key)
+      )
+      .map((day) => ({
+        key: `${employee.id}-${day.key}`,
+        employee,
+        day,
+      }))
+  );
+
+  const unscheduledEmployees = new Set(
+    unscheduledRows.map((row) => row.employee.id)
+  ).size;
 
   const understaffedDays = coverageGap.filter((gap) => selectedDepartment !== "ALL" && gap < 0).length;
   const overstaffedDays = coverageGap.filter((gap) => selectedDepartment !== "ALL" && gap > 0).length;
@@ -1285,11 +1363,66 @@ export default function SchedulingPage() {
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
           <KpiCard icon={<Users size={22} />} title="Visible Staff" value={filteredEmployees.length} />
           <KpiCard icon={<CheckCircle2 size={22} />} title="Working Cells" value={workingCells} success />
-          <KpiCard icon={<CalendarDays size={22} />} title="Approved Leave" value={leaveCells} danger={leaveCells > 0} />
+          <KpiCard icon={<CalendarDays size={22} />} title="Rest Day" value={restDayCells} />
           <KpiCard icon={<AlertTriangle size={22} />} title="Understaffed" value={understaffedDays} danger={understaffedDays > 0} />
           <KpiCard icon={<Users size={22} />} title="Overstaffed" value={overstaffedDays} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Unscheduled" value={unscheduledEmployees} danger={unscheduledEmployees > 0} />
+          <KpiCard icon={<AlertTriangle size={22} />} title="Unscheduled" value={unscheduledCells} danger={unscheduledCells > 0} />
         </section>
+
+        {unscheduledRows.length > 0 && (
+          <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 text-xl font-black text-red-300">
+                  <AlertTriangle size={20} />
+                  Scheduling Issues: Unscheduled Employees
+                </h2>
+                <p className="mt-1 text-sm text-red-100/80">
+                  OFF means no schedule assigned. RD is treated as a valid rest day and is not included in this warning.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-red-500/20 px-4 py-2 text-sm font-black text-red-200">
+                {unscheduledRows.length} issue cell(s)
+              </span>
+            </div>
+
+            <div className="mt-4 max-h-56 overflow-auto rounded-xl border border-red-500/20 bg-slate-950/70">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="sticky top-0 bg-slate-950 text-left text-red-200">
+                  <tr>
+                    <th className="px-4 py-3">Employee</th>
+                    <th className="px-4 py-3">Department</th>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Issue</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {unscheduledRows.slice(0, 80).map((row) => (
+                    <tr key={row.key} className="border-t border-slate-800">
+                      <td className="px-4 py-3">
+                        <p className="font-black">
+                          {row.employee.first_name} {row.employee.last_name}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {row.employee.employee_no || "-"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">{row.employee.department || "-"}</td>
+                      <td className="px-4 py-3 font-bold">{row.day.key}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-black text-red-300">
+                          OFF / No Schedule Assigned
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
@@ -1600,30 +1733,48 @@ export default function SchedulingPage() {
                       </div>
                     </div>
                   ) : (
-                    <select
-                      value={currentShift}
-                      disabled={!!publishedSchedule}
-                      onChange={(e) =>
-                        updateSchedule(employee.id, day.key, e.target.value)
-                      }
-                      className={`block rounded-xl border px-2 py-2 text-center text-xs font-black outline-none disabled:cursor-not-allowed disabled:opacity-70 ${
-                        viewMode === "weekly" ? "w-full" : "w-[88px]"
-                      } ${getShiftColorClass(currentShift)}`}
-                    >
-                      {shifts.map((shift) => (
-                        <option
-                          key={shift.shift_name}
-                          value={shift.shift_name}
-                          className="bg-slate-900 text-white"
-                        >
-                          {getShortShiftLabel(shift.shift_name)}
-                        </option>
-                      ))}
+                    <div className="space-y-1">
+                      <select
+                        value={currentShift}
+                        disabled={!!publishedSchedule}
+                        onChange={(e) =>
+                          updateSchedule(employee.id, day.key, e.target.value)
+                        }
+                        className={`block rounded-xl border px-2 py-2 text-center text-xs font-black outline-none disabled:cursor-not-allowed disabled:opacity-70 ${
+                          viewMode === "weekly" ? "w-full" : "w-[88px]"
+                        } ${getShiftColorClass(currentShift)}`}
+                      >
+                        {shifts.map((shift) => (
+                          <option
+                            key={shift.shift_name}
+                            value={shift.shift_name}
+                            className="bg-slate-900 text-white"
+                          >
+                            {getShortShiftLabel(shift.shift_name)}
+                          </option>
+                        ))}
 
-                      {!shifts.some((shift) => shift.shift_name === "OFF") && (
-                        <option value="OFF">OFF</option>
+                        {!shifts.some((shift) => shift.shift_name === "OFF") && (
+                          <option value="OFF">OFF</option>
+                        )}
+
+                        {!shifts.some((shift) => shift.shift_name === "RD") && (
+                          <option value="RD">RD</option>
+                        )}
+                      </select>
+
+                      {currentShift === "OFF" && (
+                        <p className="text-center text-[10px] font-bold text-red-300">
+                          No schedule
+                        </p>
                       )}
-                    </select>
+
+                      {currentShift === "RD" && (
+                        <p className="text-center text-[10px] font-bold text-slate-400">
+                          Rest day
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               );

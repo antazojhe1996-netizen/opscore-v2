@@ -16,6 +16,7 @@ export default function WorkforcePage() {
   /// STATES
   const [employees, setEmployees] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [shiftTemplates, setShiftTemplates] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [hcRules, setHcRules] = useState<any>(null);
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
@@ -64,6 +65,97 @@ export default function WorkforcePage() {
 
   const isSameEmployee = (a: any, b: any) => String(a) === String(b);
 
+  const getShiftTemplate = (shiftName?: string | null) =>
+    shiftTemplates.find((shift) => shift.shift_name === shiftName);
+
+  const normalizeColor = (color?: string | null) => {
+    const cleanColor = String(color || "").toLowerCase().trim();
+
+    if (!cleanColor) return "slate";
+    if (cleanColor.includes("sky")) return "sky";
+    if (cleanColor.includes("cyan")) return "cyan";
+    if (cleanColor.includes("teal")) return "teal";
+    if (cleanColor.includes("emerald")) return "emerald";
+    if (cleanColor.includes("green")) return "green";
+    if (cleanColor.includes("lime")) return "lime";
+    if (cleanColor.includes("yellow")) return "yellow";
+    if (cleanColor.includes("amber")) return "amber";
+    if (cleanColor.includes("orange")) return "orange";
+    if (cleanColor.includes("rose")) return "rose";
+    if (cleanColor.includes("pink")) return "pink";
+    if (cleanColor.includes("purple")) return "purple";
+    if (cleanColor.includes("violet")) return "violet";
+    if (cleanColor.includes("indigo")) return "indigo";
+    if (cleanColor.includes("red")) return "red";
+    if (cleanColor.includes("gray")) return "gray";
+    if (cleanColor.includes("blue")) return "blue";
+
+    return "slate";
+  };
+
+  const getColorClasses = (color?: string | null) => {
+    const normalized = normalizeColor(color);
+
+    if (normalized === "blue") return "border-blue-500/40 bg-blue-500/15 text-blue-300";
+    if (normalized === "sky") return "border-sky-500/40 bg-sky-500/15 text-sky-300";
+    if (normalized === "cyan") return "border-cyan-500/40 bg-cyan-500/15 text-cyan-300";
+    if (normalized === "teal") return "border-teal-500/40 bg-teal-500/15 text-teal-300";
+    if (normalized === "green") return "border-green-500/40 bg-green-500/15 text-green-300";
+    if (normalized === "emerald") return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
+    if (normalized === "lime") return "border-lime-500/40 bg-lime-500/15 text-lime-300";
+    if (normalized === "yellow") return "border-yellow-500/40 bg-yellow-500/15 text-yellow-300";
+    if (normalized === "amber") return "border-amber-500/40 bg-amber-500/15 text-amber-300";
+    if (normalized === "orange") return "border-orange-500/40 bg-orange-500/15 text-orange-300";
+    if (normalized === "red") return "border-red-500/40 bg-red-500/15 text-red-300";
+    if (normalized === "rose") return "border-rose-500/40 bg-rose-500/15 text-rose-300";
+    if (normalized === "pink") return "border-pink-500/40 bg-pink-500/15 text-pink-300";
+    if (normalized === "purple") return "border-purple-500/40 bg-purple-500/15 text-purple-300";
+    if (normalized === "violet") return "border-violet-500/40 bg-violet-500/15 text-violet-300";
+    if (normalized === "indigo") return "border-indigo-500/40 bg-indigo-500/15 text-indigo-300";
+    if (normalized === "gray") return "border-gray-500/40 bg-gray-500/15 text-gray-300";
+
+    return "border-slate-500/40 bg-slate-500/15 text-slate-300";
+  };
+
+  const getShiftColorClass = (shiftName?: string | null) => {
+    const shift = getShiftTemplate(shiftName);
+    return getColorClasses(shift?.color);
+  };
+
+  const isUnscheduledShift = (shiftName?: string | null) =>
+    !shiftName || String(shiftName).toUpperCase() === "OFF";
+
+  const isRestDayShift = (shiftName?: string | null) =>
+    String(shiftName || "").toUpperCase() === "RD";
+
+  const isLeaveShift = (shiftName?: string | null) =>
+    String(shiftName || "").toLowerCase() === "leave";
+
+  const isWorkingShift = (shiftName?: string | null) =>
+    !!shiftName &&
+    !isUnscheduledShift(shiftName) &&
+    !isRestDayShift(shiftName) &&
+    !isLeaveShift(shiftName);
+
+  const getShiftTimeLabel = (shiftName?: string | null) => {
+    if (!shiftName) return "OFF";
+
+    const normalized = String(shiftName).toUpperCase();
+
+    if (normalized === "OFF") return "OFF";
+    if (normalized === "RD") return "RD";
+    if (String(shiftName).toLowerCase() === "leave") return "Leave";
+
+    const shift = getShiftTemplate(shiftName);
+    const start = shift?.start_time ? String(shift.start_time).slice(0, 5) : "";
+    const end = shift?.end_time ? String(shift.end_time).slice(0, 5) : "";
+
+    if (start && end) return `${start} - ${end}`;
+
+    return shiftName;
+  };
+
+
   /// FUNCTIONS
   const loadWorkforceData = async () => {
     const { data: employeeData } = await supabase
@@ -72,6 +164,11 @@ export default function WorkforcePage() {
       .order("created_at", { ascending: false });
 
     const { data: scheduleData } = await supabase.from("schedules").select("*");
+
+    const { data: shiftData } = await supabase
+      .from("shift_templates")
+      .select("*")
+      .order("id");
 
     const { data: leaveData } = await supabase.from("leave_requests").select("*");
 
@@ -95,6 +192,7 @@ export default function WorkforcePage() {
 
     setEmployees(employeeData || []);
     setSchedules(scheduleData || []);
+    setShiftTemplates(shiftData || []);
     setLeaveRequests(leaveData || []);
     setOccupancyData(occupancy || []);
     setHcRules(hcData?.setting_data || null);
@@ -147,10 +245,7 @@ export default function WorkforcePage() {
     return date === todayKey;
   });
 
-  const todaySchedules = allTodaySchedules.filter((schedule) => {
-    const shift = String(schedule.shift || "").toUpperCase();
-    if (shift === "OFF") return false;
-
+  const visibleTodaySchedules = allTodaySchedules.filter((schedule) => {
     if (!hasPublishedSchedule) return true;
 
     const employee = employees.find((emp) =>
@@ -162,20 +257,17 @@ export default function WorkforcePage() {
     return departmentHasPublishedSchedule(dept);
   });
 
-  const offTodaySchedules = allTodaySchedules.filter((schedule) => {
-    const shift = String(schedule.shift || "").toUpperCase();
-    if (shift !== "OFF") return false;
+  const todaySchedules = visibleTodaySchedules.filter((schedule) =>
+    isWorkingShift(schedule.shift)
+  );
 
-    if (!hasPublishedSchedule) return true;
+  const restDayTodaySchedules = visibleTodaySchedules.filter((schedule) =>
+    isRestDayShift(schedule.shift)
+  );
 
-    const employee = employees.find((emp) =>
-      isSameEmployee(emp.id, schedule.employee_id)
-    );
-
-    const dept = String(employee?.department || "Unassigned");
-
-    return departmentHasPublishedSchedule(dept);
-  });
+  const unscheduledTodaySchedules = visibleTodaySchedules.filter((schedule) =>
+    isUnscheduledShift(schedule.shift)
+  );
 
   const approvedLeavesToday = leaveRequests.filter((leave) => {
     const status = String(leave.status || "").toLowerCase();
@@ -190,13 +282,13 @@ export default function WorkforcePage() {
   );
 
   const scheduledEmployeeIds = todaySchedules.map((row) => row.employee_id);
-  const offEmployeeIds = offTodaySchedules.map((row) => row.employee_id);
+  const restDayEmployeeIds = restDayTodaySchedules.map((row) => row.employee_id);
   const leaveEmployeeIds = approvedLeavesToday.map((row) => row.employee_id);
 
   const noScheduleEmployees = activeEmployees.filter((emp) => {
     return (
       !scheduledEmployeeIds.some((id) => isSameEmployee(id, emp.id)) &&
-      !offEmployeeIds.some((id) => isSameEmployee(id, emp.id)) &&
+      !restDayEmployeeIds.some((id) => isSameEmployee(id, emp.id)) &&
       !leaveEmployeeIds.some((id) => isSameEmployee(id, emp.id))
     );
   });
@@ -229,7 +321,7 @@ export default function WorkforcePage() {
       return String(employee?.department || "Unassigned") === department;
     });
 
-    const offToday = offTodaySchedules.filter((schedule) => {
+    const restDayToday = restDayTodaySchedules.filter((schedule) => {
       const employee = employees.find((emp) =>
         isSameEmployee(emp.id, schedule.employee_id)
       );
@@ -239,7 +331,36 @@ export default function WorkforcePage() {
 
     const required = Number(requiredHC[department] || 0);
     const totalEmployees = departmentEmployees.length;
-    const available = Math.max(totalEmployees - onLeave.length - offToday.length, 0);
+    const noSchedule = departmentEmployees.filter((emp) => {
+      return (
+        !scheduledEmployeeIds.some((id) => isSameEmployee(id, emp.id)) &&
+        !restDayEmployeeIds.some((id) => isSameEmployee(id, emp.id)) &&
+        !leaveEmployeeIds.some((id) => isSameEmployee(id, emp.id))
+      );
+    });
+
+    const shiftBreakdown = visibleTodaySchedules
+      .filter((schedule) => {
+        const employee = employees.find((emp) =>
+          isSameEmployee(emp.id, schedule.employee_id)
+        );
+
+        return String(employee?.department || "Unassigned") === department;
+      })
+      .reduce((acc: any[], schedule) => {
+        const shiftName = schedule.shift || "OFF";
+        const existing = acc.find((item) => item.shiftName === shiftName);
+
+        if (existing) {
+          existing.count += 1;
+        } else {
+          acc.push({ shiftName, count: 1 });
+        }
+
+        return acc;
+      }, []);
+
+    const available = Math.max(totalEmployees - onLeave.length - restDayToday.length, 0);
     const scheduledCount = scheduled.length;
     const gap = scheduledCount - required;
 
@@ -249,7 +370,9 @@ export default function WorkforcePage() {
       available,
       scheduled: scheduledCount,
       onLeave: onLeave.length,
-      offToday: offToday.length,
+      restDayToday: restDayToday.length,
+      noSchedule: noSchedule.length,
+      shiftBreakdown,
       totalEmployees,
       gap,
       coverage:
@@ -262,6 +385,8 @@ export default function WorkforcePage() {
           ? `Need ${Math.abs(gap)} more staff`
           : gap > 0
           ? `Possible excess ${gap} staff`
+          : noSchedule.length > 0
+          ? `Review ${noSchedule.length} no schedule alert(s)`
           : "Coverage is balanced",
       published: departmentHasPublishedSchedule(department),
     };
@@ -291,6 +416,7 @@ export default function WorkforcePage() {
         dept.gap < 0 ||
         dept.gap > 0 ||
         dept.onLeave > 0 ||
+        dept.noSchedule > 0 ||
         (!dept.published && hasPublishedSchedule)
     )
     .sort((a, b) => {
@@ -314,6 +440,9 @@ export default function WorkforcePage() {
     ...(pendingLeaves.length > 0
       ? [`${pendingLeaves.length} leave request(s) still pending.`]
       : []),
+    ...(noScheduleEmployees.length > 0
+      ? [`${noScheduleEmployees.length} active employee(s) have OFF/no schedule today. RD is treated as Rest Day and does not trigger this alert.`]
+      : []),
     ...(overStaffDepartments.length > 0
       ? [`${overStaffDepartments.length} department(s) may be overstaffed.`]
       : []),
@@ -334,6 +463,12 @@ export default function WorkforcePage() {
     }),
     ...(pendingLeaves.length > 0
       ? ["Review pending leave requests before final schedule release."]
+      : []),
+    ...(noScheduleEmployees.length > 0
+      ? [`${noScheduleEmployees.length} active employee(s) have OFF/no schedule today. RD is treated as Rest Day and does not trigger this alert.`]
+      : []),
+    ...(noScheduleEmployees.length > 0
+      ? ["Review employees tagged OFF/no schedule and assign working shift or RD where intended."]
       : []),
     ...(overStaffDepartments.length > 0
       ? ["Check overstaffed departments for possible reassignment."]
@@ -407,6 +542,7 @@ export default function WorkforcePage() {
           <StatCard icon={<ClipboardList size={22} />} title="Required Today" value={totalRequired} />
           <StatCard icon={<UserCheck size={22} />} title="Scheduled Today" value={totalScheduled} />
           <StatCard icon={<AlertTriangle size={22} />} title="Missing Staff" value={missingStaff} danger={missingStaff > 0} />
+          <StatCard icon={<AlertTriangle size={22} />} title="No Schedule Alert" value={noScheduleEmployees.length} danger={noScheduleEmployees.length > 0} />
           <StatCard icon={<UserX size={22} />} title="Inactive / Resigned" value={inactiveEmployees.length} danger={inactiveEmployees.length > 0} />
         </section>
 
@@ -423,6 +559,8 @@ export default function WorkforcePage() {
               <p className="mt-1 text-xl font-black text-white">
                 {missingStaff > 0
                   ? `${missingStaff} missing staff`
+                  : noScheduleEmployees.length > 0
+                  ? `${noScheduleEmployees.length} no schedule alert(s)`
                   : hasPublishedSchedule
                   ? "No critical shortage"
                   : "Schedule not published"}
@@ -471,6 +609,8 @@ export default function WorkforcePage() {
                         ? "Overstaffed"
                         : dept.onLeave > 0
                         ? "Leave impact"
+                        : dept.noSchedule > 0
+                        ? "No schedule"
                         : "Not published"}
                     </div>
                     <div
@@ -507,7 +647,12 @@ export default function WorkforcePage() {
 
           <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {filteredDepartmentSummary.map((dept) => (
-              <DepartmentCoverageCard key={dept.department} dept={dept} />
+              <DepartmentCoverageCard
+                key={dept.department}
+                dept={dept}
+                getShiftColorClass={getShiftColorClass}
+                getShiftTimeLabel={getShiftTimeLabel}
+              />
             ))}
           </div>
         </section>
@@ -515,7 +660,7 @@ export default function WorkforcePage() {
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
           <StaffList
             title="Available Floaters / No Schedule"
-            subtitle="Active employees without schedule, OFF, or leave today."
+            subtitle="Active employees without a working shift today. RD and approved leave are excluded."
             employees={possibleFloaters}
             empty="No available floater found."
           />
@@ -577,12 +722,13 @@ export default function WorkforcePage() {
           </p>
 
           <div className="mt-6 overflow-hidden rounded-xl border border-slate-800">
-            <div className="grid grid-cols-8 bg-slate-950 px-6 py-4 text-sm font-bold text-slate-400">
+            <div className="grid grid-cols-9 bg-slate-950 px-6 py-4 text-sm font-bold text-slate-400">
               <div>Department</div>
               <div>Required</div>
               <div>Scheduled</div>
               <div>Available</div>
-              <div>OFF</div>
+              <div>No Sched</div>
+              <div>RD</div>
               <div>Gap</div>
               <div>Priority</div>
               <div>Action</div>
@@ -591,13 +737,14 @@ export default function WorkforcePage() {
             {filteredDepartmentSummary.map((dept) => (
               <div
                 key={dept.department}
-                className="grid grid-cols-8 border-t border-slate-800 px-6 py-4 text-sm"
+                className="grid grid-cols-9 border-t border-slate-800 px-6 py-4 text-sm"
               >
                 <div className="font-semibold">{dept.department}</div>
                 <div>{dept.required}</div>
                 <div>{dept.scheduled}</div>
                 <div>{dept.available}</div>
-                <div>{dept.offToday}</div>
+                <div className={dept.noSchedule > 0 ? "font-bold text-red-400" : ""}>{dept.noSchedule}</div>
+                <div>{dept.restDayToday}</div>
 
                 <div
                   className={
@@ -702,7 +849,15 @@ function PriorityBadge({ priority }: { priority: string }) {
   );
 }
 
-function DepartmentCoverageCard({ dept }: { dept: any }) {
+function DepartmentCoverageCard({
+  dept,
+  getShiftColorClass,
+  getShiftTimeLabel,
+}: {
+  dept: any;
+  getShiftColorClass: (shiftName?: string | null) => string;
+  getShiftTimeLabel: (shiftName?: string | null) => string;
+}) {
   const width = Math.min(100, Math.max(0, dept.coverage));
 
   return (
@@ -749,6 +904,19 @@ function DepartmentCoverageCard({ dept }: { dept: any }) {
         </div>
       </div>
 
+      {dept.shiftBreakdown?.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {dept.shiftBreakdown.map((item: any) => (
+            <span
+              key={item.shiftName}
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getShiftColorClass(item.shiftName)}`}
+            >
+              {getShiftTimeLabel(item.shiftName)} × {item.count}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
         <div className="rounded-lg bg-slate-900 p-2">
           <p className="text-slate-500">Leave</p>
@@ -756,8 +924,8 @@ function DepartmentCoverageCard({ dept }: { dept: any }) {
         </div>
 
         <div className="rounded-lg bg-slate-900 p-2">
-          <p className="text-slate-500">OFF</p>
-          <p className="font-bold text-white">{dept.offToday}</p>
+          <p className="text-slate-500">No Sched</p>
+          <p className={dept.noSchedule > 0 ? "font-bold text-red-400" : "font-bold text-white"}>{dept.noSchedule}</p>
         </div>
 
         <div className="rounded-lg bg-slate-900 p-2">
