@@ -271,12 +271,148 @@ export default function AttendancePage() {
     });
   };
 
+  const computeTimeMetrics = ({
+    scheduledIn,
+    scheduledOut,
+    timeIn,
+    timeOut,
+    lateGrace,
+    undertimeGrace,
+  }: {
+    scheduledIn?: string | null;
+    scheduledOut?: string | null;
+    timeIn?: string | null;
+    timeOut?: string | null;
+    lateGrace: number;
+    undertimeGrace: number;
+  }) => {
+    let lateMinutes = 0;
+    let undertimeMinutes = 0;
+    let otMinutes = 0;
+
+    const scheduledInMin = timeToMinutes(scheduledIn);
+    const scheduledOutMinRaw = timeToMinutes(scheduledOut);
+
+    const isOvernightShift =
+      !!scheduledIn &&
+      !!scheduledOut &&
+      scheduledOutMinRaw <= scheduledInMin;
+
+    const allowsNextDayOut =
+      !!scheduledOut && scheduledOutMinRaw >= 22 * 60;
+
+    if (timeIn && scheduledIn) {
+      let actualInMin = timeToMinutes(timeIn);
+
+      if (
+        isOvernightShift &&
+        actualInMin < scheduledInMin &&
+        actualInMin <= scheduledOutMinRaw
+      ) {
+        actualInMin += 1440;
+      }
+
+      const lateRaw = actualInMin - scheduledInMin;
+      lateMinutes = lateRaw > lateGrace ? lateRaw : 0;
+    }
+
+    if (timeOut && scheduledOut) {
+      let targetOutMin = scheduledOutMinRaw;
+      let actualOutMin = timeToMinutes(timeOut);
+
+      if (isOvernightShift) {
+        targetOutMin += 1440;
+
+        if (actualOutMin < scheduledInMin) {
+          actualOutMin += 1440;
+        }
+      }
+
+      if (!isOvernightShift && allowsNextDayOut && actualOutMin < scheduledInMin) {
+        actualOutMin += 1440;
+      }
+
+      const difference = actualOutMin - targetOutMin;
+
+      if (difference < 0) {
+        const rawUndertime = Math.abs(difference);
+        undertimeMinutes = rawUndertime > undertimeGrace ? rawUndertime : 0;
+      }
+
+      if (difference > 0) {
+        otMinutes = difference;
+      }
+    }
+
+    return {
+      late_minutes: lateMinutes,
+      undertime_minutes: undertimeMinutes,
+      ot_minutes: otMinutes,
+    };
+  };
+
+  const getAttendanceReviewReason = ({
+    scheduledIn,
+    scheduledOut,
+    timeIn,
+    timeOut,
+    shiftName,
+  }: {
+    scheduledIn?: string | null;
+    scheduledOut?: string | null;
+    timeIn?: string | null;
+    timeOut?: string | null;
+    shiftName?: string | null;
+  }) => {
+    if (!scheduledIn || !scheduledOut) return "Missing schedule time template.";
+    if (timeIn && !timeOut) return "Missing time out.";
+    if (!timeIn && timeOut) return "Missing time in.";
+    if (!timeIn && !timeOut) return "";
+
+    const scheduledInMin = timeToMinutes(scheduledIn);
+    const scheduledOutMin = timeToMinutes(scheduledOut);
+    const timeInMin = timeToMinutes(timeIn);
+    const timeOutMin = timeToMinutes(timeOut);
+
+    const isOvernightShift = scheduledOutMin <= scheduledInMin;
+    const allowsNextDayOut = scheduledOutMin >= 22 * 60;
+
+    if (isOvernightShift) {
+      const isTimeInDuringDeadZone =
+        timeInMin > scheduledOutMin && timeInMin < scheduledInMin;
+
+      if (isTimeInDuringDeadZone) {
+        return "Invalid overnight punch: time in is outside the GY window.";
+      }
+
+      const isTimeOutDuringDeadZone =
+        timeOutMin > scheduledOutMin + 240 && timeOutMin < scheduledInMin;
+
+      if (isTimeOutDuringDeadZone) {
+        return "Invalid overnight punch: time out is outside the GY window.";
+      }
+
+      return "";
+    }
+
+    if (!allowsNextDayOut && timeOutMin < timeInMin) {
+      return "Invalid punch: time out is earlier than time in for a non-overnight shift.";
+    }
+
+    if (timeInMin > scheduledOutMin && !allowsNextDayOut) {
+      return "Time in is far outside the scheduled shift.";
+    }
+
+    return "";
+  };
+
   const computeEntry = (
     employee: Employee,
     date: string,
     entry?: AttendanceEntry
   ) => {
     const schedule = getSchedule(employee.id, date);
+    const hasScheduleOverride = !!entry?.scheduled_shift;
     const shiftName = entry?.scheduled_shift || schedule?.shift || "OFF";
     const shift = getShiftTemplate(shiftName);
 
@@ -298,10 +434,11 @@ export default function AttendancePage() {
         undertime_minutes: 0,
         ot_minutes: 0,
         status: "Leave",
+        review_reason: "",
       };
     }
 
-    if (shiftName === "OFF" || !schedule) {
+    if (shiftName === "OFF") {
       return {
         scheduled_shift: "OFF",
         scheduled_in: null,
@@ -310,6 +447,20 @@ export default function AttendancePage() {
         undertime_minutes: 0,
         ot_minutes: 0,
         status: "RD",
+        review_reason: "",
+      };
+    }
+
+    if (!schedule && !hasScheduleOverride) {
+      return {
+        scheduled_shift: "OFF",
+        scheduled_in: null,
+        scheduled_out: null,
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
+        status: "RD",
+        review_reason: "No schedule found.",
       };
     }
 
@@ -322,31 +473,54 @@ export default function AttendancePage() {
         undertime_minutes: 0,
         ot_minutes: 0,
         status: "Absent",
+        review_reason: "",
       };
     }
 
-    const lateRaw = timeIn && scheduledIn ? diffMinutes(scheduledIn, timeIn) : 0;
-    const lateMinutes = lateRaw > lateGrace ? lateRaw : 0;
+    const reviewReason = getAttendanceReviewReason({
+      scheduledIn,
+      scheduledOut,
+      timeIn,
+      timeOut,
+      shiftName,
+    });
 
-    const undertimeRaw =
-      timeOut && scheduledOut ? diffMinutes(timeOut, scheduledOut) : 0;
-    const undertimeMinutes = undertimeRaw > undertimeGrace ? undertimeRaw : 0;
+    if (reviewReason) {
+      return {
+        scheduled_shift: shiftName,
+        scheduled_in: scheduledIn,
+        scheduled_out: scheduledOut,
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
+        status: "Review Required",
+        review_reason: reviewReason,
+      };
+    }
 
-    const otRaw = timeOut && scheduledOut ? diffMinutes(scheduledOut, timeOut) : 0;
-    const otMinutes = otRaw > 0 ? otRaw : 0;
+    const computed = computeTimeMetrics({
+      scheduledIn,
+      scheduledOut,
+      timeIn,
+      timeOut,
+      lateGrace,
+      undertimeGrace,
+    });
 
     let status = "Present";
-    if (lateMinutes > 0) status = "Late";
-    if (undertimeMinutes > 0) status = "Undertime";
+    if (computed.ot_minutes > 0) status = "Overtime";
+    if (computed.late_minutes > 0) status = "Late";
+    if (computed.undertime_minutes > 0) status = "Undertime";
 
     return {
       scheduled_shift: shiftName,
       scheduled_in: scheduledIn,
       scheduled_out: scheduledOut,
-      late_minutes: lateMinutes,
-      undertime_minutes: undertimeMinutes,
-      ot_minutes: otMinutes,
+      late_minutes: computed.late_minutes,
+      undertime_minutes: computed.undertime_minutes,
+      ot_minutes: computed.ot_minutes,
       status,
+      review_reason: "",
     };
   };
 
@@ -509,6 +683,66 @@ export default function AttendancePage() {
     const updated: AttendanceEntry = {
       ...baseEntry,
       [field]: value,
+    };
+
+    const computed = computeEntry(employee, date, updated);
+
+    const finalEntry = {
+      ...updated,
+      ...computed,
+    };
+
+    setEntries((prev) => {
+      const exists = prev.some(
+        (entry) =>
+          String(entry.employee_id) === String(employee.id) &&
+          String(entry.attendance_date) === String(date)
+      );
+
+      if (exists) {
+        return prev.map((entry) =>
+          String(entry.employee_id) === String(employee.id) &&
+          String(entry.attendance_date) === String(date)
+            ? finalEntry
+            : entry
+        );
+      }
+
+      return [...prev, finalEntry];
+    });
+  };
+
+  const updateScheduleOverride = (
+    employee: Employee,
+    date: string,
+    shiftName: string
+  ) => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}`
+      );
+      return;
+    }
+
+    const selectedShift = getShiftTemplate(shiftName);
+    const existing = getEntry(employee.id, date);
+
+    const baseEntry: AttendanceEntry = existing || {
+      employee_id: employee.id,
+      attendance_date: date,
+      time_in: "",
+      time_out: "",
+      remarks: "",
+    };
+
+    const updated: AttendanceEntry = {
+      ...baseEntry,
+      scheduled_shift: shiftName,
+      scheduled_in: selectedShift?.start_time || null,
+      scheduled_out: selectedShift?.end_time || null,
+      remarks:
+        baseEntry.remarks ||
+        `Schedule override from attendance entries: ${shiftName}`,
     };
 
     const computed = computeEntry(employee, date, updated);
@@ -1019,7 +1253,7 @@ export default function AttendancePage() {
   ]);
 
   const presentCount = attendanceRows.filter((row) =>
-    ["Present", "Late", "Undertime"].includes(row.status)
+    ["Present", "Late", "Undertime", "Overtime"].includes(row.status)
   ).length;
 
   const lateCount = attendanceRows.filter(
@@ -1047,7 +1281,9 @@ export default function AttendancePage() {
     const noSchedule =
       row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
 
-    return missingTime || missingOut || noSchedule;
+    const reviewRequired = row.status === "Review Required";
+
+    return missingTime || missingOut || noSchedule || reviewRequired;
   });
 
   const missingEntryRows = payrollIssueRows.filter((row) => {
@@ -1071,6 +1307,10 @@ export default function AttendancePage() {
   const noScheduleRows = attendanceRows.filter((row) => {
     return row.scheduled_shift === "OFF" && !getSchedule(row.employee.id, row.date);
   });
+
+  const reviewRequiredRows = attendanceRows.filter(
+    (row) => row.status === "Review Required"
+  );
 
   const payrollReady =
     !!selectedEmployee && attendanceRows.length > 0 && payrollIssueRows.length === 0;
@@ -1142,6 +1382,7 @@ export default function AttendancePage() {
           <SummaryCard title="Missing" value={missingEntryRows.length} color="text-red-400" />
           <SummaryCard title="Missing Out" value={missingOutRows.length} color="text-orange-400" />
           <SummaryCard title="No Schedule" value={noScheduleRows.length} color="text-purple-400" />
+          <SummaryCard title="Review Required" value={reviewRequiredRows.length} color="text-orange-400" />
           <SummaryCard title="OT Hours" value={(totalOtMinutes / 60).toFixed(2)} color="text-blue-400" />
         </section>
 
@@ -1240,7 +1481,7 @@ export default function AttendancePage() {
 
                 <p className="mt-1 text-sm text-slate-300">
                   Missing Entries: {missingEntryRows.length} • Missing Time Out:{" "}
-                  {missingOutRows.length} • No Schedule: {noScheduleRows.length}
+                  {missingOutRows.length} • No Schedule: {noScheduleRows.length} • Review Required: {reviewRequiredRows.length}
                 </p>
               </div>
 
@@ -1277,7 +1518,9 @@ export default function AttendancePage() {
 
                       let issue = "Needs Review";
 
-                      if (
+                      if (row.status === "Review Required") {
+                        issue = row.review_reason || "Review Required";
+                      } else if (
                         isWorkingDay &&
                         !row.entry?.time_in &&
                         !row.entry?.time_out
@@ -1448,10 +1691,28 @@ export default function AttendancePage() {
                     <td className="px-4 py-3 font-bold">{row.date}</td>
 
                     <td className="px-4 py-3">
-                      <p className="font-bold text-amber-400">
-                        {row.scheduled_shift}
-                      </p>
-                      <p className="text-xs text-slate-500">
+                      <select
+                        value={row.scheduled_shift}
+                        disabled={attendanceLocked}
+                        onChange={(e) =>
+                          updateScheduleOverride(
+                            row.employee,
+                            row.date,
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-amber-400 outline-none disabled:opacity-50"
+                      >
+                        <option value="OFF">OFF</option>
+
+                        {shiftTemplates.map((shift) => (
+                          <option key={shift.id} value={shift.shift_name}>
+                            {shift.shift_name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <p className="mt-1 text-xs text-slate-500">
                         {row.scheduled_in || "--:--"} - {" "}
                         {row.scheduled_out || "--:--"}
                       </p>
@@ -1521,6 +1782,12 @@ export default function AttendancePage() {
                         }
                         className="w-72 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
                       />
+
+                      {row.review_reason && (
+                        <p className="mt-1 max-w-xs text-xs font-bold text-orange-300">
+                          ⚠ {row.review_reason}
+                        </p>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1558,6 +1825,10 @@ function StatusBadge({ status }: any) {
       ? "bg-amber-500/10 text-amber-400"
       : status === "Undertime" || status === "Absent"
       ? "bg-red-500/10 text-red-400"
+      : status === "Overtime"
+      ? "bg-blue-500/10 text-blue-400"
+      : status === "Review Required"
+      ? "bg-orange-500/10 text-orange-400"
       : status === "Leave"
       ? "bg-blue-500/10 text-blue-400"
       : status === "RD"
