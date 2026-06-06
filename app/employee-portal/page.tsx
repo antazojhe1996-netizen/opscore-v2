@@ -41,18 +41,35 @@ type LeaveRequest = {
 
 type PayslipRow = {
   id?: string;
-  employee_id?: string;
+  payroll_period_id?: string | null;
+  employee_id?: string | null;
+  employee_no?: string | null;
+  employee_name?: string | null;
+  department?: string | null;
+  position?: string | null;
+  period?: string | null;
   period_name?: string | null;
   payroll_period?: string | null;
   cutoff_name?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  basic_pay?: number | null;
+  ot_pay?: number | null;
+  late_deduction?: number | null;
+  undertime_deduction?: number | null;
+  absence_deduction?: number | null;
+  allowances?: number | null;
+  incentives?: number | null;
+  cash_advance?: number | null;
+  other_deductions?: number | null;
   gross_pay?: number | null;
   total_earnings?: number | null;
   total_deductions?: number | null;
   deductions?: number | null;
   net_pay?: number | null;
   final_pay?: number | null;
+  release_amount?: number | null;
+  snapshot_type?: string | null;
   status?: string | null;
   created_at?: string | null;
 };
@@ -205,6 +222,227 @@ export default function EmployeePortalPage() {
       currency: "PHP",
       minimumFractionDigits: 2,
     });
+  };
+
+  const getPayslipPeriodLabel = (payslip: PayslipRow) => {
+    return (
+      payslip.period ||
+      payslip.period_name ||
+      payslip.payroll_period ||
+      payslip.cutoff_name ||
+      `${formatDate(payslip.start_date)} - ${formatDate(payslip.end_date)}`
+    );
+  };
+
+  const getPayslipGross = (payslip: PayslipRow) => {
+    return Number(
+      payslip.gross_pay ??
+        payslip.total_earnings ??
+        Number(payslip.basic_pay || 0) +
+          Number(payslip.ot_pay || 0) +
+          Number(payslip.allowances || 0) +
+          Number(payslip.incentives || 0)
+    );
+  };
+
+  const getPayslipDeductions = (payslip: PayslipRow) => {
+    return Number(
+      payslip.total_deductions ??
+        payslip.deductions ??
+        Number(payslip.late_deduction || 0) +
+          Number(payslip.undertime_deduction || 0) +
+          Number(payslip.absence_deduction || 0) +
+          Number(payslip.cash_advance || 0) +
+          Number(payslip.other_deductions || 0)
+    );
+  };
+
+  const getPayslipNet = (payslip: PayslipRow) => {
+    return Number(
+      payslip.net_pay ??
+        payslip.final_pay ??
+        payslip.release_amount ??
+        getPayslipGross(payslip) - getPayslipDeductions(payslip)
+    );
+  };
+
+  const downloadPayslipPDF = (payslip: PayslipRow) => {
+    const period = getPayslipPeriodLabel(payslip);
+    const gross = getPayslipGross(payslip);
+    const deductions = getPayslipDeductions(payslip);
+    const net = getPayslipNet(payslip);
+    const issuedDate = payslip.created_at
+      ? new Date(payslip.created_at).toLocaleString("en-PH")
+      : new Date().toLocaleString("en-PH");
+
+    const safeFileName = `${employeeName || "Employee"}-${period || "Payslip"}`
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <title>${safeFileName}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              padding: 32px;
+              font-family: Arial, sans-serif;
+              color: #0f172a;
+              background: #ffffff;
+            }
+            .page {
+              max-width: 760px;
+              margin: 0 auto;
+              border: 1px solid #cbd5e1;
+              border-radius: 18px;
+              padding: 28px;
+            }
+            .brand {
+              letter-spacing: 0.3em;
+              color: #b45309;
+              font-size: 12px;
+              font-weight: 800;
+              text-transform: uppercase;
+            }
+            h1 {
+              margin: 8px 0 4px;
+              font-size: 30px;
+            }
+            .muted { color: #64748b; font-size: 13px; }
+            .grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 14px;
+              margin-top: 22px;
+            }
+            .card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 14px;
+              background: #f8fafc;
+            }
+            .label {
+              font-size: 11px;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.12em;
+              font-weight: 700;
+            }
+            .value {
+              margin-top: 6px;
+              font-size: 18px;
+              font-weight: 800;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 24px;
+              font-size: 14px;
+            }
+            th, td {
+              border-bottom: 1px solid #e2e8f0;
+              padding: 12px 8px;
+              text-align: left;
+            }
+            th { color: #475569; font-size: 12px; text-transform: uppercase; }
+            .right { text-align: right; }
+            .net {
+              color: #047857;
+              font-weight: 900;
+              font-size: 20px;
+            }
+            .footer {
+              margin-top: 28px;
+              padding-top: 16px;
+              border-top: 1px solid #e2e8f0;
+              font-size: 12px;
+              color: #64748b;
+            }
+            @media print {
+              body { padding: 0; }
+              .page { border: none; border-radius: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="brand">OPSCORE</div>
+            <h1>Payslip</h1>
+            <div class="muted">Generated from OPSCORE Employee Portal</div>
+
+            <div class="grid">
+              <div class="card">
+                <div class="label">Employee</div>
+                <div class="value">${employeeName}</div>
+                <div class="muted">${employeeDepartment} • Employee #${employeeNumber}</div>
+              </div>
+              <div class="card">
+                <div class="label">Payroll Period</div>
+                <div class="value">${period}</div>
+                <div class="muted">Issued: ${issuedDate}</div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th class="right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Basic Pay</td>
+                  <td class="right">${formatMoney(payslip.basic_pay || 0)}</td>
+                </tr>
+                <tr>
+                  <td>OT Pay</td>
+                  <td class="right">${formatMoney(payslip.ot_pay || 0)}</td>
+                </tr>
+                <tr>
+                  <td>Allowances / Incentives</td>
+                  <td class="right">${formatMoney(Number(payslip.allowances || 0) + Number(payslip.incentives || 0))}</td>
+                </tr>
+                <tr>
+                  <td>Gross Pay</td>
+                  <td class="right">${formatMoney(gross)}</td>
+                </tr>
+                <tr>
+                  <td>Total Deductions</td>
+                  <td class="right">${formatMoney(deductions)}</td>
+                </tr>
+                <tr>
+                  <td><strong>Net Pay / Release Amount</strong></td>
+                  <td class="right net">${formatMoney(net)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="footer">
+              This payslip is system-generated. For questions or corrections, please contact Admin or Payroll.
+            </div>
+          </div>
+          <script>
+            window.onload = function () {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+      alert("Please allow pop-ups to download or print your payslip.");
+      return;
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   const getWeekDates = () => {
@@ -463,8 +701,7 @@ export default function EmployeePortalPage() {
       .from("leave_requests")
       .select("*")
       .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false })
-      .limit(10);
+.order("id", { ascending: false })      .limit(10);
 
     if (error) {
       console.log("LEAVE HISTORY ERROR:", error.message);
@@ -476,12 +713,31 @@ export default function EmployeePortalPage() {
   };
 
   const getPayslips = async (employeeId: string) => {
-    const { data, error } = await supabase
+    const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
+    const shortEmployeeNo = employeeNo.replace(/^BIO-/i, "");
+    const bioEmployeeNo = employeeNo && employeeNo.startsWith("BIO-")
+      ? employeeNo
+      : shortEmployeeNo
+      ? `BIO-${shortEmployeeNo.padStart(3, "0")}`
+      : "";
+    const employeeNameFilter = employeeName.trim();
+
+    const filters = [
+      `employee_id.eq.${employeeId}`,
+      employeeNo ? `employee_no.eq.${employeeNo}` : "",
+      shortEmployeeNo ? `employee_no.eq.${shortEmployeeNo}` : "",
+      bioEmployeeNo ? `employee_no.eq.${bioEmployeeNo}` : "",
+      employeeNameFilter ? `employee_name.eq.${employeeNameFilter}` : "",
+    ].filter(Boolean);
+
+    const query = supabase
       .from("payroll_snapshots")
       .select("*")
-      .eq("employee_id", employeeId)
       .order("created_at", { ascending: false })
       .limit(12);
+
+    const { data, error } =
+      filters.length > 0 ? await query.or(filters.join(",")) : await query.eq("employee_id", employeeId);
 
     if (error) {
       console.log("PAYSLIP HISTORY ERROR:", error.message);
@@ -971,15 +1227,10 @@ export default function EmployeePortalPage() {
 
             <div className="mt-4 space-y-3">
               {payslips.map((payslip) => {
-                const gross = payslip.gross_pay ?? payslip.total_earnings ?? 0;
-                const deductions =
-                  payslip.total_deductions ?? payslip.deductions ?? 0;
-                const net = payslip.net_pay ?? payslip.final_pay ?? 0;
-                const period =
-                  payslip.period_name ||
-                  payslip.payroll_period ||
-                  payslip.cutoff_name ||
-                  `${formatDate(payslip.start_date)} - ${formatDate(payslip.end_date)}`;
+                const gross = getPayslipGross(payslip);
+                const deductions = getPayslipDeductions(payslip);
+                const net = getPayslipNet(payslip);
+                const period = getPayslipPeriodLabel(payslip);
 
                 return (
                   <div
@@ -992,6 +1243,11 @@ export default function EmployeePortalPage() {
                         <p className="mt-1 text-sm text-slate-400">
                           {formatDate(payslip.start_date)} - {formatDate(payslip.end_date)}
                         </p>
+                        {payslip.snapshot_type && (
+                          <p className="mt-1 text-xs font-bold text-blue-300">
+                            {payslip.snapshot_type}
+                          </p>
+                        )}
                       </div>
                       <StatusBadge status={payslip.status || "Released"} />
                     </div>
@@ -1001,6 +1257,13 @@ export default function EmployeePortalPage() {
                       <Info label="Deductions" value={formatMoney(deductions)} />
                       <Info label="Net Pay" value={formatMoney(net)} />
                     </div>
+
+                    <button
+                      onClick={() => downloadPayslipPDF(payslip)}
+                      className="mt-4 w-full rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300"
+                    >
+                      Download PDF
+                    </button>
                   </div>
                 );
               })}
