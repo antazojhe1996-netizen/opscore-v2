@@ -101,7 +101,6 @@ export default function PayrollSettingsPage() {
     require_pagibig_number: "No",
     require_tin_number: "No",
 
-    payroll_approval_required: "Yes",
     authorized_signatory: "",
     payslip_footer: "This is a system-generated payslip.",
   };
@@ -457,15 +456,9 @@ export default function PayrollSettingsPage() {
       ],
     },
     {
-      title: "Payroll Approval and Payslip",
-      description: "Controls payroll release flow and payslip footer details.",
+      title: "Payslip Details",
+      description: "Controls authorized signatory and payslip footer details.",
       fields: [
-        {
-          key: "payroll_approval_required",
-          label: "Payroll Approval Required",
-          type: "select",
-          options: ["Yes", "No"],
-        },
         {
           key: "authorized_signatory",
           label: "Authorized Signatory",

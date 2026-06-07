@@ -11,7 +11,6 @@ export default function FinanceSettingsPage() {
   const [expenseAreas, setExpenseAreas] = useState<any[]>([]);
   const [expenseSources, setExpenseSources] = useState<any[]>([]);
   const [revenueSources, setRevenueSources] = useState<any[]>([]);
-  const [workflowSettings, setWorkflowSettings] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const [newCategory, setNewCategory] = useState("");
@@ -49,18 +48,12 @@ export default function FinanceSettingsPage() {
       .select("*")
       .order("name", { ascending: true });
 
-    const { data: workflowData, error: workflowError } = await supabase
-      .from("finance_workflow_settings")
-      .select("*")
-      .limit(1)
-      .maybeSingle();
 
     if (categoriesError) console.log("GET CATEGORIES ERROR:", categoriesError);
     if (paymentsError) console.log("GET PAYMENTS ERROR:", paymentsError);
     if (areasError) console.log("GET AREAS ERROR:", areasError);
     if (sourcesError) console.log("GET SOURCES ERROR:", sourcesError);
     if (revenueError) console.log("GET REVENUE ERROR:", revenueError);
-    if (workflowError) console.log("GET WORKFLOW SETTINGS ERROR:", workflowError);
 
     console.log("EXPENSE CATEGORIES COUNT:", categories?.length);
 
@@ -69,7 +62,6 @@ export default function FinanceSettingsPage() {
     setExpenseAreas(areas || []);
     setExpenseSources(expenseSourcesData || []);
     setRevenueSources(revenueSourcesData || []);
-    setWorkflowSettings(workflowData || null);
 
     setLoading(false);
   };
@@ -122,28 +114,6 @@ export default function FinanceSettingsPage() {
     getFinanceSettings();
   };
 
-  const updateWorkflowSetting = async (field: string, value: boolean) => {
-    if (!workflowSettings?.id) {
-      alert("Workflow settings record not found.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("finance_workflow_settings")
-      .update({ [field]: value })
-      .eq("id", workflowSettings.id);
-
-    if (error) {
-      console.log("UPDATE WORKFLOW SETTING ERROR:", error);
-      alert("Failed to update workflow setting.");
-      return;
-    }
-
-    setWorkflowSettings({
-      ...workflowSettings,
-      [field]: value,
-    });
-  };
 
   useEffect(() => {
     getFinanceSettings();
@@ -158,8 +128,7 @@ export default function FinanceSettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Finance Settings</h1>
           <p className="text-sm text-slate-400">
-            Configure finance dropdowns, revenue sources, expense workflow, and
-            cash management controls.
+            Configure finance dropdowns, revenue sources, expense categories, and payment master data.
           </p>
         </div>
 
@@ -239,54 +208,6 @@ export default function FinanceSettingsPage() {
           </div>
         </section>
 
-        <section className="mb-8">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">Finance Workflow</h2>
-            <p className="text-sm text-slate-400">
-              Controls how expenses, approvals, cash release, liquidation, and
-              cash monitoring behave.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-            <WorkflowToggle
-              title="Require Expense Approval"
-              description="If enabled, expenses must be approved before cash release."
-              checked={workflowSettings?.require_expense_approval || false}
-              onChange={(value: boolean) =>
-                updateWorkflowSetting("require_expense_approval", value)
-              }
-            />
-
-            <WorkflowToggle
-              title="Enable Liquidation Tracking"
-              description="If enabled, released expenses must be liquidated after purchase."
-              checked={workflowSettings?.enable_liquidation_tracking || false}
-              onChange={(value: boolean) =>
-                updateWorkflowSetting("enable_liquidation_tracking", value)
-              }
-            />
-
-            <WorkflowToggle
-              title="Allow Direct Cash Release"
-              description="If enabled, cash can be released without approval. Recommended OFF."
-              checked={workflowSettings?.allow_direct_cash_release || false}
-              onChange={(value: boolean) =>
-                updateWorkflowSetting("allow_direct_cash_release", value)
-              }
-            />
-
-            <WorkflowToggle
-              title="Enable Cash Management"
-              description="If enabled, released cash expenses will be included in cash accountability."
-              checked={workflowSettings?.enable_cash_management || false}
-              onChange={(value: boolean) =>
-                updateWorkflowSetting("enable_cash_management", value)
-              }
-            />
-          </div>
-        </section>
-
         <section>
           <div className="mb-4">
             <h2 className="text-xl font-bold">Revenue Settings</h2>
@@ -314,32 +235,6 @@ export default function FinanceSettingsPage() {
           </div>
         </section>
       </main>
-    </div>
-  );
-}
-
-function WorkflowToggle({ title, description, checked, onChange }: any) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-bold">{title}</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">
-            {description}
-          </p>
-        </div>
-
-        <button
-          onClick={() => onChange(!checked)}
-          className={`min-w-24 rounded-full px-4 py-2 text-sm font-bold transition ${
-            checked
-              ? "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
-              : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-          }`}
-        >
-          {checked ? "ON" : "OFF"}
-        </button>
-      </div>
     </div>
   );
 }

@@ -42,26 +42,12 @@ const menuSections = [
     ],
   },
   {
-    title: "Workforce",
-    icon: Users,
-    items: [
-      { label: "Workforce", href: "/workforce", icon: Users, moduleKey: "workforce" },
-      { label: "Employee 201", href: "/employees", icon: FileText, moduleKey: "employees" },
-      { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
-      { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
-      { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
-      { label: "Performance Monitoring", href: "/performance", icon: BarChart3, moduleKey: "performance" },
-      { label: "Employee Portal", href: "/employee-portal", icon: User, moduleKey: "employees" },
-    ],
-  },
-  {
     title: "Sales",
     icon: Hotel,
     items: [
       { label: "Hotel Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "hotel_room_sales" },
       { label: "Apartment Sales", href: "/finance/apartment", icon: Building2, moduleKey: "apartment_sales" },
       { label: "Restaurant / Sports Bar", href: "/finance/restaurant-import", icon: Receipt, moduleKey: "restaurant_sales" },
-      { label: "Sales Settings", href: "/finance/settings", icon: Settings, moduleKey: "finance_settings" },
     ],
   },
   {
@@ -78,18 +64,6 @@ const menuSections = [
     ],
   },
   {
-    title: "Manager",
-    icon: UserCheck,
-    items: [
-      {
-        label: "Approval Center",
-        href: "/manager/approval-center",
-        icon: ClipboardList,
-        moduleKey: "approval_center",
-      },
-    ],
-  },
-  {
     title: "Payroll",
     icon: FileText,
     items: [
@@ -103,26 +77,52 @@ const menuSections = [
     ],
   },
   {
+    title: "Workforce",
+    icon: Users,
+    items: [
+      { label: "Workforce", href: "/workforce", icon: Users, moduleKey: "workforce" },
+      { label: "Employee 201", href: "/employees", icon: FileText, moduleKey: "employees" },
+      { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
+      { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
+      { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
+      { label: "Performance Monitoring", href: "/performance", icon: BarChart3, moduleKey: "performance" },
+      { label: "Employee Portal", href: "/employee-portal", icon: User, moduleKey: "employees" },
+    ],
+  },
+  {
+    title: "HR",
+    icon: Users,
+    items: [
+      { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "departments_settings" },
+      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "positions_settings" },
+      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "employment_settings" },
+      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList, moduleKey: "employment_settings" },
+      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "leave_settings" },
+      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "leave_settings" },
+    ],
+  },
+  {
+    title: "Approvals",
+    icon: ShieldCheck,
+    items: [
+      { label: "Approval Center", href: "/manager/approval-center", icon: ClipboardList, moduleKey: "approval_center" },
+      { label: "Approval Controls", href: "/settings/approval-controls", icon: ShieldCheck, moduleKey: "approval_controls" },
+      { label: "Approval Assignments", href: "/settings/approval-assignments", icon: UserCheck, moduleKey: "approval_assignments" },
+    ],
+  },
+  {
     title: "System",
     icon: Settings,
     items: [
       { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
-      { label: "Approval Controls", href: "/settings/approval-controls", icon: ShieldCheck, moduleKey: "approval_controls" },
-      { label: "Approval Assignments", href: "/settings/approval-assignments", icon: UserCheck, moduleKey: "approval_assignments" },
-      { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
+      { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "property_settings" },
       { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
       { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "current_user" },
-      { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "departments_settings" },
-      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "positions_settings" },
-      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList, moduleKey: "employment_settings" },
-      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "employment_settings" },
+      { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
       { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "shift_settings" },
       { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "hc_rules" },
       { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3, moduleKey: "forecasting_rules" },
       { label: "Performance KPI", href: "/settings/performance-kpi", icon: BarChart3, moduleKey: "performance_kpi" },
-      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "leave_settings" },
-      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "leave_settings" },
-      { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "property_settings" },
     ],
   },
 ];
@@ -295,7 +295,7 @@ export default function Sidebar() {
                   <Icon size={16} />
                   <span className="min-w-0 flex-1 truncate">{section.title}</span>
 
-                  {section.title === "Manager" && pendingApprovals > 0 && (
+                  {section.title === "Approvals" && pendingApprovals > 0 && (
                     <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
                       {pendingApprovals}
                     </span>
