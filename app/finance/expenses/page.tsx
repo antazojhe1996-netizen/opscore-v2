@@ -313,9 +313,21 @@ export default function ExpensesPage() {
     }
 
     if (sortConfig.key === "expense_date") {
+      const dateDiff =
+        sortConfig.direction === "asc"
+          ? new Date(aValue || "1900-01-01").getTime() -
+            new Date(bValue || "1900-01-01").getTime()
+          : new Date(bValue || "1900-01-01").getTime() -
+            new Date(aValue || "1900-01-01").getTime();
+
+      if (dateDiff !== 0) return dateDiff;
+
+      const aCreated = new Date(a.created_at || a.posted_date || a.updated_at || "1900-01-01").getTime();
+      const bCreated = new Date(b.created_at || b.posted_date || b.updated_at || "1900-01-01").getTime();
+
       return sortConfig.direction === "asc"
-        ? new Date(aValue).getTime() - new Date(bValue).getTime()
-        : new Date(bValue).getTime() - new Date(aValue).getTime();
+        ? aCreated - bCreated
+        : bCreated - aCreated;
     }
 
     return sortConfig.direction === "asc"
@@ -411,7 +423,8 @@ export default function ExpensesPage() {
     const { data, error } = await supabase
       .from("expenses")
       .select("*")
-      .order("expense_date", { ascending: false });
+      .order("expense_date", { ascending: false })
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.log("GET EXPENSES ERROR:", error);
@@ -1171,6 +1184,7 @@ export default function ExpensesPage() {
                 <option value="Manual Entry">Manual Entry</option>
                 <option value="Cash Drawer">Cash Drawer</option>
                 <option value="Payroll Release">Payroll Release</option>
+                <option value="Expense Request">Expense Request</option>
                 <option value="Imported">Imported</option>
               </select>
 

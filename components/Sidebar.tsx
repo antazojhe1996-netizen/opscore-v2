@@ -76,8 +76,23 @@ const menuSections = [
       { label: "Expense Allocation", href: "/finance/settings/expense-allocation", icon: Wallet, moduleKey: "settings" },
       { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
     ],
+    
   },
+
   {
+  title: "Manager",
+  icon: UserCheck,
+  items: [
+    {
+      label: "Approval Center",
+      href: "/manager/approval-center",
+      icon: ClipboardList,
+moduleKey: "always_allow",    },
+  ],
+},
+  
+  {
+    
     title: "Payroll",
     icon: FileText,
     items: [

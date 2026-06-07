@@ -299,7 +299,11 @@ export default function ExpenseRequestsPage() {
       payload.approved_date = nowIso;
     }
 
-    const { error } = await supabase.from("expense_requests").insert(payload);
+    const { data: newRequest, error } = await supabase
+      .from("expense_requests")
+      .insert(payload)
+      .select()
+      .single();
 
     setIsSubmitting(false);
 
@@ -307,6 +311,25 @@ export default function ExpenseRequestsPage() {
       console.log("SUBMIT EXPENSE REQUEST ERROR:", error.message);
       alert("Failed to submit expense request.");
       return;
+    }
+
+    if (approvalRequired && newRequest) {
+      const { error: approvalError } = await supabase
+        .from("approval_requests")
+        .insert({
+          request_type: "EXPENSE_REQUEST",
+          module: "Finance",
+          reference_id: String(newRequest.id),
+          title: `${category} - ${formatMoney(amountValue)}`,
+          description: `${reason.trim()} | Area: ${expenseArea} | Urgency: ${urgency}`,
+          requested_by: finalRequestedBy,
+          status: "PENDING",
+        });
+
+      if (approvalError) {
+        console.log("CREATE APPROVAL REQUEST ERROR:", approvalError.message);
+        alert("Expense request was saved, but approval center record was not created.");
+      }
     }
 
     await createAuditLog({
@@ -343,6 +366,7 @@ export default function ExpenseRequestsPage() {
     if (!selectedRequest || !actionType) return;
 
     let payload: any = {};
+    let postedExpenseData: any = null;
 
     if (actionType === "APPROVE") {
       if (!actorName.trim() || !actorRole.trim()) {
@@ -377,11 +401,43 @@ export default function ExpenseRequestsPage() {
         return;
       }
 
+      if (selectedRequest.posted_to_expenses) {
+        alert("This request is already posted to expenses.");
+        return;
+      }
+
+      const releasedAt = new Date().toISOString();
+
+      const { data: expenseData, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          expense_date: String(releasedAt).slice(0, 10),
+          category: selectedRequest.category,
+          subcategory: null,
+          department: selectedRequest.expense_area || selectedRequest.department,
+          description: selectedRequest.reason,
+          source: "Expense Request",
+          amount: Number(selectedRequest.amount || 0),
+          payment_method: "Cash",
+          remarks: `Auto-posted from approved expense request. Request ID: ${selectedRequest.id}. Requested by: ${selectedRequest.requested_by}. Released by: ${actorName.trim()}.`,
+        })
+        .select()
+        .single();
+
+      if (expenseError) {
+        console.log("AUTO POST RELEASE TO EXPENSES ERROR:", expenseError.message);
+        alert("Release failed because posting to Expenses failed.");
+        return;
+      }
+
+      postedExpenseData = expenseData;
+
       payload = {
         status: "RELEASED",
         released_by: actorName.trim(),
-        released_date: new Date().toISOString(),
+        released_date: releasedAt,
         remarks: actionRemarks.trim() || selectedRequest.remarks || "",
+        posted_to_expenses: true,
       };
     }
 
@@ -406,23 +462,40 @@ export default function ExpenseRequestsPage() {
 
     if (error) {
       console.log("UPDATE REQUEST ACTION ERROR:", error.message);
-      alert("Failed to update request.");
+      alert(
+        actionType === "RELEASE"
+          ? `Expense was posted, but request status was not updated. ${error.message}`
+          : `Failed to update request. ${error.message}`
+      );
       return;
     }
 
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Expense Requests",
-      action: `${actionType} Expense Request`,
-      description: `${actionType} request ${selectedRequest.category} - ${formatMoney(selectedRequest.amount)}`,
+      action:
+        actionType === "RELEASE"
+          ? "Release Expense Request and Auto Post"
+          : `${actionType} Expense Request`,
+      description:
+        actionType === "RELEASE"
+          ? `Released and posted ${selectedRequest.category} request to expenses - ${formatMoney(selectedRequest.amount)}`
+          : `${actionType} request ${selectedRequest.category} - ${formatMoney(selectedRequest.amount)}`,
       severity: actionType === "REJECT" ? "critical" : "warning",
       recordId: selectedRequest.id,
       oldValue: selectedRequest,
-      newValue: payload,
+      newValue: {
+        requestUpdate: payload,
+        postedExpense: postedExpenseData,
+      },
     });
 
     closeAction();
     await getRequests();
+
+    if (actionType === "RELEASE") {
+      alert("Released and posted to Expenses successfully.");
+    }
   };
 
   /// FUNCTIONS - POST RELEASED REQUEST TO EXPENSES
@@ -468,14 +541,12 @@ export default function ExpenseRequestsPage() {
       .from("expense_requests")
       .update({
         posted_to_expenses: true,
-        posted_expense_id: expenseData.id,
-        posted_date: new Date().toISOString(),
       })
       .eq("id", request.id);
 
     if (updateError) {
       console.log("UPDATE POSTED REQUEST ERROR:", updateError.message);
-      alert("Expense was posted, but request was not updated.");
+      alert(`Expense was posted, but request was not updated. ${updateError.message}`);
       return;
     }
 
@@ -705,24 +776,35 @@ export default function ExpenseRequestsPage() {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           {request.status === "PENDING" && approvalRequired && (
-                            <>
-                              <ActionButton label="Approve" color="blue" onClick={() => openAction(request, "APPROVE")} />
-                              <ActionButton label="Reject" color="red" onClick={() => openAction(request, "REJECT")} />
-                            </>
+                            <span className="rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
+                              Awaiting Manager Approval
+                            </span>
                           )}
 
-                          {request.status === "APPROVED" && (
-                            <ActionButton label="Release" color="purple" onClick={() => openAction(request, "RELEASE")} />
-                          )}
+                          {request.status === "APPROVED" && !request.posted_to_expenses && (
+  <ActionButton label="Release" color="purple" onClick={() => openAction(request, "RELEASE")} />
+)}
 
                           {request.status === "RELEASED" && (
                             <>
-                              {!request.posted_to_expenses && <ActionButton label="Post Expense" color="purple" onClick={() => postToExpenses(request)} />}
-                              <ActionButton label="Liquidate" color="emerald" onClick={() => openAction(request, "LIQUIDATE")} />
+                              {request.posted_to_expenses ? (
+                                <span className="rounded-lg bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+                                  Posted to Expenses
+                                </span>
+                              ) : (
+                                <>
+                                  <span className="rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
+                                    Ready for Posting
+                                  </span>
+                                  <ActionButton label="Post Now" color="purple" onClick={() => postToExpenses(request)} />
+                                </>
+                              )}
                             </>
                           )}
 
-                          <ActionButton label="Delete" color="slate" onClick={() => deleteRequest(request)} />
+                          {!request.posted_to_expenses && (
+                            <ActionButton label="Delete" color="slate" onClick={() => deleteRequest(request)} />
+                          )}
                         </div>
                       </td>
                     </tr>
