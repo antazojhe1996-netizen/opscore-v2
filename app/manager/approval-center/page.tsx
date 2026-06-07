@@ -3,13 +3,25 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
 import { CheckCircle, Clock, FileText, XCircle } from "lucide-react";
+
+const CASH_DRAWER_REQUEST_TYPES = [
+  "CASH_DRAWER_OUT",
+  "CASH_EXPENSE_RELEASE",
+  "CASH_ADVANCE_RELEASE",
+  "OWNER_WITHDRAWAL",
+  "BANK_DEPOSIT",
+  "REFUND_OUT",
+  "ADJUSTMENT_OUT",
+];
 
 export default function ApprovalCenterPage() {
   /// STATES
   const [requests, setRequests] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("PENDING");
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   /// FUNCTIONS
   const getApprovalRequests = async () => {
@@ -26,39 +38,228 @@ export default function ApprovalCenterPage() {
     setRequests(data || []);
   };
 
+  const formatMoney = (value: any) =>
+    `₱${Number(value || 0).toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const getPayload = (request: any) => {
+    if (!request?.request_payload) return null;
+
+    if (typeof request.request_payload === "string") {
+      try {
+        return JSON.parse(request.request_payload);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    return request.request_payload;
+  };
+
+  const executeCashDrawerMovement = async (request: any) => {
+    const payload = getPayload(request);
+
+    if (!payload) {
+      alert("Missing cash drawer approval payload. Check approval_requests.request_payload column.");
+      return false;
+    }
+
+    const amountValue = Number(payload.amount || 0);
+
+    if (amountValue <= 0) {
+      alert("Invalid approval amount.");
+      return false;
+    }
+
+    const { data: movementData, error: movementError } = await supabase
+      .from("finance_cash_movements")
+      .insert({
+        business_date: payload.business_date,
+        movement_type: payload.movement_type,
+        source: payload.source,
+        payment_type: payload.payment_type || "Cash",
+        amount: amountValue,
+        from_person: payload.from_person || "",
+        to_person: payload.to_person || "",
+        encoded_by: payload.encoded_by || "Manager Approval Center",
+        remarks: payload.remarks || request.description || "Approved cash drawer movement",
+        reference_type: payload.should_create_expense ? "expense" : null,
+        reference_id: null,
+        cash_drawer_id: payload.cash_drawer_id || null,
+      })
+      .select()
+      .single();
+
+    if (movementError) {
+      console.log("APPROVED CASH MOVEMENT INSERT ERROR:", movementError.message);
+      alert(`Approval saved failed before drawer posting. ${movementError.message}`);
+      return false;
+    }
+
+    let createdExpenseData: any = null;
+    let createdBalanceData: any = null;
+
+    if (payload.should_create_expense) {
+      const { data: expenseData, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          expense_date: payload.business_date,
+          category: payload.is_cash_advance_cash_out
+            ? "Cash Advance"
+            : payload.expense_category,
+          subcategory: payload.is_cash_advance_cash_out
+            ? "Cash Advance Release"
+            : payload.expense_subcategory || null,
+          department: payload.is_cash_advance_cash_out
+            ? "Payroll"
+            : payload.expense_department,
+          description: payload.is_cash_advance_cash_out
+            ? `Cash Advance - ${payload.cash_advance_employee_name || ""}`
+            : payload.expense_description,
+          amount: amountValue,
+          payment_method: "Cash",
+          employee_id: payload.is_cash_advance_cash_out
+            ? payload.cash_advance_employee_id || null
+            : null,
+          employee_name: payload.is_cash_advance_cash_out
+            ? payload.cash_advance_employee_name || null
+            : null,
+          deduct_to_payroll: Boolean(payload.is_cash_advance_cash_out),
+          payroll_period_id: payload.is_cash_advance_cash_out
+            ? payload.payroll_period_id || null
+            : null,
+          remarks: payload.is_cash_advance_cash_out
+            ? `Source: Cash Drawer Approval. Auto linked to: ${payload.payroll_period_label || "Payroll Period"}. ${payload.cash_advance_purpose || ""} ${payload.remarks || ""}`.trim()
+            : `${payload.remarks || ""}${payload.expense_released_to ? ` Released to: ${payload.expense_released_to}` : ""}`.trim(),
+          source: payload.is_cash_advance_cash_out
+            ? "Cash Drawer - Cash Advance"
+            : "Cash Drawer",
+          posted_to_cash_movements: true,
+          cash_movement_id: movementData.id,
+          cash_posted_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (expenseError) {
+        console.log("APPROVED CASH MOVEMENT EXPENSE ERROR:", expenseError.message);
+        alert("Cash movement was posted, but linked expense failed. Check expenses table columns.");
+        return false;
+      }
+
+      createdExpenseData = expenseData;
+
+      await supabase
+        .from("finance_cash_movements")
+        .update({ reference_id: expenseData.id })
+        .eq("id", movementData.id);
+
+      if (payload.is_cash_advance_cash_out) {
+        const { data: balanceData, error: balanceError } = await supabase
+          .from("employee_balances")
+          .insert({
+            employee_id: payload.cash_advance_employee_id,
+            employee_name: payload.cash_advance_employee_name,
+            balance_type: "Cash Advance",
+            original_amount: amountValue,
+            remaining_balance: amountValue,
+            status: "Active",
+            source_module: "Cash Drawer",
+            source_id: movementData.id,
+            period_id: payload.payroll_period_id || null,
+            remarks: `Source: Cash Drawer Approval. Expense ID: ${expenseData.id}. Cash Movement ID: ${movementData.id}. ${payload.cash_advance_purpose || ""}`,
+          })
+          .select()
+          .single();
+
+        if (balanceError) {
+          console.log("APPROVED CASH ADVANCE BALANCE ERROR:", balanceError.message);
+          alert("Cash advance posted to drawer and expenses, but employee balance failed.");
+        } else {
+          createdBalanceData = balanceData;
+
+          await supabase
+            .from("expenses")
+            .update({ employee_balance_id: balanceData.id })
+            .eq("id", expenseData.id);
+
+          if (payload.payroll_period_id) {
+            await supabase
+              .from("payroll_periods")
+              .update({ needs_regeneration: true })
+              .eq("id", payload.payroll_period_id);
+          }
+        }
+      }
+    }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Center",
+      action: "Approve Cash Drawer Movement",
+      description: `${request.request_type} approved and posted - ${formatMoney(amountValue)}`,
+      severity: "warning",
+      recordId: request.id,
+      newValue: {
+        approvalRequest: request,
+        movement: movementData,
+        expense: createdExpenseData,
+        employeeBalance: createdBalanceData,
+      },
+    });
+
+    return true;
+  };
+
   const approveRequest = async (request: any) => {
-    const nowIso = new Date().toISOString();
+    if (!request?.id || isProcessing) return;
+
+    setIsProcessing(true);
+
+    if (CASH_DRAWER_REQUEST_TYPES.includes(request.request_type)) {
+      const executed = await executeCashDrawerMovement(request);
+
+      if (!executed) {
+        setIsProcessing(false);
+        return;
+      }
+    }
+
+    if (request.request_type === "EXPENSE_REQUEST" && request.reference_id) {
+      const { error: expenseRequestError } = await supabase
+        .from("expense_requests")
+        .update({
+          status: "APPROVED",
+          approved_by: "Manager Approval Center",
+          approval_role: "Manager Approval Center",
+          approved_date: new Date().toISOString(),
+        })
+        .eq("id", request.reference_id);
+
+      if (expenseRequestError) {
+        console.log("SYNC EXPENSE REQUEST APPROVAL ERROR:", expenseRequestError.message);
+        alert("Approval saved failed before expense request sync.");
+        setIsProcessing(false);
+        return;
+      }
+    }
 
     const { error } = await supabase
       .from("approval_requests")
       .update({
         status: "APPROVED",
         approved_by: "Manager Approval Center",
-        approved_at: nowIso,
+        approved_at: new Date().toISOString(),
       })
       .eq("id", request.id);
+
+    setIsProcessing(false);
 
     if (error) {
       alert(error.message);
       return;
-    }
-
-    // Sync back to origin module. Approval Center is the approval hub,
-    // but the origin module still owns its processing workflow.
-    if (request.request_type === "EXPENSE_REQUEST" && request.reference_id) {
-      const { error: expenseError } = await supabase
-        .from("expense_requests")
-        .update({
-          status: "APPROVED",
-          approved_by: "Manager Approval Center",
-          approval_role: "Manager Approval Center",
-          approved_date: nowIso,
-        })
-        .eq("id", request.reference_id);
-
-      if (expenseError) {
-        alert(`Approval saved, but origin expense request was not updated: ${expenseError.message}`);
-      }
     }
 
     await getApprovalRequests();
@@ -67,26 +268,12 @@ export default function ApprovalCenterPage() {
   };
 
   const rejectRequest = async (request: any) => {
-    const nowIso = new Date().toISOString();
+    if (!request?.id || isProcessing) return;
 
-    const { error } = await supabase
-      .from("approval_requests")
-      .update({
-        status: "REJECTED",
-        rejected_by: "Manager Approval Center",
-        rejected_at: nowIso,
-        rejection_reason: "Rejected from Manager Approval Center",
-      })
-      .eq("id", request.id);
+    setIsProcessing(true);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    // Sync back to origin module.
     if (request.request_type === "EXPENSE_REQUEST" && request.reference_id) {
-      const { error: expenseError } = await supabase
+      const { error: expenseRequestError } = await supabase
         .from("expense_requests")
         .update({
           status: "REJECTED",
@@ -94,9 +281,29 @@ export default function ApprovalCenterPage() {
         })
         .eq("id", request.reference_id);
 
-      if (expenseError) {
-        alert(`Rejection saved, but origin expense request was not updated: ${expenseError.message}`);
+      if (expenseRequestError) {
+        console.log("SYNC EXPENSE REQUEST REJECTION ERROR:", expenseRequestError.message);
+        alert("Rejection saved failed before expense request sync.");
+        setIsProcessing(false);
+        return;
       }
+    }
+
+    const { error } = await supabase
+      .from("approval_requests")
+      .update({
+        status: "REJECTED",
+        rejected_by: "Manager Approval Center",
+        rejected_at: new Date().toISOString(),
+        rejection_reason: "Rejected from Manager Approval Center",
+      })
+      .eq("id", request.id);
+
+    setIsProcessing(false);
+
+    if (error) {
+      alert(error.message);
+      return;
     }
 
     await getApprovalRequests();
@@ -125,7 +332,7 @@ export default function ApprovalCenterPage() {
             Manager Approval Center
           </h1>
           <p className="text-sm text-slate-500">
-            Centralized approval hub for Finance, Operations, Payroll, and future workflows.
+            Centralized approval hub for Finance, Cash Drawer, Operations, Payroll, and future workflows.
           </p>
         </div>
 
@@ -244,7 +451,7 @@ export default function ApprovalCenterPage() {
 
         {selectedRequest && (
           <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
-            <div className="h-full w-full max-w-md bg-white p-6 shadow-xl">
+            <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-xl">
               <div className="mb-6 flex items-start justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-slate-800">
@@ -290,22 +497,37 @@ export default function ApprovalCenterPage() {
                   <p className="text-slate-500">Reference ID</p>
                   <p>{selectedRequest.reference_id || "-"}</p>
                 </div>
+
+                {getPayload(selectedRequest) && (
+                  <div className="rounded-lg bg-slate-100 p-3">
+                    <p className="mb-2 font-semibold text-slate-700">Cash Drawer Details</p>
+                    <div className="space-y-1 text-xs text-slate-600">
+                      <p>Amount: {formatMoney(getPayload(selectedRequest)?.amount)}</p>
+                      <p>Movement: {getPayload(selectedRequest)?.movement_type || "-"}</p>
+                      <p>Source: {getPayload(selectedRequest)?.source || "-"}</p>
+                      <p>From: {getPayload(selectedRequest)?.from_person || "-"}</p>
+                      <p>To: {getPayload(selectedRequest)?.to_person || "-"}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {selectedRequest.status === "PENDING" ? (
                 <div className="mt-8 flex gap-3">
                   <button
+                    disabled={isProcessing}
                     onClick={() => approveRequest(selectedRequest)}
-                    className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                    className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Approve
+                    {isProcessing ? "Processing..." : "Approve"}
                   </button>
 
                   <button
+                    disabled={isProcessing}
                     onClick={() => rejectRequest(selectedRequest)}
-                    className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                    className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Reject
+                    {isProcessing ? "Processing..." : "Reject"}
                   </button>
                 </div>
               ) : (

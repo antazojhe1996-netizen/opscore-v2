@@ -201,6 +201,24 @@ export default function CashManagementPage() {
 
   const shouldCreateExpenseFromCashOut = isCashExpenseCashOut || isCashAdvanceCashOut;
 
+  // CASH DRAWER APPROVAL GATE V1
+  // Money IN records immediately. Money OUT goes to Manager Approval Center first.
+  const isCashDrawerMoneyOut =
+    paymentType === "Cash" &&
+    (movementType === "Cash Out" ||
+      source === "Owner Withdrawal" ||
+      source === "Bank Deposit" ||
+      movementType === "Adjustment");
+
+  const getCashApprovalRequestType = () => {
+    if (isCashAdvanceCashOut) return "CASH_ADVANCE_RELEASE";
+    if (isCashExpenseCashOut) return "CASH_EXPENSE_RELEASE";
+    if (source === "Owner Withdrawal") return "OWNER_WITHDRAWAL";
+    if (source === "Bank Deposit") return "BANK_DEPOSIT";
+    if (movementType === "Adjustment") return "ADJUSTMENT_OUT";
+    return "CASH_DRAWER_OUT";
+  };
+
   const selectedCashAdvanceEmployee = employees.find(
     (employee) => String(getEmployeePayrollId(employee)) === String(cashAdvanceEmployeeId)
   );
@@ -1495,6 +1513,81 @@ export default function CashManagementPage() {
       : isCashExpenseCashOut
       ? `${expenseDescription.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
       : remarks.trim();
+
+    if (isCashDrawerMoneyOut) {
+      const requestType = getCashApprovalRequestType();
+
+      const approvalPayload = {
+        business_date: businessDate,
+        movement_type: movementType,
+        source,
+        payment_type: paymentType,
+        amount: amountValue,
+        from_person: autoFrom,
+        to_person: autoTo,
+        encoded_by: autoEncoded,
+        remarks: movementRemarks,
+        reference_type: shouldCreateExpenseFromCashOut ? "expense" : null,
+        cash_drawer_id: activeDrawer?.id || null,
+        should_create_expense: shouldCreateExpenseFromCashOut,
+        is_cash_expense_cash_out: isCashExpenseCashOut,
+        is_cash_advance_cash_out: isCashAdvanceCashOut,
+        expense_category: isCashAdvanceCashOut ? "Cash Advance" : expenseCategory,
+        expense_subcategory: isCashAdvanceCashOut
+          ? "Cash Advance Release"
+          : expenseSubcategory || null,
+        expense_department: isCashAdvanceCashOut ? "Payroll" : expenseDepartment,
+        expense_description: isCashAdvanceCashOut
+          ? `Cash Advance - ${cashAdvanceEmployeeName}`
+          : expenseDescription.trim(),
+        expense_released_to: expenseReleasedTo.trim(),
+        cash_advance_employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
+        cash_advance_employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : null,
+        cash_advance_purpose: cashAdvancePurpose.trim(),
+        payroll_period_id: isCashAdvanceCashOut ? targetPayrollPeriod?.id || null : null,
+        payroll_period_label: isCashAdvanceCashOut
+          ? targetPayrollPeriod
+            ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
+            : activePayrollLabel
+          : null,
+      };
+
+      const { error: approvalError } = await supabase
+        .from("approval_requests")
+        .insert({
+          request_type: requestType,
+          module: "Cash Management",
+          reference_id: activeDrawer?.id || null,
+          title: `${source} - ${formatMoney(amountValue)}`,
+          description: `${movementType} request by ${autoEncoded}. From: ${autoFrom || "-"}. To: ${autoTo || "-"}. ${movementRemarks || ""}`,
+          requested_by: autoEncoded,
+          status: "PENDING",
+          request_payload: approvalPayload,
+        });
+
+      setIsSaving(false);
+
+      if (approvalError) {
+        console.log("CREATE CASH DRAWER APPROVAL ERROR:", approvalError.message);
+        alert("Failed to send cash movement to Approval Center. Check approval_requests.request_payload column.");
+        return;
+      }
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Cash Management",
+        action: "Submit Cash Drawer Approval Request",
+        description: `${requestType} submitted for approval - ${formatMoney(amountValue)}`,
+        severity: "warning",
+        newValue: approvalPayload,
+      });
+
+      resetForm();
+      await getCashMovements();
+      await getDrawers();
+      alert("Cash movement sent to Manager Approval Center. No drawer deduction was made yet.");
+      return;
+    }
 
     const { data: movementData, error: movementError } = await supabase
       .from("finance_cash_movements")
