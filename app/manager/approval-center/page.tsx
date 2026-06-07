@@ -22,6 +22,8 @@ export default function ApprovalCenterPage() {
   const [activeTab, setActiveTab] = useState("PENDING");
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   /// FUNCTIONS
   const getApprovalRequests = async () => {
@@ -56,6 +58,43 @@ export default function ApprovalCenterPage() {
     }
 
     return request.request_payload;
+  };
+
+
+  const formatDateTime = (value: any) => {
+    if (!value) return "-";
+
+    return new Date(value).toLocaleString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getRequestTypeLabel = (type: string) => {
+    const labels: any = {
+      EXPENSE_REQUEST: "💰 Expense Request",
+      CASH_DRAWER_OUT: "🏦 Cash Drawer Out",
+      CASH_EXPENSE_RELEASE: "🏦 Cash Expense Release",
+      CASH_ADVANCE_RELEASE: "👤 Cash Advance Release",
+      OWNER_WITHDRAWAL: "🏧 Owner Withdrawal",
+      BANK_DEPOSIT: "🏦 Bank Deposit",
+      REFUND_OUT: "↩️ Refund Out",
+      ADJUSTMENT_OUT: "⚖️ Adjustment Out",
+    };
+
+    return labels[type] || type;
+  };
+
+  const getRequestTypeBadgeStyle = (type: string) => {
+    if (type === "EXPENSE_REQUEST") return "bg-blue-100 text-blue-700";
+    if (type === "CASH_ADVANCE_RELEASE") return "bg-purple-100 text-purple-700";
+    if (type === "OWNER_WITHDRAWAL") return "bg-red-100 text-red-700";
+    if (CASH_DRAWER_REQUEST_TYPES.includes(type)) return "bg-amber-100 text-amber-700";
+
+    return "bg-slate-100 text-slate-700";
   };
 
   const executeCashDrawerMovement = async (request: any) => {
@@ -267,8 +306,15 @@ export default function ApprovalCenterPage() {
     setActiveTab("APPROVED");
   };
 
-  const rejectRequest = async (request: any) => {
+  const rejectRequest = async (request: any, reason: string) => {
     if (!request?.id || isProcessing) return;
+
+    const finalReason = reason.trim();
+
+    if (!finalReason) {
+      alert("Please enter rejection reason.");
+      return;
+    }
 
     setIsProcessing(true);
 
@@ -277,7 +323,7 @@ export default function ApprovalCenterPage() {
         .from("expense_requests")
         .update({
           status: "REJECTED",
-          remarks: "Rejected from Manager Approval Center",
+          remarks: finalReason,
         })
         .eq("id", request.reference_id);
 
@@ -295,7 +341,7 @@ export default function ApprovalCenterPage() {
         status: "REJECTED",
         rejected_by: "Manager Approval Center",
         rejected_at: new Date().toISOString(),
-        rejection_reason: "Rejected from Manager Approval Center",
+        rejection_reason: finalReason,
       })
       .eq("id", request.id);
 
@@ -306,8 +352,25 @@ export default function ApprovalCenterPage() {
       return;
     }
 
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Center",
+      action: "Reject Approval Request",
+      description: `${request.request_type} rejected. Reason: ${finalReason}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "REJECTED",
+        rejectedBy: "Manager Approval Center",
+        rejectionReason: finalReason,
+      },
+    });
+
     await getApprovalRequests();
     setSelectedRequest(null);
+    setShowRejectModal(false);
+    setRejectReason("");
     setActiveTab("REJECTED");
   };
 
@@ -415,7 +478,15 @@ export default function ApprovalCenterPage() {
                         ? new Date(request.created_at).toLocaleDateString()
                         : "-"}
                     </td>
-                    <td className="p-3">{request.request_type}</td>
+                    <td className="p-3">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${getRequestTypeBadgeStyle(
+                          request.request_type
+                        )}`}
+                      >
+                        {getRequestTypeLabel(request.request_type)}
+                      </span>
+                    </td>
                     <td className="p-3">{request.module}</td>
                     <td className="p-3 font-medium text-slate-800">
                       {request.title}
@@ -458,7 +529,7 @@ export default function ApprovalCenterPage() {
                     Review Request
                   </h2>
                   <p className="text-sm text-slate-500">
-                    {selectedRequest.request_type}
+                    {getRequestTypeLabel(selectedRequest.request_type)}
                   </p>
                 </div>
 
@@ -498,18 +569,94 @@ export default function ApprovalCenterPage() {
                   <p>{selectedRequest.reference_id || "-"}</p>
                 </div>
 
+                <div>
+                  <p className="text-slate-500">Requested At</p>
+                  <p>{formatDateTime(selectedRequest.created_at)}</p>
+                </div>
+
                 {getPayload(selectedRequest) && (
                   <div className="rounded-lg bg-slate-100 p-3">
-                    <p className="mb-2 font-semibold text-slate-700">Cash Drawer Details</p>
-                    <div className="space-y-1 text-xs text-slate-600">
-                      <p>Amount: {formatMoney(getPayload(selectedRequest)?.amount)}</p>
-                      <p>Movement: {getPayload(selectedRequest)?.movement_type || "-"}</p>
-                      <p>Source: {getPayload(selectedRequest)?.source || "-"}</p>
-                      <p>From: {getPayload(selectedRequest)?.from_person || "-"}</p>
-                      <p>To: {getPayload(selectedRequest)?.to_person || "-"}</p>
+                    <p className="mb-2 font-semibold text-slate-700">
+                      Request Details
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-2 text-xs text-slate-600">
+                      <p>
+                        <span className="font-semibold">Amount:</span>{" "}
+                        {formatMoney(getPayload(selectedRequest)?.amount)}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Business Date:</span>{" "}
+                        {getPayload(selectedRequest)?.business_date || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Movement:</span>{" "}
+                        {getPayload(selectedRequest)?.movement_type || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Source:</span>{" "}
+                        {getPayload(selectedRequest)?.source || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Payment:</span>{" "}
+                        {getPayload(selectedRequest)?.payment_type || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">From:</span>{" "}
+                        {getPayload(selectedRequest)?.from_person || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">To:</span>{" "}
+                        {getPayload(selectedRequest)?.to_person || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Encoded By:</span>{" "}
+                        {getPayload(selectedRequest)?.encoded_by || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Expense Category:</span>{" "}
+                        {getPayload(selectedRequest)?.expense_category || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Expense Area:</span>{" "}
+                        {getPayload(selectedRequest)?.expense_department || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Expense Description:</span>{" "}
+                        {getPayload(selectedRequest)?.expense_description || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Cash Advance Employee:</span>{" "}
+                        {getPayload(selectedRequest)?.cash_advance_employee_name || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Payroll Period:</span>{" "}
+                        {getPayload(selectedRequest)?.payroll_period_label || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Remarks:</span>{" "}
+                        {getPayload(selectedRequest)?.remarks || "-"}
+                      </p>
                     </div>
                   </div>
                 )}
+
+                <div className="rounded-lg bg-slate-100 p-3">
+                  <p className="mb-2 font-semibold text-slate-700">
+                    Approval History
+                  </p>
+
+                  <div className="space-y-1 text-xs text-slate-600">
+                    <p>Approved By: {selectedRequest.approved_by || "-"}</p>
+                    <p>Approved At: {formatDateTime(selectedRequest.approved_at)}</p>
+                    <p>Rejected By: {selectedRequest.rejected_by || "-"}</p>
+                    <p>Rejected At: {formatDateTime(selectedRequest.rejected_at)}</p>
+                    <p>
+                      Rejection Reason:{" "}
+                      {selectedRequest.rejection_reason || "-"}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {selectedRequest.status === "PENDING" ? (
@@ -524,7 +671,10 @@ export default function ApprovalCenterPage() {
 
                   <button
                     disabled={isProcessing}
-                    onClick={() => rejectRequest(selectedRequest)}
+                    onClick={() => {
+                      setRejectReason("");
+                      setShowRejectModal(true);
+                    }}
                     className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isProcessing ? "Processing..." : "Reject"}
@@ -538,6 +688,50 @@ export default function ApprovalCenterPage() {
             </div>
           </div>
         )}
+        {showRejectModal && selectedRequest && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-slate-800">
+                  Reject Request
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Please enter the reason for rejecting this request.
+                </p>
+              </div>
+
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full resize-none rounded-lg border border-slate-300 p-3 text-sm text-slate-800 outline-none focus:border-red-500"
+                rows={4}
+                placeholder="Example: Insufficient documentation, duplicate request, or budget exceeded..."
+              />
+
+              <div className="mt-4 flex gap-3">
+                <button
+                  disabled={isProcessing}
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectReason("");
+                  }}
+                  className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  disabled={isProcessing}
+                  onClick={() => rejectRequest(selectedRequest, rejectReason)}
+                  className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isProcessing ? "Rejecting..." : "Confirm Reject"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );

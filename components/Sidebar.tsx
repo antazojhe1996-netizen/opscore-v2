@@ -76,23 +76,20 @@ const menuSections = [
       { label: "Expense Allocation", href: "/finance/settings/expense-allocation", icon: Wallet, moduleKey: "settings" },
       { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
     ],
-    
   },
-
   {
-  title: "Manager",
-  icon: UserCheck,
-  items: [
-    {
-      label: "Approval Center",
-      href: "/manager/approval-center",
-      icon: ClipboardList,
-moduleKey: "always_allow",    },
-  ],
-},
-  
+    title: "Manager",
+    icon: UserCheck,
+    items: [
+      {
+        label: "Approval Center",
+        href: "/manager/approval-center",
+        icon: ClipboardList,
+        moduleKey: "always_allow",
+      },
+    ],
+  },
   {
-    
     title: "Payroll",
     icon: FileText,
     items: [
@@ -110,6 +107,8 @@ moduleKey: "always_allow",    },
     icon: Settings,
     items: [
       { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
+      { label: "Approval Controls", href: "/settings/approval-controls", icon: ShieldCheck, moduleKey: "settings" },
+      { label: "Approval Assignments", href: "/settings/approval-assignments", icon: UserCheck, moduleKey: "settings" },
       { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
       { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
       { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "always_allow" },
@@ -132,6 +131,22 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(true);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+
+  const getPendingApprovals = async () => {
+    const { count, error } = await supabase
+      .from("approval_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "PENDING");
+
+    if (error) {
+      console.log("GET PENDING APPROVALS ERROR:", error.message);
+      setPendingApprovals(0);
+      return;
+    }
+
+    setPendingApprovals(count || 0);
+  };
 
   const getCurrentUserPermissions = async () => {
     setLoadingAccess(true);
@@ -144,6 +159,7 @@ export default function Sidebar() {
     if (!currentEmployeeId) {
       setPermissions([]);
       setLoadingAccess(false);
+      await getPendingApprovals();
       return;
     }
 
@@ -156,6 +172,7 @@ export default function Sidebar() {
     if (employeeError || !employee?.system_role_id) {
       setPermissions([]);
       setLoadingAccess(false);
+      await getPendingApprovals();
       return;
     }
 
@@ -168,11 +185,13 @@ export default function Sidebar() {
       console.log("GET SIDEBAR PERMISSIONS ERROR:", permissionError.message);
       setPermissions([]);
       setLoadingAccess(false);
+      await getPendingApprovals();
       return;
     }
 
     setPermissions(rolePermissions || []);
     setLoadingAccess(false);
+    await getPendingApprovals();
   };
 
   useEffect(() => {
@@ -180,12 +199,18 @@ export default function Sidebar() {
 
     const handleStorageChange = () => {
       getCurrentUserPermissions();
+      getPendingApprovals();
     };
 
     window.addEventListener("storage", handleStorageChange);
 
+    const interval = window.setInterval(() => {
+      getPendingApprovals();
+    }, 15000);
+
     return () => {
       window.removeEventListener("storage", handleStorageChange);
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -226,7 +251,9 @@ export default function Sidebar() {
   return (
     <aside className="sticky top-0 z-[9999] h-screen w-56 shrink-0 border-r border-slate-800 bg-slate-950 px-3 py-4 text-white">
       <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-3 shadow-lg shadow-black/20">
-        <p className="truncate text-base font-black text-amber-400">● OPSCORE</p>
+        <p className="truncate text-base font-black text-amber-400">
+          ● OPSCORE
+        </p>
         <p className="mt-0.5 truncate text-[11px] text-slate-500">
           Hotel Operations
         </p>
@@ -256,7 +283,9 @@ export default function Sidebar() {
                   }`}
                 >
                   <Icon size={16} />
-                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {section.title}
+                  </span>
                 </Link>
               );
             }
@@ -269,13 +298,24 @@ export default function Sidebar() {
                   className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-400 transition hover:bg-slate-900 hover:text-white"
                 >
                   <Icon size={16} />
-                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {section.title}
+                  </span>
+
+                  {section.title === "Manager" && pendingApprovals > 0 && (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
+                      {pendingApprovals}
+                    </span>
+                  )}
+
                   <ChevronRight size={13} className="opacity-60" />
                 </button>
 
                 <div className="invisible fixed left-[232px] top-20 z-[99999] max-h-[82vh] w-72 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-2.5 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
                   <div className="mb-2 border-b border-slate-800 px-3 pb-2.5">
-                    <p className="text-sm font-black text-amber-400">{section.title}</p>
+                    <p className="text-sm font-black text-amber-400">
+                      {section.title}
+                    </p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
                       Select module
                     </p>
@@ -298,7 +338,17 @@ export default function Sidebar() {
                           }`}
                         >
                           <ItemIcon size={14} />
-                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {item.label}
+                          </span>
+
+                          {item.href === "/manager/approval-center" &&
+                            pendingApprovals > 0 && (
+                              <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
+                                {pendingApprovals}
+                              </span>
+                            )}
+
                           <ChevronRight size={12} className="opacity-25" />
                         </Link>
                       );
