@@ -20,6 +20,7 @@ type RestaurantSale = {
 
 const SALES_TABLE = "restaurant_sales";
 const AUDIT_TABLE = "audit_logs";
+const MODULE_KEY = "restaurant_sales";
 const FETCH_PAGE_SIZE = 1000;
 const INSERT_BATCH_SIZE = 500;
 const DISPLAY_LIMIT = 300;
@@ -34,6 +35,7 @@ export default function RestaurantImportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode>("append");
   const [invalidRows, setInvalidRows] = useState<any[]>([]);
+  const [modulePermission, setModulePermission] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -67,6 +69,13 @@ export default function RestaurantImportPage() {
       month: "short",
       day: "2-digit",
     });
+  };
+
+  const canCreate = Boolean(modulePermission?.can_create);
+  const canDelete = Boolean(modulePermission?.can_delete);
+
+  const denyAccess = (action: string) => {
+    alert(`Access denied. You do not have permission to ${action}.`);
   };
 
   const normalizeDate = (value: any) => {
@@ -195,6 +204,45 @@ export default function RestaurantImportPage() {
   };
 
   /// FUNCTIONS
+  const getModulePermission = async () => {
+    const currentEmployeeId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_id")
+        : null;
+
+    if (!currentEmployeeId) {
+      setModulePermission(null);
+      return;
+    }
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, system_role_id")
+      .eq("id", currentEmployeeId)
+      .maybeSingle();
+
+    if (employeeError || !employee?.system_role_id) {
+      console.log("RESTAURANT PERMISSION EMPLOYEE ERROR:", employeeError?.message);
+      setModulePermission(null);
+      return;
+    }
+
+    const { data: permission, error: permissionError } = await supabase
+      .from("role_permissions")
+      .select("*")
+      .eq("role_id", employee.system_role_id)
+      .eq("module_key", MODULE_KEY)
+      .maybeSingle();
+
+    if (permissionError) {
+      console.log("RESTAURANT PERMISSION ERROR:", permissionError.message);
+      setModulePermission(null);
+      return;
+    }
+
+    setModulePermission(permission || null);
+  };
+
   const getRestaurantSales = async () => {
     setIsLoading(true);
 
@@ -226,6 +274,12 @@ export default function RestaurantImportPage() {
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canCreate) {
+      denyAccess("import restaurant sales");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -281,6 +335,11 @@ export default function RestaurantImportPage() {
   };
 
   const clearRestaurantSales = async () => {
+    if (!canDelete) {
+      denyAccess("clear restaurant sales data");
+      return;
+    }
+
     if (restaurantSales.length === 0) {
       alert("No restaurant sales records to clear.");
       return;
@@ -332,6 +391,16 @@ export default function RestaurantImportPage() {
   };
 
   const importData = async () => {
+    if (!canCreate) {
+      denyAccess("import restaurant sales");
+      return;
+    }
+
+    if (importMode === "replace" && !canDelete) {
+      denyAccess("replace restaurant sales data");
+      return;
+    }
+
     if (previewData.length === 0) {
       await createAuditEntry(
         "IMPORT_VALIDATION_FAILED",
@@ -485,8 +554,15 @@ export default function RestaurantImportPage() {
 
   /// EFFECTS
   useEffect(() => {
+    getModulePermission();
     getRestaurantSales();
   }, []);
+
+  useEffect(() => {
+    if (!canDelete && importMode === "replace") {
+      setImportMode("append");
+    }
+  }, [canDelete, importMode]);
 
   /// UI
   return (
@@ -528,13 +604,15 @@ export default function RestaurantImportPage() {
                 Export Excel
               </button>
 
-              <button
-                onClick={clearRestaurantSales}
-                disabled={isImporting || restaurantSales.length === 0}
-                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Clear Data
-              </button>
+              {canDelete && (
+                <button
+                  onClick={clearRestaurantSales}
+                  disabled={isImporting || restaurantSales.length === 0}
+                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Clear Data
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -571,13 +649,19 @@ export default function RestaurantImportPage() {
               Upload Excel or CSV file from Poster POS. Preview first, then append/update or replace.
             </p>
 
+            {!canCreate && (
+              <div className="mt-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+                View-only access. Import and replace actions are disabled for your role.
+              </div>
+            )}
+
             <div className="mt-5 rounded-xl border border-dashed border-slate-700 bg-slate-950 p-5">
               <input
                 ref={fileInputRef}
                 type="file"
                 accept=".xlsx,.xls,.csv"
                 onChange={handleFileUpload}
-                disabled={isImporting}
+                disabled={isImporting || !canCreate}
                 className="w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
               />
 
@@ -605,8 +689,16 @@ export default function RestaurantImportPage() {
                 Append / Update
               </button>
               <button
-                onClick={() => setImportMode("replace")}
-                className={`rounded-lg px-3 py-2 text-sm font-bold ${
+                onClick={() => {
+                  if (!canDelete) {
+                    denyAccess("replace restaurant sales data");
+                    return;
+                  }
+
+                  setImportMode("replace");
+                }}
+                disabled={!canDelete}
+                className={`rounded-lg px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 ${
                   importMode === "replace"
                     ? "bg-yellow-400 text-slate-950"
                     : "bg-slate-900 text-slate-400 hover:text-white"
@@ -632,7 +724,7 @@ export default function RestaurantImportPage() {
 
             <button
               onClick={importData}
-              disabled={isImporting || previewData.length === 0}
+              disabled={isImporting || !canCreate || previewData.length === 0}
               className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isImporting

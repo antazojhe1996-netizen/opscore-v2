@@ -43,6 +43,20 @@ export default function PayrollManagerPage() {
 
   const normalizeStatus = (value: any) => String(value || "").trim();
 
+  const getActualPayrollRecordId = (record: any) =>
+    record.__payrollRecordId || record.payroll_record_id || record.source_id || record.id;
+
+  const getLinkedPayrollBalanceId = (record: any) =>
+    record.__payrollBalanceId || null;
+
+  const isPartialSalaryBalanceRecord = (record: any) =>
+    record.__recordType === "PARTIAL_SALARY_BALANCE";
+
+  const isActivePayrollBalanceRow = (balance: any) =>
+    String(balance.status || "Active") === "Active" &&
+    Number(balance.remaining_balance || 0) > 0 &&
+    String(balance.balance_type || "").toLowerCase().includes("payroll balance");
+
   const getRowsFromTables = async (tableNames: string[]) => {
     for (const table of tableNames) {
       const { data, error } = await supabase.from(table).select("*");
@@ -65,22 +79,44 @@ export default function PayrollManagerPage() {
     return `${employee.first_name} ${employee.last_name}`;
   };
 
-  const getRecordAmount = (record: any) =>
-    Number(record.net_pay || record.net_amount || record.total_pay || record.amount || 0);
+  const getRecordAmount = (record: any) => {
+    if (isPartialSalaryBalanceRecord(record)) {
+      return Number(record.remaining_balance || record.net_pay || 0);
+    }
 
-  const getRecordGross = (record: any) =>
-    Number(record.gross_pay || record.gross_amount || record.total_gross || 0);
+    return Number(record.net_pay || record.net_amount || record.total_pay || record.amount || 0);
+  };
 
-  const getRecordDeduction = (record: any) =>
-    Number(record.total_deductions || record.deductions || record.total_deduction || 0);
+  const getRecordGross = (record: any) => {
+    if (isPartialSalaryBalanceRecord(record)) {
+      return Number(record.original_amount || record.gross_pay || 0);
+    }
 
-  const getAlreadyReleasedAmount = (record: any) =>
-    Number(record.paid_amount || record.amount_released || 0);
+    return Number(record.gross_pay || record.gross_amount || record.total_gross || 0);
+  };
+
+  const getRecordDeduction = (record: any) => {
+    if (isPartialSalaryBalanceRecord(record)) return 0;
+
+    return Number(record.total_deductions || record.deductions || record.total_deduction || 0);
+  };
+
+  const getAlreadyReleasedAmount = (record: any) => {
+    if (isPartialSalaryBalanceRecord(record)) {
+      return Number(record.previous_released_amount || 0);
+    }
+
+    return Number(record.paid_amount || record.amount_released || 0);
+  };
 
   const hasNumericValue = (value: any) =>
     value !== null && value !== undefined && value !== "" && !Number.isNaN(Number(value));
 
   const getReleaseBaseAmount = (record: any) => {
+    if (isPartialSalaryBalanceRecord(record)) {
+      return Number(record.remaining_balance || 0);
+    }
+
     // Source of truth for Payroll Manager release is the final computed net pay
     // from Payroll Register. release_amount can become stale after CA edits,
     // so prefer net_pay first, then fall back to release_amount for legacy rows.
@@ -97,6 +133,10 @@ export default function PayrollManagerPage() {
   };
 
   const getOutstandingPayrollAmount = (record: any) => {
+    if (isPartialSalaryBalanceRecord(record)) {
+      return Math.max(Number(record.remaining_balance || 0), 0);
+    }
+
     const baseAmount = getReleaseBaseAmount(record);
     const paidAmount = getAlreadyReleasedAmount(record);
     const status = normalizeStatus(record.status);
@@ -160,7 +200,11 @@ export default function PayrollManagerPage() {
     Math.max(Math.abs(Math.min(getRecordAmount(record), 0)), 0);
 
   const getPeriodLabel = (record: any) =>
-    record.period_label || record.payroll_period || record.period_name || "Payroll Period";
+    record.period_label ||
+    record.payroll_period ||
+    record.period_name ||
+    record.__periodLabel ||
+    "Payroll Period";
 
   const formatDateTime = (value: any) => {
     if (!value) return "-";
@@ -298,7 +342,7 @@ export default function PayrollManagerPage() {
 
     if (negativeRecords.length === 0) return;
 
-    const sourceIds = negativeRecords.map((record) => record.id).filter(Boolean);
+    const sourceIds = negativeRecords.map((record) => getActualPayrollRecordId(record)).filter(Boolean);
 
     const { data: existingBalances, error: existingError } = await supabase
       .from("employee_balances")
@@ -329,14 +373,14 @@ export default function PayrollManagerPage() {
       .map((record) => ({
         employee_id: record.employee_id || null,
         employee_name: getEmployeeName(record),
-        balance_type: "Cash Advance Carry Forward",
+        balance_type: "Employee Balance Carry Forward",
         original_amount: getCarryForwardAmount(record),
         remaining_balance: getCarryForwardAmount(record),
         status: "Active",
         source_module: "Payroll Manager",
-        source_id: record.id,
+        source_id: getActualPayrollRecordId(record),
         period_id: record.period_id || null,
-        remarks: `Auto carry forward from ${getPeriodLabel(record)}. Net pay was ${formatPeso(getRecordAmount(record))}. Payroll Record ID: ${record.id}.`,
+        remarks: `Auto carry forward from ${getPeriodLabel(record)}. Net pay was ${formatPeso(getRecordAmount(record))}. Payroll Record ID: ${getActualPayrollRecordId(record)}.`,
       }));
 
     if (balanceRows.length === 0) return;
@@ -375,14 +419,19 @@ export default function PayrollManagerPage() {
     remainingBalance: number
   ) => {
     const employeeName = getEmployeeName(record);
-    const sourceId = record.id;
+    const sourceId = getActualPayrollRecordId(record);
+    const linkedPayrollBalanceId = getLinkedPayrollBalanceId(record);
 
-    const { data: existingBalance, error: existingError } = await supabase
-      .from("employee_balances")
-      .select("*")
-      .eq("source_module", "Payroll Manager")
-      .eq("source_id", sourceId)
-      .maybeSingle();
+    const existingQuery = linkedPayrollBalanceId
+      ? supabase.from("employee_balances").select("*").eq("id", linkedPayrollBalanceId).maybeSingle()
+      : supabase
+          .from("employee_balances")
+          .select("*")
+          .eq("source_module", "Payroll Manager")
+          .eq("source_id", sourceId)
+          .maybeSingle();
+
+    const { data: existingBalance, error: existingError } = await existingQuery;
 
     if (existingError) {
       console.log("CHECK PAYROLL BALANCE ERROR:", existingError.message);
@@ -410,7 +459,7 @@ export default function PayrollManagerPage() {
       employee_id: record.employee_id || null,
       employee_name: employeeName,
       balance_type: "Payroll Balance",
-      original_amount: Number(record.net_pay || record.release_amount || getRecordAmount(record) || 0),
+      original_amount: Number(existingBalance?.original_amount || record.original_amount || record.net_pay || record.release_amount || getRecordAmount(record) || 0),
       remaining_balance: remainingBalance,
       status: "Active",
       source_module: "Payroll Manager",
@@ -439,7 +488,7 @@ export default function PayrollManagerPage() {
     );
 
   const getDeductionAppliedMarker = (record: any) =>
-    `CA_DEDUCTION_APPLIED:${String(record.id)}`;
+    `CA_DEDUCTION_APPLIED:${String(getActualPayrollRecordId(record))}`;
 
   const cashAdvanceAlreadyApplied = async (record: any) => {
     const marker = getDeductionAppliedMarker(record);
@@ -516,11 +565,12 @@ export default function PayrollManagerPage() {
 
     return balances.filter((balance: any) => {
       const type = String(balance.balance_type || "").toLowerCase();
-      const source = String(balance.source_module || "").toLowerCase();
 
       // Salary partial balances are handled by createOrUpdatePayrollBalance().
-      // This function only deducts employee advances / cash drawer / expense balances.
-      if (source === "payroll manager") return false;
+      // Everything else with Active remaining balance is an employee liability:
+      // Cash Advance, Employee Meal Charge, Salary Loan, and prior Carry Forward.
+      // Do NOT exclude source_module = Payroll Manager because carry-forward rows
+      // are created from Payroll Manager and must be deductible in the next cutoff.
       if (type.includes("payroll balance")) return false;
 
       return true;
@@ -631,7 +681,7 @@ export default function PayrollManagerPage() {
           recordId: balance.id,
           oldValue: balance,
           newValue: {
-            payrollRecordId: record.id,
+            payrollRecordId: getActualPayrollRecordId(record),
             periodId: record.period_id || null,
             appliedAmount,
             remaining_balance: newRemainingBalance,
@@ -672,7 +722,7 @@ export default function PayrollManagerPage() {
           : "";
 
       return {
-        payroll_record_id: record.id,
+        payroll_record_id: getActualPayrollRecordId(record),
         payroll_period_id: record.period_id || null,
         employee_id: record.employee_id || null,
         employee_name: getEmployeeName(record),
@@ -767,7 +817,7 @@ This will record the actual released amount only. Any unpaid salary balance will
 
     setIsProcessing(true);
 
-    const targetIds = targetRecords.map((record) => record.id);
+    const targetIds = targetRecords.map((record) => getActualPayrollRecordId(record));
     const periodIds = Array.from(
       new Set(targetRecords.map((record) => record.period_id).filter(Boolean))
     );
@@ -819,7 +869,7 @@ ${validationError?.message || validationError}`);
             released_at: new Date().toISOString(),
             released_by: releasedBy.trim(),
           })
-          .eq("id", record.id);
+          .eq("id", getActualPayrollRecordId(record));
       })
     );
 
@@ -886,7 +936,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
         (record) =>
           record.period_id === periodId &&
           !targetIds.includes(record.id) &&
-          getOutstandingPayrollAmount(record) > 0
+          (
+            getOutstandingPayrollAmount(record) > 0 ||
+            getCarryForwardAmount(record) > 0
+          )
       );
 
       const periodHasRemainingSalaryBalance = targetRecords.some(
@@ -933,10 +986,15 @@ ${partialReleaseError?.message || partialReleaseError}`);
   };
 
   const releasePayroll = async (mode: "selected" | "all") => {
+    const sourceRows =
+      activeTab === "partial"
+        ? partialReleasePayroll
+        : releaseQueuePayroll;
+
     const targetRecords =
       mode === "all"
-        ? filteredApprovedPayroll
-        : filteredApprovedPayroll.filter((record) =>
+        ? sourceRows
+        : sourceRows.filter((record) =>
             selectedRecordIds.includes(String(record.id))
           );
 
@@ -948,6 +1006,97 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const releaseSinglePayroll = async (record: any) => {
     await releasePayrollRecords([record], `Release ${getEmployeeName(record)}`);
+  };
+
+  const returnPayrollToRegister = async (record: any) => {
+    const status = normalizeStatus(record.status);
+    const releaseStatus = normalizeStatus(record.release_status);
+    const alreadyReleased =
+      status === "Released" ||
+      status === "Paid" ||
+      releaseStatus === "Released" ||
+      releaseStatus === "Paid" ||
+      getAlreadyReleasedAmount(record) > 0;
+
+    if (alreadyReleased) {
+      alert("Released payroll cannot be returned to Register. Use next cutoff dispute/correction instead.");
+      return;
+    }
+
+    const reason = prompt(
+      `Return ${getEmployeeName(record)} to Payroll Register?\n\nReason is required:`,
+      "Payroll correction needed"
+    );
+
+    if (!reason || !reason.trim()) {
+      alert("Return reason is required.");
+      return;
+    }
+
+    const confirmed = confirm(
+      `Return to Payroll Register?\n\nEmployee: ${getEmployeeName(record)}\nPeriod: ${getPeriodLabel(record)}\nReason: ${reason.trim()}\n\nThis will remove the record from Manager queue and make it editable again in Payroll Register.`
+    );
+
+    if (!confirmed) return;
+
+    setIsProcessing(true);
+
+    const { error } = await supabase
+      .from("payroll_records")
+      .update({
+        status: "Draft",
+        release_status: "Returned",
+        reopen_reason: reason.trim(),
+        reopened_at: new Date().toISOString(),
+      })
+      .eq("id", record.id);
+
+    if (error) {
+      setIsProcessing(false);
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Return Payroll To Register Failed",
+        description: `Failed to return payroll record to Register: ${error.message}`,
+        severity: "critical",
+        recordId: record.id,
+        newValue: { error: error.message, recordId: record.id, reason: reason.trim() },
+      });
+      alert(`Failed to return payroll to Register.\n\n${error.message}`);
+      return;
+    }
+
+    if (record.period_id) {
+      await supabase
+        .from("payroll_periods")
+        .update({
+          status: "Needs Correction",
+          needs_regeneration: true,
+        })
+        .eq("id", record.period_id);
+    }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Return Payroll To Register",
+      description: `${getEmployeeName(record)} was returned to Payroll Register for correction. Reason: ${reason.trim()}`,
+      severity: "warning",
+      recordId: record.id,
+      oldValue: record,
+      newValue: {
+        status: "Draft",
+        release_status: "Returned",
+        reason: reason.trim(),
+        periodId: record.period_id || null,
+      },
+    });
+
+    setIsProcessing(false);
+    setSelectedRecordIds([]);
+    await loadData();
+
+    alert("Payroll returned to Register for correction.");
   };
 
   const reopenPayroll = async () => {
@@ -974,7 +1123,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
     setIsProcessing(true);
 
-    const targetIds = targetRecords.map((record) => record.id);
+    const targetIds = targetRecords.map((record) => getActualPayrollRecordId(record));
     const periodIds = Array.from(
       new Set(targetRecords.map((record) => record.period_id).filter(Boolean))
     );
@@ -1055,22 +1204,35 @@ ${partialReleaseError?.message || partialReleaseError}`);
   const approvedPayroll = payrollRecords.filter((record) => {
     const status = normalizeStatus(record.status);
     const releaseStatus = normalizeStatus(record.release_status);
-    const blockedStatuses = ["Draft", "Rejected", "Cancelled", "Reopened"];
+    const blockedStatuses = [
+      "Draft",
+      "Rejected",
+      "Cancelled",
+      "Reopened",
+      "Released",
+      "Paid",
+      "Partially Released",
+    ];
+    const blockedReleaseStatuses = ["Released", "Paid", "Partially Released"];
+    const outstandingPayroll = getOutstandingPayrollAmount(record);
+    const carryForward = getCarryForwardAmount(record);
 
     if (blockedStatuses.includes(status)) return false;
-    if (releaseStatus === "Released" && getOutstandingPayrollAmount(record) <= 0) return false;
+    if (blockedReleaseStatuses.includes(releaseStatus)) return false;
 
-    return getOutstandingPayrollAmount(record) > 0;
+    // Important:
+    // Some payroll records have ₱0 release amount but still need Manager processing
+    // because deductions created a negative net pay / carry-forward balance.
+    // Example: Employee Meal Charge with no salary in the cutoff.
+    // Once processed, status/release_status becomes Released and this row leaves queue.
+    return outstandingPayroll > 0 || carryForward > 0;
   });
 
   const releasedPayroll = payrollRecords.filter((record) => {
     const status = normalizeStatus(record.status);
     const releaseStatus = normalizeStatus(record.release_status);
 
-    return (
-      getOutstandingPayrollAmount(record) <= 0 &&
-      (status === "Released" || status === "Paid" || releaseStatus === "Released")
-    );
+    return status === "Released" || status === "Paid" || releaseStatus === "Released" || releaseStatus === "Paid";
   });
 
   const pendingAdjustments = payrollAdjustments.filter(
@@ -1085,9 +1247,55 @@ ${partialReleaseError?.message || partialReleaseError}`);
     (item) => normalizeStatus(item.status) === "Rejected"
   );
 
+  const payrollRecordById = new Map(
+    payrollRecords.map((record) => [String(record.id), record])
+  );
+
+  const activePayrollBalanceRows = employeeBalances.filter(isActivePayrollBalanceRow);
+
+  const partialSalaryBalanceReleaseRows = activePayrollBalanceRows.map((balance) => {
+    const linkedRecord = payrollRecordById.get(String(balance.source_id || ""));
+    const previousReleasedAmount = Number(linkedRecord?.paid_amount || linkedRecord?.amount_released || 0);
+    const periodLabel =
+      linkedRecord?.period_label ||
+      linkedRecord?.payroll_period ||
+      linkedRecord?.period_name ||
+      balance.period_label ||
+      "Payroll Balance";
+
+    return {
+      ...(linkedRecord || {}),
+      id: `PAYROLL_BALANCE:${balance.id}`,
+      __recordType: "PARTIAL_SALARY_BALANCE",
+      __payrollBalanceId: balance.id,
+      __payrollRecordId: balance.source_id || linkedRecord?.id || balance.id,
+      __periodLabel: periodLabel,
+      employee_id: balance.employee_id || linkedRecord?.employee_id || null,
+      employee_name: balance.employee_name || linkedRecord?.employee_name || "Unknown Employee",
+      department: linkedRecord?.department || balance.department || "",
+      position: linkedRecord?.position || balance.position || "",
+      period_id: balance.period_id || linkedRecord?.period_id || null,
+      period_label: periodLabel,
+      payroll_period: periodLabel,
+      original_amount: Number(balance.original_amount || 0),
+      remaining_balance: Number(balance.remaining_balance || 0),
+      net_pay: Number(balance.remaining_balance || 0),
+      gross_pay: Number(balance.original_amount || 0),
+      total_deductions: 0,
+      balance_deduction: 0,
+      cash_advance_deduction: 0,
+      ca_deduction: 0,
+      balance_deductions: 0,
+      paid_amount: previousReleasedAmount,
+      previous_released_amount: previousReleasedAmount,
+      release_status: "Partially Released",
+      status: "Partially Released",
+    };
+  });
+
   const periodOptions = Array.from(
     new Set(
-      [...approvedPayroll, ...releasedPayroll]
+      [...approvedPayroll, ...partialSalaryBalanceReleaseRows, ...releasedPayroll]
         .map((record) => getPeriodLabel(record))
         .filter(Boolean)
     )
@@ -1104,33 +1312,46 @@ ${partialReleaseError?.message || partialReleaseError}`);
     return text && periodMatch;
   });
 
+  const filteredPartialSalaryBalanceRows = partialSalaryBalanceReleaseRows.filter((record) => {
+    const text = `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const periodMatch =
+      periodFilter === "All" || getPeriodLabel(record) === periodFilter;
+
+    return text && periodMatch;
+  });
+
   const negativePayroll = filteredApprovedPayroll.filter(
     (record) => getRecordAmount(record) < 0
   );
 
   const readyForRelease = filteredApprovedPayroll;
 
-  const totalPendingNet = filteredApprovedPayroll.reduce(
+  const releasePipelineRows = [...filteredApprovedPayroll, ...filteredPartialSalaryBalanceRows];
+
+  const totalPendingNet = releasePipelineRows.reduce(
     (sum, record) => sum + getReleaseAmount(record),
     0
   );
 
-  const totalCarryForward = filteredApprovedPayroll.reduce(
+  const totalCarryForward = releasePipelineRows.reduce(
     (sum, record) => sum + getCarryForwardAmount(record),
     0
   );
 
-  const totalPendingGross = filteredApprovedPayroll.reduce(
+  const totalPendingGross = releasePipelineRows.reduce(
     (sum, record) => sum + getRecordGross(record),
     0
   );
 
-  const totalPendingDeductions = filteredApprovedPayroll.reduce(
+  const totalPendingDeductions = releasePipelineRows.reduce(
     (sum, record) => sum + getRecordDeduction(record),
     0
   );
 
-  const selectedRecords = [...filteredApprovedPayroll, ...releasedPayroll].filter(
+  const selectedRecords = [...filteredApprovedPayroll, ...filteredPartialSalaryBalanceRows, ...releasedPayroll].filter(
     (record) => selectedRecordIds.includes(String(record.id))
   );
 
@@ -1345,13 +1566,15 @@ ${partialReleaseError?.message || partialReleaseError}`);
   });
 
   const releaseQueuePayroll = filteredApprovedPayroll.filter(
-    (record) => getAlreadyReleasedAmount(record) <= 0
+    (record) =>
+      getAlreadyReleasedAmount(record) <= 0 &&
+      (
+        getOutstandingPayrollAmount(record) > 0 ||
+        getCarryForwardAmount(record) > 0
+      )
   );
 
-  const partialReleasePayroll = filteredApprovedPayroll.filter(
-    (record) =>
-      getAlreadyReleasedAmount(record) > 0 && getOutstandingPayrollAmount(record) > 0
-  );
+  const partialReleasePayroll = filteredPartialSalaryBalanceRows;
 
   const visibleReleaseRows =
     activeTab === "partial" ? partialReleasePayroll : releaseQueuePayroll;
@@ -1761,13 +1984,24 @@ ${partialReleaseError?.message || partialReleaseError}`);
                       <td className="px-4 py-3 text-right font-black text-yellow-300">{formatPeso(getRemainingAfterRelease(record))}</td>
                       <td className="px-4 py-3"><StatusBadge status={getReleaseDisplayStatus(record)} /></td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => releaseSinglePayroll(record)}
-                          disabled={isProcessing || releaseBlocked}
-                          className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
-                        >
-                          Release
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          {!isPartialSalaryBalanceRecord(record) && (
+                            <button
+                              onClick={() => returnPayrollToRegister(record)}
+                              disabled={isProcessing}
+                              className="rounded-lg border border-yellow-500/40 px-3 py-2 text-xs font-black text-yellow-300 hover:bg-yellow-500/10 disabled:opacity-50"
+                            >
+                              Return
+                            </button>
+                          )}
+                          <button
+                            onClick={() => releaseSinglePayroll(record)}
+                            disabled={isProcessing || releaseBlocked}
+                            className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
+                          >
+                            Release
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

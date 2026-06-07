@@ -119,6 +119,13 @@ export default function EmployeesPage() {
   const [fileName, setFileName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
 
+  /// STATES - PERMISSIONS
+  const [permissions, setPermissions] = useState<any>(null);
+  const canCreate = permissions?.can_create === true;
+  const canEdit = permissions?.can_edit === true;
+  const canDelete = permissions?.can_delete === true;
+  const canModify = canCreate || canEdit;
+
   /// DATA
   const rateTypes = ["Daily", "Weekly", "Monthly"];
   const genderOptions = ["Male", "Female", "Prefer not to say"];
@@ -171,6 +178,45 @@ export default function EmployeesPage() {
     if (isNaN(parsed.getTime())) return null;
 
     return parsed.toISOString().split("T")[0];
+  };
+
+  const getCurrentPermissions = async () => {
+    const currentEmployeeId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_id")
+        : null;
+
+    if (!currentEmployeeId) {
+      setPermissions(null);
+      return;
+    }
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, system_role_id")
+      .eq("id", currentEmployeeId)
+      .maybeSingle();
+
+    if (employeeError || !employee?.system_role_id) {
+      console.log("GET EMPLOYEE PERMISSION ERROR:", employeeError?.message);
+      setPermissions(null);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("role_permissions")
+      .select("*")
+      .eq("role_id", employee.system_role_id)
+      .eq("module_key", "employees")
+      .maybeSingle();
+
+    if (error) {
+      console.log("GET EMPLOYEES PERMISSIONS ERROR:", error.message);
+      setPermissions(null);
+      return;
+    }
+
+    setPermissions(data || null);
   };
 
   const getEmployees = async () => {
@@ -283,6 +329,20 @@ export default function EmployeesPage() {
 
   const saveEmployee = async () => {
     if (isSaving) return;
+
+    if (editingEmployeeNo && !canEdit) {
+      alert(
+        "Access denied. You do not have permission to update employee records.",
+      );
+      return;
+    }
+
+    if (!editingEmployeeNo && !canCreate) {
+      alert(
+        "Access denied. You do not have permission to create employee records.",
+      );
+      return;
+    }
     if (!validateForm()) return;
 
     setIsSaving(true);
@@ -366,6 +426,13 @@ export default function EmployeesPage() {
   };
 
   const editEmployee = (employee: Employee) => {
+    if (!canEdit) {
+      alert(
+        "Access denied. You do not have permission to edit employee records.",
+      );
+      return;
+    }
+
     setEditingEmployeeNo(employee.employee_no);
     setEmployeeNo(employee.employee_no || "");
     setFirstName(employee.first_name || "");
@@ -409,6 +476,13 @@ export default function EmployeesPage() {
   };
 
   const archiveEmployee = async (employee: Employee) => {
+    if (!canDelete) {
+      alert(
+        "Access denied. You do not have permission to archive employee records.",
+      );
+      return;
+    }
+
     const confirmArchive = confirm(
       `Archive ${employee.first_name} ${employee.last_name}? This will keep history but remove the employee from active operations.`,
     );
@@ -449,6 +523,13 @@ export default function EmployeesPage() {
   };
 
   const restoreEmployee = async (employee: Employee) => {
+    if (!canEdit) {
+      alert(
+        "Access denied. You do not have permission to restore employee records.",
+      );
+      return;
+    }
+
     const confirmRestore = confirm(
       `Restore ${employee.first_name} ${employee.last_name} as Active?`,
     );
@@ -489,6 +570,13 @@ export default function EmployeesPage() {
   };
 
   const handleImportFile = async (file: File) => {
+    if (!canCreate) {
+      alert(
+        "Access denied. You do not have permission to import employee records.",
+      );
+      return;
+    }
+
     setFileName(file.name);
 
     const buffer = await file.arrayBuffer();
@@ -670,6 +758,13 @@ export default function EmployeesPage() {
   };
 
   const importEmployees = async () => {
+    if (!canCreate) {
+      alert(
+        "Access denied. You do not have permission to import employee records.",
+      );
+      return;
+    }
+
     if (previewRows.length === 0) {
       alert("No rows to import.");
       return;
@@ -753,6 +848,7 @@ export default function EmployeesPage() {
 
   /// EFFECTS
   useEffect(() => {
+    getCurrentPermissions();
     getEmployees();
     getDropdownData();
   }, []);
@@ -905,6 +1001,16 @@ export default function EmployeesPage() {
             </button>
           </div>
 
+          {!canModify && (
+            <section className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-sm text-amber-100">
+              <p className="font-black text-amber-300">View-only access</p>
+              <p className="mt-1">
+                You can review employee records, but create, edit, import,
+                archive, and restore actions are locked for your role.
+              </p>
+            </section>
+          )}
+
           <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-7">
             <KpiCard
               icon={<Users size={22} />}
@@ -947,417 +1053,430 @@ export default function EmployeesPage() {
           </section>
 
           <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
-            <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 xl:col-span-8">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="flex items-center gap-2 text-xl font-bold">
-                    <UserPlus size={22} />{" "}
-                    {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Required fields are marked with an asterisk.
-                  </p>
+            {canModify && (
+              <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 xl:col-span-8">
+                <div className="mb-5 flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-xl font-bold">
+                      <UserPlus size={22} />{" "}
+                      {editingEmployeeNo ? "Edit Employee" : "Add Employee"}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Required fields are marked with an asterisk.
+                    </p>
+                  </div>
+
+                  {editingEmployeeNo && (
+                    <span className="rounded-full border border-blue-500/40 px-3 py-1 text-xs font-black text-blue-400">
+                      Editing {editingEmployeeNo}
+                    </span>
+                  )}
                 </div>
 
-                {editingEmployeeNo && (
-                  <span className="rounded-full border border-blue-500/40 px-3 py-1 text-xs font-black text-blue-400">
-                    Editing {editingEmployeeNo}
-                  </span>
+                {formError && (
+                  <p className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
+                    {formError}
+                  </p>
                 )}
-              </div>
 
-              {formError && (
-                <p className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400">
-                  {formError}
-                </p>
-              )}
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                  <FormPanel title="Personal Details">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input
+                        label="Employee No"
+                        value={employeeNo}
+                        setValue={setEmployeeNo}
+                        placeholder="Auto if blank"
+                      />
+                      <Input
+                        label="Email"
+                        type="email"
+                        value={email}
+                        setValue={setEmail}
+                        placeholder="employee@email.com"
+                      />
+                      <Input
+                        label="First Name *"
+                        value={firstName}
+                        setValue={setFirstName}
+                      />
+                      <Input
+                        label="Last Name *"
+                        value={lastName}
+                        setValue={setLastName}
+                      />
+                      <Input
+                        label="Contact Number"
+                        value={contactNumber}
+                        setValue={setContactNumber}
+                      />
+                      <Input
+                        label="Hire Date"
+                        type="date"
+                        value={hireDate}
+                        setValue={setHireDate}
+                      />
+                      <Input
+                        label="Birth Date"
+                        type="date"
+                        value={birthDate}
+                        setValue={setBirthDate}
+                      />
+                      <Select
+                        label="Gender"
+                        value={gender}
+                        setValue={setGender}
+                        options={genderOptions}
+                      />
+                      <Select
+                        label="Civil Status"
+                        value={civilStatus}
+                        setValue={setCivilStatus}
+                        options={civilStatusOptions}
+                      />
+                      <Input
+                        label="Address"
+                        value={address}
+                        setValue={setAddress}
+                      />
+                    </div>
+                  </FormPanel>
 
-              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                <FormPanel title="Personal Details">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Input
-                      label="Employee No"
-                      value={employeeNo}
-                      setValue={setEmployeeNo}
-                      placeholder="Auto if blank"
-                    />
-                    <Input
-                      label="Email"
-                      type="email"
-                      value={email}
-                      setValue={setEmail}
-                      placeholder="employee@email.com"
-                    />
-                    <Input
-                      label="First Name *"
-                      value={firstName}
-                      setValue={setFirstName}
-                    />
-                    <Input
-                      label="Last Name *"
-                      value={lastName}
-                      setValue={setLastName}
-                    />
-                    <Input
-                      label="Contact Number"
-                      value={contactNumber}
-                      setValue={setContactNumber}
-                    />
-                    <Input
-                      label="Hire Date"
-                      type="date"
-                      value={hireDate}
-                      setValue={setHireDate}
-                    />
-                    <Input
-                      label="Birth Date"
-                      type="date"
-                      value={birthDate}
-                      setValue={setBirthDate}
-                    />
-                    <Select
-                      label="Gender"
-                      value={gender}
-                      setValue={setGender}
-                      options={genderOptions}
-                    />
-                    <Select
-                      label="Civil Status"
-                      value={civilStatus}
-                      setValue={setCivilStatus}
-                      options={civilStatusOptions}
-                    />
-                    <Input
-                      label="Address"
-                      value={address}
-                      setValue={setAddress}
-                    />
-                  </div>
-                </FormPanel>
+                  <FormPanel title="Government Information">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input
+                        label="SSS No."
+                        value={sssNo}
+                        setValue={setSssNo}
+                      />
+                      <Input
+                        label="PhilHealth No."
+                        value={philhealthNo}
+                        setValue={setPhilhealthNo}
+                      />
+                      <Input
+                        label="Pag-IBIG No."
+                        value={pagibigNo}
+                        setValue={setPagibigNo}
+                      />
+                      <Input
+                        label="TIN No."
+                        value={tinNo}
+                        setValue={setTinNo}
+                      />
+                    </div>
+                  </FormPanel>
 
-                <FormPanel title="Government Information">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Input label="SSS No." value={sssNo} setValue={setSssNo} />
-                    <Input
-                      label="PhilHealth No."
-                      value={philhealthNo}
-                      setValue={setPhilhealthNo}
-                    />
-                    <Input
-                      label="Pag-IBIG No."
-                      value={pagibigNo}
-                      setValue={setPagibigNo}
-                    />
-                    <Input label="TIN No." value={tinNo} setValue={setTinNo} />
-                  </div>
-                </FormPanel>
+                  <FormPanel title="Emergency Contact">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input
+                        label="Contact Person"
+                        value={emergencyContactName}
+                        setValue={setEmergencyContactName}
+                      />
+                      <Input
+                        label="Contact Number"
+                        value={emergencyContactNumber}
+                        setValue={setEmergencyContactNumber}
+                      />
+                      <Input
+                        label="Relationship"
+                        value={emergencyContactRelationship}
+                        setValue={setEmergencyContactRelationship}
+                      />
+                    </div>
+                  </FormPanel>
 
-                <FormPanel title="Emergency Contact">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Input
-                      label="Contact Person"
-                      value={emergencyContactName}
-                      setValue={setEmergencyContactName}
-                    />
-                    <Input
-                      label="Contact Number"
-                      value={emergencyContactNumber}
-                      setValue={setEmergencyContactNumber}
-                    />
-                    <Input
-                      label="Relationship"
-                      value={emergencyContactRelationship}
-                      setValue={setEmergencyContactRelationship}
-                    />
-                  </div>
-                </FormPanel>
+                  <FormPanel title="201 File Checklist">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                      <Select
+                        label="Resume / Bio Data"
+                        value={hasResume}
+                        setValue={setHasResume}
+                        options={yesNoOptions}
+                      />
+                      <Select
+                        label="Valid ID"
+                        value={hasValidId}
+                        setValue={setHasValidId}
+                        options={yesNoOptions}
+                      />
+                      <Select
+                        label="Employment Contract"
+                        value={hasContract}
+                        setValue={setHasContract}
+                        options={yesNoOptions}
+                      />
+                      <Select
+                        label="NBI Clearance"
+                        value={hasNbiClearance}
+                        setValue={setHasNbiClearance}
+                        options={yesNoOptions}
+                      />
+                      <Select
+                        label="Medical / Health Cert"
+                        value={hasMedical}
+                        setValue={setHasMedical}
+                        options={yesNoOptions}
+                      />
+                      <Select
+                        label="Training Records"
+                        value={hasTrainingRecords}
+                        setValue={setHasTrainingRecords}
+                        options={yesNoOptions}
+                      />
+                    </div>
+                  </FormPanel>
 
-                <FormPanel title="201 File Checklist">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                    <Select
-                      label="Resume / Bio Data"
-                      value={hasResume}
-                      setValue={setHasResume}
-                      options={yesNoOptions}
-                    />
-                    <Select
-                      label="Valid ID"
-                      value={hasValidId}
-                      setValue={setHasValidId}
-                      options={yesNoOptions}
-                    />
-                    <Select
-                      label="Employment Contract"
-                      value={hasContract}
-                      setValue={setHasContract}
-                      options={yesNoOptions}
-                    />
-                    <Select
-                      label="NBI Clearance"
-                      value={hasNbiClearance}
-                      setValue={setHasNbiClearance}
-                      options={yesNoOptions}
-                    />
-                    <Select
-                      label="Medical / Health Cert"
-                      value={hasMedical}
-                      setValue={setHasMedical}
-                      options={yesNoOptions}
-                    />
-                    <Select
-                      label="Training Records"
-                      value={hasTrainingRecords}
-                      setValue={setHasTrainingRecords}
-                      options={yesNoOptions}
-                    />
-                  </div>
-                </FormPanel>
+                  <FormPanel title="Work Assignment">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Select
+                        label="Department *"
+                        value={department}
+                        setValue={setDepartment}
+                        options={departments.map((d) => d.name)}
+                      />
+                      <Select
+                        label="Position *"
+                        value={position}
+                        setValue={setPosition}
+                        options={positions.map((p) => p.name)}
+                      />
+                      <Select
+                        label="Status *"
+                        value={employmentStatus}
+                        setValue={setEmploymentStatus}
+                        options={employmentStatuses.map((s) => s.name)}
+                      />
+                      <Select
+                        label="Employment Type *"
+                        value={employmentType}
+                        setValue={setEmploymentType}
+                        options={employmentTypes.map((t) => t.name)}
+                      />
+                    </div>
+                  </FormPanel>
 
-                <FormPanel title="Work Assignment">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Select
-                      label="Department *"
-                      value={department}
-                      setValue={setDepartment}
-                      options={departments.map((d) => d.name)}
-                    />
-                    <Select
-                      label="Position *"
-                      value={position}
-                      setValue={setPosition}
-                      options={positions.map((p) => p.name)}
-                    />
-                    <Select
-                      label="Status *"
-                      value={employmentStatus}
-                      setValue={setEmploymentStatus}
-                      options={employmentStatuses.map((s) => s.name)}
-                    />
-                    <Select
-                      label="Employment Type *"
-                      value={employmentType}
-                      setValue={setEmploymentType}
-                      options={employmentTypes.map((t) => t.name)}
-                    />
-                  </div>
-                </FormPanel>
+                  <FormPanel title="Payroll Profile">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                      <Select
+                        label="Rate Type *"
+                        value={rateType}
+                        setValue={setRateType}
+                        options={rateTypes}
+                      />
+                      <Input
+                        label="Basic Rate *"
+                        type="number"
+                        value={basicRate}
+                        setValue={setBasicRate}
+                      />
+                      <Select
+                        label="Payroll Active"
+                        value={payrollActive}
+                        setValue={setPayrollActive}
+                        options={["Yes", "No"]}
+                      />
+                    </div>
 
-                <FormPanel title="Payroll Profile">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                    <Select
-                      label="Rate Type *"
-                      value={rateType}
-                      setValue={setRateType}
-                      options={rateTypes}
-                    />
-                    <Input
-                      label="Basic Rate *"
-                      type="number"
-                      value={basicRate}
-                      setValue={setBasicRate}
-                    />
-                    <Select
-                      label="Payroll Active"
-                      value={payrollActive}
-                      setValue={setPayrollActive}
-                      options={["Yes", "No"]}
-                    />
-                  </div>
+                    <div className="mt-4">
+                      <label className="text-sm font-semibold text-slate-300">
+                        Payroll Notes
+                      </label>
+                      <textarea
+                        value={payrollNotes}
+                        onChange={(e) => setPayrollNotes(e.target.value)}
+                        rows={3}
+                        className="mt-2 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                      />
+                    </div>
+                  </FormPanel>
 
-                  <div className="mt-4">
-                    <label className="text-sm font-semibold text-slate-300">
-                      Payroll Notes
-                    </label>
-                    <textarea
-                      value={payrollNotes}
-                      onChange={(e) => setPayrollNotes(e.target.value)}
-                      rows={3}
-                      className="mt-2 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                    />
-                  </div>
-                </FormPanel>
+                  <FormPanel title="Portal & Attendance Settings">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Select
+                        label="Portal Access"
+                        value={portalEnabled}
+                        setValue={setPortalEnabled}
+                        options={yesNoOptions}
+                      />
 
-                <FormPanel title="Portal & Attendance Settings">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Select
-                      label="Portal Access"
-                      value={portalEnabled}
-                      setValue={setPortalEnabled}
-                      options={yesNoOptions}
-                    />
+                      <Select
+                        label="Official Attendance Source"
+                        value={attendanceSourcePreference}
+                        setValue={setAttendanceSourcePreference}
+                        options={attendanceSourceOptions}
+                      />
+                    </div>
 
-                    <Select
-                      label="Official Attendance Source"
-                      value={attendanceSourcePreference}
-                      setValue={setAttendanceSourcePreference}
-                      options={attendanceSourceOptions}
-                    />
-                  </div>
-
-                  <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">
-                    <p className="font-black">How this works</p>
-                    <p className="mt-1 text-blue-100/80">
-                      Portal Access controls whether the employee can open the
-                      mobile portal for schedule, performance, leave, and
-                      payslips. Official Attendance Source controls which time
-                      record should be followed for payroll.
-                    </p>
-                  </div>
-
-                  <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
-                    <p className="font-black">Recommended setup</p>
-                    <p className="mt-1 text-amber-100/80">
-                      Keep Portal Access enabled for most employees so they can
-                      view their information even if Biometrics remains their
-                      official attendance source.
-                    </p>
-                  </div>
-                </FormPanel>
-
-                <FormPanel title="Employee Health Check">
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <MiniStat
-                      title="Archived Employees"
-                      value={archivedEmployees}
-                    />
-                    <MiniStat
-                      title="Records With Issues"
-                      value={employeesWithIssues.length}
-                      danger={employeesWithIssues.length > 0}
-                    />
-                    <MiniStat
-                      title="Missing Gov Info"
-                      value={missingGovInfoCount}
-                      danger={missingGovInfoCount > 0}
-                    />
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    {topDepartments.length > 0 ? (
-                      topDepartments.map((dept) => (
-                        <div
-                          key={dept.name}
-                          className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
-                        >
-                          <p className="text-sm font-semibold">{dept.name}</p>
-                          <p className="font-bold text-yellow-400">
-                            {dept.count}
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-500">
-                        No department data found.
+                    <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">
+                      <p className="font-black">How this works</p>
+                      <p className="mt-1 text-blue-100/80">
+                        Portal Access controls whether the employee can open the
+                        mobile portal for schedule, performance, leave, and
+                        payslips. Official Attendance Source controls which time
+                        record should be followed for payroll.
                       </p>
-                    )}
-                  </div>
-                </FormPanel>
+                    </div>
+
+                    <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+                      <p className="font-black">Recommended setup</p>
+                      <p className="mt-1 text-amber-100/80">
+                        Keep Portal Access enabled for most employees so they
+                        can view their information even if Biometrics remains
+                        their official attendance source.
+                      </p>
+                    </div>
+                  </FormPanel>
+
+                  <FormPanel title="Employee Health Check">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <MiniStat
+                        title="Archived Employees"
+                        value={archivedEmployees}
+                      />
+                      <MiniStat
+                        title="Records With Issues"
+                        value={employeesWithIssues.length}
+                        danger={employeesWithIssues.length > 0}
+                      />
+                      <MiniStat
+                        title="Missing Gov Info"
+                        value={missingGovInfoCount}
+                        danger={missingGovInfoCount > 0}
+                      />
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      {topDepartments.length > 0 ? (
+                        topDepartments.map((dept) => (
+                          <div
+                            key={dept.name}
+                            className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                          >
+                            <p className="text-sm font-semibold">{dept.name}</p>
+                            <p className="font-bold text-yellow-400">
+                              {dept.count}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-500">
+                          No department data found.
+                        </p>
+                      )}
+                    </div>
+                  </FormPanel>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <button
+                    onClick={saveEmployee}
+                    disabled={isSaving}
+                    className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                  >
+                    {isSaving
+                      ? "Saving..."
+                      : editingEmployeeNo
+                        ? "Update Employee"
+                        : "Save Employee"}
+                  </button>
+
+                  <button
+                    onClick={clearForm}
+                    className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                  >
+                    {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
+                  </button>
+                </div>
               </div>
+            )}
 
-              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <button
-                  onClick={saveEmployee}
-                  disabled={isSaving}
-                  className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  {isSaving
-                    ? "Saving..."
-                    : editingEmployeeNo
-                      ? "Update Employee"
-                      : "Save Employee"}
-                </button>
+            {canCreate && (
+              <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 xl:col-span-4">
+                <h2 className="flex items-center gap-2 text-xl font-bold">
+                  <FileSpreadsheet size={22} /> Import Employees
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Import Excel/CSV employee records. Preview first before
+                  saving.
+                </p>
 
-                <button
-                  onClick={clearForm}
-                  className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
-                >
-                  {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
-                </button>
-              </div>
-            </div>
+                <div className="mt-5 space-y-3">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImportFile(file);
+                    }}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+                  />
 
-            <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6 xl:col-span-4">
-              <h2 className="flex items-center gap-2 text-xl font-bold">
-                <FileSpreadsheet size={22} /> Import Employees
-              </h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Import Excel/CSV employee records. Preview first before saving.
-              </p>
+                  <button
+                    onClick={importEmployees}
+                    disabled={isImporting || previewRows.length === 0}
+                    className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {isImporting ? "Importing..." : "Import Preview Rows"}
+                  </button>
 
-              <div className="mt-5 space-y-3">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImportFile(file);
-                  }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                />
+                  {fileName && (
+                    <p className="text-sm text-slate-400">
+                      Selected:{" "}
+                      <span className="font-bold text-white">{fileName}</span>
+                    </p>
+                  )}
+                </div>
 
-                <button
-                  onClick={importEmployees}
-                  disabled={isImporting || previewRows.length === 0}
-                  className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {isImporting ? "Importing..." : "Import Preview Rows"}
-                </button>
-
-                {fileName && (
-                  <p className="text-sm text-slate-400">
-                    Selected:{" "}
-                    <span className="font-bold text-white">{fileName}</span>
+                <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-sm font-bold text-slate-300">
+                    Supported headers
                   </p>
+                  <p className="mt-2 text-xs leading-6 text-slate-500">
+                    Employee No, First Name, Last Name, Email, Department,
+                    Position, Status, Employment Type, Rate Type, Basic Rate,
+                    Portal Enabled, Attendance Source, Contact, Hire Date, SSS
+                    No, PhilHealth No, Pag-IBIG No, TIN No, Emergency Contact.
+                  </p>
+                </div>
+
+                {previewRows.length > 0 && (
+                  <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
+                    <table className="w-full min-w-[900px] text-sm">
+                      <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                        <tr>
+                          <th className="px-4 py-3">Employee No</th>
+                          <th className="px-4 py-3">Name</th>
+                          <th className="px-4 py-3">Department</th>
+                          <th className="px-4 py-3">Position</th>
+                          <th className="px-4 py-3 text-right">Rate</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {previewRows.slice(0, 50).map((row, index) => (
+                          <tr
+                            key={`${row.employee_no}-${index}`}
+                            className="border-t border-slate-800"
+                          >
+                            <td className="px-4 py-3">{row.employee_no}</td>
+                            <td className="px-4 py-3 font-bold">
+                              {row.first_name} {row.last_name}
+                            </td>
+                            <td className="px-4 py-3">{row.department}</td>
+                            <td className="px-4 py-3">{row.position}</td>
+                            <td className="px-4 py-3 text-right">
+                              {formatMoney(row.basic_rate)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
-
-              <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-                <p className="text-sm font-bold text-slate-300">
-                  Supported headers
-                </p>
-                <p className="mt-2 text-xs leading-6 text-slate-500">
-                  Employee No, First Name, Last Name, Email, Department,
-                  Position, Status, Employment Type, Rate Type, Basic Rate,
-                  Portal Enabled, Attendance Source, Contact, Hire Date, SSS No,
-                  PhilHealth No, Pag-IBIG No, TIN No, Emergency Contact.
-                </p>
-              </div>
-
-              {previewRows.length > 0 && (
-                <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
-                  <table className="w-full min-w-[900px] text-sm">
-                    <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                      <tr>
-                        <th className="px-4 py-3">Employee No</th>
-                        <th className="px-4 py-3">Name</th>
-                        <th className="px-4 py-3">Department</th>
-                        <th className="px-4 py-3">Position</th>
-                        <th className="px-4 py-3 text-right">Rate</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {previewRows.slice(0, 50).map((row, index) => (
-                        <tr
-                          key={`${row.employee_no}-${index}`}
-                          className="border-t border-slate-800"
-                        >
-                          <td className="px-4 py-3">{row.employee_no}</td>
-                          <td className="px-4 py-3 font-bold">
-                            {row.first_name} {row.last_name}
-                          </td>
-                          <td className="px-4 py-3">{row.department}</td>
-                          <td className="px-4 py-3">{row.position}</td>
-                          <td className="px-4 py-3 text-right">
-                            {formatMoney(row.basic_rate)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            )}
           </section>
 
           <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:p-6">
@@ -1540,21 +1659,25 @@ export default function EmployeesPage() {
 
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => editEmployee(emp)}
-                              className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold hover:bg-blue-500"
-                            >
-                              <Pencil size={12} /> Edit
-                            </button>
+                            {canEdit && (
+                              <button
+                                onClick={() => editEmployee(emp)}
+                                className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold hover:bg-blue-500"
+                              >
+                                <Pencil size={12} /> Edit
+                              </button>
+                            )}
 
-                            {isArchived ? (
+                            {isArchived && canEdit && (
                               <button
                                 onClick={() => restoreEmployee(emp)}
                                 className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold hover:bg-emerald-500"
                               >
                                 Restore
                               </button>
-                            ) : (
+                            )}
+
+                            {!isArchived && canDelete && (
                               <button
                                 onClick={() => archiveEmployee(emp)}
                                 className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600"

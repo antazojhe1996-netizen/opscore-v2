@@ -37,6 +37,7 @@ export default function RoomSalesPage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [permissions, setPermissions] = useState<any[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -233,6 +234,54 @@ export default function RoomSalesPage() {
     }
   };
 
+  /// PERMISSIONS
+  const getCurrentUserPermissions = async () => {
+    const currentEmployeeId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_id")
+        : null;
+
+    if (!currentEmployeeId) {
+      setPermissions([]);
+      return;
+    }
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, system_role_id")
+      .eq("id", currentEmployeeId)
+      .maybeSingle();
+
+    if (employeeError || !employee?.system_role_id) {
+      console.log("ROOM SALES PERMISSION EMPLOYEE ERROR:", employeeError?.message);
+      setPermissions([]);
+      return;
+    }
+
+    const { data: rolePermissions, error: permissionError } = await supabase
+      .from("role_permissions")
+      .select("*")
+      .eq("role_id", employee.system_role_id);
+
+    if (permissionError) {
+      console.log("ROOM SALES PERMISSION ERROR:", permissionError.message);
+      setPermissions([]);
+      return;
+    }
+
+    setPermissions(rolePermissions || []);
+  };
+
+  const hasPermission = (
+    moduleKey: string,
+    field: "can_view" | "can_create" | "can_edit" | "can_delete" | "can_approve" | "can_release"
+  ) => {
+    return permissions.some(
+      (permission) =>
+        permission.module_key === moduleKey && permission[field] === true
+    );
+  };
+
   const getImportValidation = (rows: HotelSale[]) => {
     const duplicateMap: Record<string, number> = {};
 
@@ -360,6 +409,9 @@ export default function RoomSalesPage() {
   const summary = useMemo(() => getSummary(filteredSales), [filteredSales]);
   const previewSummary = useMemo(() => getSummary(previewRows), [previewRows]);
 
+  const canImportSales = hasPermission("hotel_room_sales", "can_create");
+  const canDeleteSales = hasPermission("hotel_room_sales", "can_delete");
+
   const salesByRoomType = useMemo(() => {
     const grouped: Record<string, number> = {};
 
@@ -422,6 +474,12 @@ export default function RoomSalesPage() {
   const handlePreviewExcel = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    if (!canImportSales) {
+      alert("Access denied. You do not have permission to import hotel sales data.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -489,6 +547,11 @@ export default function RoomSalesPage() {
   };
 
   const confirmImport = async () => {
+    if (!canImportSales) {
+      alert("Access denied. You do not have permission to import hotel sales data.");
+      return;
+    }
+
     if (previewRows.length === 0) return;
 
     const validation = getImportValidation(previewRows);
@@ -510,6 +573,11 @@ export default function RoomSalesPage() {
           `Existing hotel sales data detected (${sales.length} rows).\n\nOK = Replace existing data before import\nCancel = Append new import to existing data`
         )
       : false;
+
+    if (shouldReplace && !canDeleteSales) {
+      alert("Access denied. You can import new hotel sales data, but you cannot replace or delete existing hotel sales records.");
+      return;
+    }
 
     const confirmMessage = `${shouldReplace ? "Replace and import" : "Import"} ${
       previewRows.length
@@ -606,6 +674,11 @@ export default function RoomSalesPage() {
   };
 
   const clearHotelSalesData = async () => {
+    if (!canDeleteSales) {
+      alert("Access denied. You do not have permission to delete hotel sales data.");
+      return;
+    }
+
     if (sales.length === 0) {
       alert("No hotel sales records to clear.");
       return;
@@ -670,6 +743,7 @@ export default function RoomSalesPage() {
   };
 
   useEffect(() => {
+    getCurrentUserPermissions();
     getHotelSales();
   }, []);
 
@@ -729,13 +803,15 @@ export default function RoomSalesPage() {
                 className="hidden"
               />
 
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={importing}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-50"
-              >
-                {importing ? "Reading..." : "Preview Import"}
-              </button>
+              {canImportSales && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-50"
+                >
+                  {importing ? "Reading..." : "Preview Import"}
+                </button>
+              )}
 
               <button
                 onClick={exportExcel}
@@ -745,13 +821,15 @@ export default function RoomSalesPage() {
                 Export Excel
               </button>
 
-              <button
-                onClick={clearHotelSalesData}
-                disabled={loading || importing || sales.length === 0}
-                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50"
-              >
-                Clear Data
-              </button>
+              {canDeleteSales && (
+                <button
+                  onClick={clearHotelSalesData}
+                  disabled={loading || importing || sales.length === 0}
+                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50"
+                >
+                  Clear Data
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -777,13 +855,15 @@ export default function RoomSalesPage() {
                   Cancel
                 </button>
 
-                <button
-                  onClick={confirmImport}
-                  disabled={importing}
-                  className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  {importing ? "Importing..." : "Confirm Import"}
-                </button>
+                {canImportSales && (
+                  <button
+                    onClick={confirmImport}
+                    disabled={importing}
+                    className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                  >
+                    {importing ? "Importing..." : "Confirm Import"}
+                  </button>
+                )}
               </div>
             </div>
 

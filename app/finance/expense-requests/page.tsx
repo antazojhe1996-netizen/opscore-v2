@@ -12,6 +12,7 @@ export default function ExpenseRequestsPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
   const [workflowSettings, setWorkflowSettings] = useState<any>(null);
+  const [permissions, setPermissions] = useState<any[]>([]);
 
   /// STATES - REQUEST FORM
   const today = new Date().toISOString().split("T")[0];
@@ -104,6 +105,68 @@ export default function ExpenseRequestsPage() {
     return "bg-slate-700 text-slate-300";
   };
 
+  /// PERMISSIONS
+  const getCurrentUserPermissions = async () => {
+    const currentEmployeeId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_id")
+        : null;
+
+    if (!currentEmployeeId) {
+      setPermissions([]);
+      return;
+    }
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, system_role_id")
+      .eq("id", currentEmployeeId)
+      .maybeSingle();
+
+    if (employeeError || !employee?.system_role_id) {
+      console.log("EXPENSE REQUESTS PERMISSION EMPLOYEE ERROR:", employeeError?.message);
+      setPermissions([]);
+      return;
+    }
+
+    const { data: rolePermissions, error: permissionError } = await supabase
+      .from("role_permissions")
+      .select("*")
+      .eq("role_id", employee.system_role_id);
+
+    if (permissionError) {
+      console.log("EXPENSE REQUESTS PERMISSION ERROR:", permissionError.message);
+      setPermissions([]);
+      return;
+    }
+
+    setPermissions(rolePermissions || []);
+  };
+
+  const hasPermission = (
+    moduleKey: string,
+    field:
+      | "can_view"
+      | "can_create"
+      | "can_edit"
+      | "can_delete"
+      | "can_approve"
+      | "can_release"
+  ) => {
+    return permissions.some(
+      (permission) =>
+        permission.module_key === moduleKey && permission[field] === true
+    );
+  };
+
+  const canCreateRequest = hasPermission("expense_requests", "can_create");
+  const canApproveRequest = hasPermission("expense_requests", "can_approve");
+  const canReleaseRequest = hasPermission("expense_requests", "can_release");
+  const canDeleteRequest = hasPermission("expense_requests", "can_delete");
+  const canManageWorkflow =
+    hasPermission("expense_requests", "can_edit") ||
+    hasPermission("approval_controls", "can_edit");
+
   /// FUNCTIONS - GET DATA
   const getFinanceSettings = async () => {
     const { data: employeesData, error: employeesError } = await supabase
@@ -176,6 +239,11 @@ export default function ExpenseRequestsPage() {
 
   /// FUNCTIONS - WORKFLOW SETTINGS
   const toggleApprovalWorkflow = async () => {
+    if (!canManageWorkflow) {
+      alert("Access denied.");
+      return;
+    }
+
     if (isSavingSettings) return;
 
     const nextValue = !approvalRequired;
@@ -252,6 +320,11 @@ export default function ExpenseRequestsPage() {
 
   /// FUNCTIONS - SUBMIT REQUEST
   const submitRequest = async () => {
+    if (!canCreateRequest) {
+      alert("Access denied.");
+      return;
+    }
+
     if (isSubmitting) return;
 
     if (
@@ -347,6 +420,16 @@ export default function ExpenseRequestsPage() {
 
   /// FUNCTIONS - ACTION MODAL
   const openAction = (request: any, action: string) => {
+    if (["APPROVE", "REJECT"].includes(action) && !canApproveRequest) {
+      alert("Access denied.");
+      return;
+    }
+
+    if (["RELEASE", "LIQUIDATE"].includes(action) && !canReleaseRequest) {
+      alert("Access denied.");
+      return;
+    }
+
     setSelectedRequest(request);
     setActionType(action);
     setActorName("");
@@ -364,6 +447,16 @@ export default function ExpenseRequestsPage() {
 
   const submitAction = async () => {
     if (!selectedRequest || !actionType) return;
+
+    if (["APPROVE", "REJECT"].includes(actionType) && !canApproveRequest) {
+      alert("Access denied.");
+      return;
+    }
+
+    if (["RELEASE", "LIQUIDATE"].includes(actionType) && !canReleaseRequest) {
+      alert("Access denied.");
+      return;
+    }
 
     let payload: any = {};
     let postedExpenseData: any = null;
@@ -500,6 +593,11 @@ export default function ExpenseRequestsPage() {
 
   /// FUNCTIONS - POST RELEASED REQUEST TO EXPENSES
   const postToExpenses = async (request: any) => {
+    if (!canReleaseRequest) {
+      alert("Access denied.");
+      return;
+    }
+
     if (request.posted_to_expenses) {
       alert("This request is already posted to expenses.");
       return;
@@ -569,6 +667,11 @@ export default function ExpenseRequestsPage() {
 
   /// FUNCTIONS - DELETE REQUEST
   const deleteRequest = async (request: any) => {
+    if (!canDeleteRequest) {
+      alert("Access denied.");
+      return;
+    }
+
     if (request.posted_to_expenses) {
       alert("This request is already posted to expenses. Delete or reverse from Expenses first.");
       return;
@@ -601,6 +704,7 @@ export default function ExpenseRequestsPage() {
 
   /// EFFECTS
   useEffect(() => {
+    getCurrentUserPermissions();
     getFinanceSettings();
     getRequests();
   }, []);
@@ -630,21 +734,23 @@ export default function ExpenseRequestsPage() {
               </span>
             </div>
 
-            <button
-              onClick={toggleApprovalWorkflow}
-              disabled={isSavingSettings}
-              className={`rounded-xl px-4 py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60 ${
-                approvalRequired
-                  ? "bg-red-600 hover:bg-red-500"
-                  : "bg-emerald-600 hover:bg-emerald-500"
-              }`}
-            >
-              {isSavingSettings
-                ? "Saving..."
-                : approvalRequired
-                ? "Turn Approval OFF"
-                : "Turn Approval ON"}
-            </button>
+            {canManageWorkflow && (
+              <button
+                onClick={toggleApprovalWorkflow}
+                disabled={isSavingSettings}
+                className={`rounded-xl px-4 py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60 ${
+                  approvalRequired
+                    ? "bg-red-600 hover:bg-red-500"
+                    : "bg-emerald-600 hover:bg-emerald-500"
+                }`}
+              >
+                {isSavingSettings
+                  ? "Saving..."
+                  : approvalRequired
+                  ? "Turn Approval OFF"
+                  : "Turn Approval ON"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -668,6 +774,13 @@ export default function ExpenseRequestsPage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
             <h2 className="text-xl font-bold">New Request</h2>
 
+            {!canCreateRequest && (
+              <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+                View-only access. You can review requests, but you cannot submit new expense requests.
+              </div>
+            )}
+
+            {canCreateRequest && (
             <div className="mt-5 space-y-4">
               <input type="date" value={requestDate} onChange={(e) => setRequestDate(e.target.value)} style={{ colorScheme: "dark" }} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
@@ -717,6 +830,7 @@ export default function ExpenseRequestsPage() {
                 {isSubmitting ? "Submitting..." : approvalRequired ? "Submit Request" : "Save as Approved Request"}
               </button>
             </div>
+            )}
           </section>
 
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
@@ -781,9 +895,9 @@ export default function ExpenseRequestsPage() {
                             </span>
                           )}
 
-                          {request.status === "APPROVED" && !request.posted_to_expenses && (
-  <ActionButton label="Release" color="purple" onClick={() => openAction(request, "RELEASE")} />
-)}
+                          {request.status === "APPROVED" && !request.posted_to_expenses && canReleaseRequest && (
+                            <ActionButton label="Release" color="purple" onClick={() => openAction(request, "RELEASE")} />
+                          )}
 
                           {request.status === "RELEASED" && (
                             <>
@@ -796,13 +910,15 @@ export default function ExpenseRequestsPage() {
                                   <span className="rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
                                     Ready for Posting
                                   </span>
-                                  <ActionButton label="Post Now" color="purple" onClick={() => postToExpenses(request)} />
+                                  {canReleaseRequest && (
+                                    <ActionButton label="Post Now" color="purple" onClick={() => postToExpenses(request)} />
+                                  )}
                                 </>
                               )}
                             </>
                           )}
 
-                          {!request.posted_to_expenses && (
+                          {!request.posted_to_expenses && canDeleteRequest && (
                             <ActionButton label="Delete" color="slate" onClick={() => deleteRequest(request)} />
                           )}
                         </div>

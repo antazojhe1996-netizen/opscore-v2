@@ -13,6 +13,7 @@ import {
   Database,
   FileText,
   Hotel,
+  KeyRound,
   LayoutDashboard,
   Receipt,
   Settings,
@@ -71,9 +72,11 @@ const menuSections = [
       { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText, moduleKey: "payroll_register" },
       { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet, moduleKey: "payroll_manager" },
       { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt, moduleKey: "payslips" },
+      { label: "Employee Balances", href: "/finance/payroll/employee-balances", icon: Wallet, moduleKey: "employee_balances" },
       { label: "Release History", href: "/finance/payroll/history", icon: BarChart3, moduleKey: "release_history" },
       { label: "Snapshot History", href: "/finance/payroll/snapshots", icon: Database, moduleKey: "payroll_snapshots" },
       { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "payroll_settings" },
+      
     ],
   },
   {
@@ -116,8 +119,8 @@ const menuSections = [
     items: [
       { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
       { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "property_settings" },
+      { label: "User Credentials", href: "/settings/user-credentials", icon: KeyRound, moduleKey: "user_credentials" },
       { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
-      { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "current_user" },
       { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
       { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "shift_settings" },
       { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "hc_rules" },

@@ -12,6 +12,7 @@ export default function ExpensesPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
   const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [permissions, setPermissions] = useState<any[]>([]);
 
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [expenseSubcategories, setExpenseSubcategories] = useState<any[]>([]);
@@ -349,6 +350,57 @@ export default function ExpensesPage() {
     return sortConfig.direction === "asc" ? "↑" : "↓";
   };
 
+  /// PERMISSIONS
+  const getCurrentUserPermissions = async () => {
+    const currentEmployeeId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_id")
+        : null;
+
+    if (!currentEmployeeId) {
+      setPermissions([]);
+      return;
+    }
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, system_role_id")
+      .eq("id", currentEmployeeId)
+      .maybeSingle();
+
+    if (employeeError || !employee?.system_role_id) {
+      console.log("EXPENSES PERMISSION EMPLOYEE ERROR:", employeeError?.message);
+      setPermissions([]);
+      return;
+    }
+
+    const { data: rolePermissions, error: permissionError } = await supabase
+      .from("role_permissions")
+      .select("*")
+      .eq("role_id", employee.system_role_id);
+
+    if (permissionError) {
+      console.log("EXPENSES PERMISSION ERROR:", permissionError.message);
+      setPermissions([]);
+      return;
+    }
+
+    setPermissions(rolePermissions || []);
+  };
+
+  const hasPermission = (
+    moduleKey: string,
+    field: "can_view" | "can_create" | "can_edit" | "can_delete" | "can_approve" | "can_release"
+  ) => {
+    return permissions.some(
+      (permission) =>
+        permission.module_key === moduleKey && permission[field] === true
+    );
+  };
+
+  const canCreateExpenses = hasPermission("expenses", "can_create");
+  const canDeleteExpenses = hasPermission("expenses", "can_delete");
+
   /// FUNCTIONS - GET DATA
   const getFinanceSettings = async () => {
     const { data: categoriesData } = await supabase
@@ -497,6 +549,11 @@ export default function ExpensesPage() {
 
   /// FUNCTIONS - ADD MANUAL EXPENSE
   const addExpense = async () => {
+    if (!canCreateExpenses) {
+      alert("Access denied.");
+      return;
+    }
+
     if (
       !expenseDate ||
       !category ||
@@ -689,6 +746,11 @@ export default function ExpensesPage() {
 
   /// FUNCTIONS - DELETE EXPENSE
   const deleteExpense = async (expense: any) => {
+    if (!canDeleteExpenses) {
+      alert("Access denied.");
+      return;
+    }
+
     const confirmDelete = confirm(
       (expense.employee_balance_id || expense.payroll_adjustment_id)
         ? "Delete this expense and its linked payroll deduction/balance?"
@@ -817,6 +879,12 @@ export default function ExpensesPage() {
 
   /// FUNCTIONS - IMPORT EXPENSES
   const handleImportFile = async (event: any) => {
+    if (!canCreateExpenses) {
+      alert("Access denied.");
+      event.target.value = "";
+      return;
+    }
+
     const file = event.target.files[0];
 
     if (!file) return;
@@ -867,6 +935,11 @@ export default function ExpensesPage() {
   };
 
   const saveImportedExpenses = async () => {
+    if (!canCreateExpenses) {
+      alert("Access denied.");
+      return;
+    }
+
     if (importPreview.length === 0) {
       alert("No imported expenses to save.");
       return;
@@ -899,6 +972,7 @@ export default function ExpensesPage() {
 
   /// EFFECTS
   useEffect(() => {
+    getCurrentUserPermissions();
     getExpenses();
     getFinanceSettings();
     getEmployees();
@@ -962,6 +1036,12 @@ export default function ExpensesPage() {
               {formatCurrency(unlinkedCashAdvanceTotal)} cash advance expense is not linked to payroll deduction.
               Check employee and payroll period before payroll generation.
             </p>
+          </section>
+        )}
+
+        {!canCreateExpenses && (
+          <section className="mb-6 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5 text-sm text-yellow-100">
+            View-only access: you can review and export the expense ledger, but creating, importing, and deleting expenses are disabled for this role.
           </section>
         )}
 
@@ -1141,12 +1221,18 @@ export default function ExpensesPage() {
                 className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
               />
 
-              <button
-                onClick={addExpense}
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500"
-              >
-                Save Manual Expense
-              </button>
+              {canCreateExpenses ? (
+                <button
+                  onClick={addExpense}
+                  className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500"
+                >
+                  Save Manual Expense
+                </button>
+              ) : (
+                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+                  You have view-only access. Manual expense creation is disabled.
+                </div>
+              )}
             </div>
           </section>
 
@@ -1336,12 +1422,16 @@ export default function ExpensesPage() {
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-3">
-                          <button
-                            onClick={() => deleteExpense(expense)}
-                            className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
-                          >
-                            Delete
-                          </button>
+                          {canDeleteExpenses ? (
+                            <button
+                              onClick={() => deleteExpense(expense)}
+                              className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
+                            >
+                              Delete
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-500">View only</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1420,10 +1510,11 @@ export default function ExpensesPage() {
           </div>
         </section>
 
-        <section className="mt-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Import Expenses</h2>
+        {canCreateExpenses ? (
+          <section className="mt-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Import Expenses</h2>
               <p className="mt-1 text-sm text-slate-400">
                 Upload Excel or CSV, review preview, then save to the ledger.
               </p>
@@ -1510,7 +1601,13 @@ export default function ExpensesPage() {
               </tbody>
             </table>
           </div>
-        </section>
+          </section>
+        ) : (
+          <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-400">
+            <h2 className="text-xl font-bold text-white">Import Expenses</h2>
+            <p className="mt-2">Import is disabled for view-only roles.</p>
+          </section>
+        )}
       </main>
     </div>
   );

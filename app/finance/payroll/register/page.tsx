@@ -36,7 +36,7 @@ export default function PayrollRegisterPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
-  const [adjustmentType, setAdjustmentType] = useState("Resto Unpaid");
+  const [adjustmentType, setAdjustmentType] = useState("Employee Meal Charge");
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentRemarks, setAdjustmentRemarks] = useState("");
 
@@ -53,13 +53,19 @@ export default function PayrollRegisterPage() {
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
 
   const deductionTypes = [
-    "Resto Unpaid",
+    "Employee Meal Charge",
     "Cash Advance",
     "Salary Loan",
     "Other Deduction",
   ];
 
   const earningTypes = ["Allowance", "Bonus", "Incentive"];
+
+  const balanceDeductionTypes = [
+    "Employee Meal Charge",
+    "Cash Advance",
+    "Salary Loan",
+  ];
 
   const formatMoney = (value: any) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
@@ -1130,10 +1136,6 @@ ${error.message}`);
     const employee = employees.find((item) => item.id === selectedEmployeeId);
     if (!employee) return;
 
-    const direction = earningTypes.includes(adjustmentType)
-      ? "Earning"
-      : "Deduction";
-
     const amountValue = Number(adjustmentAmount || 0);
 
     if (amountValue <= 0) {
@@ -1141,7 +1143,70 @@ ${error.message}`);
       return;
     }
 
+    const isEmployeeBalanceType = balanceDeductionTypes.includes(adjustmentType);
+    const direction = earningTypes.includes(adjustmentType)
+      ? "Earning"
+      : "Deduction";
+
     setIsSaving(true);
+
+    if (isEmployeeBalanceType) {
+      const balancePayload = {
+        employee_id: selectedEmployeeId,
+        employee_name: `${employee.first_name} ${employee.last_name}`,
+        balance_type: adjustmentType,
+        original_amount: amountValue,
+        remaining_balance: amountValue,
+        status: "Active",
+        source_module: "Payroll Register",
+        source_id: selectedPeriodId,
+        period_id: selectedPeriodId,
+        remarks:
+          adjustmentRemarks.trim() ||
+          `${adjustmentType} created from Payroll Register for ${selectedPeriod?.period_name || "Payroll Period"}.`,
+        created_at: new Date().toISOString(),
+      };
+
+      const { data: newBalance, error: balanceError } = await supabase
+        .from("employee_balances")
+        .insert(balancePayload)
+        .select()
+        .single();
+
+      setIsSaving(false);
+
+      if (balanceError) {
+        console.log("CREATE EMPLOYEE BALANCE ERROR:", balanceError.message);
+        alert(`Failed to create employee balance.\n\n${balanceError.message}`);
+        return;
+      }
+
+      setSelectedEmployeeId("");
+      setAdjustmentType("Employee Meal Charge");
+      setAdjustmentAmount("");
+      setAdjustmentRemarks("");
+
+      await getEmployeeBalances();
+      await markPayrollNeedsRegeneration();
+
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Create Employee Balance From Register",
+        description: `${adjustmentType} balance created for ${employee.first_name} ${employee.last_name}: ${formatMoney(amountValue)}. This supports partial payroll deduction.`,
+        severity: "warning",
+        recordId: newBalance?.id || selectedPeriodId,
+        newValue: {
+          ...balancePayload,
+          supportsPartialDeduction: true,
+        },
+      });
+
+      alert(
+        `${adjustmentType} saved to Employee Balances. Generate payroll again, then set partial deduction under "Balance Deduct This Cutoff".`
+      );
+      return;
+    }
 
     const adjustmentPayload = {
       period_id: selectedPeriodId,
@@ -1198,7 +1263,7 @@ ${error.message}`);
     }
 
     setSelectedEmployeeId("");
-    setAdjustmentType("Resto Unpaid");
+    setAdjustmentType("Employee Meal Charge");
     setAdjustmentAmount("");
     setAdjustmentRemarks("");
 

@@ -51,7 +51,7 @@ const modules = [
   { key: "settings", label: "General Settings" },
   { key: "approval_controls", label: "Approval Controls" },
   { key: "approval_assignments", label: "Approval Assignments" },
-  { key: "current_user", label: "Current User" },
+  { key: "user_credentials", label: "User Credentials" },
   { key: "user_roles", label: "User Roles" },
   { key: "backup_restore", label: "Backup & Restore" },
   { key: "departments_settings", label: "Departments" },
@@ -473,7 +473,6 @@ export default function UserRolesPage() {
       "scheduling",
       "leave_management",
       "forecasting",
-      "current_user",
     ];
 
     const allowedCreateEdit = ["employees", "scheduling", "leave_management"];
@@ -499,7 +498,6 @@ export default function UserRolesPage() {
       "expense_requests",
       "bills_monitoring",
       "cash_management",
-      "current_user",
     ];
 
     const allowedCreateEdit = [
@@ -511,7 +509,7 @@ export default function UserRolesPage() {
       "cash_management",
     ];
 
-    await setRolePermissionsFromPreset("Frontdesk / Cashier", (moduleKey) => ({
+    await setRolePermissionsFromPreset("Front Office / Cashier", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
       can_create: allowedCreateEdit.includes(moduleKey),
       can_edit: allowedCreateEdit.includes(moduleKey),
@@ -548,7 +546,6 @@ export default function UserRolesPage() {
 
       "approval_center",
 
-      "current_user",
     ];
 
     const allowedCreateEdit = [
@@ -619,9 +616,9 @@ export default function UserRolesPage() {
       "payroll_settings",
 
       "settings",
+      "user_credentials",
       "approval_controls",
       "approval_assignments",
-      "current_user",
       "user_roles",
       "backup_restore",
       "departments_settings",
@@ -635,7 +632,7 @@ export default function UserRolesPage() {
       "property_settings",
     ];
 
-    const noDelete = ["user_roles", "backup_restore"];
+    const noDelete = ["user_credentials", "user_roles", "backup_restore"];
 
     await setRolePermissionsFromPreset("Operations Manager", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
@@ -926,7 +923,7 @@ export default function UserRolesPage() {
                   disabled={!selectedRoleId}
                   className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                 >
-                  Frontdesk / Cashier
+                  Front Office / Cashier
                 </button>
                 <button
                   onClick={clearAllPermissions}

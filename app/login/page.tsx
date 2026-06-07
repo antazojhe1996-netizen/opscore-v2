@@ -10,11 +10,22 @@ import {
   EyeOff,
   Hotel,
   LockKeyhole,
+  ShieldCheck,
   UserCheck,
   Users,
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
+
+type SystemUser = {
+  id: string;
+  employee_id: string;
+  username: string;
+  password: string;
+  is_active: boolean;
+  must_change_password?: boolean | null;
+  last_login_at?: string | null;
+};
 
 type LoginEmployee = {
   id: string;
@@ -22,6 +33,8 @@ type LoginEmployee = {
   first_name: string | null;
   last_name: string | null;
   email?: string | null;
+  department?: string | null;
+  position?: string | null;
   employment_status: string | null;
   system_role_id?: string | null;
 };
@@ -30,9 +43,9 @@ export default function LoginPage() {
   const router = useRouter();
 
   /// STATES
-  const [emailOrEmployeeNo, setEmailOrEmployeeNo] = useState("");
-  const [employeeNo, setEmployeeNo] = useState("");
-  const [showEmployeeNo, setShowEmployeeNo] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -40,82 +53,155 @@ export default function LoginPage() {
   const employeeSessionKey = "opscore_current_employee";
   const employeeIdKey = "opscore_current_employee_id";
   const employeeNameKey = "opscore_current_employee_name";
+  const currentUserKey = "opscore_current_user";
+  const systemUserIdKey = "opscore_current_system_user_id";
+  const mustChangePasswordKey = "opscore_must_change_password";
 
-  /// CALCULATIONS
+  /// HELPERS
   const normalize = (value: string) => value.trim().toLowerCase();
 
-  /// FUNCTIONS
+  const clearSession = () => {
+    localStorage.removeItem(employeeSessionKey);
+    localStorage.removeItem(employeeIdKey);
+    localStorage.removeItem(employeeNameKey);
+    localStorage.removeItem(currentUserKey);
+    localStorage.removeItem(systemUserIdKey);
+    localStorage.removeItem(mustChangePasswordKey);
+  };
+
+  /// EFFECTS
   useEffect(() => {
     const currentEmployeeId = localStorage.getItem(employeeIdKey);
+    const mustChangePassword = localStorage.getItem(mustChangePasswordKey);
+
+    if (currentEmployeeId && mustChangePassword === "true") {
+      router.replace("/change-password");
+      return;
+    }
 
     if (currentEmployeeId) {
       router.replace("/dashboard");
     }
   }, [router]);
 
+  /// FUNCTIONS
   const login = async () => {
     if (isLoading) return;
 
-    const identifier = normalize(emailOrEmployeeNo);
-    const employeeNoInput = employeeNo.trim();
+    const normalizedUsername = normalize(username);
+    const passwordInput = password.trim();
 
-    if (!identifier || !employeeNoInput) {
-      setErrorMessage(
-        "Enter your email or employee number, then your employee number."
-      );
+    if (!normalizedUsername || !passwordInput) {
+      setErrorMessage("Enter your username and password.");
       return;
     }
 
     setIsLoading(true);
     setErrorMessage("");
 
-    const { data, error } = await supabase
-      .from("employees")
+    const { data: userData, error: userError } = await supabase
+      .from("system_users")
       .select("*")
-      .or(`email.ilike.${identifier},employee_no.ilike.${identifier}`)
+      .ilike("username", normalizedUsername)
       .limit(1)
       .maybeSingle();
 
-    setIsLoading(false);
-
-    if (error) {
-      console.log("LOGIN ERROR:", error.message);
+    if (userError) {
+      console.log("LOGIN USER ERROR:", userError.message);
+      setIsLoading(false);
       setErrorMessage("Login failed. Please try again.");
       return;
     }
 
-    const employee = data as LoginEmployee | null;
+    const systemUser = userData as SystemUser | null;
 
-    if (!employee) {
-      setErrorMessage("No employee account found.");
+    if (!systemUser) {
+      setIsLoading(false);
+      setErrorMessage("No user account found.");
       return;
     }
 
-    const savedEmployeeNo = String(employee.employee_no || "")
-      .trim()
-      .toLowerCase();
+    if (!systemUser.is_active) {
+      setIsLoading(false);
+      setErrorMessage("This user account is inactive.");
+      return;
+    }
 
-    if (savedEmployeeNo !== employeeNoInput.toLowerCase()) {
-      setErrorMessage("Employee number does not match this account.");
+    if (String(systemUser.password || "") !== passwordInput) {
+      setIsLoading(false);
+      setErrorMessage("Invalid username or password.");
+      return;
+    }
+
+    const { data: employeeData, error: employeeError } = await supabase
+      .from("employees")
+      .select("*")
+      .eq("id", systemUser.employee_id)
+      .maybeSingle();
+
+    if (employeeError) {
+      console.log("LOGIN EMPLOYEE ERROR:", employeeError.message);
+      setIsLoading(false);
+      setErrorMessage("Employee profile not found. Contact administrator.");
+      return;
+    }
+
+    const employee = employeeData as LoginEmployee | null;
+
+    if (!employee) {
+      setIsLoading(false);
+      setErrorMessage("Employee profile not found. Contact administrator.");
       return;
     }
 
     if (String(employee.employment_status || "").toLowerCase() !== "active") {
+      setIsLoading(false);
       setErrorMessage("This employee account is not active.");
       return;
     }
 
-    const employeeName = `${employee.first_name || ""} ${
-      employee.last_name || ""
-    }`.trim();
+    clearSession();
+
+    const employeeName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+    const mustChangePassword = Boolean(systemUser.must_change_password);
+
+    const sessionEmployee = {
+      ...employee,
+      system_user_id: systemUser.id,
+      username: systemUser.username,
+      must_change_password: mustChangePassword,
+    };
 
     localStorage.setItem(employeeIdKey, employee.id);
     localStorage.setItem(employeeNameKey, employeeName);
-    localStorage.setItem(employeeSessionKey, JSON.stringify(employee));
+    localStorage.setItem(employeeSessionKey, JSON.stringify(sessionEmployee));
+    localStorage.setItem(systemUserIdKey, systemUser.id);
+    localStorage.setItem(mustChangePasswordKey, String(mustChangePassword));
+    localStorage.setItem(
+      currentUserKey,
+      JSON.stringify({
+        id: employee.id,
+        system_user_id: systemUser.id,
+        name: employeeName,
+        username: systemUser.username,
+        email: employee.email || null,
+      })
+    );
+
+    await supabase
+      .from("system_users")
+      .update({ last_login_at: new Date().toISOString() })
+      .eq("id", systemUser.id);
 
     window.dispatchEvent(new Event("storage"));
+    setIsLoading(false);
 
-    router.replace("/employee-portal");
+    if (mustChangePassword) {
+      router.replace("/change-password");
+      return;
+    }
+
+    router.replace("/dashboard");
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -148,8 +234,8 @@ export default function LoginPage() {
                 </h2>
 
                 <p className="mt-5 max-w-xl text-base leading-7 text-slate-400">
-                  Built for owners and managers who need complete visibility
-                  over operations.
+                  OPSCORE V2 Beta access is controlled by employee credentials,
+                  system roles, and module permissions.
                 </p>
               </div>
 
@@ -167,23 +253,16 @@ export default function LoginPage() {
                 />
 
                 <FeatureCard
-                  icon={<BarChart3 size={20} />}
-                  title="Audit & Performance"
-                  description="Monitor operational risks and business performance in real time."
+                  icon={<ShieldCheck size={20} />}
+                  title="Approval Management"
+                  description="Controlled approval center, approval controls, and assigned approvers."
                 />
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-400">
-                    Coming Soon
-                  </p>
-
-                  <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-slate-300">
-                    <p>🏨 Reservation Management</p>
-                    <p>🧾 Point of Sale (POS)</p>
-                    <p>🔧 Maintenance Tracker</p>
-                    <p>🤖 AI Forecasting</p>
-                  </div>
-                </div>
+                <FeatureCard
+                  icon={<BarChart3 size={20} />}
+                  title="Audit & Performance"
+                  description="Monitor access, actions, operational risks, and staff performance."
+                />
               </div>
             </div>
           </div>
@@ -201,27 +280,26 @@ export default function LoginPage() {
 
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.28em] text-amber-400">
-                  Secure Access
+                  OPSCORE V2 Beta
                 </p>
                 <h2 className="mt-3 text-4xl font-black">Welcome back</h2>
                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                  Sign in to continue to your employee portal.
+                  Sign in using the username and temporary password provided by the system administrator.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-4">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
-                    Email or Employee Number
+                    Username
                   </label>
                   <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-amber-400">
                     <UserCheck size={18} className="text-slate-500" />
                     <input
-                      value={emailOrEmployeeNo}
-                      onChange={(event) =>
-                        setEmailOrEmployeeNo(event.target.value)
-                      }
-                      placeholder="ex. BIO-001"
+                      value={username}
+                      onChange={(event) => setUsername(event.target.value)}
+                      placeholder="ex. princess"
+                      autoComplete="username"
                       className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
                     />
                   </div>
@@ -229,27 +307,24 @@ export default function LoginPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
-                    Employee Number
+                    Password
                   </label>
                   <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-amber-400">
                     <LockKeyhole size={18} className="text-slate-500" />
                     <input
-                      value={employeeNo}
-                      onChange={(event) => setEmployeeNo(event.target.value)}
-                      type={showEmployeeNo ? "text" : "password"}
-                      placeholder="Enter your employee number"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter password"
+                      autoComplete="current-password"
                       className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowEmployeeNo((prev) => !prev)}
+                      onClick={() => setShowPassword((prev) => !prev)}
                       className="rounded-lg p-1 text-slate-500 hover:bg-slate-800 hover:text-white"
                     >
-                      {showEmployeeNo ? (
-                        <EyeOff size={17} />
-                      ) : (
-                        <Eye size={17} />
-                      )}
+                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                     </button>
                   </div>
                 </div>
@@ -266,17 +341,16 @@ export default function LoginPage() {
                   disabled={isLoading}
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-amber-400/10 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isLoading ? "Checking access..." : "Enter Employee Portal"}
+                  {isLoading ? "Checking access..." : "Sign In"}
                   {!isLoading && <ArrowRight size={18} />}
                 </button>
               </form>
 
               <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
                 <div className="text-center text-xs text-white/50">
-                  <p>Powered by OPSCORE</p>
-
+                  <p>Need access? Contact the system administrator.</p>
                   <p className="mt-1 font-semibold text-white/80">
-                    Developed & Designed by Jherome Antazo
+                    Powered by OPSCORE · Developed & Designed by Jherome Antazo
                   </p>
                 </div>
               </div>
