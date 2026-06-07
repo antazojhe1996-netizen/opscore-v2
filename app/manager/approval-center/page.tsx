@@ -19,6 +19,10 @@ const CASH_DRAWER_REQUEST_TYPES = [
 export default function ApprovalCenterPage() {
   /// STATES
   const [requests, setRequests] = useState<any[]>([]);
+  const [approvalWorkflows, setApprovalWorkflows] = useState<any[]>([]);
+  const [approvalAssignments, setApprovalAssignments] = useState<any[]>([]);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
+  const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [activeTab, setActiveTab] = useState("PENDING");
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,6 +44,50 @@ export default function ApprovalCenterPage() {
     setRequests(data || []);
   };
 
+  const getApprovalSecuritySetup = async () => {
+    const localEmployeeId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_id")
+        : null;
+
+    const localEmployeeName =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_name") || ""
+        : "";
+
+    setCurrentEmployeeId(localEmployeeId);
+    setCurrentEmployeeName(localEmployeeName);
+
+    const { data: workflowData, error: workflowError } = await supabase
+      .from("approval_workflows")
+      .select("*")
+      .eq("is_active", true);
+
+    if (workflowError) {
+      console.log("GET APPROVAL WORKFLOWS ERROR:", workflowError.message);
+      setApprovalWorkflows([]);
+    } else {
+      setApprovalWorkflows(workflowData || []);
+    }
+
+    const { data: assignmentData, error: assignmentError } = await supabase
+      .from("approval_assignments")
+      .select("*")
+      .eq("is_active", true);
+
+    if (assignmentError) {
+      console.log("GET APPROVAL ASSIGNMENTS ERROR:", assignmentError.message);
+      setApprovalAssignments([]);
+    } else {
+      setApprovalAssignments(assignmentData || []);
+    }
+  };
+
+  const refreshApprovalCenter = async () => {
+    await getApprovalSecuritySetup();
+    await getApprovalRequests();
+  };
+
   const formatMoney = (value: any) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
@@ -59,7 +107,6 @@ export default function ApprovalCenterPage() {
 
     return request.request_payload;
   };
-
 
   const formatDateTime = (value: any) => {
     if (!value) return "-";
@@ -83,6 +130,7 @@ export default function ApprovalCenterPage() {
       BANK_DEPOSIT: "🏦 Bank Deposit",
       REFUND_OUT: "↩️ Refund Out",
       ADJUSTMENT_OUT: "⚖️ Adjustment Out",
+      PAYROLL_ADJUSTMENT: "🧾 Payroll Adjustment",
     };
 
     return labels[type] || type;
@@ -90,11 +138,76 @@ export default function ApprovalCenterPage() {
 
   const getRequestTypeBadgeStyle = (type: string) => {
     if (type === "EXPENSE_REQUEST") return "bg-blue-100 text-blue-700";
+    if (type === "PAYROLL_ADJUSTMENT") return "bg-indigo-100 text-indigo-700";
     if (type === "CASH_ADVANCE_RELEASE") return "bg-purple-100 text-purple-700";
     if (type === "OWNER_WITHDRAWAL") return "bg-red-100 text-red-700";
     if (CASH_DRAWER_REQUEST_TYPES.includes(type)) return "bg-amber-100 text-amber-700";
 
     return "bg-slate-100 text-slate-700";
+  };
+
+  const getWorkflowKeyForRequest = (request: any) => {
+    if (!request?.request_type) return "";
+
+    if (request.request_type === "CASH_EXPENSE_RELEASE") return "CASH_DRAWER_OUT";
+    if (request.request_type === "CASH_ADVANCE_RELEASE") return "CASH_DRAWER_OUT";
+    if (request.request_type === "REFUND_OUT") return "CASH_DRAWER_OUT";
+    if (request.request_type === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
+
+    return request.request_type;
+  };
+
+  const getWorkflowForRequest = (request: any) => {
+    const workflowKey = getWorkflowKeyForRequest(request);
+
+    return (
+      approvalWorkflows.find(
+        (workflow) => String(workflow.workflow_key || "") === String(workflowKey)
+      ) || null
+    );
+  };
+
+  const getApproverRoleForRequest = (request: any) => {
+    const workflow = getWorkflowForRequest(request);
+    return workflow?.approver_role || "MANAGER";
+  };
+
+  const getAssignedApproversForRequest = (request: any) => {
+    const approverRole = getApproverRoleForRequest(request);
+
+    return approvalAssignments.filter(
+      (assignment) =>
+        String(assignment.approval_role || "") === String(approverRole) &&
+        assignment.is_active !== false &&
+        assignment.employee_id
+    );
+  };
+
+  const canCurrentUserApproveRequest = (request: any) => {
+    const assignedApprovers = getAssignedApproversForRequest(request);
+
+    if (!currentEmployeeId || assignedApprovers.length === 0) return false;
+
+    return assignedApprovers.some(
+      (assignment) => String(currentEmployeeId) === String(assignment.employee_id)
+    );
+  };
+
+  const getAssignedApproverLabel = (request: any) => {
+    const assignedApprovers = getAssignedApproversForRequest(request);
+
+    if (assignedApprovers.length === 0) return "No active assigned approver";
+
+    const currentUserIsAssigned = assignedApprovers.some(
+      (assignment) => String(currentEmployeeId || "") === String(assignment.employee_id || "")
+    );
+
+    if (currentUserIsAssigned) {
+      const otherCount = assignedApprovers.length - 1;
+      return `${currentEmployeeName || "Current User"}${otherCount > 0 ? ` + ${otherCount} more` : ""}`;
+    }
+
+    return `${assignedApprovers.length} active approver${assignedApprovers.length > 1 ? "s" : ""}`;
   };
 
   const executeCashDrawerMovement = async (request: any) => {
@@ -122,7 +235,7 @@ export default function ApprovalCenterPage() {
         amount: amountValue,
         from_person: payload.from_person || "",
         to_person: payload.to_person || "",
-        encoded_by: payload.encoded_by || "Manager Approval Center",
+        encoded_by: payload.encoded_by || currentEmployeeName || "Manager Approval Center",
         remarks: payload.remarks || request.description || "Approved cash drawer movement",
         reference_type: payload.should_create_expense ? "expense" : null,
         reference_id: null,
@@ -235,7 +348,7 @@ export default function ApprovalCenterPage() {
     }
 
     await createAuditLog({
-      userName: "OPSCORE USER",
+      userName: currentEmployeeName || "OPSCORE USER",
       module: "Approval Center",
       action: "Approve Cash Drawer Movement",
       description: `${request.request_type} approved and posted - ${formatMoney(amountValue)}`,
@@ -255,6 +368,11 @@ export default function ApprovalCenterPage() {
   const approveRequest = async (request: any) => {
     if (!request?.id || isProcessing) return;
 
+    if (!canCurrentUserApproveRequest(request)) {
+      alert("You are not assigned as approver for this request.");
+      return;
+    }
+
     setIsProcessing(true);
 
     if (CASH_DRAWER_REQUEST_TYPES.includes(request.request_type)) {
@@ -266,13 +384,38 @@ export default function ApprovalCenterPage() {
       }
     }
 
+    if (request.request_type === "PAYROLL_ADJUSTMENT" && request.reference_id) {
+      const { error: adjustmentError } = await supabase
+        .from("payroll_adjustments")
+        .update({
+          status: "Approved",
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", request.reference_id);
+
+      if (adjustmentError) {
+        console.log("SYNC PAYROLL ADJUSTMENT APPROVAL ERROR:", adjustmentError.message);
+        alert("Approval saved failed before payroll adjustment sync.");
+        setIsProcessing(false);
+        return;
+      }
+
+      const payload = getPayload(request);
+      if (payload?.period_id) {
+        await supabase
+          .from("payroll_periods")
+          .update({ needs_regeneration: true })
+          .eq("id", payload.period_id);
+      }
+    }
+
     if (request.request_type === "EXPENSE_REQUEST" && request.reference_id) {
       const { error: expenseRequestError } = await supabase
         .from("expense_requests")
         .update({
           status: "APPROVED",
-          approved_by: "Manager Approval Center",
-          approval_role: "Manager Approval Center",
+          approved_by: currentEmployeeName || "Manager Approval Center",
+          approval_role: getApproverRoleForRequest(request),
           approved_date: new Date().toISOString(),
         })
         .eq("id", request.reference_id);
@@ -289,7 +432,7 @@ export default function ApprovalCenterPage() {
       .from("approval_requests")
       .update({
         status: "APPROVED",
-        approved_by: "Manager Approval Center",
+        approved_by: currentEmployeeName || "Manager Approval Center",
         approved_at: new Date().toISOString(),
       })
       .eq("id", request.id);
@@ -301,7 +444,7 @@ export default function ApprovalCenterPage() {
       return;
     }
 
-    await getApprovalRequests();
+    await refreshApprovalCenter();
     setSelectedRequest(null);
     setActiveTab("APPROVED");
   };
@@ -316,7 +459,54 @@ export default function ApprovalCenterPage() {
       return;
     }
 
+    if (!canCurrentUserApproveRequest(request)) {
+      alert("You are not assigned as approver for this request.");
+      return;
+    }
+
     setIsProcessing(true);
+
+    if (request.request_type === "PAYROLL_ADJUSTMENT" && request.reference_id) {
+      const { error: adjustmentError } = await supabase
+        .from("payroll_adjustments")
+        .update({
+          status: "Approved",
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", request.reference_id);
+
+      if (adjustmentError) {
+        console.log("SYNC PAYROLL ADJUSTMENT APPROVAL ERROR:", adjustmentError.message);
+        alert("Approval saved failed before payroll adjustment sync.");
+        setIsProcessing(false);
+        return;
+      }
+
+      const payload = getPayload(request);
+      if (payload?.period_id) {
+        await supabase
+          .from("payroll_periods")
+          .update({ needs_regeneration: true })
+          .eq("id", payload.period_id);
+      }
+    }
+
+    if (request.request_type === "PAYROLL_ADJUSTMENT" && request.reference_id) {
+      const { error: adjustmentError } = await supabase
+        .from("payroll_adjustments")
+        .update({
+          status: "Rejected",
+          remarks: finalReason,
+        })
+        .eq("id", request.reference_id);
+
+      if (adjustmentError) {
+        console.log("SYNC PAYROLL ADJUSTMENT REJECTION ERROR:", adjustmentError.message);
+        alert("Rejection saved failed before payroll adjustment sync.");
+        setIsProcessing(false);
+        return;
+      }
+    }
 
     if (request.request_type === "EXPENSE_REQUEST" && request.reference_id) {
       const { error: expenseRequestError } = await supabase
@@ -339,7 +529,7 @@ export default function ApprovalCenterPage() {
       .from("approval_requests")
       .update({
         status: "REJECTED",
-        rejected_by: "Manager Approval Center",
+        rejected_by: currentEmployeeName || "Manager Approval Center",
         rejected_at: new Date().toISOString(),
         rejection_reason: finalReason,
       })
@@ -353,7 +543,7 @@ export default function ApprovalCenterPage() {
     }
 
     await createAuditLog({
-      userName: "OPSCORE USER",
+      userName: currentEmployeeName || "OPSCORE USER",
       module: "Approval Center",
       action: "Reject Approval Request",
       description: `${request.request_type} rejected. Reason: ${finalReason}`,
@@ -362,12 +552,12 @@ export default function ApprovalCenterPage() {
       oldValue: request,
       newValue: {
         status: "REJECTED",
-        rejectedBy: "Manager Approval Center",
+        rejectedBy: currentEmployeeName || "Manager Approval Center",
         rejectionReason: finalReason,
       },
     });
 
-    await getApprovalRequests();
+    await refreshApprovalCenter();
     setSelectedRequest(null);
     setShowRejectModal(false);
     setRejectReason("");
@@ -375,14 +565,26 @@ export default function ApprovalCenterPage() {
   };
 
   useEffect(() => {
-    getApprovalRequests();
+    refreshApprovalCenter();
+
+    const handleStorageChange = () => {
+      refreshApprovalCenter();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   /// CALCULATIONS
-  const pendingRequests = requests.filter((r) => r.status === "PENDING");
-  const approvedRequests = requests.filter((r) => r.status === "APPROVED");
-  const rejectedRequests = requests.filter((r) => r.status === "REJECTED");
-  const filteredRequests = requests.filter((r) => r.status === activeTab);
+  const visibleRequests = requests.filter((request) =>
+    canCurrentUserApproveRequest(request)
+  );
+
+  const pendingRequests = visibleRequests.filter((r) => r.status === "PENDING");
+  const approvedRequests = visibleRequests.filter((r) => r.status === "APPROVED");
+  const rejectedRequests = visibleRequests.filter((r) => r.status === "REJECTED");
+  const filteredRequests = visibleRequests.filter((r) => r.status === activeTab);
 
   /// UI
   return (
@@ -395,7 +597,10 @@ export default function ApprovalCenterPage() {
             Manager Approval Center
           </h1>
           <p className="text-sm text-slate-500">
-            Centralized approval hub for Finance, Cash Drawer, Operations, Payroll, and future workflows.
+            Centralized approval hub. Only requests assigned to your approval role are shown.
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Current User: {currentEmployeeName || currentEmployeeId || "Not detected"}
           </p>
         </div>
 
@@ -429,7 +634,7 @@ export default function ApprovalCenterPage() {
               <p className="text-sm text-slate-500">Total Requests</p>
               <FileText className="h-5 w-5 text-blue-500" />
             </div>
-            <h2 className="mt-3 text-2xl font-bold">{requests.length}</h2>
+            <h2 className="mt-3 text-2xl font-bold">{visibleRequests.length}</h2>
           </div>
         </div>
 
@@ -458,6 +663,7 @@ export default function ApprovalCenterPage() {
                 <th className="p-3 text-left">Module</th>
                 <th className="p-3 text-left">Title</th>
                 <th className="p-3 text-left">Requested By</th>
+                <th className="p-3 text-left">Approver Role</th>
                 <th className="p-3 text-left">Status</th>
                 <th className="p-3 text-left">Action</th>
               </tr>
@@ -466,8 +672,8 @@ export default function ApprovalCenterPage() {
             <tbody>
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-slate-500">
-                    No approval requests found.
+                  <td colSpan={8} className="p-6 text-center text-slate-500">
+                    No approval requests assigned to you.
                   </td>
                 </tr>
               ) : (
@@ -492,6 +698,11 @@ export default function ApprovalCenterPage() {
                       {request.title}
                     </td>
                     <td className="p-3">{request.requested_by || "-"}</td>
+                    <td className="p-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        {getApproverRoleForRequest(request)}
+                      </span>
+                    </td>
                     <td className="p-3">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -572,6 +783,25 @@ export default function ApprovalCenterPage() {
                 <div>
                   <p className="text-slate-500">Requested At</p>
                   <p>{formatDateTime(selectedRequest.created_at)}</p>
+                </div>
+
+                <div className="rounded-lg bg-blue-50 p-3">
+                  <p className="mb-2 font-semibold text-blue-800">
+                    Approval Assignment
+                  </p>
+                  <div className="space-y-1 text-xs text-blue-700">
+                    <p>Required Role: {getApproverRoleForRequest(selectedRequest)}</p>
+                    <p>Assigned Approvers: {getAssignedApproverLabel(selectedRequest)}</p>
+                    <p>
+                      Current User: {currentEmployeeName || currentEmployeeId || "Not detected"}
+                    </p>
+                    <p>
+                      Access:{" "}
+                      {canCurrentUserApproveRequest(selectedRequest)
+                        ? "Allowed to approve/reject"
+                        : "View only - not assigned approver"}
+                    </p>
+                  </div>
                 </div>
 
                 {getPayload(selectedRequest) && (
@@ -660,26 +890,32 @@ export default function ApprovalCenterPage() {
               </div>
 
               {selectedRequest.status === "PENDING" ? (
-                <div className="mt-8 flex gap-3">
-                  <button
-                    disabled={isProcessing}
-                    onClick={() => approveRequest(selectedRequest)}
-                    className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isProcessing ? "Processing..." : "Approve"}
-                  </button>
+                canCurrentUserApproveRequest(selectedRequest) ? (
+                  <div className="mt-8 flex gap-3">
+                    <button
+                      disabled={isProcessing}
+                      onClick={() => approveRequest(selectedRequest)}
+                      className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isProcessing ? "Processing..." : "Approve"}
+                    </button>
 
-                  <button
-                    disabled={isProcessing}
-                    onClick={() => {
-                      setRejectReason("");
-                      setShowRejectModal(true);
-                    }}
-                    className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isProcessing ? "Processing..." : "Reject"}
-                  </button>
-                </div>
+                    <button
+                      disabled={isProcessing}
+                      onClick={() => {
+                        setRejectReason("");
+                        setShowRejectModal(true);
+                      }}
+                      className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isProcessing ? "Processing..." : "Reject"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-8 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+                    You can view this request, but only an assigned approver can approve or reject it.
+                  </div>
+                )
               ) : (
                 <div className="mt-8 rounded-lg bg-slate-100 p-3 text-sm text-slate-600">
                   This request is already {selectedRequest.status}.
@@ -688,6 +924,7 @@ export default function ApprovalCenterPage() {
             </div>
           </div>
         )}
+
         {showRejectModal && selectedRequest && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
@@ -731,7 +968,6 @@ export default function ApprovalCenterPage() {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );

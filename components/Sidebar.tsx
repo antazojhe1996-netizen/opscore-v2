@@ -36,9 +36,9 @@ const menuSections = [
     title: "Audit",
     icon: ShieldCheck,
     items: [
-      { label: "Operations Audit", href: "/audit", icon: ShieldCheck, moduleKey: "always_allow" },
-      { label: "Audit Trail", href: "/admin/audit-logs", icon: ClipboardList, moduleKey: "always_allow" },
-      { label: "Database Health", href: "/admin/database-health", icon: Database, moduleKey: "always_allow" },
+      { label: "Operations Audit", href: "/audit", icon: ShieldCheck, moduleKey: "audit_center" },
+      { label: "Audit Trail", href: "/admin/audit-logs", icon: ClipboardList, moduleKey: "activity_logs" },
+      { label: "Database Health", href: "/admin/database-health", icon: Database, moduleKey: "database_health" },
     ],
   },
   {
@@ -50,7 +50,7 @@ const menuSections = [
       { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
       { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
       { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting" },
-      { label: "Performance Monitoring", href: "/performance", icon: BarChart3, moduleKey: "always_allow" },
+      { label: "Performance Monitoring", href: "/performance", icon: BarChart3, moduleKey: "performance" },
       { label: "Employee Portal", href: "/employee-portal", icon: User, moduleKey: "employees" },
     ],
   },
@@ -61,7 +61,7 @@ const menuSections = [
       { label: "Hotel Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "hotel_room_sales" },
       { label: "Apartment Sales", href: "/finance/apartment", icon: Building2, moduleKey: "apartment_sales" },
       { label: "Restaurant / Sports Bar", href: "/finance/restaurant-import", icon: Receipt, moduleKey: "restaurant_sales" },
-      { label: "Sales Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
+      { label: "Sales Settings", href: "/finance/settings", icon: Settings, moduleKey: "finance_settings" },
     ],
   },
   {
@@ -70,11 +70,11 @@ const menuSections = [
     items: [
       { label: "Finance Dashboard", href: "/finance", icon: BarChart3, moduleKey: "finance_dashboard" },
       { label: "Expenses", href: "/finance/expenses", icon: Receipt, moduleKey: "expenses" },
-      { label: "Expense Requests", href: "/finance/expense-requests", icon: ClipboardList, moduleKey: "expenses" },
+      { label: "Expense Requests", href: "/finance/expense-requests", icon: ClipboardList, moduleKey: "expense_requests" },
       { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList, moduleKey: "bills_monitoring" },
       { label: "Cash Management", href: "/finance/cash-management", icon: Wallet, moduleKey: "cash_management" },
-      { label: "Expense Allocation", href: "/finance/settings/expense-allocation", icon: Wallet, moduleKey: "settings" },
-      { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "settings" },
+      { label: "Expense Allocation", href: "/finance/settings/expense-allocation", icon: Wallet, moduleKey: "expense_allocation" },
+      { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "finance_settings" },
     ],
   },
   {
@@ -85,7 +85,7 @@ const menuSections = [
         label: "Approval Center",
         href: "/manager/approval-center",
         icon: ClipboardList,
-        moduleKey: "always_allow",
+        moduleKey: "approval_center",
       },
     ],
   },
@@ -99,7 +99,7 @@ const menuSections = [
       { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt, moduleKey: "payslips" },
       { label: "Release History", href: "/finance/payroll/history", icon: BarChart3, moduleKey: "release_history" },
       { label: "Snapshot History", href: "/finance/payroll/snapshots", icon: Database, moduleKey: "payroll_snapshots" },
-      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "settings" },
+      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "payroll_settings" },
     ],
   },
   {
@@ -107,22 +107,22 @@ const menuSections = [
     icon: Settings,
     items: [
       { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
-      { label: "Approval Controls", href: "/settings/approval-controls", icon: ShieldCheck, moduleKey: "settings" },
-      { label: "Approval Assignments", href: "/settings/approval-assignments", icon: UserCheck, moduleKey: "settings" },
+      { label: "Approval Controls", href: "/settings/approval-controls", icon: ShieldCheck, moduleKey: "approval_controls" },
+      { label: "Approval Assignments", href: "/settings/approval-assignments", icon: UserCheck, moduleKey: "approval_assignments" },
       { label: "Backup & Restore", href: "/backup", icon: Database, moduleKey: "backup_restore" },
       { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
-      { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "always_allow" },
-      { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "settings" },
-      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "settings" },
-      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList, moduleKey: "settings" },
-      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "settings" },
-      { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "settings" },
-      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "settings" },
-      { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3, moduleKey: "settings" },
-      { label: "Performance KPI", href: "/settings/performance-kpi", icon: BarChart3, moduleKey: "settings" },
-      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "settings" },
-      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "settings" },
-      { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "settings" },
+      { label: "Current User", href: "/settings/current-user", icon: UserCheck, moduleKey: "current_user" },
+      { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "departments_settings" },
+      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "positions_settings" },
+      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList, moduleKey: "employment_settings" },
+      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "employment_settings" },
+      { label: "Shifts", href: "/settings/shifts", icon: Clock, moduleKey: "shift_settings" },
+      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "hc_rules" },
+      { label: "Forecasting Rules", href: "/settings/forecasting-rules", icon: BarChart3, moduleKey: "forecasting_rules" },
+      { label: "Performance KPI", href: "/settings/performance-kpi", icon: BarChart3, moduleKey: "performance_kpi" },
+      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "leave_settings" },
+      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "leave_settings" },
+      { label: "Property", href: "/settings/property", icon: Hotel, moduleKey: "property_settings" },
     ],
   },
 ];
@@ -229,7 +229,6 @@ export default function Sidebar() {
   };
 
   const currentPath = normalizePath(pathname || "/");
-
   const isExactActive = (href: string) => normalizePath(href) === currentPath;
 
   const visibleSections = menuSections
@@ -251,9 +250,7 @@ export default function Sidebar() {
   return (
     <aside className="sticky top-0 z-[9999] h-screen w-56 shrink-0 border-r border-slate-800 bg-slate-950 px-3 py-4 text-white">
       <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-3 shadow-lg shadow-black/20">
-        <p className="truncate text-base font-black text-amber-400">
-          ● OPSCORE
-        </p>
+        <p className="truncate text-base font-black text-amber-400">● OPSCORE</p>
         <p className="mt-0.5 truncate text-[11px] text-slate-500">
           Hotel Operations
         </p>
@@ -283,24 +280,20 @@ export default function Sidebar() {
                   }`}
                 >
                   <Icon size={16} />
-                  <span className="min-w-0 flex-1 truncate">
-                    {section.title}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
                 </Link>
               );
             }
 
             return (
-              <div key={section.title} className="group">
+              <div key={section.title} className="group relative">
                 <button
                   type="button"
                   title={section.title}
                   className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-400 transition hover:bg-slate-900 hover:text-white"
                 >
                   <Icon size={16} />
-                  <span className="min-w-0 flex-1 truncate">
-                    {section.title}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
 
                   {section.title === "Manager" && pendingApprovals > 0 && (
                     <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
@@ -311,11 +304,10 @@ export default function Sidebar() {
                   <ChevronRight size={13} className="opacity-60" />
                 </button>
 
-                <div className="invisible fixed left-[232px] top-20 z-[99999] max-h-[82vh] w-72 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-2.5 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
+                <div className="pointer-events-none absolute left-full top-0 h-full w-3" />
+                <div className="invisible absolute left-full top-0 z-[99999] ml-2 max-h-[82vh] w-72 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-2.5 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
                   <div className="mb-2 border-b border-slate-800 px-3 pb-2.5">
-                    <p className="text-sm font-black text-amber-400">
-                      {section.title}
-                    </p>
+                    <p className="text-sm font-black text-amber-400">{section.title}</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
                       Select module
                     </p>
@@ -338,9 +330,7 @@ export default function Sidebar() {
                           }`}
                         >
                           <ItemIcon size={14} />
-                          <span className="min-w-0 flex-1 truncate">
-                            {item.label}
-                          </span>
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
 
                           {item.href === "/manager/approval-center" &&
                             pendingApprovals > 0 && (

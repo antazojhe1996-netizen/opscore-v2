@@ -14,30 +14,55 @@ import {
 
 const modules = [
   { key: "dashboard", label: "Dashboard" },
+
   { key: "audit_center", label: "Audit Center" },
+  { key: "activity_logs", label: "Activity Logs" },
+  { key: "database_health", label: "Database Health" },
+
   { key: "workforce", label: "Workforce" },
   { key: "employees", label: "Employees / 201" },
   { key: "scheduling", label: "Scheduling" },
   { key: "leave_management", label: "Leave Management" },
   { key: "forecasting", label: "Forecasting" },
+  { key: "performance", label: "Performance Monitoring" },
+
   { key: "hotel_room_sales", label: "Hotel Room Sales" },
   { key: "apartment_sales", label: "Apartment Sales" },
   { key: "restaurant_sales", label: "Restaurant / Sports Bar Sales" },
+
   { key: "finance_dashboard", label: "Finance Dashboard" },
   { key: "expenses", label: "Expenses" },
+  { key: "expense_requests", label: "Expense Requests" },
   { key: "bills_monitoring", label: "Bills Monitoring" },
   { key: "cash_management", label: "Cash Management" },
+  { key: "expense_allocation", label: "Expense Allocation" },
+  { key: "finance_settings", label: "Finance Settings" },
+
+  { key: "approval_center", label: "Approval Center" },
+
   { key: "attendance", label: "Attendance Audit" },
   { key: "payroll_register", label: "Payroll Register" },
   { key: "payroll_manager", label: "Payroll Manager" },
   { key: "payslips", label: "Payslips" },
   { key: "payroll_snapshots", label: "Payroll Snapshots" },
   { key: "release_history", label: "Release History" },
-  { key: "settings", label: "Settings" },
+  { key: "payroll_settings", label: "Payroll Settings" },
+
+  { key: "settings", label: "General Settings" },
+  { key: "approval_controls", label: "Approval Controls" },
+  { key: "approval_assignments", label: "Approval Assignments" },
   { key: "current_user", label: "Current User" },
   { key: "user_roles", label: "User Roles" },
   { key: "backup_restore", label: "Backup & Restore" },
-  { key: "activity_logs", label: "Activity Logs" },
+  { key: "departments_settings", label: "Departments" },
+  { key: "positions_settings", label: "Positions" },
+  { key: "employment_settings", label: "Employment Settings" },
+  { key: "shift_settings", label: "Shift Settings" },
+  { key: "hc_rules", label: "HC Rules" },
+  { key: "forecasting_rules", label: "Forecasting Rules" },
+  { key: "performance_kpi", label: "Performance KPI" },
+  { key: "leave_settings", label: "Leave Settings" },
+  { key: "property_settings", label: "Property Settings" },
 ];
 
 const emptyPermission = {
@@ -466,56 +491,163 @@ export default function UserRolesPage() {
   const applyCashierPreset = async () => {
     const allowedView = [
       "dashboard",
+      "hotel_room_sales",
+      "apartment_sales",
       "restaurant_sales",
+      "finance_dashboard",
       "expenses",
+      "expense_requests",
+      "bills_monitoring",
       "cash_management",
       "current_user",
     ];
 
     const allowedCreateEdit = [
+      "hotel_room_sales",
+      "apartment_sales",
       "restaurant_sales",
       "expenses",
+      "expense_requests",
       "cash_management",
     ];
 
-    await setRolePermissionsFromPreset("Cashier", (moduleKey) => ({
+    await setRolePermissionsFromPreset("Frontdesk / Cashier", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
       can_create: allowedCreateEdit.includes(moduleKey),
       can_edit: allowedCreateEdit.includes(moduleKey),
       can_delete: false,
       can_approve: false,
-      can_release: false,
+      can_release: moduleKey === "cash_management",
     }));
   };
 
   const applyManagerPreset = async () => {
     const allowedView = [
       "dashboard",
+
       "audit_center",
+      "activity_logs",
+      "database_health",
+
       "workforce",
       "employees",
       "scheduling",
       "leave_management",
+      "forecasting",
+      "performance",
+
+      "hotel_room_sales",
+      "apartment_sales",
+      "restaurant_sales",
+
       "finance_dashboard",
       "expenses",
+      "expense_requests",
+      "bills_monitoring",
+      "cash_management",
+
+      "approval_center",
+
+      "current_user",
+    ];
+
+    const allowedCreateEdit = [
+      "workforce",
+      "employees",
+      "scheduling",
+      "leave_management",
+      "forecasting",
+      "performance",
+      "expenses",
+      "expense_requests",
+      "cash_management",
+    ];
+
+    const allowedApprove = [
+      "approval_center",
+      "expenses",
+      "expense_requests",
+      "cash_management",
+      "leave_management",
+    ];
+
+    await setRolePermissionsFromPreset("Manager / Supervisor / Audit", (moduleKey) => ({
+      can_view: allowedView.includes(moduleKey),
+      can_create: allowedCreateEdit.includes(moduleKey),
+      can_edit: allowedCreateEdit.includes(moduleKey),
+      can_delete: false,
+      can_approve: allowedApprove.includes(moduleKey),
+      can_release: moduleKey === "cash_management",
+    }));
+  };
+
+  const applyOperationsManagerPreset = async () => {
+    const allowedView = [
+      "dashboard",
+
+      "audit_center",
+      "activity_logs",
+      "database_health",
+
+      "workforce",
+      "employees",
+      "scheduling",
+      "leave_management",
+      "forecasting",
+      "performance",
+
+      "hotel_room_sales",
+      "apartment_sales",
+      "restaurant_sales",
+
+      "finance_dashboard",
+      "expenses",
+      "expense_requests",
+      "bills_monitoring",
+      "cash_management",
+      "expense_allocation",
+      "finance_settings",
+
+      "approval_center",
+
       "attendance",
+      "payroll_register",
       "payroll_manager",
       "payslips",
       "payroll_snapshots",
       "release_history",
-      "activity_logs",
+      "payroll_settings",
+
+      "settings",
+      "approval_controls",
+      "approval_assignments",
       "current_user",
+      "user_roles",
+      "backup_restore",
+      "departments_settings",
+      "positions_settings",
+      "employment_settings",
+      "shift_settings",
+      "hc_rules",
+      "forecasting_rules",
+      "performance_kpi",
+      "leave_settings",
+      "property_settings",
     ];
 
-    const allowedApprove = ["leave_management", "expenses", "payroll_manager"];
+    const noDelete = ["user_roles", "backup_restore"];
 
-    await setRolePermissionsFromPreset("Manager", (moduleKey) => ({
+    await setRolePermissionsFromPreset("Operations Manager", (moduleKey) => ({
       can_view: allowedView.includes(moduleKey),
-      can_create: false,
-      can_edit: false,
-      can_delete: false,
-      can_approve: allowedApprove.includes(moduleKey),
-      can_release: moduleKey === "payroll_manager",
+      can_create: allowedView.includes(moduleKey),
+      can_edit: allowedView.includes(moduleKey),
+      can_delete: allowedView.includes(moduleKey) && !noDelete.includes(moduleKey),
+      can_approve: allowedView.includes(moduleKey),
+      can_release: [
+        "cash_management",
+        "payroll_manager",
+        "approval_center",
+      ].includes(moduleKey),
     }));
   };
 
@@ -766,7 +898,14 @@ export default function UserRolesPage() {
                   disabled={!selectedRoleId}
                   className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                 >
-                  Manager Preset
+                  Manager / Supervisor / Audit
+                </button>
+                <button
+                  onClick={applyOperationsManagerPreset}
+                  disabled={!selectedRoleId}
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                >
+                  Operations Manager
                 </button>
                 <button
                   onClick={applyPayrollPreset}
@@ -787,7 +926,7 @@ export default function UserRolesPage() {
                   disabled={!selectedRoleId}
                   className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                 >
-                  Cashier Preset
+                  Frontdesk / Cashier
                 </button>
                 <button
                   onClick={clearAllPermissions}

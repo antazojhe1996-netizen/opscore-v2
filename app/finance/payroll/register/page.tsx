@@ -1134,24 +1134,67 @@ ${error.message}`);
       ? "Earning"
       : "Deduction";
 
+    const amountValue = Number(adjustmentAmount || 0);
+
+    if (amountValue <= 0) {
+      alert("Adjustment amount must be greater than zero.");
+      return;
+    }
+
     setIsSaving(true);
 
-    const { error } = await supabase.from("payroll_adjustments").insert({
+    const adjustmentPayload = {
       period_id: selectedPeriodId,
       employee_id: selectedEmployeeId,
       employee_name: `${employee.first_name} ${employee.last_name}`,
       adjustment_type: adjustmentType,
       adjustment_direction: direction,
-      amount: Number(adjustmentAmount || 0),
+      amount: amountValue,
       remarks: adjustmentRemarks,
       status: "Pending",
-    });
+    };
+
+    const { data: newAdjustment, error } = await supabase
+      .from("payroll_adjustments")
+      .insert(adjustmentPayload)
+      .select()
+      .single();
+
+    if (error) {
+      setIsSaving(false);
+      alert("Failed to add adjustment.");
+      return console.log("ADD ADJUSTMENT ERROR:", error.message);
+    }
+
+    const { error: approvalError } = await supabase
+      .from("approval_requests")
+      .insert({
+        request_type: "PAYROLL_ADJUSTMENT",
+        module: "Payroll",
+        reference_id: String(newAdjustment.id),
+        title: `${direction}: ${adjustmentType} - ${formatMoney(amountValue)}`,
+        description: `${newAdjustment.employee_name} | ${selectedPeriod?.period_name || "Payroll Period"} | ${adjustmentRemarks || "No remarks"}`,
+        requested_by: "Payroll Register",
+        status: "PENDING",
+        request_payload: {
+          payroll_adjustment_id: newAdjustment.id,
+          period_id: selectedPeriodId,
+          period_name: selectedPeriod?.period_name || "Payroll Period",
+          employee_id: selectedEmployeeId,
+          employee_name: newAdjustment.employee_name,
+          adjustment_type: adjustmentType,
+          adjustment_direction: direction,
+          amount: amountValue,
+          remarks: adjustmentRemarks,
+          approver_role: "MANAGER",
+        },
+      });
 
     setIsSaving(false);
 
-    if (error) {
-      alert("Failed to add adjustment.");
-      return console.log("ADD ADJUSTMENT ERROR:", error.message);
+    if (approvalError) {
+      console.log("CREATE PAYROLL ADJUSTMENT APPROVAL ERROR:", approvalError.message);
+      alert("Adjustment was saved, but Approval Center request failed. Please check approval_requests columns.");
     }
 
     setSelectedEmployeeId("");
@@ -1165,103 +1208,31 @@ ${error.message}`);
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Payroll",
-      action: "Add Payroll Adjustment",
-      description: `${direction} adjustment added for ${employee.first_name} ${employee.last_name}: ${adjustmentType} ${formatMoney(adjustmentAmount)}`,
+      action: "Submit Payroll Adjustment For Approval",
+      description: `${direction} adjustment submitted for ${employee.first_name} ${employee.last_name}: ${adjustmentType} ${formatMoney(amountValue)}`,
       severity: "warning",
-      recordId: selectedPeriodId,
+      recordId: newAdjustment.id,
       newValue: {
-        periodId: selectedPeriodId,
-        employeeId: selectedEmployeeId,
-        employeeName: `${employee.first_name} ${employee.last_name}`,
-        adjustmentType,
-        direction,
-        amount: Number(adjustmentAmount || 0),
-        remarks: adjustmentRemarks,
-        status: "Pending",
+        ...adjustmentPayload,
+        approvalRequestCreated: !approvalError,
       },
     });
 
-    alert("Adjustment saved as Pending. Payroll must be regenerated before sending to Manager.");
-  };
-
-  const approveAdjustment = async (id: string) => {
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before approving adjustments.");
-      return;
-    }
-
-    const confirmed = confirm(
-      "Approve this adjustment? Click Generate Payroll after approval to apply it."
+    alert(
+      approvalError
+        ? "Adjustment saved as Pending, but Approval Center request failed."
+        : "Adjustment sent to Approval Center. Generate payroll only after approval."
     );
-
-    if (!confirmed) return;
-
-    const { error } = await supabase
-      .from("payroll_adjustments")
-      .update({
-        status: "Approved",
-        approved_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (error) {
-      alert("Failed to approve adjustment.");
-      return console.log("APPROVE ADJUSTMENT ERROR:", error.message);
-    }
-
-    await getAdjustments(selectedPeriodId);
-    await markPayrollNeedsRegeneration();
-
-    const approvedAdjustment = adjustments.find((item) => String(item.id) === String(id));
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Payroll",
-      action: "Approve Payroll Adjustment",
-      description: `Approved payroll adjustment ${approvedAdjustment?.adjustment_type || id}`,
-      severity: "warning",
-      recordId: id,
-      oldValue: approvedAdjustment,
-      newValue: { status: "Approved", approved_at: new Date().toISOString() },
-    });
-
-    alert("Adjustment approved. Generate payroll to apply.");
   };
 
-  const rejectAdjustment = async (id: string) => {
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before rejecting adjustments.");
-      return;
-    }
+  // Payroll adjustment approval is now routed through Manager Approval Center.
+  // Keep these no-op guards only to prevent old UI calls from accidentally approving directly.
+  const approveAdjustment = async (_id: string) => {
+    alert("Payroll adjustments must be approved in Manager Approval Center.");
+  };
 
-    const confirmed = confirm("Reject this adjustment?");
-    if (!confirmed) return;
-
-    const { error } = await supabase
-      .from("payroll_adjustments")
-      .update({
-        status: "Rejected",
-      })
-      .eq("id", id);
-
-    if (error) {
-      alert("Failed to reject adjustment.");
-      return console.log("REJECT ADJUSTMENT ERROR:", error.message);
-    }
-
-    await getAdjustments(selectedPeriodId);
-    await markPayrollNeedsRegeneration();
-
-    const rejectedAdjustment = adjustments.find((item) => String(item.id) === String(id));
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Payroll",
-      action: "Reject Payroll Adjustment",
-      description: `Rejected payroll adjustment ${rejectedAdjustment?.adjustment_type || id}`,
-      severity: "warning",
-      recordId: id,
-      oldValue: rejectedAdjustment,
-      newValue: { status: "Rejected" },
-    });
+  const rejectAdjustment = async (_id: string) => {
+    alert("Payroll adjustments must be rejected in Manager Approval Center.");
   };
 
   const deleteAdjustment = async (id: string) => {
@@ -2441,23 +2412,9 @@ This will:
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
                           {String(item.status || "Pending") === "Pending" && (
-                            <>
-                              <button
-                                onClick={() => approveAdjustment(item.id)}
-                                disabled={!canEditPayroll}
-                                className="rounded-lg bg-green-600 px-3 py-1 text-xs font-bold hover:bg-green-500 disabled:opacity-50"
-                              >
-                                Approve
-                              </button>
-
-                              <button
-                                onClick={() => rejectAdjustment(item.id)}
-                                disabled={!canEditPayroll}
-                                className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500 disabled:opacity-50"
-                              >
-                                Reject
-                              </button>
-                            </>
+                            <span className="rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300">
+                              Pending Approval Center
+                            </span>
                           )}
 
                           <button
