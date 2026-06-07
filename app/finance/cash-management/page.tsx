@@ -22,6 +22,9 @@ export default function CashManagementPage() {
   const [drawerRemarks, setDrawerRemarks] = useState("");
   const [actualClosingCash, setActualClosingCash] = useState("");
   const [closeRemarks, setCloseRemarks] = useState("");
+  const [closingRemittanceAmount, setClosingRemittanceAmount] = useState("");
+  const [closingRemittanceReceivedBy, setClosingRemittanceReceivedBy] = useState("");
+  const [closingRemittanceRemarks, setClosingRemittanceRemarks] = useState("");
 
   /// STATES - CASH MOVEMENT FORM
   const [businessDate, setBusinessDate] = useState(today);
@@ -47,6 +50,11 @@ export default function CashManagementPage() {
 
   /// STATES - FILTERS
   const [dateFilter, setDateFilter] = useState(today);
+  const [ledgerDateScope, setLedgerDateScope] = useState("TODAY");
+  const [historyDateScope, setHistoryDateScope] = useState("ALL");
+  const [historyDateFilter, setHistoryDateFilter] = useState(today);
+  const [historyHolderFilter, setHistoryHolderFilter] = useState("ALL");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
   const [holderFilter, setHolderFilter] = useState("AUTO");
@@ -56,6 +64,10 @@ export default function CashManagementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showOpenDrawer, setShowOpenDrawer] = useState(false);
   const [showCloseDrawer, setShowCloseDrawer] = useState(false);
+  const [showDrawerHolderSettings, setShowDrawerHolderSettings] = useState(false);
+  const [drawerHolderSearch, setDrawerHolderSearch] = useState("");
+  const [authorizedDrawerHolders, setAuthorizedDrawerHolders] = useState<string[]>([]);
+  const [drawerHolderSettingsLoaded, setDrawerHolderSettingsLoaded] = useState(false);
 
   /// DATA - OPTIONS
   const movementTypes = [
@@ -150,6 +162,35 @@ export default function CashManagementPage() {
   const getEmployeeFullName = (employee: any) =>
     `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
 
+  const allEmployeeNames = employees
+    .map((employee) => getEmployeeFullName(employee))
+    .filter(Boolean);
+
+  const drawerHolderOptions = employees.filter((employee) =>
+    authorizedDrawerHolders.includes(getEmployeeFullName(employee))
+  );
+
+  const filteredDrawerHolderSettingEmployees = employees.filter((employee) => {
+    const fullName = getEmployeeFullName(employee);
+    const search = drawerHolderSearch.toLowerCase();
+
+    return (
+      fullName.toLowerCase().includes(search) ||
+      String(employee.department || "").toLowerCase().includes(search) ||
+      String(employee.position || "").toLowerCase().includes(search)
+    );
+  });
+
+  const toggleAuthorizedDrawerHolder = (name: string) => {
+    if (!name) return;
+
+    setAuthorizedDrawerHolders((current) =>
+      current.includes(name)
+        ? current.filter((item) => item !== name)
+        : [...current, name].sort((a, b) => a.localeCompare(b))
+    );
+  };
+
   const isCashAdvanceCashOut =
     movementType === "Cash Out" && paymentType === "Cash" && source === "Cash Advance";
 
@@ -223,8 +264,26 @@ export default function CashManagementPage() {
       return movements.filter((item) => item.cash_drawer_id === activeDrawer.id);
     }
 
+    if (ledgerDateScope === "ALL") {
+      return movements;
+    }
+
+    if (ledgerDateScope === "TODAY") {
+      return movements.filter((item) => item.business_date === today);
+    }
+
     return movements.filter((item) => item.business_date === dateFilter);
-  }, [movements, activeDrawer, dateFilter]);
+  }, [movements, activeDrawer, ledgerDateScope, dateFilter, today]);
+
+  const activeDrawerMovements = useMemo(() => {
+    if (!activeDrawer) return [];
+
+    return movements.filter(
+      (item) => String(item.cash_drawer_id || "") === String(activeDrawer.id || "")
+    );
+  }, [movements, activeDrawer]);
+
+  const operationalMovements = activeDrawer ? activeDrawerMovements : [];
 
   /// CALCULATIONS - LEDGER FILTERED MOVEMENTS
   const filteredMovements = useMemo(() => {
@@ -264,7 +323,7 @@ export default function CashManagementPage() {
   ]);
 
   /// CALCULATIONS - CASH ONLY MOVEMENTS
-  const cashOnlyMovements = drawerScopedMovements.filter(
+  const cashOnlyMovements = operationalMovements.filter(
     (item) => (item.payment_type || "Cash") === "Cash"
   );
 
@@ -292,14 +351,14 @@ export default function CashManagementPage() {
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const activeDrawerCash = cashInTotal - cashOutTotal - remittanceTotal;
-  const cashOnHand = cashInTotal - cashOutTotal;
+  const cashOnHand = cashInTotal - cashOutTotal - remittanceTotal;
 
   /// CALCULATIONS - DIGITAL / NON-CASH FUNDS
-  const gcashTotal = drawerScopedMovements
+  const gcashTotal = operationalMovements
     .filter((item) => (item.payment_type || "Cash") === "GCash")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const bankTotal = drawerScopedMovements
+  const bankTotal = operationalMovements
     .filter(
       (item) =>
         (item.payment_type || "Cash") === "Bank" ||
@@ -307,9 +366,104 @@ export default function CashManagementPage() {
     )
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const terminalTotal = drawerScopedMovements
+  const terminalTotal = operationalMovements
     .filter((item) => (item.payment_type || "Cash") === "Terminal")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  /// CALCULATIONS - DRAWER HISTORY CASH-ONLY LOGIC
+  const getDrawerCashSummary = (drawer: any) => {
+    const drawerMovements = movements.filter(
+      (item) => String(item.cash_drawer_id || "") === String(drawer.id || "")
+    );
+
+    const cashMovements = drawerMovements.filter(
+      (item) => (item.payment_type || "Cash") === "Cash"
+    );
+
+    const cashIn = cashMovements
+      .filter(
+        (item) =>
+          item.movement_type === "Opening Float" ||
+          item.movement_type === "Cash In" ||
+          (item.movement_type === "Adjustment" && Number(item.amount || 0) > 0)
+      )
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    const cashOut = cashMovements
+      .filter(
+        (item) =>
+          item.movement_type === "Cash Out" ||
+          item.source === "Owner Withdrawal" ||
+          (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
+      )
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const closingRemittance = cashMovements
+      .filter(
+        (item) =>
+          item.movement_type === "Remittance" &&
+          (item.source === "Drawer Closing Remittance" ||
+            item.reference_type === "drawer_closing_remittance")
+      )
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    const manualRemittance = cashMovements
+      .filter(
+        (item) =>
+          item.movement_type === "Remittance" &&
+          item.source !== "Drawer Closing Remittance" &&
+          item.reference_type !== "drawer_closing_remittance"
+      )
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    // Full-remittance policy:
+    // Variance is based on how much cash was actually turned over to the receiver.
+    // Remaining cash is shown for transparency, but it does not make the drawer balanced.
+    // Bank, GCash, and Terminal payments are intentionally excluded from drawer cash.
+    const expectedBeforeClosingRemittance = cashIn - cashOut - manualRemittance;
+    const actualCash = Number(drawer.actual_cash || 0);
+    const variance =
+      String(drawer.status || "").toUpperCase() === "CLOSED"
+        ? closingRemittance - expectedBeforeClosingRemittance
+        : 0;
+    const remainingCashAfterRemittance = actualCash - closingRemittance;
+
+    return {
+      cashIn,
+      cashOut,
+      manualRemittance,
+      closingRemittance,
+      totalRemittance: manualRemittance + closingRemittance,
+      expectedBeforeClosingRemittance,
+      actualCash,
+      variance,
+      remainingCashAfterRemittance,
+    };
+  };
+
+  const filteredDrawers = useMemo(() => {
+    return drawers.filter((drawer) => {
+      const drawerDate = String(drawer.opened_at || drawer.created_at || "").slice(0, 10);
+      const matchesDate =
+        historyDateScope === "ALL"
+          ? true
+          : historyDateScope === "TODAY"
+          ? drawerDate === today
+          : drawerDate === historyDateFilter;
+
+      const matchesHolder =
+        historyHolderFilter === "ALL"
+          ? true
+          : String(drawer.holder_name || "") === historyHolderFilter;
+
+      const matchesStatus =
+        historyStatusFilter === "ALL"
+          ? true
+          : String(drawer.status || "").toUpperCase() === historyStatusFilter;
+
+      return matchesDate && matchesHolder && matchesStatus;
+    });
+  }, [drawers, historyDateScope, historyDateFilter, historyHolderFilter, historyStatusFilter, today]);
 
   /// FUNCTIONS - FORMATTERS
   const formatMoney = (value: any) => {
@@ -474,13 +628,52 @@ export default function CashManagementPage() {
     setDrawerRemarks("");
     setActualClosingCash("");
     setCloseRemarks("");
+    setClosingRemittanceAmount("");
+    setClosingRemittanceReceivedBy("");
+    setClosingRemittanceRemarks("");
   };
 
   /// FUNCTIONS - PRINT REPORT
   const printDrawerReport = (drawer: any, customSummary?: any) => {
+    const escapeHtml = (value: any) =>
+      String(value ?? "-")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
     const reportMovements = movements.filter(
-      (item) => item.cash_drawer_id === drawer.id
+      (item) => String(item.cash_drawer_id || "") === String(drawer.id || "")
     );
+
+    const hasClosingRemittance = reportMovements.some(
+      (item) =>
+        item.movement_type === "Remittance" &&
+        (item.source === "Drawer Closing Remittance" ||
+          item.reference_type === "drawer_closing_remittance")
+    );
+
+    const syntheticClosingRemittance =
+      Number(customSummary?.remittance_amount || 0) > 0 && !hasClosingRemittance
+        ? [
+            {
+              id: "closing-remittance-preview",
+              business_date: today,
+              movement_type: "Remittance",
+              source: "Drawer Closing Remittance",
+              payment_type: "Cash",
+              amount: Number(customSummary?.remittance_amount || 0),
+              from_person: drawer.holder_name,
+              to_person: customSummary?.received_by || "-",
+              encoded_by: drawer.holder_name,
+              remarks: closingRemittanceRemarks.trim() || "Closing remittance",
+              reference_type: "drawer_closing_remittance",
+            },
+          ]
+        : [];
+
+    const allReportMovements = [...reportMovements, ...syntheticClosingRemittance];
 
     const sum = (rows: any[]) =>
       rows.reduce((total, item) => total + Number(item.amount || 0), 0);
@@ -488,52 +681,138 @@ export default function CashManagementPage() {
     const absSum = (rows: any[]) =>
       rows.reduce((total, item) => total + Math.abs(Number(item.amount || 0)), 0);
 
-    const reportCashIn = sum(
-      reportMovements.filter(
-        (item) =>
-          (item.payment_type || "Cash") === "Cash" &&
-          (item.movement_type === "Opening Float" || item.movement_type === "Cash In")
-      )
+    const byPayment = (payment: string) =>
+      allReportMovements.filter((item) => (item.payment_type || "Cash") === payment);
+
+    const cashRows = byPayment("Cash");
+    const gcashRows = byPayment("GCash");
+    const bankRows = byPayment("Bank");
+    const terminalRows = byPayment("Terminal");
+
+    const cashInRows = cashRows.filter(
+      (item) => item.movement_type === "Opening Float" || item.movement_type === "Cash In"
     );
 
-    const reportCashOut = absSum(
-      reportMovements.filter(
-        (item) =>
-          (item.payment_type || "Cash") === "Cash" && item.movement_type === "Cash Out"
-      )
+    const openingFloatRows = cashRows.filter(
+      (item) => item.movement_type === "Opening Float"
     );
 
-    const reportRemittance = sum(
-      reportMovements.filter(
-        (item) =>
-          (item.payment_type || "Cash") === "Cash" && item.movement_type === "Remittance"
-      )
+    const cashSalesRows = cashRows.filter((item) => item.movement_type === "Cash In");
+
+    const cashOutRows = cashRows.filter(
+      (item) =>
+        item.movement_type === "Cash Out" ||
+        item.source === "Owner Withdrawal" ||
+        (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
     );
 
+    const closingRemittanceRows = cashRows.filter(
+      (item) =>
+        item.movement_type === "Remittance" &&
+        (item.source === "Drawer Closing Remittance" ||
+          item.reference_type === "drawer_closing_remittance")
+    );
+
+    const manualRemittanceRows = cashRows.filter(
+      (item) =>
+        item.movement_type === "Remittance" &&
+        item.source !== "Drawer Closing Remittance" &&
+        item.reference_type !== "drawer_closing_remittance"
+    );
+
+    const openingFloat =
+      openingFloatRows.length > 0 ? sum(openingFloatRows) : Number(drawer.opening_float || 0);
+    const cashSales = sum(cashSalesRows);
+    const cashExpenses = absSum(cashOutRows);
+    const manualRemittance = sum(manualRemittanceRows);
+    const closingRemittance = sum(closingRemittanceRows);
     const expectedCash = Number(
-      customSummary?.expected_cash ??
-        drawer.expected_cash ??
-        reportCashIn - reportCashOut - reportRemittance
+      customSummary?.expected_cash ?? openingFloat + cashSales - cashExpenses - manualRemittance
     );
-
     const actualCash = Number(customSummary?.actual_cash ?? drawer.actual_cash ?? 0);
-    const variance = Number(
-      customSummary?.variance ?? drawer.variance ?? actualCash - expectedCash
+    const remainingCash = Number(
+      customSummary?.remaining_cash_after_remittance ?? actualCash - closingRemittance
     );
+    // Full-remittance policy for owner report:
+    // Expected Cash must be fully remitted. Any amount left unremitted becomes variance.
+    // Never trust saved drawer.variance here because older/legacy drawers may still store
+    // the old actual-count-based variance. Always recalculate from the remitted amount.
+    const variance = Number(closingRemittance - expectedCash);
+    const varianceStatus =
+      Math.abs(variance) < 0.01 ? "BALANCED" : variance < 0 ? "SHORT" : "OVER";
 
-    const rows = reportMovements
+    const cashCollections = cashSales;
+    const gcashCollections = sum(gcashRows.filter((item) => item.movement_type === "Cash In"));
+    const bankCollections = sum(bankRows.filter((item) => item.movement_type === "Cash In"));
+    const terminalCollections = sum(
+      terminalRows.filter((item) => item.movement_type === "Cash In")
+    );
+    const totalCollections = cashCollections + gcashCollections + bankCollections + terminalCollections;
+
+    const salesRows = allReportMovements.filter((item) => item.movement_type === "Cash In");
+    const roomSales = sum(salesRows.filter((item) => item.source === "Room Sales"));
+    const restaurantSales = sum(salesRows.filter((item) => item.source === "Restaurant Sales"));
+    const apartmentCollections = sum(
+      salesRows.filter((item) => item.source === "Apartment Collection")
+    );
+    const otherSales = Math.max(
+      sum(salesRows) - roomSales - restaurantSales - apartmentCollections,
+      0
+    );
+    const totalSales = roomSales + restaurantSales + apartmentCollections + otherSales;
+
+    const manualCashExpenses = absSum(
+      cashOutRows.filter(
+        (item) =>
+          item.source !== "Expense Release" &&
+          item.source !== "Cash Advance" &&
+          item.source !== "Owner Withdrawal" &&
+          item.source !== "Bank Deposit"
+      )
+    );
+    const expenseReleases = absSum(cashOutRows.filter((item) => item.source === "Expense Release"));
+    const cashAdvances = absSum(cashOutRows.filter((item) => item.source === "Cash Advance"));
+    const ownerWithdrawals = absSum(cashOutRows.filter((item) => item.source === "Owner Withdrawal"));
+    const bankDeposits = absSum(cashOutRows.filter((item) => item.source === "Bank Deposit"));
+    const otherExpenses = Math.max(
+      cashExpenses - manualCashExpenses - expenseReleases - cashAdvances - ownerWithdrawals - bankDeposits,
+      0
+    );
+    const totalExpenses =
+      manualCashExpenses + expenseReleases + cashAdvances + ownerWithdrawals + bankDeposits + otherExpenses;
+
+    const businessDate =
+      customSummary?.business_date || String(drawer.opened_at || drawer.created_at || today).slice(0, 10);
+    const generatedAt = formatDateTime(new Date().toISOString());
+    const receivedBy =
+      customSummary?.received_by || closingRemittanceRows[0]?.to_person || "-";
+    const preparedBy = drawer.holder_name || "-";
+    const managementRemarks =
+      customSummary?.remarks || drawer.remarks || closeRemarks || drawer.drawerRemarks || "-";
+
+    const formatPlainMoney = (value: any) => formatMoney(value).replace("₱-", "(₱") + (Number(value || 0) < 0 ? ")" : "");
+
+    const line = (label: string, value: any, bold = false, negative = false) => `
+      <div class="line ${bold ? "bold" : ""}">
+        <span>${escapeHtml(label)}</span>
+        <strong class="${negative ? "negative" : ""}">${formatPlainMoney(value)}</strong>
+      </div>
+    `;
+
+    const transactionRows = allReportMovements
       .map(
         (item, index) => `
           <tr>
             <td>${index + 1}</td>
-            <td>${item.business_date || "-"}</td>
-            <td>${item.movement_type || "-"}</td>
-            <td>${item.source || "-"}</td>
-            <td>${item.payment_type || "Cash"}</td>
-            <td>${item.from_person || "-"}</td>
-            <td>${item.to_person || "-"}</td>
+            <td>${escapeHtml(item.business_date || "-")}</td>
+            <td>${escapeHtml(item.movement_type || "-")}</td>
+            <td>${escapeHtml(item.source || "-")}</td>
+            <td>${escapeHtml(item.payment_type || "Cash")}</td>
+            <td>${escapeHtml(item.from_person || "-")}</td>
+            <td>${escapeHtml(item.to_person || "-")}</td>
+            <td>${escapeHtml(item.encoded_by || "-")}</td>
             <td class="amount">${formatMoney(item.amount)}</td>
-            <td>${item.remarks || "-"}</td>
+            <td>${escapeHtml(item.remarks || "-")}</td>
           </tr>
         `
       )
@@ -542,62 +821,257 @@ export default function CashManagementPage() {
     const html = `
       <html>
         <head>
-          <title>Cash Drawer Report</title>
+          <title>Daily Cash Drawer Report</title>
           <style>
-            body { margin: 0; font-family: Arial, sans-serif; color: #111827; }
-            .print-btn { position: fixed; top: 12px; right: 12px; background: #111827; color: white; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 800; }
-            .page { padding: 24px; }
-            .gold-line { height: 5px; background: #d4af37; margin-bottom: 16px; }
-            .header { display: flex; justify-content: space-between; border-bottom: 1px solid #111827; padding-bottom: 12px; margin-bottom: 16px; }
-            .brand { font-size: 24px; font-weight: 900; }
-            .title { text-align: right; font-size: 18px; font-weight: 900; text-transform: uppercase; }
-            .muted { color: #6b7280; font-size: 11px; margin-top: 4px; }
-            .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-            .card { border-left: 4px solid #d4af37; background: #f9fafb; padding: 10px; }
-            .label { font-size: 9px; text-transform: uppercase; color: #6b7280; letter-spacing: .08em; }
-            .value { font-size: 15px; font-weight: 900; margin-top: 4px; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th { background: #111827; color: white; padding: 8px; text-align: left; text-transform: uppercase; font-size: 9px; }
-            td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
+            @page { size: A4 portrait; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #111827;
+              background: #f3f4f6;
+              font-size: 11px;
+            }
+            .print-btn {
+              position: fixed;
+              top: 10px;
+              right: 10px;
+              z-index: 10;
+              background: #111827;
+              color: white;
+              border: 0;
+              border-radius: 8px;
+              padding: 10px 14px;
+              font-weight: 800;
+              cursor: pointer;
+            }
+            .page {
+              width: 210mm;
+              min-height: 297mm;
+              margin: 0 auto;
+              background: white;
+              padding: 12mm;
+              page-break-after: always;
+            }
+            .page:last-child { page-break-after: auto; }
+            .header {
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 12px;
+              align-items: start;
+              border-bottom: 3px solid #111827;
+              padding-bottom: 10px;
+              margin-bottom: 10px;
+            }
+            .brand { font-size: 25px; font-weight: 900; letter-spacing: -0.04em; }
+            .sub { margin-top: 4px; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+            .muted { color: #4b5563; font-size: 10px; margin-top: 4px; }
+            .report-title { text-align: right; font-size: 22px; font-weight: 900; letter-spacing: .02em; }
+            .status { margin-top: 6px; font-size: 11px; font-weight: 900; }
+            .status.balanced { color: #047857; }
+            .status.short { color: #b91c1c; }
+            .status.over { color: #b45309; }
+            .info-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 8px;
+              margin-bottom: 10px;
+            }
+            .info {
+              border-left: 4px solid #d4af37;
+              background: #f9fafb;
+              padding: 8px 9px;
+              min-height: 46px;
+            }
+            .label { font-size: 8px; font-weight: 900; color: #374151; letter-spacing: .12em; text-transform: uppercase; }
+            .value { margin-top: 5px; font-size: 13px; font-weight: 900; }
+            .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+            .box {
+              border: 1px solid #d1d5db;
+              padding: 9px 10px;
+              margin-bottom: 10px;
+              break-inside: avoid;
+            }
+            .box h3 {
+              margin: 0 0 7px;
+              font-size: 11px;
+              letter-spacing: .22em;
+              text-transform: uppercase;
+              border-bottom: 2px solid #111827;
+              padding-bottom: 5px;
+            }
+            .line {
+              display: flex;
+              justify-content: space-between;
+              gap: 10px;
+              padding: 4px 0;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .line.bold { font-weight: 900; border-top: 2px solid #111827; margin-top: 4px; padding-top: 6px; }
+            .line strong { white-space: nowrap; }
+            .negative { color: #b91c1c; }
+            .remarks {
+              min-height: 40px;
+              border: 1px solid #d1d5db;
+              padding: 8px 10px;
+              margin: 8px 0 16px;
+            }
+            .remarks-title { font-size: 9px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #374151; margin-bottom: 5px; }
+            .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 24px; }
+            .sig { text-align: center; border-top: 1px solid #111827; padding-top: 6px; font-size: 10px; }
+            .sig strong { display: block; font-size: 11px; }
+            .footer { position: relative; margin-top: 36px; display:flex; justify-content:space-between; color:#4b5563; font-size:9px; }
+            table { width: 100%; border-collapse: collapse; font-size: 9px; }
+            th { background: #111827; color: white; text-align: left; padding: 6px 5px; text-transform: uppercase; font-size: 7.5px; letter-spacing: .06em; }
+            td { border-bottom: 1px solid #e5e7eb; padding: 6px 5px; vertical-align: top; }
             .amount { text-align: right; font-weight: 900; white-space: nowrap; }
-            @media print { .print-btn { display: none; } }
+            .note {
+              border: 1px solid #bfdbfe;
+              background: #eff6ff;
+              color: #1e3a8a;
+              padding: 8px 10px;
+              margin-bottom: 10px;
+              font-size: 9.5px;
+              line-height: 1.45;
+            }
+            @media print {
+              body { background: white; }
+              .print-btn { display: none; }
+              .page { margin: 0; width: auto; min-height: auto; box-shadow: none; }
+            }
           </style>
         </head>
         <body>
           <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+
           <section class="page">
-            <div class="gold-line"></div>
             <div class="header">
               <div>
                 <div class="brand">Vincent Resort Hotel</div>
-                <div class="muted">Cash Drawer Report</div>
-                <div class="muted">Generated: ${formatDateTime(new Date().toISOString())}</div>
+                <div class="sub">Operations Finance Control</div>
+                <div class="muted">Generated: ${escapeHtml(generatedAt)}</div>
               </div>
               <div>
-                <div class="title">${customSummary?.status || drawer.status || "OPEN"}</div>
-                <div class="muted">Holder: ${drawer.holder_name || "-"}</div>
-                <div class="muted">Opened: ${formatDateTime(drawer.opened_at)}</div>
-                <div class="muted">Closed: ${formatDateTime(customSummary?.closed_at || drawer.closed_at)}</div>
+                <div class="report-title">DAILY CASH DRAWER REPORT</div>
+                <div class="muted">Business Date: ${escapeHtml(businessDate)}</div>
+                <div class="muted">Report Status: ${escapeHtml(customSummary?.status || drawer.status || "OPEN")}</div>
+                <div class="status ${varianceStatus.toLowerCase()}">${escapeHtml(varianceStatus)}</div>
               </div>
             </div>
-            <div class="cards">
-              <div class="card"><div class="label">Cash In</div><div class="value">${formatMoney(reportCashIn)}</div></div>
-              <div class="card"><div class="label">Cash Out</div><div class="value">${formatMoney(reportCashOut)}</div></div>
-              <div class="card"><div class="label">Expected</div><div class="value">${formatMoney(expectedCash)}</div></div>
-              <div class="card"><div class="label">Variance</div><div class="value">${formatMoney(variance)}</div></div>
+
+            <div class="info-grid">
+              <div class="info"><div class="label">Drawer Holder</div><div class="value">${escapeHtml(drawer.holder_name || "-")}</div></div>
+              <div class="info"><div class="label">Opened</div><div class="value">${escapeHtml(formatDateTime(drawer.opened_at))}</div></div>
+              <div class="info"><div class="label">Closed</div><div class="value">${escapeHtml(formatDateTime(customSummary?.closed_at || drawer.closed_at))}</div></div>
+              <div class="info"><div class="label">Received By</div><div class="value">${escapeHtml(receivedBy)}</div></div>
+            </div>
+
+            <div class="grid-2">
+              <div class="box">
+                <h3>Cash Reconciliation</h3>
+                ${line("Opening Float", openingFloat)}
+                ${line("Add: Cash Sales", cashSales)}
+                ${line("Less: Cash Expenses / Releases", -cashExpenses, false, true)}
+                ${manualRemittance > 0 ? line("Less: Manual Remittance", -manualRemittance, false, true) : ""}
+                ${line("Expected Cash", expectedCash, true)}
+                ${line("Actual Cash Counted", actualCash)}
+                ${line("Remitted", closingRemittance)}
+                ${line("Remaining Cash", remainingCash)}
+                ${line(varianceStatus, variance, true, variance < 0)}
+              </div>
+
+              <div>
+                <div class="box">
+                  <h3>Collection Summary</h3>
+                  ${line("Cash Sales", cashCollections)}
+                  ${line("GCash Sales", gcashCollections)}
+                  ${line("Bank Transfer", bankCollections)}
+                  ${line("Terminal / Card", terminalCollections)}
+                  ${line("Total Collections", totalCollections, true)}
+                </div>
+                <div class="box">
+                  <h3>Remittance Summary</h3>
+                  ${line("Remitted Amount", closingRemittance)}
+                  ${line("Received By", 0).replace(/<strong[^>]*>.*<\/strong>/, `<strong>${escapeHtml(receivedBy)}</strong>`)}
+                  ${line("Remaining Cash", remainingCash, true)}
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="box">
+                <h3>Sales Summary</h3>
+                ${line("Room Sales", roomSales)}
+                ${line("Restaurant Sales", restaurantSales)}
+                ${line("Apartment Collection", apartmentCollections)}
+                ${line("Other Sales", otherSales)}
+                ${line("Total Sales", totalSales, true)}
+              </div>
+
+              <div class="box">
+                <h3>Expense Summary</h3>
+                ${line("Manual Cash Expenses", manualCashExpenses)}
+                ${line("Expense Releases", expenseReleases)}
+                ${line("Cash Advances", cashAdvances)}
+                ${line("Owner Withdrawal", ownerWithdrawals)}
+                ${line("Bank Deposit", bankDeposits)}
+                ${line("Other Expenses", otherExpenses)}
+                ${line("Total Expenses", totalExpenses, true)}
+              </div>
+            </div>
+
+            <div class="note">
+              Cash drawer rule: only physical cash movements are included in Expected Cash. Full remittance is required. Variance is based on Expected Cash minus actual cash remitted. Bank, GCash, and Terminal collections are shown for reference only.
+            </div>
+
+            <div class="remarks">
+              <div class="remarks-title">Management Remarks</div>
+              ${escapeHtml(managementRemarks)}
+            </div>
+
+            <div class="signatures">
+              <div class="sig"><strong>${escapeHtml(preparedBy)}</strong>Prepared By / Cashier</div>
+              <div class="sig"><strong>${escapeHtml(receivedBy)}</strong>Received By</div>
+              <div class="sig"><strong>Management</strong>Checked / Approved By</div>
+            </div>
+
+            <div class="footer">
+              <span>OpsCore Executive Finance Report</span>
+              <span>Page 1 - Executive Summary</span>
+            </div>
+          </section>
+
+          <section class="page">
+            <div class="header">
+              <div>
+                <div class="brand">Vincent Resort Hotel</div>
+                <div class="sub">Cashier Shift Transaction Details</div>
+              </div>
+              <div>
+                <div class="report-title">TRANSACTION REPORT</div>
+                <div class="muted">Business Date: ${escapeHtml(businessDate)}</div>
+              </div>
             </div>
             <table>
               <thead>
-                <tr><th>#</th><th>Date</th><th>Type</th><th>Source</th><th>Payment</th><th>From</th><th>To</th><th>Amount</th><th>Remarks</th></tr>
+                <tr>
+                  <th>#</th><th>Date</th><th>Type</th><th>Source</th><th>Payment</th><th>From</th><th>Received By</th><th>Encoded By</th><th>Amount</th><th>Remarks</th>
+                </tr>
               </thead>
-              <tbody>${rows || `<tr><td colspan="9" style="text-align:center; padding: 30px;">No movements found.</td></tr>`}</tbody>
+              <tbody>
+                ${transactionRows || `<tr><td colspan="10" style="text-align:center; padding: 24px;">No linked drawer movements found. This may be a legacy drawer record.</td></tr>`}
+              </tbody>
             </table>
+            <div class="footer">
+              <span>OpsCore Executive Finance Report</span>
+              <span>Page 2 - Transaction Details</span>
+            </div>
           </section>
         </body>
       </html>
     `;
 
-    const printWindow = window.open("", "_blank", "width=1200,height=850");
+    const printWindow = window.open("", "_blank", "width=900,height=1100");
 
     if (!printWindow) {
       alert("Popup blocked. Please allow popups for this site.");
@@ -619,6 +1093,11 @@ export default function CashManagementPage() {
 
     if (!drawerHolder || !openingFloat) {
       alert("Please select drawer holder and opening float.");
+      return;
+    }
+
+    if (!authorizedDrawerHolders.includes(drawerHolder)) {
+      alert("This employee is not authorized in Drawer Holder Settings.");
       return;
     }
 
@@ -730,11 +1209,101 @@ export default function CashManagementPage() {
       return;
     }
 
+    const actualCashValue = Number(actualClosingCash || 0);
+    const remittanceValue = Number(closingRemittanceAmount || 0);
+    const receiverName = closingRemittanceReceivedBy.trim();
+
+    if (actualCashValue < 0) {
+      alert("Actual closing cash cannot be negative.");
+      return;
+    }
+
+    if (remittanceValue < 0) {
+      alert("Remittance amount cannot be negative.");
+      return;
+    }
+
+    if (remittanceValue > 0 && !receiverName) {
+      alert("Please enter who received the remittance.");
+      return;
+    }
+
+    if (remittanceValue > actualCashValue) {
+      alert("Remittance cannot be greater than actual cash counted.");
+      return;
+    }
+
     const drawerExpectedCash = activeDrawerCash;
-    const drawerVariance = Number(actualClosingCash || 0) - drawerExpectedCash;
+    // Full-remittance policy:
+    // The drawer is balanced only when the amount remitted equals the expected physical cash.
+    // Actual count is still recorded for audit, and any unremitted cash is shown as remaining.
+    const drawerVariance = remittanceValue - drawerExpectedCash;
+    const remainingCashAfterRemittance = actualCashValue - remittanceValue;
     const closedAt = new Date().toISOString();
 
     setIsSaving(true);
+
+    let remittanceMovementData: any = null;
+
+    if (remittanceValue > 0) {
+      const { data: remittanceData, error: remittanceError } = await supabase
+        .from("finance_cash_movements")
+        .insert({
+          business_date: today,
+          movement_type: "Remittance",
+          source: "Drawer Closing Remittance",
+          payment_type: "Cash",
+          amount: remittanceValue,
+          from_person: activeDrawer.holder_name,
+          to_person: receiverName,
+          encoded_by: activeDrawer.holder_name,
+          remarks:
+            closingRemittanceRemarks.trim() ||
+            `Auto remittance during drawer closing. Remaining cash after remittance: ${formatMoney(remainingCashAfterRemittance)}`,
+          reference_type: "drawer_closing_remittance",
+          reference_id: activeDrawer.id,
+          cash_drawer_id: activeDrawer.id,
+        })
+        .select()
+        .single();
+
+      if (remittanceError) {
+        setIsSaving(false);
+        console.log("CLOSING REMITTANCE ERROR:", remittanceError.message);
+
+        await createAuditLog({
+          userName: "OPSCORE USER",
+          module: "Cash Management",
+          action: "Closing Remittance Failed",
+          description: `Failed to save closing remittance for ${activeDrawer.holder_name}. Error: ${remittanceError.message}`,
+          severity: "critical",
+          recordId: activeDrawer.id,
+          oldValue: activeDrawer,
+          newValue: {
+            remittanceAmount: remittanceValue,
+            receivedBy: receiverName,
+            error: remittanceError.message,
+          },
+        });
+
+        alert("Failed to save drawer remittance. Drawer was not closed.");
+        return;
+      }
+
+      remittanceMovementData = remittanceData;
+    }
+
+    const closingRemarksText = [
+      closeRemarks.trim() || activeDrawer.remarks || "",
+      remittanceValue > 0
+        ? `Remitted ${formatMoney(remittanceValue)} to ${receiverName}. Remaining cash after remittance: ${formatMoney(remainingCashAfterRemittance)}.`
+        : "No remittance recorded during drawer closing.",
+      closingRemittanceRemarks.trim()
+        ? `Remittance remarks: ${closingRemittanceRemarks.trim()}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     const { error } = await supabase
       .from("finance_cash_drawers")
@@ -742,9 +1311,9 @@ export default function CashManagementPage() {
         status: "CLOSED",
         closed_at: closedAt,
         expected_cash: drawerExpectedCash,
-        actual_cash: Number(actualClosingCash || 0),
+        actual_cash: actualCashValue,
         variance: drawerVariance,
-        remarks: closeRemarks.trim() || activeDrawer.remarks || "",
+        remarks: closingRemarksText,
       })
       .eq("id", activeDrawer.id);
 
@@ -763,21 +1332,27 @@ export default function CashManagementPage() {
         oldValue: activeDrawer,
         newValue: {
           expectedCash: drawerExpectedCash,
-          actualCash: Number(actualClosingCash || 0),
+          actualCash: actualCashValue,
           variance: drawerVariance,
+          remittanceAmount: remittanceValue,
+          receivedBy: receiverName,
+          remainingCashAfterRemittance,
+          remittanceMovement: remittanceMovementData,
           error: error.message,
         },
       });
 
-      alert("Failed to close drawer.");
+      alert("Remittance was saved, but drawer close failed. Check drawer status and audit log.");
       return;
     }
 
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Cash Management",
-      action: "Close Drawer",
-      description: `${activeDrawer.holder_name} closed drawer. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualClosingCash)}, variance ${formatMoney(drawerVariance)}`,
+      action: remittanceValue > 0 ? "Close Drawer With Remittance" : "Close Drawer",
+      description: remittanceValue > 0
+        ? `${activeDrawer.holder_name} closed drawer and remitted ${formatMoney(remittanceValue)} to ${receiverName}. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`
+        : `${activeDrawer.holder_name} closed drawer. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`,
       severity: Math.abs(drawerVariance) >= 500 ? "critical" : "warning",
       recordId: activeDrawer.id,
       oldValue: activeDrawer,
@@ -785,9 +1360,13 @@ export default function CashManagementPage() {
         status: "CLOSED",
         closedAt,
         expectedCash: drawerExpectedCash,
-        actualCash: Number(actualClosingCash || 0),
+        actualCash: actualCashValue,
         variance: drawerVariance,
-        remarks: closeRemarks.trim() || activeDrawer.remarks || "",
+        remittanceAmount: remittanceValue,
+        receivedBy: receiverName || null,
+        remainingCashAfterRemittance,
+        remittanceMovement: remittanceMovementData,
+        remarks: closingRemarksText,
       },
     });
 
@@ -796,12 +1375,16 @@ export default function CashManagementPage() {
       closed_at: closedAt,
       status: "CLOSED",
       expected_cash: drawerExpectedCash,
-      actual_cash: Number(actualClosingCash || 0),
+      actual_cash: actualCashValue,
       variance: drawerVariance,
+      remittance_amount: remittanceValue,
+      received_by: receiverName,
+      remaining_cash_after_remittance: remainingCashAfterRemittance,
     });
 
     resetDrawerForm();
     setShowCloseDrawer(false);
+    await getCashMovements();
     await getDrawers();
   };
 
@@ -1187,6 +1770,14 @@ export default function CashManagementPage() {
       return;
     }
 
+    if (
+      movement.reference_type === "drawer_closing_remittance" ||
+      movement.source === "Drawer Closing Remittance"
+    ) {
+      alert("Drawer closing remittance is locked. Reopen or correct the drawer instead of deleting this record.");
+      return;
+    }
+
     const { data: linkedExpenseByReference } = movement.reference_id
       ? await supabase
           .from("expenses")
@@ -1376,6 +1967,35 @@ Continue?`
 
   /// EFFECTS
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem("opscore_authorized_drawer_holders");
+      const parsed = stored ? JSON.parse(stored) : [];
+
+      setAuthorizedDrawerHolders(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+      console.log("DRAWER HOLDER SETTINGS LOAD ERROR:", error);
+      setAuthorizedDrawerHolders([]);
+    } finally {
+      setDrawerHolderSettingsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!drawerHolderSettingsLoaded) return;
+
+    localStorage.setItem(
+      "opscore_authorized_drawer_holders",
+      JSON.stringify(authorizedDrawerHolders)
+    );
+  }, [authorizedDrawerHolders, drawerHolderSettingsLoaded]);
+
+  useEffect(() => {
+    if (drawerHolder && !authorizedDrawerHolders.includes(drawerHolder)) {
+      setDrawerHolder("");
+    }
+  }, [authorizedDrawerHolders, drawerHolder]);
+
+  useEffect(() => {
     getCashMovements();
     getDrawers();
     getEmployees();
@@ -1396,11 +2016,18 @@ Continue?`
             </p>
             <h1 className="mt-2 text-3xl font-bold">Cash Management</h1>
             <p className="mt-2 text-sm text-slate-400">
-              Open drawer, track cash movement, release cash expenses, and post cash advances directly to payroll balances.
+              Open drawer, track cash movement, release cash expenses, post cash advances, and require drawer remittance during closing.
             </p>
           </div>
 
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowDrawerHolderSettings(true)}
+              className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold hover:border-sky-400 hover:text-sky-300"
+            >
+              Drawer Holder Settings
+            </button>
+
             {activeDrawer && (
               <button
                 onClick={() => printDrawerReport(activeDrawer)}
@@ -1449,7 +2076,7 @@ Continue?`
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Cash On Hand" value={formatMoney(cashOnHand)} color="text-emerald-400" />
+          <SummaryCard title="Cash On Hand After Remittance" value={formatMoney(cashOnHand)} color="text-emerald-400" />
           <SummaryCard title="GCash / Digital" value={formatMoney(gcashTotal)} color="text-purple-400" />
           <SummaryCard title="Bank" value={formatMoney(bankTotal)} color="text-blue-400" />
           <SummaryCard title="Terminal" value={formatMoney(terminalTotal)} color="text-sky-400" />
@@ -1471,12 +2098,38 @@ Continue?`
               <select
                 value={movementType}
                 onChange={(e) => {
-                  setMovementType(e.target.value);
-                  if (e.target.value !== "Cash Out") setSource("Room Sales");
+                  const nextType = e.target.value;
+                  setMovementType(nextType);
+
+                  if (nextType === "Remittance") {
+                    setSource("Remittance");
+                    setPaymentType("Cash");
+                    return;
+                  }
+
+                  if (nextType === "Opening Float") {
+                    setSource("Petty Cash");
+                    setPaymentType("Cash");
+                    return;
+                  }
+
+                  if (nextType === "Adjustment") {
+                    setSource("Other");
+                    return;
+                  }
+
+                  if (nextType === "Cash In") {
+                    setSource("Room Sales");
+                    return;
+                  }
+
+                  if (nextType === "Cash Out") {
+                    setSource("Expense Release");
+                  }
                 }}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               >
-                {movementTypes.map((type) => <option key={type}>{type}</option>)}
+                {movementTypes.filter((type) => type !== "Remittance").map((type) => <option key={type}>{type}</option>)}
               </select>
 
               <select
@@ -1492,6 +2145,15 @@ Continue?`
               </select>
 
               <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+
+              {movementType === "Remittance" && (
+                <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
+                  <p className="text-sm font-bold text-sky-300">Remittance Process</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-300">
+                    Remittance is a custody transfer only. It reduces drawer cash but does not count as an expense or profit deduction. Enter the remitted by person in From and the receiver in To.
+                  </p>
+                </div>
+              )}
 
               {shouldCreateExpenseFromCashOut && (
                 <div className={`rounded-2xl border p-4 ${
@@ -1630,7 +2292,15 @@ Continue?`
             <h2 className="text-xl font-bold">Cash Movement Ledger</h2>
 
             <div className="my-5 grid grid-cols-1 gap-3 md:grid-cols-5">
-              <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ colorScheme: "dark" }} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+              <select value={ledgerDateScope} onChange={(e) => setLedgerDateScope(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
+                <option value="TODAY">Today</option>
+                <option value="ALL">All Dates</option>
+                <option value="CUSTOM">Custom Date</option>
+              </select>
+
+              {ledgerDateScope === "CUSTOM" && (
+                <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ colorScheme: "dark" }} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+              )}
 
               <select value={holderFilter} onChange={(e) => setHolderFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
                 <option value="AUTO">Auto Holder</option>
@@ -1685,9 +2355,15 @@ Continue?`
                       <td className="px-4 py-3">{item.encoded_by || "-"}</td>
                       <td className="px-4 py-3">{item.remarks || "-"}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => deleteMovement(item.id)} className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500">
-                          Delete
-                        </button>
+                        {item.reference_type === "drawer_closing_remittance" || item.source === "Drawer Closing Remittance" ? (
+                          <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
+                            Locked
+                          </span>
+                        ) : (
+                          <button onClick={() => deleteMovement(item.id)} className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500">
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1704,18 +2380,58 @@ Continue?`
         </div>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <h2 className="text-xl font-bold">Drawer History</h2>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Drawer History</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Uses cash-only drawer logic. Bank, GCash, and Terminal payments are excluded from expected cash.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+              <select value={historyDateScope} onChange={(e) => setHistoryDateScope(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
+                <option value="TODAY">Today</option>
+                <option value="ALL">All History</option>
+                <option value="CUSTOM">Custom Date</option>
+              </select>
+
+              {historyDateScope === "CUSTOM" ? (
+                <input type="date" value={historyDateFilter} onChange={(e) => setHistoryDateFilter(e.target.value)} style={{ colorScheme: "dark" }} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+              ) : (
+                <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
+                  {historyDateScope === "ALL" ? "All dates" : today}
+                </div>
+              )}
+
+              <select value={historyHolderFilter} onChange={(e) => setHistoryHolderFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
+                <option value="ALL">All Holders</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`}>
+                    {employee.first_name} {employee.last_name}
+                  </option>
+                ))}
+              </select>
+
+              <select value={historyStatusFilter} onChange={(e) => setHistoryStatusFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
+                <option value="ALL">All Status</option>
+                <option value="OPEN">Open</option>
+                <option value="CLOSED">Closed</option>
+              </select>
+            </div>
+          </div>
 
           <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1000px] text-sm">
+            <table className="w-full min-w-[1250px] text-sm">
               <thead className="bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Holder</th>
                   <th className="px-4 py-3">Opened</th>
                   <th className="px-4 py-3">Closed</th>
                   <th className="px-4 py-3 text-right">Opening</th>
-                  <th className="px-4 py-3 text-right">Expected</th>
-                  <th className="px-4 py-3 text-right">Actual</th>
+                  <th className="px-4 py-3 text-right">Expected Cash</th>
+                  <th className="px-4 py-3 text-right">Actual Count</th>
+                  <th className="px-4 py-3 text-right">Remitted</th>
+                  <th className="px-4 py-3 text-right">Remaining</th>
                   <th className="px-4 py-3 text-right">Variance</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">PDF</th>
@@ -1723,27 +2439,62 @@ Continue?`
               </thead>
 
               <tbody>
-                {drawers.map((drawer) => (
-                  <tr key={drawer.id} className="border-t border-slate-800 text-slate-200">
-                    <td className="px-4 py-3">{drawer.holder_name}</td>
-                    <td className="px-4 py-3">{formatDateTime(drawer.opened_at)}</td>
-                    <td className="px-4 py-3">{formatDateTime(drawer.closed_at)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(drawer.opening_float)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(drawer.expected_cash)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(drawer.actual_cash)}</td>
-                    <td className={`px-4 py-3 text-right font-semibold ${Number(drawer.variance || 0) < 0 ? "text-red-400" : "text-emerald-400"}`}>{formatMoney(drawer.variance)}</td>
-                    <td className="px-4 py-3">{drawer.status}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => printDrawerReport(drawer)} className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:bg-blue-500">
-                        Print PDF
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredDrawers.map((drawer) => {
+                  const summary = getDrawerCashSummary(drawer);
+                  const displayActual =
+                    String(drawer.status || "").toUpperCase() === "CLOSED"
+                      ? summary.actualCash
+                      : 0;
+                  const displayRemaining =
+                    String(drawer.status || "").toUpperCase() === "CLOSED"
+                      ? summary.remainingCashAfterRemittance
+                      : summary.expectedBeforeClosingRemittance;
 
-                {drawers.length === 0 && (
+                  return (
+                    <tr key={drawer.id} className="border-t border-slate-800 text-slate-200">
+                      <td className="px-4 py-3">{drawer.holder_name}</td>
+                      <td className="px-4 py-3">{formatDateTime(drawer.opened_at)}</td>
+                      <td className="px-4 py-3">{formatDateTime(drawer.closed_at)}</td>
+                      <td className="px-4 py-3 text-right">{formatMoney(drawer.opening_float)}</td>
+                      <td className="px-4 py-3 text-right">{formatMoney(summary.expectedBeforeClosingRemittance)}</td>
+                      <td className="px-4 py-3 text-right">{formatMoney(displayActual)}</td>
+                      <td className="px-4 py-3 text-right">{formatMoney(summary.closingRemittance)}</td>
+                      <td className="px-4 py-3 text-right">{formatMoney(displayRemaining)}</td>
+                      <td className={`px-4 py-3 text-right font-semibold ${summary.variance < 0 ? "text-red-400" : "text-emerald-400"}`}>{formatMoney(summary.variance)}</td>
+                      <td className="px-4 py-3">{drawer.status}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() =>
+                            printDrawerReport(drawer, {
+                              ...drawer,
+                              expected_cash: summary.expectedBeforeClosingRemittance,
+                              actual_cash: summary.actualCash,
+                              remittance_amount: summary.closingRemittance,
+                              remaining_cash_after_remittance: summary.remainingCashAfterRemittance,
+                              // Full-remittance policy: remitted amount minus expected cash.
+                              variance: summary.closingRemittance - summary.expectedBeforeClosingRemittance,
+                              received_by:
+                                movements.find(
+                                  (item) =>
+                                    String(item.cash_drawer_id || "") === String(drawer.id || "") &&
+                                    item.movement_type === "Remittance" &&
+                                    (item.source === "Drawer Closing Remittance" ||
+                                      item.reference_type === "drawer_closing_remittance")
+                                )?.to_person || "-",
+                            })
+                          }
+                          className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:bg-blue-500"
+                        >
+                          Print PDF
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {filteredDrawers.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-slate-500">No drawer history found.</td>
+                    <td colSpan={11} className="px-4 py-10 text-center text-slate-500">No drawer history found.</td>
                   </tr>
                 )}
               </tbody>
@@ -1751,22 +2502,108 @@ Continue?`
           </div>
         </section>
 
+        {showDrawerHolderSettings && (
+          <Modal title="Drawer Holder Settings" onClose={() => setShowDrawerHolderSettings(false)}>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
+                <p className="text-sm font-bold text-sky-300">Authorized Cash Drawer Holders</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Only selected names will appear when opening a drawer. This keeps cash handling controlled while still allowing any approved employee from any department.
+                </p>
+              </div>
+
+              <input
+                value={drawerHolderSearch}
+                onChange={(e) => setDrawerHolderSearch(e.target.value)}
+                placeholder="Search employee, department, or position..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setAuthorizedDrawerHolders(allEmployeeNames.sort((a, b) => a.localeCompare(b)))}
+                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => setAuthorizedDrawerHolders([])}
+                  className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold hover:bg-red-500"
+                >
+                  Clear All
+                </button>
+                <span className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">
+                  Selected: {authorizedDrawerHolders.length}
+                </span>
+              </div>
+
+              <div className="max-h-[420px] overflow-auto rounded-xl border border-slate-800">
+                {filteredDrawerHolderSettingEmployees.map((employee) => {
+                  const fullName = getEmployeeFullName(employee);
+                  const checked = authorizedDrawerHolders.includes(fullName);
+
+                  return (
+                    <label
+                      key={employee.id}
+                      className="flex cursor-pointer items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 hover:bg-slate-800/50"
+                    >
+                      <div>
+                        <p className="text-sm font-bold text-white">{fullName}</p>
+                        <p className="text-xs text-slate-400">
+                          {employee.department || "No department"}
+                          {employee.position ? ` • ${employee.position}` : ""}
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleAuthorizedDrawerHolder(fullName)}
+                        className="h-4 w-4 accent-sky-500"
+                      />
+                    </label>
+                  );
+                })}
+
+                {filteredDrawerHolderSettingEmployees.length === 0 && (
+                  <div className="p-6 text-center text-sm text-slate-500">
+                    No employees matched your search.
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowDrawerHolderSettings(false)}
+                className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-bold hover:bg-sky-500"
+              >
+                Save Settings
+              </button>
+            </div>
+          </Modal>
+        )}
+
         {showOpenDrawer && (
           <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
             <select value={drawerHolder} onChange={(e) => setDrawerHolder(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-              <option value="">Select drawer holder</option>
-              {employees.map((employee) => (
-                <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`}>
-                  {employee.first_name} {employee.last_name}
+              <option value="">Select authorized drawer holder</option>
+              {drawerHolderOptions.map((employee) => (
+                <option key={employee.id} value={getEmployeeFullName(employee)}>
+                  {getEmployeeFullName(employee)}
+                  {employee.department ? ` - ${employee.department}` : ""}
                 </option>
               ))}
             </select>
+
+            {drawerHolderOptions.length === 0 && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
+                No authorized drawer holders yet. Open Drawer Holder Settings and choose who is allowed to handle cash drawers.
+              </div>
+            )}
 
             <input type="number" value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="Opening float" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
             <textarea value={drawerRemarks} onChange={(e) => setDrawerRemarks(e.target.value)} rows={3} placeholder="Opening remarks" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
-            <button onClick={openDrawer} disabled={isSaving} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold hover:bg-emerald-500 disabled:opacity-50">
+            <button onClick={openDrawer} disabled={isSaving || drawerHolderOptions.length === 0} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
               {isSaving ? "Opening..." : "Open Drawer"}
             </button>
           </Modal>
@@ -1781,12 +2618,60 @@ Continue?`
               </h3>
             </div>
 
-            <input type="number" value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} placeholder="Actual cash counted" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+            <input type="number" value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} placeholder="Actual cash counted before remittance" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+
+            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
+              <p className="text-sm font-bold text-sky-300">Drawer Remittance</p>
+              <p className="mt-1 text-xs leading-5 text-slate-300">
+                Record the cash turned over when closing the drawer. This creates an automatic Remittance movement and does not count as an expense.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                <input
+                  type="number"
+                  value={closingRemittanceAmount}
+                  onChange={(e) => setClosingRemittanceAmount(e.target.value)}
+                  placeholder="Remittance amount"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+
+                <input
+                  value={closingRemittanceReceivedBy}
+                  onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)}
+                  placeholder="Received by"
+                  list="employee-list"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+
+                <textarea
+                  value={closingRemittanceRemarks}
+                  onChange={(e) => setClosingRemittanceRemarks(e.target.value)}
+                  rows={2}
+                  placeholder="Remittance remarks / reference"
+                  className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+
+                <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+                  <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+                    <p className="text-slate-500">Remaining after remittance</p>
+                    <p className="mt-1 font-black text-emerald-300">
+                      {formatMoney(Number(actualClosingCash || 0) - Number(closingRemittanceAmount || 0))}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+                    <p className="text-slate-500">Variance before remittance</p>
+                    <p className={`mt-1 font-black ${Number(actualClosingCash || 0) - activeDrawerCash < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                      {formatMoney(Number(actualClosingCash || 0) - activeDrawerCash)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <textarea value={closeRemarks} onChange={(e) => setCloseRemarks(e.target.value)} rows={3} placeholder="Closing remarks / variance explanation" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
             <button onClick={closeDrawer} disabled={isSaving} className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold hover:bg-red-500 disabled:opacity-50">
-              {isSaving ? "Closing..." : "Close Drawer"}
+              {isSaving ? "Closing..." : "Save Remittance & Close Drawer"}
             </button>
           </Modal>
         )}

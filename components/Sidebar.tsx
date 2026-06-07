@@ -70,6 +70,7 @@ const menuSections = [
     items: [
       { label: "Finance Dashboard", href: "/finance", icon: BarChart3, moduleKey: "finance_dashboard" },
       { label: "Expenses", href: "/finance/expenses", icon: Receipt, moduleKey: "expenses" },
+      { label: "Expense Requests", href: "/finance/expense-requests", icon: ClipboardList, moduleKey: "expenses" },
       { label: "Bills Monitoring", href: "/finance/bills", icon: ClipboardList, moduleKey: "bills_monitoring" },
       { label: "Cash Management", href: "/finance/cash-management", icon: Wallet, moduleKey: "cash_management" },
       { label: "Expense Allocation", href: "/finance/settings/expense-allocation", icon: Wallet, moduleKey: "settings" },

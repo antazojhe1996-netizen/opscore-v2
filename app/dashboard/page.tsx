@@ -513,8 +513,46 @@ export default function ExecutiveDashboardPage() {
     collectedRoomRevenue + restaurantRevenue + apartmentRevenue;
   const totalRevenue = collectedOperatingRevenue;
 
-  const totalExpenses = sumAmount(expenses);
-  const payrollTotal = sumAmount(payrollRows);
+  const isExcludedFromOperatingExpenses = (row: any) => {
+    const category = String(row.category || row.expense_category || "").toLowerCase();
+    const description = String(row.description || row.remarks || "").toLowerCase();
+    const source = String(row.source || "").toLowerCase();
+
+    return (
+      category.includes("payroll") ||
+      category.includes("salary") ||
+      category.includes("cash advance") ||
+      description.includes("cash advance") ||
+      source.includes("cash advance")
+    );
+  };
+
+  const getPayrollDashboardValue = (row: any) =>
+    Number(
+      row.net_pay ??
+        row.release_amount ??
+        row.released_amount ??
+        row.total_net_pay ??
+        row.payroll_total ??
+        row.gross_pay ??
+        row.total_cost ??
+        0,
+    );
+
+  const operatingExpenseRows = expenses.filter(
+    (row) => !isExcludedFromOperatingExpenses(row),
+  );
+
+  const excludedExpenseRows = expenses.filter(isExcludedFromOperatingExpenses);
+
+  const totalExpenses = sumAmount(operatingExpenseRows);
+
+  const excludedExpenseTotal = sumAmount(excludedExpenseRows);
+
+  const payrollTotal = payrollRows
+    .filter((row) => isWithinRange(getDateValue(row)))
+    .reduce((sum, row) => sum + getPayrollDashboardValue(row), 0);
+
   const netPosition = totalRevenue - totalExpenses - payrollTotal;
 
   const profitMargin =
@@ -668,12 +706,70 @@ export default function ExecutiveDashboardPage() {
   const movementBasedCash =
     cashMovementCashIn - cashMovementCashOut - cashMovementRemittance;
 
-  const cashAvailable =
-    actualCash > 0
-      ? actualCash
-      : movementBasedCash > 0
-        ? movementBasedCash
-        : Math.max(netPosition, 0);
+  const getDrawerMovementLiveCash = (drawerId: any) => {
+    const drawerMovements = cashMovements.filter(
+      (row) => String(row.cash_drawer_id || "") === String(drawerId || ""),
+    );
+
+    const drawerCashIn = drawerMovements
+      .filter(
+        (row) =>
+          (row.payment_type || "Cash") === "Cash" &&
+          (row.movement_type === "Opening Float" ||
+            row.movement_type === "Cash In" ||
+            (row.movement_type === "Adjustment" && Number(row.amount || 0) > 0)),
+      )
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+    const drawerCashOut = drawerMovements
+      .filter(
+        (row) =>
+          (row.payment_type || "Cash") === "Cash" &&
+          (row.movement_type === "Cash Out" ||
+            row.source === "Bank Deposit" ||
+            row.source === "Owner Withdrawal" ||
+            (row.movement_type === "Adjustment" && Number(row.amount || 0) < 0)),
+      )
+      .reduce((sum, row) => sum + Math.abs(Number(row.amount || 0)), 0);
+
+    const drawerRemittance = drawerMovements
+      .filter(
+        (row) =>
+          (row.payment_type || "Cash") === "Cash" &&
+          row.movement_type === "Remittance",
+      )
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+    return drawerCashIn - drawerCashOut - drawerRemittance;
+  };
+
+  const openDrawerLiveCash = openDrawers.reduce(
+    (sum, drawer) => sum + getDrawerMovementLiveCash(drawer.id),
+    0,
+  );
+
+  const latestClosedDrawer = [...closedDrawers]
+    .filter((drawer) => isWithinRange(getDateValue(drawer)))
+    .sort((a, b) =>
+      String(b.closed_at || b.opened_at || b.created_at || "").localeCompare(
+        String(a.closed_at || a.opened_at || a.created_at || ""),
+      ),
+    )[0];
+
+  const latestClosedActualCash = latestClosedDrawer
+    ? getDrawerActualCash(latestClosedDrawer)
+    : 0;
+
+  const verifiedCash = Math.max(
+    openDrawerLiveCash > 0
+      ? openDrawerLiveCash
+      : actualCash > 0
+        ? actualCash
+        : latestClosedActualCash,
+    0,
+  );
+
+  const cashAvailable = verifiedCash;
 
   const expenseReleasedFromDrawer = cashMovementRows
     .filter((row) => String(row.source || "").includes("Expense Release"))
@@ -828,10 +924,10 @@ export default function ExecutiveDashboardPage() {
 
   const cashFlowStyle =
     cashFlowStatus === "Critical"
-      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
       : cashFlowStatus === "Watch"
-        ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-        : "border-green-500/30 bg-green-500/10 text-green-300";
+        ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+        : "border-sky-500/25 bg-sky-500/10 text-sky-300";
 
   const payrollRatio =
     totalRevenue > 0 ? Math.round((payrollTotal / totalRevenue) * 100) : 0;
@@ -848,7 +944,7 @@ export default function ExecutiveDashboardPage() {
     {},
   );
 
-  const allocatedExpenses = expenses
+  const allocatedExpenses = operatingExpenseRows
     .filter((row) => isWithinRange(getDateValue(row)))
     .reduce(
       (acc, row) => {
@@ -919,7 +1015,7 @@ export default function ExecutiveDashboardPage() {
   )[0];
 
   const topExpenseCategories = Object.values(
-    expenses
+    operatingExpenseRows
       .filter((row) => isWithinRange(getDateValue(row)))
       .reduce((acc: Record<string, any>, row) => {
         const category = row.category || "Uncategorized";
@@ -944,6 +1040,115 @@ export default function ExecutiveDashboardPage() {
     totalRevenue > 0
       ? Math.round((topRevenueSource.value / totalRevenue) * 100)
       : 0;
+
+
+  /// CULPRIT FINDER CALCULATIONS
+  const getEmployeeDisplayName = (row: any) =>
+    String(
+      row.employee_name ||
+        row.full_name ||
+        row.name ||
+        `${row.first_name || ""} ${row.last_name || ""}`.trim() ||
+        row.employee_id ||
+        "Unknown Employee",
+    );
+
+  const getPayrollCostValue = (row: any) => getPayrollDashboardValue(row);
+
+  const getPayrollOtValue = (row: any) =>
+    Number(row.ot_pay || row.overtime_pay || row.total_ot_pay || row.ot_amount || 0);
+
+  const payrollCulpritRows = Object.values(
+    payrollRows
+      .filter((row) => isWithinRange(getDateValue(row)))
+      .reduce((acc: Record<string, any>, row) => {
+        const employeeName = getEmployeeDisplayName(row);
+        const key = String(row.employee_id || employeeName);
+
+        if (!acc[key]) {
+          acc[key] = {
+            employeeName,
+            department: row.department || row.employee_department || "-",
+            payrollCost: 0,
+            otCost: 0,
+            records: 0,
+          };
+        }
+
+        acc[key].payrollCost += getPayrollCostValue(row);
+        acc[key].otCost += getPayrollOtValue(row);
+        acc[key].records += 1;
+        return acc;
+      }, {}),
+  )
+    .sort((a: any, b: any) => b.payrollCost - a.payrollCost)
+    .slice(0, 8) as any[];
+
+  const cashAdvanceWatchlist = Object.values(
+    activeEmployeeBalances
+      .filter((balance) =>
+        String(balance.balance_type || balance.category || "")
+          .toLowerCase()
+          .includes("cash advance"),
+      )
+      .reduce((acc: Record<string, any>, balance) => {
+        const employeeName = getEmployeeDisplayName(balance);
+        const key = String(balance.employee_id || employeeName);
+
+        if (!acc[key]) {
+          acc[key] = {
+            employeeName,
+            department: balance.department || "-",
+            amount: 0,
+            records: 0,
+          };
+        }
+
+        acc[key].amount += Number(balance.remaining_balance || balance.amount || 0);
+        acc[key].records += 1;
+        return acc;
+      }, {}),
+  )
+    .sort((a: any, b: any) => b.amount - a.amount)
+    .slice(0, 8) as any[];
+
+  const uncollectedGuestRows = filteredReservations
+    .map((row) => ({
+      guest: row.guest_name || row.guest || row.name || "Unknown Guest",
+      room: row.room || row.room_number || "-",
+      reservation: row.reservation_number || row.reservation_no || row.id || "-",
+      balance: getHotelBalanceValue(row),
+    }))
+    .filter((row) => row.balance > 0)
+    .sort((a, b) => b.balance - a.balance)
+    .slice(0, 8);
+
+  const expenseCulpritRows = Object.values(
+    operatingExpenseRows
+      .filter((row) => isWithinRange(getDateValue(row)))
+      .reduce((acc: Record<string, any>, row) => {
+        const department = row.department || row.area || "Unassigned";
+
+        if (!acc[department]) {
+          acc[department] = {
+            department,
+            amount: 0,
+            records: 0,
+          };
+        }
+
+        acc[department].amount += Number(row.amount || 0);
+        acc[department].records += 1;
+        return acc;
+      }, {}),
+  )
+    .sort((a: any, b: any) => b.amount - a.amount)
+    .slice(0, 8) as any[];
+
+  const highestPayrollCulprit = payrollCulpritRows[0] || null;
+  const highestCashAdvanceCulprit = cashAdvanceWatchlist[0] || null;
+  const highestGuestBalanceCulprit = uncollectedGuestRows[0] || null;
+  const highestExpenseDepartment = expenseCulpritRows[0] || null;
 
   /// ALERTS / ADVICE
   const criticalAlerts = [
@@ -1025,6 +1230,11 @@ export default function ExecutiveDashboardPage() {
     ...(allocatedExpenses.unmapped > 0
       ? [
           `${formatPeso(allocatedExpenses.unmapped)} expenses are not mapped to allocation rules.`,
+        ]
+      : []),
+    ...(excludedExpenseTotal > 0
+      ? [
+          `${formatPeso(excludedExpenseTotal)} payroll/cash advance expense rows are excluded from operating expenses to prevent double count.`,
         ]
       : []),
     ...(weakestProfitCenter && weakestProfitCenter.profit < 0
@@ -1141,10 +1351,10 @@ export default function ExecutiveDashboardPage() {
 
   const statusStyle =
     businessStatus === "Stable"
-      ? "border-green-500/30 bg-green-500/10 text-green-300"
+      ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
       : businessStatus === "Watchlist"
-        ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-        : "border-red-500/30 bg-red-500/10 text-red-300";
+        ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+        : "border-sky-500/25 bg-sky-500/10 text-sky-300";
 
   const getChartLabel = (dateString: string) => {
     const date = new Date(`${dateString}T00:00:00`);
@@ -1249,7 +1459,7 @@ export default function ExecutiveDashboardPage() {
       <main className="min-w-0 flex-1 overflow-x-hidden p-8">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-300">
               OPSCORE Owner Command Center
             </p>
 
@@ -1273,7 +1483,7 @@ export default function ExecutiveDashboardPage() {
                     }}
                     className={
                       !useCustomRange && rangeType === range
-                        ? "rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-slate-950"
+                        ? "rounded-lg bg-sky-400 px-4 py-2 text-sm font-bold text-slate-950"
                         : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
                     }
                   >
@@ -1306,7 +1516,7 @@ export default function ExecutiveDashboardPage() {
 
               <button
                 onClick={applyCustomRange}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500"
+                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-500"
               >
                 Apply
               </button>
@@ -1319,7 +1529,7 @@ export default function ExecutiveDashboardPage() {
               </button>
             </div>
 
-            <p className="text-xs font-semibold text-amber-300">
+            <p className="text-xs font-semibold text-sky-300">
               {getActiveRangeLabel()}
             </p>
           </div>
@@ -1328,12 +1538,12 @@ export default function ExecutiveDashboardPage() {
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
           <KpiCard
             icon={<Wallet size={22} />}
-            title="Cash Available"
+            title="Verified Cash"
             value={formatPeso(cashAvailable)}
             danger={cashAvailable <= 0}
             success={cashAvailable > 0}
-            subtitle={`${cashRunway} day runway`}
-            formula="Actual drawer cash, cash movement balance, or positive net position"
+            subtitle={openDrawers.length > 0 ? "Open drawer live cash" : "Latest closed drawer cash"}
+            formula="Open drawer live cash or latest closed drawer actual cash. Revenue net position is excluded."
           />
 
           <KpiCard
@@ -1358,7 +1568,7 @@ export default function ExecutiveDashboardPage() {
             value={formatPeso(totalExpenses + payrollTotal)}
             danger
             subtitle={`Payroll ${payrollRatio}%`}
-            formula="Operating expenses plus payroll"
+            formula="Operating expenses plus payroll. Payroll/cash advance expense rows are excluded to prevent double count."
           />
 
           <KpiCard
@@ -1384,18 +1594,18 @@ export default function ExecutiveDashboardPage() {
 
 
         <section className="mb-6">
-          <div className="h-[580px] rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20">
+          <div className="h-[340px] rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20">
             <h2 className="text-xl font-bold">Cash, Revenue & Expense Trend</h2>
             <p className="mt-1 text-sm text-slate-400">
               Owner-level trend without duplicate cash drawer cards.
             </p>
 
-            <div className="mt-6 h-[450px] min-h-[450px] min-w-0">
+            <div className="mt-4 h-[220px] min-h-[220px] min-w-0">
               {chartReady && trendData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={450}>
+                <ResponsiveContainer width="100%" height={220}>
                   <AreaChart
                     data={trendData}
-                    margin={{ top: 35, right: 30, left: 10, bottom: 10 }}
+                    margin={{ top: 16, right: 20, left: 0, bottom: 0 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                     <XAxis dataKey="label" stroke="#94a3b8" />
@@ -1412,41 +1622,41 @@ export default function ExecutiveDashboardPage() {
                       }}
                       formatter={(value: any) => formatPeso(Number(value))}
                     />
-                    <Legend verticalAlign="top" height={35} />
+                    <Legend verticalAlign="top" height={28} />
                     <Area
                       type="monotone"
                       dataKey="revenue"
                       name="Revenue"
-                      stroke="#3b82f6"
+                      stroke="#60a5fa"
                       strokeWidth={3}
-                      fill="#3b82f6"
+                      fill="#60a5fa"
                       fillOpacity={0.18}
                     />
                     <Area
                       type="monotone"
                       dataKey="expenses"
                       name="Expenses + Payroll"
-                      stroke="#ef4444"
+                      stroke="#94a3b8"
                       strokeWidth={3}
-                      fill="#ef4444"
+                      fill="#94a3b8"
                       fillOpacity={0.12}
                     />
                     <Area
                       type="monotone"
                       dataKey="cash"
                       name="Actual Cash"
-                      stroke="#eab308"
+                      stroke="#38bdf8"
                       strokeWidth={3}
-                      fill="#eab308"
+                      fill="#38bdf8"
                       fillOpacity={0.15}
                     />
                     <Area
                       type="monotone"
                       dataKey="profit"
                       name="Net Position"
-                      stroke="#22c55e"
+                      stroke="#67e8f9"
                       strokeWidth={3}
-                      fill="#22c55e"
+                      fill="#67e8f9"
                       fillOpacity={0.12}
                     />
                   </AreaChart>
@@ -1461,10 +1671,10 @@ export default function ExecutiveDashboardPage() {
         </section>
 
         <section className="mb-6">
-          <section className="rounded-2xl border border-violet-500/25 bg-violet-500/10 p-5 shadow-2xl shadow-violet-950/20">
+          <section className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5 shadow-2xl shadow-sky-950/20">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-violet-300">
+                <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-sky-300">
                   <Brain size={18} /> OPSCORE AI Advisor
                 </p>
                 <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
@@ -1473,9 +1683,9 @@ export default function ExecutiveDashboardPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 rounded-2xl border border-violet-400/20 bg-slate-950/60 p-4 text-center xl:min-w-[360px]">
+              <div className="grid grid-cols-2 gap-3 rounded-2xl border border-sky-400/20 bg-slate-950/60 p-4 text-center xl:min-w-[360px]">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300/70">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300/70">
                     Alerts
                   </p>
                   <p className="mt-1 text-3xl font-black text-white">
@@ -1483,7 +1693,7 @@ export default function ExecutiveDashboardPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300/70">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300/70">
                     Actions
                   </p>
                   <p className="mt-1 text-3xl font-black text-white">
@@ -1509,6 +1719,96 @@ export default function ExecutiveDashboardPage() {
           </section>
         </section>
 
+
+        <section className="mb-6 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-6 shadow-2xl shadow-sky-950/20">
+          <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-sky-300">
+                Financial Culprit Finder
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-white">
+                Leakage Watchlist
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Fast view of cash variance, payroll load, cash advances, guest collectibles, and expense pressure.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-center md:grid-cols-4">
+              <CulpritMiniCard
+                title="Top Payroll"
+                value={highestPayrollCulprit ? formatPeso(highestPayrollCulprit.payrollCost) : formatPeso(0)}
+                subtitle={highestPayrollCulprit?.employeeName || "No payroll"}
+              />
+              <CulpritMiniCard
+                title="Top Cash Advance"
+                value={highestCashAdvanceCulprit ? formatPeso(highestCashAdvanceCulprit.amount) : formatPeso(0)}
+                subtitle={highestCashAdvanceCulprit?.employeeName || "No balance"}
+              />
+              <CulpritMiniCard
+                title="Top Collectible"
+                value={highestGuestBalanceCulprit ? formatPeso(highestGuestBalanceCulprit.balance) : formatPeso(0)}
+                subtitle={highestGuestBalanceCulprit?.guest || "No guest balance"}
+              />
+              <CulpritMiniCard
+                title="Top Expense Area"
+                value={highestExpenseDepartment ? formatPeso(highestExpenseDepartment.amount) : formatPeso(0)}
+                subtitle={highestExpenseDepartment?.department || "No expenses"}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <CulpritPanel
+              title="Payroll Cost Ranking"
+              description="Employees with the highest payroll cost in the selected range."
+              empty="No payroll cost found."
+              rows={payrollCulpritRows.map((row: any) => ({
+                name: row.employeeName,
+                meta: `${row.department} • ${row.records} payroll record(s) • OT ${formatPeso(row.otCost)}`,
+                value: formatPeso(row.payrollCost),
+                danger: row.otCost > 0,
+              }))}
+            />
+
+            <CulpritPanel
+              title="Cash Advance Watchlist"
+              description="Employees with remaining cash advance balances."
+              empty="No outstanding cash advances."
+              rows={cashAdvanceWatchlist.map((row: any) => ({
+                name: row.employeeName,
+                meta: `${row.department} • ${row.records} balance record(s)`,
+                value: formatPeso(row.amount),
+                danger: row.amount > 0,
+              }))}
+            />
+
+            <CulpritPanel
+              title="Uncollected Guest Balances"
+              description="Active hotel reservations with positive collectible balance."
+              empty="No uncollected guest balance found."
+              rows={uncollectedGuestRows.map((row: any) => ({
+                name: row.guest,
+                meta: `Room ${row.room} • Reservation ${row.reservation}`,
+                value: formatPeso(row.balance),
+                danger: row.balance > 0,
+              }))}
+            />
+
+            <CulpritPanel
+              title="Expense Pressure by Department"
+              description="Departments or areas with the highest expense amount."
+              empty="No expense pressure found."
+              rows={expenseCulpritRows.map((row: any) => ({
+                name: row.department,
+                meta: `${row.records} expense record(s)`,
+                value: formatPeso(row.amount),
+                danger: row.amount > 0,
+              }))}
+            />
+          </div>
+        </section>
+
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
           <InsightCard
             icon={<Wallet size={22} />}
@@ -1517,9 +1817,9 @@ export default function ExecutiveDashboardPage() {
             statusClass={cashFlowStyle}
             rows={[
               {
-                label: "Cash Available",
+                label: "Verified Cash",
                 value: formatPeso(cashAvailable),
-                formula: "Current usable cash estimate",
+                formula: "Verified drawer cash only",
               },
               {
                 label: "Collected Revenue",
@@ -1555,8 +1855,8 @@ export default function ExecutiveDashboardPage() {
             status={outstandingGuestBalance > 0 ? "Collect" : "Clean"}
             statusClass={
               outstandingGuestBalance > 0
-                ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-                : "border-green-500/30 bg-green-500/10 text-green-300"
+                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                : "border-sky-500/25 bg-sky-500/10 text-sky-300"
             }
             rows={[
               {
@@ -1664,10 +1964,10 @@ export default function ExecutiveDashboardPage() {
             statusClass={
               payrollNeedsRegeneration.length > 0 ||
               attendanceIssueRows.length > 0
-                ? "border-red-500/30 bg-red-500/10 text-red-300"
+                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
                 : pendingPayrollReleaseAmount > 0
-                  ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-                  : "border-green-500/30 bg-green-500/10 text-green-300"
+                  ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                  : "border-sky-500/25 bg-sky-500/10 text-sky-300"
             }
             rows={[
               {
@@ -1699,8 +1999,8 @@ export default function ExecutiveDashboardPage() {
             status={recoverableCash > 0 ? "Recoverable" : "Clean"}
             statusClass={
               recoverableCash > 0
-                ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-                : "border-green-500/30 bg-green-500/10 text-green-300"
+                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                : "border-sky-500/25 bg-sky-500/10 text-sky-300"
             }
             rows={[
               {
@@ -1729,8 +2029,8 @@ export default function ExecutiveDashboardPage() {
             }
             statusClass={
               openDrawers.length > 0 || totalVariance !== 0
-                ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-                : "border-green-500/30 bg-green-500/10 text-green-300"
+                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                : "border-sky-500/25 bg-sky-500/10 text-sky-300"
             }
             rows={[
               {
@@ -1763,7 +2063,7 @@ export default function ExecutiveDashboardPage() {
 
         <section className="mb-6">
           <div className="mb-4 flex items-center gap-3">
-            <TrendingUp className="text-emerald-400" size={28} />
+            <TrendingUp className="text-sky-300" size={28} />
 
             <div>
               <h2 className="text-2xl font-black">Department Profitability</h2>
@@ -1817,12 +2117,12 @@ export default function ExecutiveDashboardPage() {
         </section>
 
         {Object.keys(allocatedExpenses.unmappedItems).length > 0 && (
-          <section className="mb-6 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-6">
-            <h2 className="text-xl font-black text-yellow-300">
+          <section className="mb-6 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-6">
+            <h2 className="text-xl font-black text-sky-300">
               Allocation Review Needed
             </h2>
 
-            <p className="mt-1 text-sm text-yellow-200">
+            <p className="mt-1 text-sm text-sky-200">
               These categories do not match allocation rules.
             </p>
 
@@ -1831,7 +2131,7 @@ export default function ExecutiveDashboardPage() {
                 ([category, amount]) => (
                   <div key={category} className="rounded-xl bg-slate-950 p-4">
                     <p className="font-semibold">{category}</p>
-                    <p className="mt-1 text-yellow-300">
+                    <p className="mt-1 text-sky-300">
                       {formatPeso(Number(amount))}
                     </p>
                   </div>
@@ -1908,8 +2208,8 @@ export default function ExecutiveDashboardPage() {
                 <span
                   className={
                     varianceDrawerCount > 0
-                      ? "rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300"
-                      : "rounded-full bg-green-500/10 px-3 py-1 text-xs font-bold text-green-300"
+                      ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
+                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
                   }
                 >
                   {varianceDrawerCount > 0
@@ -1970,8 +2270,8 @@ export default function ExecutiveDashboardPage() {
                                 variance < 0
                                   ? "px-4 py-3 text-right font-bold text-red-400"
                                   : variance > 0
-                                    ? "px-4 py-3 text-right font-bold text-amber-400"
-                                    : "px-4 py-3 text-right font-bold text-emerald-400"
+                                    ? "px-4 py-3 text-right font-bold text-sky-300"
+                                    : "px-4 py-3 text-right font-bold text-sky-300"
                               }
                             >
                               {formatPeso(variance)}
@@ -1981,10 +2281,10 @@ export default function ExecutiveDashboardPage() {
                               <span
                                 className={
                                   variance < 0
-                                    ? "rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300"
+                                    ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
                                     : variance > 0
-                                      ? "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300"
-                                      : "rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300"
+                                      ? "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-sky-300"
+                                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
                                 }
                               >
                                 {status}
@@ -2014,6 +2314,85 @@ export default function ExecutiveDashboardPage() {
   );
 }
 
+
+
+function CulpritMiniCard({
+  title,
+  value,
+  subtitle,
+}: {
+  title: string;
+  value: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-red-400/10 bg-slate-950/70 p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300/80">
+        {title}
+      </p>
+      <p className="mt-2 text-lg font-black text-white">{value}</p>
+      <p className="mt-1 max-w-[180px] truncate text-xs text-slate-500">
+        {subtitle}
+      </p>
+    </div>
+  );
+}
+
+function CulpritPanel({
+  title,
+  description,
+  rows,
+  empty,
+}: {
+  title: string;
+  description: string;
+  rows: { name: string; meta: string; value: string; danger?: boolean }[];
+  empty: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+      <div className="mb-4">
+        <h3 className="text-lg font-black text-white">{title}</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+      </div>
+
+      <div className="space-y-3">
+        {rows.length > 0 ? (
+          rows.map((row, index) => (
+            <div
+              key={`${row.name}-${index}`}
+              className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-black text-sky-300">
+                    #{index + 1}
+                  </span>
+                  <p className="truncate font-black text-white">{row.name}</p>
+                </div>
+                <p className="mt-1 truncate text-xs text-slate-500">{row.meta}</p>
+              </div>
+
+              <p
+                className={
+                  row.danger
+                    ? "shrink-0 text-right text-sm font-black text-sky-300"
+                    : "shrink-0 text-right text-sm font-black text-sky-300"
+                }
+              >
+                {row.value}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
+            {empty}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function recommendationFallback(
   totalRevenue: number,
@@ -2055,17 +2434,9 @@ function KpiCard({
   danger?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-            ? "border-green-500/20 bg-green-500/10"
-            : "border-slate-800 bg-slate-900"
-      }`}
-    >
+    <div className="rounded-2xl border border-sky-500/15 bg-slate-900/90 p-5 shadow-lg shadow-sky-950/10">
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+        <div className="rounded-full bg-sky-500/10 p-3 text-sky-300">
           {icon}
         </div>
 
