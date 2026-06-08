@@ -27,15 +27,58 @@ type AttendanceEntry = {
 };
 
 type LeaveRequest = {
-  id?: string;
+  id?: string | number;
   employee_id: string;
+  employee_name?: string | null;
+  employee_no?: string | null;
+  department?: string | null;
+  position?: string | null;
   leave_type: string;
   start_date: string;
   end_date: string;
   days: number;
+  total_days?: number | null;
   reason: string;
   status: string;
   approved_by?: string | null;
+  approved_at?: string | null;
+  rejected_by?: string | null;
+  rejected_at?: string | null;
+  rejection_reason?: string | null;
+  cancelled_by?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  requested_by?: string | null;
+  requested_at?: string | null;
+  created_at?: string | null;
+};
+
+type LeaveCredit = {
+  id?: string | number;
+  employee_id?: string | null;
+  employee_no?: string | null;
+  employee_name?: string | null;
+  leave_type?: string | null;
+  earned_credits?: number | null;
+  total_credits?: number | null;
+  used_credits?: number | null;
+  remaining_credits?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+};
+
+type ApprovalRequest = {
+  id?: string | number;
+  request_type?: string | null;
+  module?: string | null;
+  reference_id?: string | number | null;
+  title?: string | null;
+  description?: string | null;
+  requested_by?: string | null;
+  status?: string | null;
+  request_payload?: any;
+  approved_by?: string | null;
+  rejected_by?: string | null;
   created_at?: string | null;
 };
 
@@ -107,6 +150,9 @@ export default function EmployeePortalPage() {
   const [weeklySchedules, setWeeklySchedules] = useState<PortalSchedule[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceEntry[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
+  const [leaveCredits, setLeaveCredits] = useState<LeaveCredit[]>([]);
+  const [pendingCancellationRequests, setPendingCancellationRequests] = useState<ApprovalRequest[]>([]);
+  const [leaveView, setLeaveView] = useState<"request" | "history">("request");
   const [payslips, setPayslips] = useState<PayslipRow[]>([]);
   const [employeeBalances, setEmployeeBalances] = useState<EmployeeBalance[]>([]);
   const [activePayslip, setActivePayslip] = useState<PayslipRow | null>(null);
@@ -556,6 +602,46 @@ export default function EmployeePortalPage() {
     (entry) => String(entry.status || "").toLowerCase() === "absent"
   ).length;
 
+  const leaveStatuses = leaveHistory.reduce(
+    (summary, leave) => {
+      const status = String(leave.status || "Pending").toLowerCase();
+
+      if (status === "pending") summary.pending += 1;
+      if (status === "approved") summary.approved += 1;
+      if (status === "rejected") summary.rejected += 1;
+      if (status === "cancelled") summary.cancelled += 1;
+
+      return summary;
+    },
+    { pending: 0, approved: 0, rejected: 0, cancelled: 0 }
+  );
+
+  const pendingCancellationLeaveIds = pendingCancellationRequests
+    .filter((request) => String(request.status || "").toUpperCase() === "PENDING")
+    .map((request) => String(request.reference_id || request.request_payload?.leave_id || ""));
+
+  const isLeaveCancellationPending = (leaveId: any) => {
+    return pendingCancellationLeaveIds.includes(String(leaveId));
+  };
+
+  const canCancelLeave = (leave: LeaveRequest) => {
+    return (
+      String(leave.status || "").toLowerCase() === "approved" &&
+      !!leave.id &&
+      !isLeaveCancellationPending(leave.id)
+    );
+  };
+
+  const totalRemainingLeaveCredits = leaveCredits.reduce(
+    (sum, credit) => sum + Number(credit.remaining_credits || 0),
+    0
+  );
+
+  const totalUsedLeaveCredits = leaveCredits.reduce(
+    (sum, credit) => sum + Number(credit.used_credits || 0),
+    0
+  );
+
   const activeEmployeeBalances = employeeBalances.filter(
     (item) => String(item.status || "Active").toLowerCase() === "active"
   );
@@ -595,6 +681,12 @@ export default function EmployeePortalPage() {
     ...(leaveHistory.some((leave) => String(leave.status || "").toLowerCase() === "pending")
       ? ["You have pending leave request(s)."]
       : []),
+    ...(pendingCancellationRequests.length > 0
+      ? ["You have pending leave cancellation request(s)."]
+      : []),
+    ...(leaveCredits.length > 0
+      ? [`Remaining leave credits: ${totalRemainingLeaveCredits}.`]
+      : []),
   ];
 
   /// FUNCTIONS
@@ -621,6 +713,16 @@ export default function EmployeePortalPage() {
   const openTab = (tab: PortalTab) => {
     setActiveTab(tab);
     setMenuOpen(false);
+  };
+
+  const getCurrentUserName = () => {
+    return (
+      localStorage.getItem("opscore_current_employee_name") ||
+      localStorage.getItem("opscore_current_user_name") ||
+      localStorage.getItem("opscore_username") ||
+      employeeName ||
+      "OPSCORE Employee"
+    );
   };
 
   const getShiftDetails = async (shiftName: string | null) => {
@@ -757,11 +859,24 @@ export default function EmployeePortalPage() {
   };
 
   const getLeaveHistory = async (employeeId: string) => {
-    const { data, error } = await supabase
+    const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
+    const employeeNameFilter = employeeName.trim();
+
+    const filters = [
+      `employee_id.eq.${employeeId}`,
+      employeeNo ? `employee_id.eq.${employeeNo}` : "",
+      employeeNo ? `employee_no.eq.${employeeNo}` : "",
+      employeeNameFilter ? `employee_name.eq.${employeeNameFilter}` : "",
+    ].filter(Boolean);
+
+    const query = supabase
       .from("leave_requests")
       .select("*")
-      .eq("employee_id", employeeId)
-.order("id", { ascending: false })      .limit(10);
+      .order("id", { ascending: false })
+      .limit(50);
+
+    const { data, error } =
+      filters.length > 0 ? await query.or(filters.join(",")) : await query.eq("employee_id", employeeId);
 
     if (error) {
       console.log("LEAVE HISTORY ERROR:", error.message);
@@ -770,6 +885,63 @@ export default function EmployeePortalPage() {
     }
 
     setLeaveHistory(data || []);
+  };
+
+  const getLeaveCredits = async (employeeId: string) => {
+    const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
+    const employeeNameFilter = employeeName.trim();
+
+    const filters = [
+      `employee_id.eq.${employeeId}`,
+      employeeNo ? `employee_no.eq.${employeeNo}` : "",
+      employeeNameFilter ? `employee_name.eq.${employeeNameFilter}` : "",
+    ].filter(Boolean);
+
+    const query = supabase
+      .from("employee_leave_credits")
+      .select("*")
+      .order("leave_type", { ascending: true });
+
+    const { data, error } =
+      filters.length > 0 ? await query.or(filters.join(",")) : await query.eq("employee_id", employeeId);
+
+    if (error) {
+      console.log("LEAVE CREDITS ERROR:", error.message);
+      setLeaveCredits([]);
+      return;
+    }
+
+    setLeaveCredits(data || []);
+  };
+
+  const getPendingCancellationRequests = async (employeeId: string) => {
+    const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
+    const employeeNameFilter = employeeName.trim();
+
+    const filters = [
+      `request_payload->>employee_id.eq.${employeeId}`,
+      employeeNo ? `request_payload->>employee_id.eq.${employeeNo}` : "",
+      employeeNo ? `request_payload->>employee_no.eq.${employeeNo}` : "",
+      employeeNameFilter ? `request_payload->>employee_name.eq.${employeeNameFilter}` : "",
+    ].filter(Boolean);
+
+    let query = supabase
+      .from("approval_requests")
+      .select("*")
+      .eq("request_type", "LEAVE_CANCELLATION")
+      .eq("status", "PENDING")
+      .order("id", { ascending: false });
+
+    const { data, error } =
+      filters.length > 0 ? await query.or(filters.join(",")) : await query;
+
+    if (error) {
+      console.log("PENDING CANCELLATION ERROR:", error.message);
+      setPendingCancellationRequests([]);
+      return;
+    }
+
+    setPendingCancellationRequests(data || []);
   };
 
   const getPayslips = async (employeeId: string) => {
@@ -843,6 +1015,8 @@ export default function EmployeePortalPage() {
       getWeeklySchedules(employeeId),
       getAttendanceHistory(employeeId),
       getLeaveHistory(employeeId),
+      getLeaveCredits(employeeId),
+      getPendingCancellationRequests(employeeId),
       getPayslips(employeeId),
       getEmployeeBalances(employeeId),
     ]);
@@ -926,17 +1100,141 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    setLoading(true);
+    const employeeNo = String(currentUser.employee_no || employeeNumber || "").trim();
 
-    const { error } = await supabase.from("leave_requests").insert({
+    const leavePayload = {
       employee_id: currentUser.id,
+      employee_name: employeeName,
+      employee_no: employeeNo || null,
+      department: currentUser.department || null,
+      position: currentUser.position || null,
       leave_type: leaveType,
       start_date: startDate,
       end_date: endDate,
       days: leaveDays,
+      total_days: leaveDays,
       reason: reason.trim(),
-      status: "Pending",
-      approved_by: null,
+      requested_by: getCurrentUserName(),
+      requested_at: new Date().toISOString(),
+    };
+
+    setLoading(true);
+
+    const { data: leaveData, error: leaveError } = await supabase
+      .from("leave_requests")
+      .insert({
+        employee_id: currentUser.id,
+        employee_name: employeeName,
+        employee_no: employeeNo || null,
+        department: currentUser.department || null,
+        position: currentUser.position || null,
+        leave_type: leaveType,
+        start_date: startDate,
+        end_date: endDate,
+        days: leaveDays,
+        reason: reason.trim(),
+        status: "Pending",
+        requested_by: getCurrentUserName(),
+        requested_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (leaveError) {
+      alert(leaveError.message);
+      setLoading(false);
+      return;
+    }
+
+    const { error: approvalError } = await supabase
+      .from("approval_requests")
+      .insert({
+        request_type: "LEAVE_REQUEST",
+        module: "Leave Management",
+        reference_id: leaveData.id,
+        title: `Leave Request - ${employeeName}`,
+        description: `${employeeName} requested ${leaveType} from ${startDate} to ${endDate} (${leaveDays} day/s). Reason: ${reason.trim()}`,
+        requested_by: getCurrentUserName(),
+        status: "PENDING",
+        request_payload: leavePayload,
+      });
+
+    if (approvalError) {
+      await supabase
+        .from("leave_requests")
+        .update({
+          status: "Draft",
+          reason: `${reason.trim()} | Approval request failed: ${approvalError.message}`,
+        })
+        .eq("id", leaveData.id);
+
+      alert("Leave was saved, but approval request failed. Check approval_requests columns.");
+      await getLeaveHistory(currentUser.id);
+      setLoading(false);
+      return;
+    }
+
+    setStartDate("");
+    setEndDate("");
+    setReason("");
+    await reloadEmployeeData(currentUser.id);
+    alert("Leave request submitted to Manager Approval Center.");
+    setLoading(false);
+  };
+
+  const requestLeaveCancellation = async (leave: LeaveRequest) => {
+    if (!currentUser || !leave?.id) return;
+
+    if (!canCancelLeave(leave)) {
+      alert("Only approved leaves without pending cancellation can be cancelled.");
+      return;
+    }
+
+    const cancellationReason = prompt("Reason for cancelling this approved leave?");
+
+    if (!cancellationReason?.trim()) {
+      alert("Cancellation reason is required.");
+      return;
+    }
+
+    const days = Number(leave.days || leave.total_days || 0);
+    const employeeNo = String(currentUser.employee_no || employeeNumber || leave.employee_no || "").trim();
+
+    const confirmed = confirm(
+      `Submit cancellation request?\n\n${leave.leave_type}\n${leave.start_date} to ${leave.end_date}\nReason: ${cancellationReason.trim()}`
+    );
+
+    if (!confirmed) return;
+
+    const payload = {
+      leave_id: leave.id,
+      employee_id: leave.employee_id || currentUser.id,
+      employee_name: leave.employee_name || employeeName,
+      employee_no: employeeNo || null,
+      department: leave.department || currentUser.department || null,
+      position: leave.position || currentUser.position || null,
+      leave_type: leave.leave_type,
+      start_date: leave.start_date,
+      end_date: leave.end_date,
+      days,
+      total_days: days,
+      original_reason: leave.reason || "",
+      cancellation_reason: cancellationReason.trim(),
+      requested_by: getCurrentUserName(),
+      requested_at: new Date().toISOString(),
+    };
+
+    setLoading(true);
+
+    const { error } = await supabase.from("approval_requests").insert({
+      request_type: "LEAVE_CANCELLATION",
+      module: "Leave Management",
+      reference_id: leave.id,
+      title: `Leave Cancellation - ${employeeName}`,
+      description: `${employeeName} requested cancellation of ${leave.leave_type} from ${leave.start_date} to ${leave.end_date}. Reason: ${cancellationReason.trim()}`,
+      requested_by: getCurrentUserName(),
+      status: "PENDING",
+      request_payload: payload,
     });
 
     if (error) {
@@ -945,11 +1243,8 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    setStartDate("");
-    setEndDate("");
-    setReason("");
-    await getLeaveHistory(currentUser.id);
-    alert("Leave request submitted.");
+    await getPendingCancellationRequests(currentUser.id);
+    alert("Leave cancellation request submitted to Manager Approval Center.");
     setLoading(false);
   };
 
@@ -1245,79 +1540,220 @@ export default function EmployeePortalPage() {
         {activeTab === "leave" && (
           <div className="space-y-5">
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-lg font-black">Leave Request</h2>
-
-              <div className="mt-4 grid grid-cols-1 gap-3">
-                <select
-                  value={leaveType}
-                  onChange={(e) => setLeaveType(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                >
-                  <option>Vacation Leave</option>
-                  <option>Sick Leave</option>
-                  <option>Emergency Leave</option>
-                  <option>Unpaid Leave</option>
-                </select>
-
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  style={{ colorScheme: "dark" }}
-                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  style={{ colorScheme: "dark" }}
-                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm">
-                  Days: <span className="font-bold text-amber-400">{leaveDays}</span>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-black">Employee Leave Center</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Request leave, track approvals, view credits, and request cancellation for approved leave.
+                  </p>
                 </div>
 
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Reason"
-                  className="min-h-28 rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
+                <div className="flex rounded-2xl border border-slate-800 bg-slate-950 p-1 text-xs font-black">
+                  <button
+                    onClick={() => setLeaveView("request")}
+                    className={`rounded-xl px-4 py-2 ${
+                      leaveView === "request" ? "bg-amber-400 text-slate-950" : "text-slate-400"
+                    }`}
+                  >
+                    Request
+                  </button>
+                  <button
+                    onClick={() => setLeaveView("history")}
+                    className={`rounded-xl px-4 py-2 ${
+                      leaveView === "history" ? "bg-amber-400 text-slate-950" : "text-slate-400"
+                    }`}
+                  >
+                    History
+                  </button>
+                </div>
+              </div>
 
-                <button
-                  onClick={submitLeaveRequest}
-                  disabled={loading || !currentUser}
-                  className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Submit Leave Request
-                </button>
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Info label="Pending" value={leaveStatuses.pending} />
+                <Info label="Approved" value={leaveStatuses.approved} />
+                <Info label="Cancelled" value={leaveStatuses.cancelled} />
+                <Info label="Credits Left" value={totalRemainingLeaveCredits} />
               </div>
             </section>
 
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-lg font-black">My Leave Requests</h2>
+              <h2 className="text-lg font-black">Remaining Leave Credits</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Credits are read from employee_leave_credits. Approved leave deductions remain handled by Approval Center.
+              </p>
 
-              <div className="mt-4 space-y-3">
-                {leaveHistory.map((leave) => (
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Info label="Credit Types" value={leaveCredits.length} />
+                <Info label="Used Credits" value={totalUsedLeaveCredits} />
+                <Info label="Remaining Credits" value={totalRemainingLeaveCredits} />
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {leaveCredits.map((credit) => (
                   <div
-                    key={leave.id || `${leave.start_date}-${leave.end_date}`}
+                    key={credit.id || `${credit.leave_type}-${credit.employee_no}`}
                     className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-black text-white">{leave.leave_type}</p>
-                        <p className="mt-1 text-sm text-slate-400">
-                          {formatDate(leave.start_date)} - {formatDate(leave.end_date)} • {leave.days} day(s)
-                        </p>
-                        <p className="mt-2 text-sm text-slate-300">{leave.reason}</p>
+                        <p className="font-black text-white">{credit.leave_type || "Leave Credit"}</p>
+                        <p className="mt-1 text-xs text-slate-500">Status: {credit.status || "Active"}</p>
                       </div>
+                      <StatusBadge status={credit.status || "Active"} />
+                    </div>
 
-                      <StatusBadge status={leave.status} />
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                        <p className="text-slate-500">Total</p>
+                        <p className="mt-1 text-lg font-black text-white">{credit.total_credits ?? credit.earned_credits ?? 0}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                        <p className="text-slate-500">Used</p>
+                        <p className="mt-1 text-lg font-black text-red-300">{credit.used_credits ?? 0}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                        <p className="text-slate-500">Left</p>
+                        <p className="mt-1 text-lg font-black text-emerald-300">{credit.remaining_credits ?? 0}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
+
+                {leaveCredits.length === 0 && (
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500 sm:col-span-2">
+                    No leave credits found yet.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {leaveView === "request" && (
+              <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+                <h2 className="text-lg font-black">Request Leave</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Submitted requests go directly to Manager Approval Center.
+                </p>
+
+                <div className="mt-4 grid grid-cols-1 gap-3">
+                  <select
+                    value={leaveType}
+                    onChange={(e) => setLeaveType(e.target.value)}
+                    className="rounded-xl border border-slate-700 bg-slate-950 p-3"
+                  >
+                    <option>Vacation Leave</option>
+                    <option>Sick Leave</option>
+                    <option>Emergency Leave</option>
+                    <option>Unpaid Leave</option>
+                  </select>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      style={{ colorScheme: "dark" }}
+                      className="rounded-xl border border-slate-700 bg-slate-950 p-3"
+                    />
+
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      style={{ colorScheme: "dark" }}
+                      className="rounded-xl border border-slate-700 bg-slate-950 p-3"
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm">
+                    Days: <span className="font-bold text-amber-400">{leaveDays}</span>
+                  </div>
+
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Reason"
+                    className="min-h-28 rounded-xl border border-slate-700 bg-slate-950 p-3"
+                  />
+
+                  <button
+                    onClick={submitLeaveRequest}
+                    disabled={loading || !currentUser}
+                    className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Submit to Approval Center
+                  </button>
+                </div>
+              </section>
+            )}
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-black">My Leave Requests</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Status tracker for Pending, Approved, Rejected, Cancelled, and cancellation requests.
+                  </p>
+                </div>
+                <button
+                  onClick={() => currentUser?.id && reloadEmployeeData(currentUser.id)}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {leaveHistory.map((leave) => {
+                  const pendingCancel = leave.id ? isLeaveCancellationPending(leave.id) : false;
+
+                  return (
+                    <div
+                      key={leave.id || `${leave.start_date}-${leave.end_date}`}
+                      className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-black text-white">{leave.leave_type}</p>
+                          <p className="mt-1 text-sm text-slate-400">
+                            {formatDate(leave.start_date)} - {formatDate(leave.end_date)} • {leave.days} day(s)
+                          </p>
+                          <p className="mt-2 text-sm text-slate-300">{leave.reason}</p>
+
+                          {leave.rejection_reason && (
+                            <p className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
+                              Rejection reason: {leave.rejection_reason}
+                            </p>
+                          )}
+
+                          {leave.cancellation_reason && (
+                            <p className="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs text-slate-300">
+                              Cancellation reason: {leave.cancellation_reason}
+                            </p>
+                          )}
+
+                          {pendingCancel && (
+                            <p className="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-bold text-amber-300">
+                              Cancellation request pending in Approval Center.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                          <StatusBadge status={leave.status} />
+                          {canCancelLeave(leave) && (
+                            <button
+                              onClick={() => requestLeaveCancellation(leave)}
+                              disabled={loading}
+                              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              Cancel Approved Leave
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
 
                 {leaveHistory.length === 0 && (
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
@@ -1643,7 +2079,7 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "completed" ||
     normalized === "released"
       ? "bg-emerald-500/10 text-emerald-400"
-      : normalized === "pending"
+      : normalized === "pending" || normalized === "draft"
       ? "bg-amber-500/10 text-amber-400"
       : normalized === "late"
       ? "bg-orange-500/10 text-orange-400"
@@ -1651,6 +2087,10 @@ function StatusBadge({ status }: { status: string }) {
         normalized === "absent" ||
         normalized === "rejected"
       ? "bg-red-500/10 text-red-400"
+      : normalized === "cancelled"
+      ? "bg-slate-500/10 text-slate-300"
+      : normalized === "active"
+      ? "bg-blue-500/10 text-blue-300"
       : "bg-slate-700 text-slate-300";
 
   return (

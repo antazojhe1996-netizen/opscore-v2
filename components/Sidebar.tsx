@@ -135,6 +135,8 @@ export default function Sidebar() {
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(true);
   const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+  const [currentRoleName, setCurrentRoleName] = useState("Employee");
 
   const getPendingApprovals = async () => {
     const { count, error } = await supabase
@@ -160,6 +162,8 @@ export default function Sidebar() {
         : null;
 
     if (!currentEmployeeId) {
+      setCurrentEmployee(null);
+      setCurrentRoleName("Employee");
       setPermissions([]);
       setLoadingAccess(false);
       await getPendingApprovals();
@@ -168,11 +172,41 @@ export default function Sidebar() {
 
     const { data: employee, error: employeeError } = await supabase
       .from("employees")
-      .select("id, system_role_id")
+      .select("id, employee_no, first_name, last_name, department, position, system_role_id")
       .eq("id", currentEmployeeId)
       .maybeSingle();
 
-    if (employeeError || !employee?.system_role_id) {
+    if (employeeError || !employee) {
+      setCurrentEmployee(null);
+      setCurrentRoleName("Employee");
+      setPermissions([]);
+      setLoadingAccess(false);
+      await getPendingApprovals();
+      return;
+    }
+
+    setCurrentEmployee(employee);
+
+    let resolvedRoleName = "Employee";
+
+    if (employee.system_role_id) {
+      const { data: roleData } = await supabase
+        .from("system_roles")
+        .select("*")
+        .eq("id", employee.system_role_id)
+        .maybeSingle();
+
+      resolvedRoleName =
+        roleData?.role_name ||
+        roleData?.name ||
+        roleData?.title ||
+        employee.position ||
+        "Employee";
+    }
+
+    setCurrentRoleName(resolvedRoleName);
+
+    if (!employee.system_role_id) {
       setPermissions([]);
       setLoadingAccess(false);
       await getPendingApprovals();
@@ -233,6 +267,28 @@ export default function Sidebar() {
 
   const currentPath = normalizePath(pathname || "/");
   const isExactActive = (href: string) => normalizePath(href) === currentPath;
+  const employeeName = currentEmployee
+    ? `${currentEmployee.first_name || ""} ${currentEmployee.last_name || ""}`.trim()
+    : localStorage.getItem("opscore_current_employee_name") || "No user loaded";
+
+  const employeeDepartment =
+    currentEmployee?.department || currentEmployee?.position || "OPSCORE User";
+
+  const employeeNo =
+    currentEmployee?.employee_no || currentEmployee?.id || "-";
+
+  const portalActive = isExactActive("/employee-portal");
+
+  const logout = () => {
+    localStorage.removeItem("opscore_current_employee");
+    localStorage.removeItem("opscore_current_employee_id");
+    localStorage.removeItem("opscore_current_employee_name");
+    localStorage.removeItem("opscore_current_user");
+    localStorage.removeItem("opscore_current_system_user_id");
+    localStorage.removeItem("opscore_must_change_password");
+    window.location.href = "/login";
+  };
+
 
   const visibleSections = menuSections
     .map((section: any) => {
@@ -252,11 +308,36 @@ export default function Sidebar() {
 
   return (
     <aside className="sticky top-0 z-[9999] h-screen w-56 shrink-0 border-r border-slate-800 bg-slate-950 px-3 py-4 text-white">
-      <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-3 shadow-lg shadow-black/20">
+      <div className="mb-3 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-3 shadow-lg shadow-black/20">
         <p className="truncate text-base font-black text-amber-400">● OPSCORE</p>
         <p className="mt-0.5 truncate text-[11px] text-slate-500">
           Hotel Operations
         </p>
+      </div>
+
+      <div className="mb-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-3 py-3">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">
+          Logged in as
+        </p>
+        <p className="mt-1 truncate text-sm font-black text-white">{employeeName}</p>
+        <p className="mt-0.5 truncate text-[11px] text-slate-300">{currentRoleName}</p>
+        <p className="mt-0.5 truncate text-[11px] text-slate-500">
+          {employeeDepartment} • #{employeeNo}
+        </p>
+
+        <Link
+          href="/employee-portal"
+          title="My Portal"
+          className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
+            portalActive
+              ? "bg-amber-400 text-slate-950"
+              : "border border-slate-700 bg-slate-950 text-amber-300 hover:bg-slate-900"
+          }`}
+        >
+          <User size={14} />
+          <span className="min-w-0 flex-1 truncate">My Portal</span>
+          <ChevronRight size={12} />
+        </Link>
       </div>
 
       {loadingAccess ? (
@@ -361,12 +442,7 @@ export default function Sidebar() {
       )}
 
       <button
-        onClick={() => {
-          localStorage.removeItem("opscore_current_employee_id");
-          localStorage.removeItem("opscore_current_employee_name");
-          localStorage.removeItem("opscore_current_user");
-          window.location.href = "/login";
-        }}
+        onClick={logout}
         className="mt-4 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20"
       >
         Logout
