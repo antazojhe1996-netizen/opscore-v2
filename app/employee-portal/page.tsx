@@ -1598,8 +1598,7 @@ export default function EmployeePortalPage() {
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-40 h-full w-80 max-w-[86vw] transform border-r border-slate-800 bg-slate-950 p-5 shadow-2xl shadow-black/40 transition-transform duration-300 ${
-          menuOpen ? "translate-x-0" : "-translate-x-full"
+className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y-auto border-r border-slate-800 bg-slate-950 p-5 shadow-2xl shadow-black/40 transition-transform duration-300 ${          menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
