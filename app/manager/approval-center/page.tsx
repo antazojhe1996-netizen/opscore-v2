@@ -24,6 +24,7 @@ export default function ApprovalCenterPage() {
   const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [activeTab, setActiveTab] = useState("PENDING");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -131,6 +132,8 @@ export default function ApprovalCenterPage() {
       REFUND_OUT: "↩️ Refund Out",
       ADJUSTMENT_OUT: "⚖️ Adjustment Out",
       PAYROLL_ADJUSTMENT: "🧾 Payroll Adjustment",
+      LEAVE_REQUEST: "🏖 Leave Request",
+      LEAVE_CANCELLATION: "↩️ Leave Cancellation",
     };
 
     return labels[type] || type;
@@ -139,6 +142,8 @@ export default function ApprovalCenterPage() {
   const getRequestTypeBadgeStyle = (type: string) => {
     if (type === "EXPENSE_REQUEST") return "bg-blue-100 text-blue-700";
     if (type === "PAYROLL_ADJUSTMENT") return "bg-indigo-100 text-indigo-700";
+    if (type === "LEAVE_REQUEST") return "bg-emerald-100 text-emerald-700";
+    if (type === "LEAVE_CANCELLATION") return "bg-orange-100 text-orange-700";
     if (type === "CASH_ADVANCE_RELEASE") return "bg-purple-100 text-purple-700";
     if (type === "OWNER_WITHDRAWAL") return "bg-red-100 text-red-700";
     if (CASH_DRAWER_REQUEST_TYPES.includes(type)) return "bg-amber-100 text-amber-700";
@@ -153,6 +158,7 @@ export default function ApprovalCenterPage() {
     if (request.request_type === "CASH_ADVANCE_RELEASE") return "CASH_DRAWER_OUT";
     if (request.request_type === "REFUND_OUT") return "CASH_DRAWER_OUT";
     if (request.request_type === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
+    if (request.request_type === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
 
     return request.request_type;
   };
@@ -208,6 +214,37 @@ export default function ApprovalCenterPage() {
     }
 
     return `${assignedApprovers.length} active approver${assignedApprovers.length > 1 ? "s" : ""}`;
+  };
+
+  const getRequestCategory = (requestType: string) => {
+    if (requestType === "EXPENSE_REQUEST") return "FINANCE";
+
+    if (CASH_DRAWER_REQUEST_TYPES.includes(requestType)) {
+      return "CASH";
+    }
+
+    if (requestType === "PAYROLL_ADJUSTMENT") {
+      return "PAYROLL";
+    }
+
+    if (requestType === "LEAVE_REQUEST" || requestType === "LEAVE_CANCELLATION") {
+      return "LEAVE";
+    }
+
+    return "OTHER";
+  };
+
+  const getCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      ALL: "All",
+      FINANCE: "Finance",
+      CASH: "Cash",
+      PAYROLL: "Payroll",
+      LEAVE: "Leave",
+      OTHER: "Other",
+    };
+
+    return labels[category] || category;
   };
 
   const executeCashDrawerMovement = async (request: any) => {
@@ -365,6 +402,167 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
+
+  const syncLeaveRequestApproval = async (request: any) => {
+    if (request.request_type !== "LEAVE_REQUEST" || !request.reference_id) {
+      return true;
+    }
+
+    const payload = getPayload(request);
+
+    const { error } = await supabase
+      .from("leave_requests")
+      .update({
+        status: "Approved",
+        approved_by: currentEmployeeName || "Manager Approval Center",
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", request.reference_id);
+
+    if (error) {
+      console.log("SYNC LEAVE REQUEST APPROVAL ERROR:", error.message);
+      alert("Approval saved failed before leave request sync. Check leave_requests columns.");
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Approve Leave Request",
+      description: `${request.title || "Leave Request"} approved for ${payload?.employee_name || request.requested_by || "employee"}`,
+      severity: "info",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "APPROVED",
+        leaveRequestId: request.reference_id,
+        approvedBy: currentEmployeeName || "Manager Approval Center",
+        payload,
+      },
+    });
+
+    return true;
+  };
+
+  const syncLeaveRequestRejection = async (request: any, reason: string) => {
+    if (request.request_type !== "LEAVE_REQUEST" || !request.reference_id) {
+      return true;
+    }
+
+    const payload = getPayload(request);
+
+    const { error } = await supabase
+      .from("leave_requests")
+      .update({
+        status: "Rejected",
+        rejected_by: currentEmployeeName || "Manager Approval Center",
+        rejected_at: new Date().toISOString(),
+        rejection_reason: reason,
+      })
+      .eq("id", request.reference_id);
+
+    if (error) {
+      console.log("SYNC LEAVE REQUEST REJECTION ERROR:", error.message);
+      alert("Rejection saved failed before leave request sync. Check leave_requests columns.");
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Reject Leave Request",
+      description: `${request.title || "Leave Request"} rejected. Reason: ${reason}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "REJECTED",
+        leaveRequestId: request.reference_id,
+        rejectedBy: currentEmployeeName || "Manager Approval Center",
+        rejectionReason: reason,
+        payload,
+      },
+    });
+
+    return true;
+  };
+
+
+  const syncLeaveCancellationApproval = async (request: any) => {
+    if (request.request_type !== "LEAVE_CANCELLATION" || !request.reference_id) {
+      return true;
+    }
+
+    const payload = getPayload(request);
+    const finalReason =
+      payload?.cancellation_reason ||
+      payload?.reason ||
+      request.description ||
+      "Leave cancellation approved by manager.";
+
+    const { error } = await supabase
+      .from("leave_requests")
+      .update({
+        status: "Cancelled",
+        cancelled_by: currentEmployeeName || "Manager Approval Center",
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: finalReason,
+      })
+      .eq("id", request.reference_id);
+
+    if (error) {
+      console.log("SYNC LEAVE CANCELLATION APPROVAL ERROR:", error.message);
+      alert("Approval saved failed before leave cancellation sync. Check leave_requests cancellation columns.");
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Approve Leave Cancellation",
+      description: `${request.title || "Leave Cancellation"} approved for ${payload?.employee_name || request.requested_by || "employee"}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "CANCELLED",
+        leaveRequestId: request.reference_id,
+        cancelledBy: currentEmployeeName || "Manager Approval Center",
+        cancellationReason: finalReason,
+        payload,
+      },
+    });
+
+    return true;
+  };
+
+  const syncLeaveCancellationRejection = async (request: any, reason: string) => {
+    if (request.request_type !== "LEAVE_CANCELLATION" || !request.reference_id) {
+      return true;
+    }
+
+    const payload = getPayload(request);
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Reject Leave Cancellation",
+      description: `${request.title || "Leave Cancellation"} rejected. Original leave remains approved. Reason: ${reason}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "CANCELLATION_REJECTED",
+        leaveRequestId: request.reference_id,
+        rejectedBy: currentEmployeeName || "Manager Approval Center",
+        rejectionReason: reason,
+        payload,
+      },
+    });
+
+    return true;
+  };
+
   const approveRequest = async (request: any) => {
     if (!request?.id || isProcessing) return;
 
@@ -428,6 +626,24 @@ export default function ApprovalCenterPage() {
       }
     }
 
+    if (request.request_type === "LEAVE_REQUEST") {
+      const synced = await syncLeaveRequestApproval(request);
+
+      if (!synced) {
+        setIsProcessing(false);
+        return;
+      }
+    }
+
+    if (request.request_type === "LEAVE_CANCELLATION") {
+      const synced = await syncLeaveCancellationApproval(request);
+
+      if (!synced) {
+        setIsProcessing(false);
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("approval_requests")
       .update({
@@ -470,31 +686,6 @@ export default function ApprovalCenterPage() {
       const { error: adjustmentError } = await supabase
         .from("payroll_adjustments")
         .update({
-          status: "Approved",
-          approved_at: new Date().toISOString(),
-        })
-        .eq("id", request.reference_id);
-
-      if (adjustmentError) {
-        console.log("SYNC PAYROLL ADJUSTMENT APPROVAL ERROR:", adjustmentError.message);
-        alert("Approval saved failed before payroll adjustment sync.");
-        setIsProcessing(false);
-        return;
-      }
-
-      const payload = getPayload(request);
-      if (payload?.period_id) {
-        await supabase
-          .from("payroll_periods")
-          .update({ needs_regeneration: true })
-          .eq("id", payload.period_id);
-      }
-    }
-
-    if (request.request_type === "PAYROLL_ADJUSTMENT" && request.reference_id) {
-      const { error: adjustmentError } = await supabase
-        .from("payroll_adjustments")
-        .update({
           status: "Rejected",
           remarks: finalReason,
         })
@@ -520,6 +711,24 @@ export default function ApprovalCenterPage() {
       if (expenseRequestError) {
         console.log("SYNC EXPENSE REQUEST REJECTION ERROR:", expenseRequestError.message);
         alert("Rejection saved failed before expense request sync.");
+        setIsProcessing(false);
+        return;
+      }
+    }
+
+    if (request.request_type === "LEAVE_REQUEST") {
+      const synced = await syncLeaveRequestRejection(request, finalReason);
+
+      if (!synced) {
+        setIsProcessing(false);
+        return;
+      }
+    }
+
+    if (request.request_type === "LEAVE_CANCELLATION") {
+      const synced = await syncLeaveCancellationRejection(request, finalReason);
+
+      if (!synced) {
         setIsProcessing(false);
         return;
       }
@@ -584,7 +793,33 @@ export default function ApprovalCenterPage() {
   const pendingRequests = visibleRequests.filter((r) => r.status === "PENDING");
   const approvedRequests = visibleRequests.filter((r) => r.status === "APPROVED");
   const rejectedRequests = visibleRequests.filter((r) => r.status === "REJECTED");
-  const filteredRequests = visibleRequests.filter((r) => r.status === activeTab);
+
+  const getCategoryCount = (status: string, category: string) => {
+    return visibleRequests.filter((request) => {
+      const statusMatch = request.status === status;
+      const categoryMatch =
+        category === "ALL" || getRequestCategory(request.request_type) === category;
+
+      return statusMatch && categoryMatch;
+    }).length;
+  };
+
+  const categoryItems = [
+    { key: "ALL", label: "All", count: getCategoryCount(activeTab, "ALL") },
+    { key: "FINANCE", label: "Finance", count: getCategoryCount(activeTab, "FINANCE") },
+    { key: "CASH", label: "Cash", count: getCategoryCount(activeTab, "CASH") },
+    { key: "PAYROLL", label: "Payroll", count: getCategoryCount(activeTab, "PAYROLL") },
+    { key: "LEAVE", label: "Leave", count: getCategoryCount(activeTab, "LEAVE") },
+  ];
+
+  const filteredRequests = visibleRequests.filter((request) => {
+    const statusMatch = request.status === activeTab;
+    const categoryMatch =
+      categoryFilter === "ALL" ||
+      getRequestCategory(request.request_type) === categoryFilter;
+
+    return statusMatch && categoryMatch;
+  });
 
   /// UI
   return (
@@ -638,11 +873,14 @@ export default function ApprovalCenterPage() {
           </div>
         </div>
 
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           {["PENDING", "APPROVED", "REJECTED"].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setCategoryFilter("ALL");
+              }}
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${
                 activeTab === tab
                   ? "bg-slate-900 text-white"
@@ -654,6 +892,26 @@ export default function ApprovalCenterPage() {
           ))}
         </div>
 
+        <div className="mb-4 flex flex-wrap gap-2">
+          {categoryItems.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setCategoryFilter(item.key)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                categoryFilter === item.key
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-slate-600 border"
+              }`}
+            >
+              {item.label} ({item.count})
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-4 rounded-xl border bg-white px-4 py-3 text-sm text-slate-600">
+          Showing <span className="font-bold text-slate-900">{filteredRequests.length}</span> {activeTab.toLowerCase()} request(s) under <span className="font-bold text-slate-900">{getCategoryLabel(categoryFilter)}</span>.
+        </div>
+
         <div className="rounded-xl bg-white shadow-sm border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
@@ -661,6 +919,7 @@ export default function ApprovalCenterPage() {
                 <th className="p-3 text-left">Date</th>
                 <th className="p-3 text-left">Type</th>
                 <th className="p-3 text-left">Module</th>
+                <th className="p-3 text-left">Category</th>
                 <th className="p-3 text-left">Title</th>
                 <th className="p-3 text-left">Requested By</th>
                 <th className="p-3 text-left">Approver Role</th>
@@ -672,7 +931,7 @@ export default function ApprovalCenterPage() {
             <tbody>
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center text-slate-500">
+                  <td colSpan={9} className="p-6 text-center text-slate-500">
                     No approval requests assigned to you.
                   </td>
                 </tr>
@@ -694,6 +953,11 @@ export default function ApprovalCenterPage() {
                       </span>
                     </td>
                     <td className="p-3">{request.module}</td>
+                    <td className="p-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        {getCategoryLabel(getRequestCategory(request.request_type))}
+                      </span>
+                    </td>
                     <td className="p-3 font-medium text-slate-800">
                       {request.title}
                     </td>
@@ -864,8 +1128,28 @@ export default function ApprovalCenterPage() {
                         {getPayload(selectedRequest)?.payroll_period_label || "-"}
                       </p>
                       <p>
+                        <span className="font-semibold">Leave Employee:</span>{" "}
+                        {getPayload(selectedRequest)?.employee_name || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Leave Type:</span>{" "}
+                        {getPayload(selectedRequest)?.leave_type || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Leave Dates:</span>{" "}
+                        {getPayload(selectedRequest)?.start_date || "-"} to {getPayload(selectedRequest)?.end_date || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Total Days:</span>{" "}
+                        {getPayload(selectedRequest)?.days || getPayload(selectedRequest)?.total_days || "-"}
+                      </p>
+                      <p>
                         <span className="font-semibold">Remarks:</span>{" "}
                         {getPayload(selectedRequest)?.remarks || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Cancellation Reason:</span>{" "}
+                        {getPayload(selectedRequest)?.cancellation_reason || "-"}
                       </p>
                     </div>
                   </div>

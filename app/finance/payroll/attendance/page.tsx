@@ -307,13 +307,18 @@ export default function AttendancePage() {
   };
 
   const getShiftColorClass = (shiftName?: string | null) => {
+    if (isLeaveShift(shiftName)) {
+      return "border-rose-500/40 bg-rose-500/15 text-rose-300";
+    }
+
     const shift = getShiftTemplate(shiftName);
     return getColorClasses(shift?.color);
   };
 
   const isUnscheduledShift = (shiftName?: string | null) => shiftName === "OFF";
   const isRestDayShift = (shiftName?: string | null) => shiftName === "RD";
-  const isLeaveShift = (shiftName?: string | null) => shiftName === "Leave";
+  const isLeaveShift = (shiftName?: string | null) =>
+    shiftName === "Leave" || shiftName === "LEAVE";
   const isWorkingShift = (shiftName?: string | null) =>
     !!shiftName &&
     !isUnscheduledShift(shiftName) &&
@@ -324,7 +329,7 @@ export default function AttendancePage() {
     if (!shiftName) return "OFF";
     if (shiftName === "OFF") return "OFF";
     if (shiftName === "RD") return "RD";
-    if (shiftName === "Leave") return "Leave";
+    if (shiftName === "Leave" || shiftName === "LEAVE") return "LEAVE";
 
     const shift = getShiftTemplate(shiftName);
     const start = shift?.start_time ? String(shift.start_time).slice(0, 5) : "";
@@ -1926,7 +1931,11 @@ export default function AttendancePage() {
               </thead>
 
               <tbody>
-                {attendanceRows.map((row) => (
+                {attendanceRows.map((row) => {
+                  const rowIsApprovedLeave =
+                    row.status === "Leave" || isLeaveShift(row.scheduled_shift);
+
+                  return (
                   <tr
                     key={row.key}
                     className={`border-t border-slate-800 align-middle hover:bg-slate-800/40 ${
@@ -1950,7 +1959,7 @@ export default function AttendancePage() {
                       <div className="flex items-center">
                       <select
                         value={row.scheduled_shift}
-                        disabled={attendanceLocked}
+                        disabled={attendanceLocked || rowIsApprovedLeave}
                         onChange={(e) =>
                           updateScheduleOverride(
                             row.employee,
@@ -1977,6 +1986,12 @@ export default function AttendancePage() {
                         {!shiftTemplates.some((shift) => shift.shift_name === "RD") && (
                           <option value="RD">RD</option>
                         )}
+
+                        {!shiftTemplates.some(
+                          (shift) =>
+                            shift.shift_name === "Leave" ||
+                            shift.shift_name === "LEAVE"
+                        ) && <option value="Leave">LEAVE</option>}
                       </select>
                       </div>
                     </td>
@@ -1986,7 +2001,7 @@ export default function AttendancePage() {
                         <input
                           type="time"
                           value={row.entry?.time_in || ""}
-                          disabled={attendanceLocked}
+                          disabled={attendanceLocked || rowIsApprovedLeave}
                           onChange={(e) =>
                             updateLocalEntry(
                               row.employee,
@@ -2005,7 +2020,7 @@ export default function AttendancePage() {
                         <input
                           type="time"
                           value={row.entry?.time_out || ""}
-                          disabled={attendanceLocked}
+                          disabled={attendanceLocked || rowIsApprovedLeave}
                           onChange={(e) =>
                             updateLocalEntry(
                               row.employee,
@@ -2042,7 +2057,7 @@ export default function AttendancePage() {
                     <td className="px-4 py-3 align-middle">
                       <input
                         value={row.entry?.remarks || ""}
-                        disabled={attendanceLocked}
+                        disabled={attendanceLocked || rowIsApprovedLeave}
                         onChange={(e) =>
                           updateLocalEntry(
                             row.employee,
@@ -2070,7 +2085,8 @@ export default function AttendancePage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
 
                 {attendanceRows.length === 0 && (
                   <tr>

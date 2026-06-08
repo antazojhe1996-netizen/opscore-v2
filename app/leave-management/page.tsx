@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "../lib/supabase";
+import { createAuditLog } from "../lib/audit";
 import * as XLSX from "xlsx";
 
 export default function LeaveManagementPage() {
@@ -22,6 +23,7 @@ export default function LeaveManagementPage() {
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveSettings, setLeaveSettings] = useState<any[]>([]);
   const [leaveCredits, setLeaveCredits] = useState<any[]>([]);
+  const [pendingCancellationLeaveIds, setPendingCancellationLeaveIds] = useState<string[]>([]);
 
   const [statusFilter, setStatusFilter] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
@@ -87,6 +89,27 @@ export default function LeaveManagementPage() {
     setLeaveRequests(data || []);
   };
 
+
+  const getPendingCancellationRequests = async () => {
+    const { data, error } = await supabase
+      .from("approval_requests")
+      .select("reference_id")
+      .eq("request_type", "LEAVE_CANCELLATION")
+      .eq("status", "PENDING");
+
+    if (error) {
+      console.log("GET PENDING LEAVE CANCELLATIONS ERROR:", error.message);
+      setPendingCancellationLeaveIds([]);
+      return;
+    }
+
+    setPendingCancellationLeaveIds(
+      (data || [])
+        .map((request) => String(request.reference_id || ""))
+        .filter(Boolean)
+    );
+  };
+
   const getLeaveSettings = async () => {
     const { data, error } = await supabase
       .from("leave_settings")
@@ -133,6 +156,17 @@ export default function LeaveManagementPage() {
     return `${employee.first_name} ${employee.last_name}`;
   };
 
+  const getCurrentUserName = () =>
+    localStorage.getItem("opscore_current_employee_name") ||
+    localStorage.getItem("opscore_current_user_name") ||
+    localStorage.getItem("opscore_username") ||
+    "OPSCORE USER";
+
+
+  const isLeaveCancellationPending = (leaveId: any) => {
+    return pendingCancellationLeaveIds.includes(String(leaveId));
+  };
+
   const submitLeave = async () => {
     const days = calculateDays();
 
@@ -146,30 +180,99 @@ export default function LeaveManagementPage() {
       return;
     }
 
-    const { error } = await supabase.from("leave_requests").insert([
-      {
+    const employee = getEmployee(employeeNo);
+    const employeeName = employee
+      ? `${employee.first_name || ""} ${employee.last_name || ""}`.trim()
+      : "Unknown Employee";
+
+    const leavePayload = {
+      employee_id: employeeNo,
+      employee_name: employeeName,
+      employee_no: employee?.employee_no || null,
+      department: employee?.department || null,
+      position: employee?.position || null,
+      leave_type: leaveType,
+      start_date: startDate,
+      end_date: endDate,
+      days,
+      total_days: days,
+      reason: reason.trim(),
+      requested_by: getCurrentUserName(),
+      requested_at: new Date().toISOString(),
+    };
+
+    const { data: leaveData, error: leaveError } = await supabase
+      .from("leave_requests")
+      .insert({
         employee_id: employeeNo,
+        employee_name: employeeName,
         leave_type: leaveType,
         start_date: startDate,
         end_date: endDate,
         days,
-        reason,
+        reason: reason.trim(),
         status: "Pending",
-      },
-    ]);
+        requested_by: getCurrentUserName(),
+        requested_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-    if (error) {
-      console.log("SUBMIT LEAVE ERROR:", error);
-      alert("Failed to submit leave request.");
+    if (leaveError) {
+  console.log("SUBMIT LEAVE ERROR:", leaveError);
+  alert(leaveError.message);
+  return;
+}
+
+    const { error: approvalError } = await supabase
+      .from("approval_requests")
+      .insert({
+        request_type: "LEAVE_REQUEST",
+        module: "Leave Management",
+        reference_id: leaveData.id,
+        title: `Leave Request - ${employeeName}`,
+        description: `${employeeName} requested ${leaveType} from ${startDate} to ${endDate} (${days} day/s). Reason: ${reason.trim()}`,
+        requested_by: getCurrentUserName(),
+        status: "PENDING",
+        request_payload: leavePayload,
+      });
+
+    if (approvalError) {
+      console.log("CREATE LEAVE APPROVAL REQUEST ERROR:", approvalError.message);
+
+      await supabase
+        .from("leave_requests")
+        .update({
+          status: "Draft",
+          reason: `${reason.trim()} | Approval request failed: ${approvalError.message}`,
+        })
+        .eq("id", leaveData.id);
+
+      alert("Leave was saved, but approval request failed. Check approval_requests columns.");
+      await getLeaveRequests();
       return;
     }
+
+    await createAuditLog({
+      userName: getCurrentUserName(),
+      module: "Leave Management",
+      action: "Submit Leave Request",
+      description: `${employeeName} submitted ${leaveType} leave for ${days} day(s).`,
+      severity: "info",
+      recordId: leaveData.id,
+      newValue: {
+        leaveRequest: leaveData,
+        approvalPayload: leavePayload,
+      },
+    });
 
     setEmployeeNo("");
     setStartDate("");
     setEndDate("");
     setReason("");
 
-    getLeaveRequests();
+    await getLeaveRequests();
+    alert("Leave request submitted to Manager Approval Center.");
   };
 
   const updateStatus = async (id: number, status: string) => {
@@ -293,6 +396,90 @@ export default function LeaveManagementPage() {
     getLeaveCredits();
   };
 
+
+  const requestLeaveCancellation = async (leave: any) => {
+    if (!leave?.id) {
+      alert("Leave request not found.");
+      return;
+    }
+
+    if (String(leave.status || "") !== "Approved") {
+      alert("Only approved leaves can be requested for cancellation.");
+      return;
+    }
+
+    if (isLeaveCancellationPending(leave.id)) {
+      alert("A cancellation request is already pending for this leave.");
+      return;
+    }
+
+    const cancellationReason = prompt("Reason for cancelling this approved leave?");
+
+    if (!cancellationReason?.trim()) {
+      alert("Cancellation reason is required.");
+      return;
+    }
+
+    const employee = getEmployee(leave.employee_id);
+    const employeeName = leave.employee_name || getEmployeeName(leave.employee_id);
+    const days = Number(leave.days || leave.total_days || 0);
+
+    const confirmed = confirm(
+      `Submit cancellation request?\n\n${employeeName}\n${leave.leave_type || "Leave"}\n${leave.start_date} to ${leave.end_date}\nReason: ${cancellationReason.trim()}`
+    );
+
+    if (!confirmed) return;
+
+    const payload = {
+      leave_id: leave.id,
+      employee_id: leave.employee_id,
+      employee_name: employeeName,
+      employee_no: employee?.employee_no || leave.employee_no || null,
+      department: employee?.department || leave.department || null,
+      position: employee?.position || leave.position || null,
+      leave_type: leave.leave_type,
+      start_date: leave.start_date,
+      end_date: leave.end_date,
+      days,
+      total_days: days,
+      original_reason: leave.reason || "",
+      cancellation_reason: cancellationReason.trim(),
+      requested_by: getCurrentUserName(),
+      requested_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("approval_requests").insert({
+      request_type: "LEAVE_CANCELLATION",
+      module: "Leave Management",
+      reference_id: leave.id,
+      title: `Leave Cancellation - ${employeeName}`,
+      description: `${employeeName} requested cancellation of ${leave.leave_type || "leave"} from ${leave.start_date} to ${leave.end_date}. Reason: ${cancellationReason.trim()}`,
+      requested_by: getCurrentUserName(),
+      status: "PENDING",
+      request_payload: payload,
+    });
+
+    if (error) {
+      console.log("CREATE LEAVE CANCELLATION REQUEST ERROR:", error.message);
+      alert(error.message);
+      return;
+    }
+
+    await createAuditLog({
+      userName: getCurrentUserName(),
+      module: "Leave Management",
+      action: "Request Leave Cancellation",
+      description: `${employeeName} requested cancellation of approved leave. Reason: ${cancellationReason.trim()}`,
+      severity: "warning",
+      recordId: String(leave.id),
+      oldValue: leave,
+      newValue: payload,
+    });
+
+    await getPendingCancellationRequests();
+    alert("Leave cancellation request submitted to Manager Approval Center.");
+  };
+
   const deleteLeave = async (id: number) => {
     const confirmDelete = confirm("Delete this leave request?");
     if (!confirmDelete) return;
@@ -310,6 +497,7 @@ export default function LeaveManagementPage() {
   const statusStyle = (status: string) => {
     if (status === "Approved") return "bg-green-500/20 text-green-400 border-green-500/30";
     if (status === "Rejected") return "bg-red-500/20 text-red-400 border-red-500/30";
+    if (status === "Cancelled") return "bg-slate-500/20 text-slate-300 border-slate-500/30";
     return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
   };
 
@@ -337,6 +525,7 @@ export default function LeaveManagementPage() {
     getLeaveRequests();
     getLeaveSettings();
     getLeaveCredits();
+    getPendingCancellationRequests();
   }, []);
 
   /// CALCULATIONS
@@ -435,7 +624,7 @@ export default function LeaveManagementPage() {
           <div>
             <h1 className="text-3xl font-bold">Leave Management</h1>
             <p className="mt-2 text-slate-400">
-              Submit, approve, monitor credits, and sync approved leaves with scheduling.
+              Submit leave requests, monitor approvals, track credits, and sync approved leaves with scheduling.
             </p>
           </div>
 
@@ -608,7 +797,7 @@ export default function LeaveManagementPage() {
             <div>
               <h2 className="text-xl font-bold">Leave Requests</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Review approvals, rejections, and leave history.
+                Approval is handled in Manager Approval Center. This page is for submission, monitoring, and leave history.
               </p>
             </div>
 
@@ -632,6 +821,7 @@ export default function LeaveManagementPage() {
                 <option value="Pending">Pending</option>
                 <option value="Approved">Approved</option>
                 <option value="Rejected">Rejected</option>
+                <option value="Cancelled">Cancelled</option>
               </select>
             </div>
           </div>
@@ -678,43 +868,50 @@ export default function LeaveManagementPage() {
                     </td>
 
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        {leave.status === "Pending" && (
-                          <>
+                      {leave.status === "Pending" && (
+                        <span className="rounded-lg bg-yellow-500/10 px-3 py-1 text-xs font-bold text-yellow-300">
+                          Awaiting Manager Approval
+                        </span>
+                      )}
+
+                      {leave.status === "Approved" && (
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-lg bg-green-500/10 px-3 py-1 text-xs font-bold text-green-300">
+                            Approved via Approval Center
+                          </span>
+
+                          {isLeaveCancellationPending(leave.id) ? (
+                            <span className="rounded-lg bg-orange-500/10 px-3 py-1 text-xs font-bold text-orange-300">
+                              Cancellation Pending
+                            </span>
+                          ) : (
                             <button
-                              onClick={() => updateStatus(leave.id, "Approved")}
-                              className="rounded-lg bg-green-600 px-3 py-1 text-xs font-bold hover:bg-green-500"
+                              onClick={() => requestLeaveCancellation(leave)}
+                              className="rounded-lg bg-orange-500/10 px-3 py-1 text-xs font-bold text-orange-300 hover:bg-orange-500/20"
                             >
-                              Approve
+                              Request Cancellation
                             </button>
+                          )}
+                        </div>
+                      )}
 
-                            <button
-                              onClick={() => updateStatus(leave.id, "Rejected")}
-                              className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
+                      {leave.status === "Rejected" && (
+                        <span className="rounded-lg bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
+                          Rejected via Approval Center
+                        </span>
+                      )}
 
-                        {leave.status === "Approved" && (
-                          <button
-                            onClick={() => cancelApproval(leave)}
-                            className="rounded-lg bg-yellow-600 px-3 py-1 text-xs font-bold hover:bg-yellow-500"
-                          >
-                            Cancel Approval
-                          </button>
-                        )}
+                      {leave.status === "Cancelled" && (
+                        <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
+                          Leave Cancelled
+                        </span>
+                      )}
 
-                        {leave.status !== "Approved" && (
-                          <button
-                            onClick={() => deleteLeave(leave.id)}
-                            className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
+                      {leave.status === "Draft" && (
+                        <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
+                          Approval request failed
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
