@@ -132,11 +132,26 @@ const menuSections = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+
+  const [mounted, setMounted] = useState(false);
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(true);
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   const [currentRoleName, setCurrentRoleName] = useState("Employee");
+  const [fallbackEmployeeName, setFallbackEmployeeName] = useState("No user loaded");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+
+    setFallbackEmployeeName(
+      localStorage.getItem("opscore_current_employee_name") || "No user loaded"
+    );
+  }, [mounted]);
 
   const getPendingApprovals = async () => {
     const { count, error } = await supabase
@@ -232,9 +247,14 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+
     getCurrentUserPermissions();
 
     const handleStorageChange = () => {
+      setFallbackEmployeeName(
+        localStorage.getItem("opscore_current_employee_name") || "No user loaded"
+      );
       getCurrentUserPermissions();
       getPendingApprovals();
     };
@@ -249,7 +269,7 @@ export default function Sidebar() {
       window.removeEventListener("storage", handleStorageChange);
       window.clearInterval(interval);
     };
-  }, []);
+  }, [mounted]);
 
   const canView = (moduleKey: string) => {
     if (moduleKey === "always_allow") return true;
@@ -269,7 +289,7 @@ export default function Sidebar() {
   const isExactActive = (href: string) => normalizePath(href) === currentPath;
   const employeeName = currentEmployee
     ? `${currentEmployee.first_name || ""} ${currentEmployee.last_name || ""}`.trim()
-    : localStorage.getItem("opscore_current_employee_name") || "No user loaded";
+    : fallbackEmployeeName;
 
   const employeeDepartment =
     currentEmployee?.department || currentEmployee?.position || "OPSCORE User";
@@ -280,6 +300,8 @@ export default function Sidebar() {
   const portalActive = isExactActive("/employee-portal");
 
   const logout = () => {
+    if (typeof window === "undefined") return;
+
     localStorage.removeItem("opscore_current_employee");
     localStorage.removeItem("opscore_current_employee_id");
     localStorage.removeItem("opscore_current_employee_name");
@@ -305,6 +327,10 @@ export default function Sidebar() {
       return { ...section, items: visibleItems };
     })
     .filter(Boolean);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <aside className="sticky top-0 z-[9999] h-screen w-56 shrink-0 border-r border-slate-800 bg-slate-950 px-3 py-4 text-white">
