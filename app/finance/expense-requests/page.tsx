@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 
@@ -711,7 +712,8 @@ export default function ExpenseRequestsPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <PageGuard moduleKey="expense_requests">
+      <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
@@ -951,7 +953,8 @@ export default function ExpenseRequestsPage() {
           />
         )}
       </main>
-    </div>
+      </div>
+    </PageGuard>
   );
 }
 

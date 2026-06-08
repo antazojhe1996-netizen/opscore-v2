@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 
 export default function FinanceSettingsPage() {
@@ -121,7 +122,8 @@ export default function FinanceSettingsPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <PageGuard moduleKey="finance_settings">
+      <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
@@ -235,7 +237,8 @@ export default function FinanceSettingsPage() {
           </div>
         </section>
       </main>
-    </div>
+      </div>
+    </PageGuard>
   );
 }
 

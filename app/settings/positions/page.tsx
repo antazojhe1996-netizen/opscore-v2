@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import PageGuard from "@/components/PageGuard";
 
 export default function PositionsPage() {
   /// STATES
@@ -150,7 +151,8 @@ export default function PositionsPage() {
 
   /// UI
 
-  return (
+return (
+  <PageGuard moduleKey="positions_settings">
     <div className="flex min-h-screen bg-[#050514] text-white">
       <Sidebar />
 
@@ -262,6 +264,7 @@ export default function PositionsPage() {
           </div>
         </div>
       </main>
-    </div>
+        </div>
+  </PageGuard>
   );
 }
