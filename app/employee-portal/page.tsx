@@ -82,6 +82,19 @@ type ApprovalRequest = {
   created_at?: string | null;
 };
 
+type Announcement = {
+  id?: string | number;
+  title?: string | null;
+  message?: string | null;
+  body?: string | null;
+  priority?: string | null;
+  audience?: string | null;
+  posted_by?: string | null;
+  created_by?: string | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+};
+
 type EmployeeBalance = {
   id?: string;
   employee_id?: string | null;
@@ -140,6 +153,8 @@ type PortalTab =
   | "leave"
   | "payslip"
   | "cashadvance"
+  | "announcements"
+  | "manager"
   | "profile";
 
 export default function EmployeePortalPage() {
@@ -152,6 +167,19 @@ export default function EmployeePortalPage() {
   const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
   const [leaveCredits, setLeaveCredits] = useState<LeaveCredit[]>([]);
   const [pendingCancellationRequests, setPendingCancellationRequests] = useState<ApprovalRequest[]>([]);
+  const [managerApprovals, setManagerApprovals] = useState<ApprovalRequest[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<any[]>([]);
+  const [isAssignedApprover, setIsAssignedApprover] = useState(false);
+  const [approverAssignments, setApproverAssignments] = useState<any[]>([]);
+  const [cancelLeaveModal, setCancelLeaveModal] = useState<LeaveRequest | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [rejectApprovalModal, setRejectApprovalModal] = useState<ApprovalRequest | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState<string | number | null>(null);
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [announcementPriority, setAnnouncementPriority] = useState("Normal");
   const [leaveView, setLeaveView] = useState<"request" | "history">("request");
   const [payslips, setPayslips] = useState<PayslipRow[]>([]);
   const [employeeBalances, setEmployeeBalances] = useState<EmployeeBalance[]>([]);
@@ -199,6 +227,8 @@ export default function EmployeePortalPage() {
     { key: "leave", label: "Leave", icon: "📝" },
     { key: "payslip", label: "Payslips", icon: "💰" },
     { key: "cashadvance", label: "Cash Advances", icon: "💵" },
+    { key: "announcements", label: "Announcements", icon: "📢" },
+    { key: "manager", label: "Manager Tools", icon: "🛡️" },
     { key: "profile", label: "Profile", icon: "👤" },
   ];
 
@@ -228,6 +258,12 @@ export default function EmployeePortalPage() {
     currentUser?.employee_number ||
     currentUser?.id ||
     "-";
+
+  const canUseManagerTools = isAssignedApprover;
+
+  const portalMenuItems = menuItems.filter(
+    (item) => item.key !== "manager" || canUseManagerTools
+  );
 
   const getMinutes = (time: string | null) => {
     if (!time) return 0;
@@ -687,6 +723,12 @@ export default function EmployeePortalPage() {
     ...(leaveCredits.length > 0
       ? [`Remaining leave credits: ${totalRemainingLeaveCredits}.`]
       : []),
+    ...(announcements.length > 0
+      ? [`Latest announcement: ${announcements[0].title || announcements[0].message || "New announcement"}.`]
+      : []),
+    ...(canUseManagerTools && managerApprovals.length > 0
+      ? [`Manager tools: ${managerApprovals.length} pending approval(s).`]
+      : []),
   ];
 
   /// FUNCTIONS
@@ -699,7 +741,9 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    setCurrentUser(JSON.parse(storedUser));
+    const parsedUser = JSON.parse(storedUser);
+    setCurrentUser(parsedUser);
+    getCurrentUserPermissions(parsedUser);
   };
 
   const logout = () => {
@@ -723,6 +767,155 @@ export default function EmployeePortalPage() {
       employeeName ||
       "OPSCORE Employee"
     );
+  };
+
+  const getCurrentUserPermissions = async (employee: any) => {
+    if (!employee) {
+      setRolePermissions([]);
+      setApproverAssignments([]);
+      setIsAssignedApprover(false);
+      return;
+    }
+
+    if (employee.system_role_id) {
+      const { data, error } = await supabase
+        .from("role_permissions")
+        .select("*")
+        .eq("role_id", employee.system_role_id);
+
+      if (error) {
+        console.log("PORTAL ROLE PERMISSIONS ERROR:", error.message);
+        setRolePermissions([]);
+      } else {
+        setRolePermissions(data || []);
+      }
+    } else {
+      setRolePermissions([]);
+    }
+
+    const employeeId = String(employee.id || "").trim();
+    const systemUserId = String(employee.system_user_id || "").trim();
+    const employeeNo = String(employee.employee_no || employee.employee_number || "").trim();
+    const username = String(employee.username || "").trim();
+    const employeeNameValue = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+
+    const lookupPairs = [
+      { column: "approver_employee_id", value: employeeId },
+      { column: "approver_id", value: employeeId },
+      { column: "approver_user_id", value: systemUserId },
+      { column: "system_user_id", value: systemUserId },
+      { column: "employee_id", value: employeeId },
+      { column: "assigned_employee_id", value: employeeId },
+      { column: "user_id", value: employeeId },
+      { column: "approver_employee_no", value: employeeNo },
+      { column: "employee_no", value: employeeNo },
+      { column: "username", value: username },
+      { column: "approver_username", value: username },
+      { column: "approver_name", value: employeeNameValue },
+      { column: "employee_name", value: employeeNameValue },
+    ].filter((item) => item.value);
+
+    let matchedAssignments: any[] = [];
+
+    for (const lookup of lookupPairs) {
+      const { data, error } = await supabase
+        .from("approval_assignments")
+        .select("*")
+        .eq(lookup.column, lookup.value)
+        .limit(20);
+
+      if (!error && data && data.length > 0) {
+        matchedAssignments = data;
+        break;
+      }
+    }
+
+    const activeAssignments = matchedAssignments.filter((assignment) => {
+      const activeValue = assignment.is_active ?? assignment.active ?? true;
+      const status = String(assignment.status || "Active").toLowerCase();
+      return activeValue !== false && !["inactive", "disabled", "archived"].includes(status);
+    });
+
+    setApproverAssignments(activeAssignments);
+    setIsAssignedApprover(activeAssignments.length > 0);
+  };
+
+  const getManagerApprovals = async () => {
+    if (!isAssignedApprover) {
+      setManagerApprovals([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("approval_requests")
+      .select("*")
+      .in("request_type", ["LEAVE_REQUEST", "LEAVE_CANCELLATION"])
+      .eq("status", "PENDING")
+      .order("id", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.log("MANAGER APPROVALS ERROR:", error.message);
+      setManagerApprovals([]);
+      return;
+    }
+
+    setManagerApprovals(data || []);
+  };
+
+  const getAnnouncements = async () => {
+    const { data, error } = await supabase
+      .from("announcements")
+      .select("*")
+      .or("is_active.eq.true,is_active.is.null")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.log("ANNOUNCEMENTS ERROR:", error.message);
+      setAnnouncements([]);
+      return;
+    }
+
+    setAnnouncements(data || []);
+  };
+
+  const submitAnnouncement = async () => {
+    if (!canUseManagerTools) {
+      alert("You do not have permission to post announcements.");
+      return;
+    }
+
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      alert("Please enter announcement title and message.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase.from("announcements").insert({
+      title: announcementTitle.trim(),
+      message: announcementMessage.trim(),
+      body: announcementMessage.trim(),
+      priority: announcementPriority,
+      audience: "All Employees",
+      posted_by: getCurrentUserName(),
+      created_by: getCurrentUserName(),
+      is_active: true,
+    });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+      return;
+    }
+
+    setAnnouncementTitle("");
+    setAnnouncementMessage("");
+    setAnnouncementPriority("Normal");
+    await getAnnouncements();
+    alert("Announcement posted.");
+    setLoading(false);
   };
 
   const getShiftDetails = async (shiftName: string | null) => {
@@ -1017,6 +1210,8 @@ export default function EmployeePortalPage() {
       getLeaveHistory(employeeId),
       getLeaveCredits(employeeId),
       getPendingCancellationRequests(employeeId),
+      getManagerApprovals(),
+      getAnnouncements(),
       getPayslips(employeeId),
       getEmployeeBalances(employeeId),
     ]);
@@ -1190,21 +1385,24 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    const cancellationReason = prompt("Reason for cancelling this approved leave?");
+    setCancelLeaveModal(leave);
+    setCancellationReason("");
+  };
 
-    if (!cancellationReason?.trim()) {
+  const submitLeaveCancellationRequest = async () => {
+    if (!currentUser || !cancelLeaveModal?.id) return;
+
+    const leave = cancelLeaveModal;
+
+    if (!cancellationReason.trim()) {
       alert("Cancellation reason is required.");
       return;
     }
 
     const days = Number(leave.days || leave.total_days || 0);
-    const employeeNo = String(currentUser.employee_no || employeeNumber || leave.employee_no || "").trim();
-
-    const confirmed = confirm(
-      `Submit cancellation request?\n\n${leave.leave_type}\n${leave.start_date} to ${leave.end_date}\nReason: ${cancellationReason.trim()}`
-    );
-
-    if (!confirmed) return;
+    const employeeNo = String(
+      currentUser.employee_no || employeeNumber || leave.employee_no || ""
+    ).trim();
 
     const payload = {
       leave_id: leave.id,
@@ -1243,9 +1441,139 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    await getPendingCancellationRequests(currentUser.id);
+    setCancelLeaveModal(null);
+    setCancellationReason("");
+    await reloadEmployeeData(currentUser.id);
     alert("Leave cancellation request submitted to Manager Approval Center.");
     setLoading(false);
+  };
+
+  const approveMobileApproval = async (request: ApprovalRequest) => {
+    if (!canUseManagerTools || !request?.id) return;
+
+    const requestType = String(request.request_type || "").toUpperCase();
+    const payload = request.request_payload || {};
+    const referenceId = request.reference_id || payload.leave_id;
+
+    setActionLoadingId(request.id as string | number);
+
+    if (requestType === "LEAVE_REQUEST" && referenceId) {
+      const { error: leaveError } = await supabase
+        .from("leave_requests")
+        .update({
+          status: "Approved",
+          approved_by: getCurrentUserName(),
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", referenceId);
+
+      if (leaveError) {
+        alert(leaveError.message);
+        setActionLoadingId(null);
+        return;
+      }
+    }
+
+    if (requestType === "LEAVE_CANCELLATION" && referenceId) {
+      const { error: leaveError } = await supabase
+        .from("leave_requests")
+        .update({
+          status: "Cancelled",
+          cancellation_reason: payload.cancellation_reason || request.description || null,
+          cancelled_by: getCurrentUserName(),
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq("id", referenceId);
+
+      if (leaveError) {
+        alert(leaveError.message);
+        setActionLoadingId(null);
+        return;
+      }
+    }
+
+    const { error } = await supabase
+      .from("approval_requests")
+      .update({
+        status: "APPROVED",
+        approved_by: getCurrentUserName(),
+      })
+      .eq("id", request.id);
+
+    if (error) {
+      alert(error.message);
+      setActionLoadingId(null);
+      return;
+    }
+
+    await getManagerApprovals();
+    if (currentUser?.id) await reloadEmployeeData(currentUser.id);
+    setActionLoadingId(null);
+    alert("Approval completed.");
+  };
+
+  const rejectMobileApproval = async (request: ApprovalRequest) => {
+    if (!canUseManagerTools || !request?.id) return;
+
+    setRejectApprovalModal(request);
+    setRejectionReason("");
+  };
+
+  const submitMobileApprovalRejection = async () => {
+    if (!canUseManagerTools || !rejectApprovalModal?.id) return;
+
+    const request = rejectApprovalModal;
+
+    if (!rejectionReason.trim()) {
+      alert("Rejection reason is required.");
+      return;
+    }
+
+    const requestType = String(request.request_type || "").toUpperCase();
+    const payload = request.request_payload || {};
+    const referenceId = request.reference_id || payload.leave_id;
+
+    setActionLoadingId(request.id as string | number);
+
+    if (requestType === "LEAVE_REQUEST" && referenceId) {
+      const { error: leaveError } = await supabase
+        .from("leave_requests")
+        .update({
+          status: "Rejected",
+          rejected_by: getCurrentUserName(),
+          rejected_at: new Date().toISOString(),
+          rejection_reason: rejectionReason.trim(),
+        })
+        .eq("id", referenceId);
+
+      if (leaveError) {
+        alert(leaveError.message);
+        setActionLoadingId(null);
+        return;
+      }
+    }
+
+    const { error } = await supabase
+      .from("approval_requests")
+      .update({
+        status: "REJECTED",
+        rejected_by: getCurrentUserName(),
+        description: `${request.description || ""}\nRejected reason: ${rejectionReason.trim()}`,
+      })
+      .eq("id", request.id);
+
+    if (error) {
+      alert(error.message);
+      setActionLoadingId(null);
+      return;
+    }
+
+    setRejectApprovalModal(null);
+    setRejectionReason("");
+    await getManagerApprovals();
+    if (currentUser?.id) await reloadEmployeeData(currentUser.id);
+    setActionLoadingId(null);
+    alert("Request rejected.");
   };
 
   useEffect(() => {
@@ -1256,7 +1584,7 @@ export default function EmployeePortalPage() {
     if (!currentUser?.id) return;
 
     reloadEmployeeData(currentUser.id);
-  }, [currentUser]);
+  }, [currentUser, isAssignedApprover]);
 
   /// UI
   return (
@@ -1284,7 +1612,7 @@ export default function EmployeePortalPage() {
         </div>
 
         <nav className="mt-5 space-y-2">
-          {menuItems.map((item) => {
+          {portalMenuItems.map((item) => {
             const active = activeTab === item.key;
 
             return (
@@ -1327,7 +1655,7 @@ export default function EmployeePortalPage() {
                 OPSCORE Employee App
               </p>
               <h1 className="truncate text-lg font-black sm:text-2xl">
-                {menuItems.find((item) => item.key === activeTab)?.label || "Home"}
+                {portalMenuItems.find((item) => item.key === activeTab)?.label || "Home"}
               </h1>
             </div>
 
@@ -1885,6 +2213,195 @@ export default function EmployeePortalPage() {
           </section>
         )}
 
+
+        {activeTab === "announcements" && (
+          <div className="space-y-5">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-black">Announcements</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Official updates for employees and managers.
+                  </p>
+                </div>
+                <button
+                  onClick={getAnnouncements}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {announcements.map((announcement) => (
+                  <div
+                    key={announcement.id || `${announcement.title}-${announcement.created_at}`}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-black text-white">
+                          {announcement.title || "Announcement"}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300">
+                          {announcement.message || announcement.body || "-"}
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Posted by {announcement.posted_by || announcement.created_by || "Admin"} •{" "}
+                          {announcement.created_at
+                            ? new Date(announcement.created_at).toLocaleString("en-PH")
+                            : "-"}
+                        </p>
+                      </div>
+                      <StatusBadge status={announcement.priority || "Normal"} />
+                    </div>
+                  </div>
+                ))}
+
+                {announcements.length === 0 && (
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
+                    No announcements yet.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {canUseManagerTools && (
+              <section className="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
+                <h2 className="text-lg font-black">Post Announcement</h2>
+                <p className="mt-1 text-sm text-slate-300">
+                  Managers can post mobile announcements directly from the portal.
+                </p>
+
+                <div className="mt-4 grid grid-cols-1 gap-3">
+                  <input
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    placeholder="Announcement title"
+                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-amber-400"
+                  />
+
+                  <select
+                    value={announcementPriority}
+                    onChange={(e) => setAnnouncementPriority(e.target.value)}
+                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-amber-400"
+                  >
+                    <option>Normal</option>
+                    <option>Important</option>
+                    <option>Urgent</option>
+                  </select>
+
+                  <textarea
+                    value={announcementMessage}
+                    onChange={(e) => setAnnouncementMessage(e.target.value)}
+                    placeholder="Type announcement message..."
+                    className="min-h-32 rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-amber-400"
+                  />
+
+                  <button
+                    onClick={submitAnnouncement}
+                    disabled={loading}
+                    className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Post Announcement
+                  </button>
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        {activeTab === "manager" && canUseManagerTools && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-black">Manager Mobile Approvals</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Approve or reject pending leave requests from mobile.
+                </p>
+              </div>
+
+              <button
+                onClick={getManagerApprovals}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
+              >
+                Refresh
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {managerApprovals.map((request) => {
+                const payload = request.request_payload || {};
+                const requestType = String(request.request_type || "").replaceAll("_", " ");
+
+                return (
+                  <div
+                    key={request.id || `${request.request_type}-${request.reference_id}`}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+                          {requestType}
+                        </p>
+                        <p className="mt-1 font-black text-white">
+                          {payload.employee_name || request.title || "Pending Approval"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {payload.leave_type || "-"} • {formatDate(payload.start_date)} - {formatDate(payload.end_date)} •{" "}
+                          {payload.days || payload.total_days || 0} day(s)
+                        </p>
+                        <div className="mt-3 space-y-2 text-sm">
+                          {payload.original_reason && (
+                            <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-slate-300">
+                              Original reason: {payload.original_reason}
+                            </div>
+                          )}
+                          {payload.reason && (
+                            <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-slate-300">
+                              Reason: {payload.reason}
+                            </div>
+                          )}
+                          {payload.cancellation_reason && (
+                            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-red-200">
+                              Cancellation reason: {payload.cancellation_reason}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <StatusBadge status={request.status || "PENDING"} />
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        onClick={() => rejectMobileApproval(request)}
+                        disabled={actionLoadingId === request.id}
+                        className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => approveMobileApproval(request)}
+                        disabled={actionLoadingId === request.id}
+                        className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Approve
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {managerApprovals.length === 0 && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
+                  No pending mobile approvals.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {activeTab === "profile" && (
           <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
             <h2 className="text-lg font-black">My Profile</h2>
@@ -1906,6 +2423,36 @@ export default function EmployeePortalPage() {
         )}
       </section>
 
+      {cancelLeaveModal && (
+        <CancelLeaveModal
+          leave={cancelLeaveModal}
+          reason={cancellationReason}
+          setReason={setCancellationReason}
+          formatDate={formatDate}
+          loading={loading}
+          onClose={() => {
+            setCancelLeaveModal(null);
+            setCancellationReason("");
+          }}
+          onSubmit={submitLeaveCancellationRequest}
+        />
+      )}
+
+      {rejectApprovalModal && (
+        <RejectApprovalModal
+          request={rejectApprovalModal}
+          reason={rejectionReason}
+          setReason={setRejectionReason}
+          formatDate={formatDate}
+          loading={actionLoadingId === (rejectApprovalModal.id as string | number)}
+          onClose={() => {
+            setRejectApprovalModal(null);
+            setRejectionReason("");
+          }}
+          onSubmit={submitMobileApprovalRejection}
+        />
+      )}
+
       {activePayslip && (
         <PortalPayslipModal
           payslip={activePayslip}
@@ -1926,6 +2473,144 @@ export default function EmployeePortalPage() {
   );
 }
 
+
+function CancelLeaveModal({
+  leave,
+  reason,
+  setReason,
+  formatDate,
+  loading,
+  onClose,
+  onSubmit,
+}: any) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+      <section className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
+        <div className="border-b border-slate-800 pb-4">
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-red-300">
+            Cancel Approved Leave
+          </p>
+          <h2 className="mt-2 text-2xl font-black">{leave.leave_type}</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            {formatDate(leave.start_date)} - {formatDate(leave.end_date)} •{" "}
+            {leave.days || leave.total_days || 0} day(s)
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Original Reason</p>
+          <p className="mt-1 text-sm text-slate-200">{leave.reason || "-"}</p>
+        </div>
+
+        <label className="mt-4 block text-sm font-bold text-slate-300">
+          Reason for cancellation
+        </label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Example: Schedule conflict, emergency, no longer needed..."
+          className="mt-2 min-h-32 w-full rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm outline-none focus:border-red-400"
+        />
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-2xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 hover:bg-slate-900 disabled:opacity-40"
+          >
+            Close
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={loading}
+            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-red-300 disabled:opacity-40"
+          >
+            Submit Request
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+
+function RejectApprovalModal({
+  request,
+  reason,
+  setReason,
+  formatDate,
+  loading,
+  onClose,
+  onSubmit,
+}: any) {
+  const payload = request.request_payload || {};
+  const requestType = String(request.request_type || "Approval").replaceAll("_", " ");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+      <section className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
+        <div className="border-b border-slate-800 pb-4">
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-red-300">
+            Reject Approval Request
+          </p>
+          <h2 className="mt-2 text-2xl font-black">{requestType}</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            {payload.employee_name || request.title || "Pending Approval"}
+          </p>
+          {(payload.start_date || payload.end_date) && (
+            <p className="mt-1 text-sm text-slate-500">
+              {formatDate(payload.start_date)} - {formatDate(payload.end_date)} •{" "}
+              {payload.days || payload.total_days || 0} day(s)
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {payload.reason && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+              <p className="text-xs uppercase tracking-widest text-slate-500">Original Reason</p>
+              <p className="mt-1 text-sm text-slate-200">{payload.reason}</p>
+            </div>
+          )}
+
+          {payload.cancellation_reason && (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+              <p className="text-xs uppercase tracking-widest text-red-300">Cancellation Reason</p>
+              <p className="mt-1 text-sm text-red-100">{payload.cancellation_reason}</p>
+            </div>
+          )}
+        </div>
+
+        <label className="mt-4 block text-sm font-bold text-slate-300">
+          Reason for rejection
+        </label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Explain why this request is rejected..."
+          className="mt-2 min-h-32 w-full rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm outline-none focus:border-red-400"
+        />
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-2xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 hover:bg-slate-900 disabled:opacity-40"
+          >
+            Close
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={loading}
+            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-red-300 disabled:opacity-40"
+          >
+            Reject Request
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function PortalPayslipModal({
   payslip,
@@ -2075,6 +2760,8 @@ function StatusBadge({ status }: { status: string }) {
 
   const style =
     normalized === "approved" ||
+    normalized === "active" ||
+    normalized === "normal" ||
     normalized === "present" ||
     normalized === "completed" ||
     normalized === "released"
@@ -2085,7 +2772,8 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-orange-500/10 text-orange-400"
       : normalized === "undertime" ||
         normalized === "absent" ||
-        normalized === "rejected"
+        normalized === "rejected" ||
+        normalized === "urgent"
       ? "bg-red-500/10 text-red-400"
       : normalized === "cancelled"
       ? "bg-slate-500/10 text-slate-300"
