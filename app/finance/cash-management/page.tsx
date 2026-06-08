@@ -14,9 +14,16 @@ export default function CashManagementPage() {
   const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [expenseSubcategories, setExpenseSubcategories] = useState<any[]>([]);
+  const [approvalRequests, setApprovalRequests] = useState<any[]>([]);
 
   /// STATES - DRAWER
-  const today = new Date().toISOString().split("T")[0];
+  const getToday = () => {
+    const now = new Date();
+    const timezoneOffset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - timezoneOffset).toISOString().split("T")[0];
+  };
+
+  const today = getToday();
 
   const [drawerHolder, setDrawerHolder] = useState("");
   const [openingFloat, setOpeningFloat] = useState("");
@@ -163,22 +170,42 @@ export default function CashManagementPage() {
   const getEmployeeFullName = (employee: any) =>
     `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
 
-  const allEmployeeNames = employees
+  const hasCompleteEmployeeIdentity = (employee: any) => {
+    const payrollEmployeeId = getEmployeePayrollId(employee);
+    const firstName = String(employee?.first_name || "").trim();
+    const lastName = String(employee?.last_name || "").trim();
+    const employeeNo = String(employee?.employee_no || "").trim();
+
+    return Boolean(payrollEmployeeId && firstName && lastName && employeeNo);
+  };
+
+  const validEmployeeOptions = useMemo(() => {
+    return employees
+      .filter((employee) => hasCompleteEmployeeIdentity(employee))
+      .sort((a, b) =>
+        getEmployeeFullName(a).localeCompare(getEmployeeFullName(b))
+      );
+  }, [employees]);
+
+  const cashAdvanceEmployeeOptions = validEmployeeOptions;
+
+  const allEmployeeNames = validEmployeeOptions
     .map((employee) => getEmployeeFullName(employee))
     .filter(Boolean);
 
-  const drawerHolderOptions = employees.filter((employee) =>
+  const drawerHolderOptions = validEmployeeOptions.filter((employee) =>
     authorizedDrawerHolders.includes(getEmployeeFullName(employee))
   );
 
-  const filteredDrawerHolderSettingEmployees = employees.filter((employee) => {
+  const filteredDrawerHolderSettingEmployees = validEmployeeOptions.filter((employee) => {
     const fullName = getEmployeeFullName(employee);
     const search = drawerHolderSearch.toLowerCase();
 
     return (
       fullName.toLowerCase().includes(search) ||
       String(employee.department || "").toLowerCase().includes(search) ||
-      String(employee.position || "").toLowerCase().includes(search)
+      String(employee.position || "").toLowerCase().includes(search) ||
+      String(employee.employee_no || "").toLowerCase().includes(search)
     );
   });
 
@@ -193,7 +220,7 @@ export default function CashManagementPage() {
   };
 
   const isCashAdvanceCashOut =
-    movementType === "Cash Out" && paymentType === "Cash" && source === "Cash Advance";
+    movementType === "Cash Out" && source === "Cash Advance";
 
   const isCashExpenseCashOut =
     movementType === "Cash Out" &&
@@ -205,11 +232,12 @@ export default function CashManagementPage() {
   // CASH DRAWER APPROVAL GATE V1
   // Money IN records immediately. Money OUT goes to Manager Approval Center first.
   const isCashDrawerMoneyOut =
-    paymentType === "Cash" &&
-    (movementType === "Cash Out" ||
-      source === "Owner Withdrawal" ||
-      source === "Bank Deposit" ||
-      movementType === "Adjustment");
+    isCashAdvanceCashOut ||
+    (paymentType === "Cash" &&
+      (movementType === "Cash Out" ||
+        source === "Owner Withdrawal" ||
+        source === "Bank Deposit" ||
+        movementType === "Adjustment"));
 
   const getCashApprovalRequestType = () => {
     if (isCashAdvanceCashOut) return "CASH_ADVANCE_RELEASE";
@@ -220,7 +248,7 @@ export default function CashManagementPage() {
     return "CASH_DRAWER_OUT";
   };
 
-  const selectedCashAdvanceEmployee = employees.find(
+  const selectedCashAdvanceEmployee = validEmployeeOptions.find(
     (employee) => String(getEmployeePayrollId(employee)) === String(cashAdvanceEmployeeId)
   );
 
@@ -245,6 +273,37 @@ export default function CashManagementPage() {
   const activePayrollLabel = activePayrollPeriod
     ? `${activePayrollPeriod.period_name || "Payroll Period"} (${activePayrollPeriod.start_date} to ${activePayrollPeriod.end_date})`
     : `No Draft/Reopened payroll period covers ${businessDate || "selected date"}`;
+
+  const cashApprovalRequests = useMemo(() => {
+    return approvalRequests
+      .filter((request) => {
+        const requestType = String(request.request_type || "");
+        const moduleName = String(request.module || "");
+
+        return (
+          moduleName === "Cash Management" ||
+          requestType.includes("CASH") ||
+          requestType.includes("OWNER_WITHDRAWAL") ||
+          requestType.includes("BANK_DEPOSIT") ||
+          requestType.includes("ADJUSTMENT")
+        );
+      })
+      .sort((a, b) =>
+        String(b.created_at || "").localeCompare(String(a.created_at || ""))
+      );
+  }, [approvalRequests]);
+
+  const getApprovalStatusStyle = (status: string) => {
+    const normalized = String(status || "").toUpperCase();
+
+    if (normalized === "APPROVED") return "bg-emerald-500/10 text-emerald-400";
+    if (normalized === "REJECTED") return "bg-red-500/10 text-red-400";
+    if (normalized === "PENDING") return "bg-amber-500/10 text-amber-400";
+    if (normalized === "CANCELLED") return "bg-slate-700 text-slate-300";
+
+    return "bg-slate-700 text-slate-300";
+  };
+
 
   const expenseCategoryOptions =
     expenseCategories.length > 0
@@ -547,7 +606,7 @@ export default function CashManagementPage() {
   const getEmployees = async () => {
     const { data, error } = await supabase
       .from("employees")
-      .select("*")
+      .select("id, employee_no, first_name, last_name, department, position, employment_status, payroll_active")
       .eq("payroll_active", true)
       .order("first_name", { ascending: true });
 
@@ -556,7 +615,16 @@ export default function CashManagementPage() {
       return;
     }
 
-    setEmployees(data || []);
+    const cleanEmployees = (data || []).filter((employee: any) => {
+      const payrollEmployeeId = getEmployeePayrollId(employee);
+      const firstName = String(employee?.first_name || "").trim();
+      const lastName = String(employee?.last_name || "").trim();
+      const employeeNo = String(employee?.employee_no || "").trim();
+
+      return Boolean(payrollEmployeeId && firstName && lastName && employeeNo);
+    });
+
+    setEmployees(cleanEmployees);
   };
 
   const getPayrollPeriods = async () => {
@@ -621,9 +689,25 @@ export default function CashManagementPage() {
     }
   };
 
+  const getApprovalRequests = async () => {
+    const { data, error } = await supabase
+      .from("approval_requests")
+      .select("*")
+      .or("module.eq.Cash Management,request_type.eq.CASH_ADVANCE_RELEASE,request_type.eq.CASH_EXPENSE_RELEASE,request_type.eq.CASH_DRAWER_OUT,request_type.eq.OWNER_WITHDRAWAL,request_type.eq.BANK_DEPOSIT,request_type.eq.ADJUSTMENT_OUT")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("GET CASH APPROVAL REQUESTS ERROR:", error.message);
+      setApprovalRequests([]);
+      return;
+    }
+
+    setApprovalRequests(data || []);
+  };
+
   /// FUNCTIONS - RESET
   const resetForm = () => {
-    setBusinessDate(today);
+    setBusinessDate(getToday());
     setMovementType("Cash In");
     setSource("Room Sales");
     setPaymentType("Cash");
@@ -1423,8 +1507,13 @@ export default function CashManagementPage() {
       return;
     }
 
-    if (shouldCreateExpenseFromCashOut && !activeDrawer) {
+    if (isCashExpenseCashOut && !activeDrawer) {
       alert("Please open a drawer first before releasing a cash expense.");
+      return;
+    }
+
+    if (isCashAdvanceCashOut && paymentType === "Cash" && !activeDrawer) {
+      alert("Please open a drawer first before releasing a cash advance in cash.");
       return;
     }
 
@@ -1480,7 +1569,7 @@ export default function CashManagementPage() {
       ? activeDrawer?.holder_name || ""
       : toPerson.trim();
 
-    const autoEncoded = encodedBy.trim() || activeDrawer?.holder_name || "System";
+    const autoEncoded = activeDrawer?.holder_name || encodedBy.trim() || "System";
 
     if (
       paymentType === "Cash" &&
@@ -1584,6 +1673,7 @@ export default function CashManagementPage() {
       });
 
       resetForm();
+      await getApprovalRequests();
       await getCashMovements();
       await getDrawers();
       alert("Cash movement sent to Manager Approval Center. No drawer deduction was made yet.");
@@ -1655,13 +1745,13 @@ export default function CashManagementPage() {
             ? `Cash Advance - ${cashAdvanceEmployeeName}`
             : expenseDescription.trim(),
           amount: amountValue,
-          payment_method: "Cash",
+          payment_method: paymentType,
           employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
           employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : null,
           deduct_to_payroll: isCashAdvanceCashOut,
           payroll_period_id: isCashAdvanceCashOut ? targetPayrollPeriod?.id || null : null,
           remarks: isCashAdvanceCashOut
-            ? `Source: Cash Drawer. Auto linked by selected date to: ${
+            ? `Source: ${paymentType === "Cash" ? "Cash Drawer" : paymentType}. Auto linked by selected date to: ${
                 targetPayrollPeriod
                   ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
                   : activePayrollLabel
@@ -1669,7 +1759,11 @@ export default function CashManagementPage() {
             : `${remarks.trim()}${
                 expenseReleasedTo.trim() ? ` Released to: ${expenseReleasedTo.trim()}` : ""
               }`.trim(),
-          source: isCashAdvanceCashOut ? "Cash Drawer - Cash Advance" : "Cash Drawer",
+          source: isCashAdvanceCashOut
+            ? paymentType === "Cash"
+              ? "Cash Drawer - Cash Advance"
+              : `${paymentType} - Cash Advance`
+            : "Cash Drawer",
           posted_to_cash_movements: true,
           cash_movement_id: movementData.id,
           cash_posted_date: new Date().toISOString(),
@@ -1712,7 +1806,7 @@ export default function CashManagementPage() {
           : activePayrollLabel;
 
         const cashDrawerReference = [
-          `Source: Cash Drawer`,
+          `Source: ${paymentType === "Cash" ? "Cash Drawer" : paymentType}`,
           `Cutoff: ${cutoffLabel}`,
           `Expense ID: ${expenseData.id}`,
           `Cash Movement ID: ${movementData.id}`,
@@ -1819,7 +1913,7 @@ export default function CashManagementPage() {
     await getDrawers();
 
     if (isCashAdvanceCashOut) {
-      alert("Cash advance saved to Cash Drawer, Expenses, and Payroll Balances.");
+      alert(`Cash advance saved via ${paymentType} to Cash Movements, Expenses, and Payroll Balances.`);
       return;
     }
 
@@ -2090,11 +2184,18 @@ Continue?`
   }, [authorizedDrawerHolders, drawerHolder]);
 
   useEffect(() => {
+    const currentDate = getToday();
+
+    setBusinessDate(currentDate);
+    setDateFilter(currentDate);
+    setHistoryDateFilter(currentDate);
+
     getCashMovements();
     getDrawers();
     getEmployees();
     getPayrollPeriods();
     getExpenseCategories();
+    getApprovalRequests();
   }, []);
 
   /// UI
@@ -2267,21 +2368,18 @@ Continue?`
                       <select
                         value={cashAdvanceEmployeeId}
                         onChange={(e) => setCashAdvanceEmployeeId(e.target.value)}
+                        autoComplete="off"
                         className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                       >
                         <option value="">Select employee</option>
-                        {employees.map((employee) => {
+                        {cashAdvanceEmployeeOptions.map((employee) => {
                           const payrollEmployeeId = getEmployeePayrollId(employee);
+                          const fullName = getEmployeeFullName(employee);
 
                           return (
-                            <option
-                              key={payrollEmployeeId || employee.id || employee.employee_no}
-                              value={payrollEmployeeId}
-                              disabled={!payrollEmployeeId}
-                            >
-                              {getEmployeeFullName(employee)}
+                            <option key={payrollEmployeeId} value={payrollEmployeeId}>
+                              {fullName}
                               {employee.employee_no ? ` - ${employee.employee_no}` : ""}
-                              {!payrollEmployeeId ? " (No payroll UUID)" : ""}
                             </option>
                           );
                         })}
@@ -2314,7 +2412,7 @@ Continue?`
                       />
 
                       <p className="text-xs leading-5 text-amber-200">
-                        No cutoff selection needed. This posts to Cash Drawer, Expenses, and Employee Balances for Payroll Register deduction.
+                        No cutoff selection needed. Cash requires an open drawer. GCash, Bank, and Terminal cash advances post to Cash Movements, Expenses, and Employee Balances for Payroll Register deduction.
                       </p>
                     </div>
                   ) : (
@@ -2349,7 +2447,7 @@ Continue?`
 
                       <input value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} placeholder="Expense description / purpose" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
-                      <input value={expenseReleasedTo} onChange={(e) => setExpenseReleasedTo(e.target.value)} placeholder="Released to / received by" list="employee-list" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+                      <input value={expenseReleasedTo} onChange={(e) => setExpenseReleasedTo(e.target.value)} placeholder="Released to / received by" list="employee-name-list" autoComplete="off" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
                       <p className="text-xs leading-5 text-red-200">
                         This creates both Cash Movement and Expenses entry. No approval workflow.
@@ -2360,18 +2458,28 @@ Continue?`
               )}
 
               {!shouldCreateExpenseFromCashOut && (movementType === "Cash Out" || movementType === "Remittance" || movementType === "Adjustment") && (
-                <input value={fromPerson} onChange={(e) => setFromPerson(e.target.value)} placeholder={activeDrawer ? `From: ${activeDrawer.holder_name}` : "From / Released by"} list="employee-list" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+                <input value={fromPerson} onChange={(e) => setFromPerson(e.target.value)} placeholder={activeDrawer ? `From: ${activeDrawer.holder_name}` : "From / Released by"} list="employee-name-list" autoComplete="off" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
               )}
 
               {!shouldCreateExpenseFromCashOut && (movementType === "Opening Float" || movementType === "Cash In" || movementType === "Remittance" || movementType === "Adjustment") && (
-                <input value={toPerson} onChange={(e) => setToPerson(e.target.value)} placeholder={activeDrawer ? `To: ${activeDrawer.holder_name}` : "To / Received by / Holder"} list="employee-list" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+                <input value={toPerson} onChange={(e) => setToPerson(e.target.value)} placeholder={activeDrawer ? `To: ${activeDrawer.holder_name}` : "To / Received by / Holder"} list="employee-name-list" autoComplete="off" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
               )}
 
-              <input value={encodedBy} onChange={(e) => setEncodedBy(e.target.value)} placeholder={activeDrawer ? `Encoded by: ${activeDrawer.holder_name}` : "Encoded by"} list="employee-list" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+              <input
+                value={activeDrawer?.holder_name || encodedBy || "System"}
+                readOnly
+                placeholder="Encoded by"
+                autoComplete="off"
+                className="w-full cursor-not-allowed rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-400 outline-none"
+              />
 
-              <datalist id="employee-list">
-                {employees.map((employee) => (
-                  <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`} />
+              <datalist id="employee-name-list">
+                {validEmployeeOptions.map((employee) => (
+                  <option
+                    key={employee.id}
+                    value={`${employee.first_name} ${employee.last_name}`}
+                    label={`${employee.first_name} ${employee.last_name} - ${employee.employee_no}`}
+                  />
                 ))}
               </datalist>
 
@@ -2400,7 +2508,7 @@ Continue?`
               <select value={holderFilter} onChange={(e) => setHolderFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
                 <option value="AUTO">Auto Holder</option>
                 <option value="ALL">All Holders</option>
-                {employees.map((employee) => (
+                {validEmployeeOptions.map((employee) => (
                   <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`}>
                     {employee.first_name} {employee.last_name}
                   </option>
@@ -2474,7 +2582,92 @@ Continue?`
           </section>
         </div>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+        
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold">Cash Request Approval History</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Receptionists can monitor if cash advance / cash release requests are pending, approved, or rejected.
+              </p>
+            </div>
+
+            <button
+              onClick={getApprovalRequests}
+              className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold hover:bg-slate-800"
+            >
+              Refresh Status
+            </button>
+          </div>
+
+          <div className="overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[1150px] text-sm">
+              <thead className="bg-slate-950 text-slate-400">
+                <tr>
+                  <th className="px-3 py-3 text-left">Date</th>
+                  <th className="px-3 py-3 text-left">Type</th>
+                  <th className="px-3 py-3 text-left">Payment</th>
+                  <th className="px-3 py-3 text-left">Employee / Receiver</th>
+                  <th className="px-3 py-3 text-right">Amount</th>
+                  <th className="px-3 py-3 text-left">Requested By</th>
+                  <th className="px-3 py-3 text-center">Status</th>
+                  <th className="px-3 py-3 text-left">Remarks</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {cashApprovalRequests.slice(0, 15).map((request) => {
+                  const payload = request.request_payload || {};
+                  const requestDate = payload.business_date || String(request.created_at || "").slice(0, 10);
+                  const requestType = String(request.request_type || "-").replaceAll("_", " ");
+                  const receiver =
+                    payload.cash_advance_employee_name ||
+                    payload.to_person ||
+                    payload.expense_released_to ||
+                    "-";
+                  const amountValue = payload.amount || 0;
+                  const paymentValue = payload.payment_type || "-";
+                  const remarksValue =
+                    payload.cash_advance_purpose ||
+                    payload.remarks ||
+                    request.description ||
+                    "-";
+
+                  return (
+                    <tr key={request.id} className="border-t border-slate-800">
+                      <td className="px-3 py-3 font-semibold">{requestDate}</td>
+                      <td className="px-3 py-3">{requestType}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-xs font-bold ${getPaymentStyle(paymentValue)}`}>
+                          {paymentValue}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 font-semibold">{receiver}</td>
+                      <td className="px-3 py-3 text-right font-black">{formatMoney(amountValue)}</td>
+                      <td className="px-3 py-3">{request.requested_by || payload.encoded_by || "-"}</td>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`rounded-full px-3 py-1 text-xs font-black ${getApprovalStatusStyle(request.status)}`}>
+                          {String(request.status || "PENDING").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-slate-300">{remarksValue}</td>
+                    </tr>
+                  );
+                })}
+
+                {cashApprovalRequests.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-10 text-center text-slate-500">
+                      No cash approval requests found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+<section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <h2 className="text-xl font-bold">Drawer History</h2>
@@ -2500,7 +2693,7 @@ Continue?`
 
               <select value={historyHolderFilter} onChange={(e) => setHistoryHolderFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
                 <option value="ALL">All Holders</option>
-                {employees.map((employee) => (
+                {validEmployeeOptions.map((employee) => (
                   <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`}>
                     {employee.first_name} {employee.last_name}
                   </option>
@@ -2734,7 +2927,7 @@ Continue?`
                   value={closingRemittanceReceivedBy}
                   onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)}
                   placeholder="Received by"
-                  list="employee-list"
+                  list="employee-name-list" autoComplete="off"
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 />
 

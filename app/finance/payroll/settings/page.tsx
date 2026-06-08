@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import PageGuard from "@/components/PageGuard";
 
 type PayrollHoliday = {
   id?: number;
@@ -769,7 +770,8 @@ export default function PayrollSettingsPage() {
   }, []);
 
   /// UI
-  return (
+return (
+  <PageGuard moduleKey="payroll_settings">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -976,8 +978,9 @@ export default function PayrollSettingsPage() {
           )}
         </section>
       </main>
-    </div>
-  );
+       </div>
+  </PageGuard>
+);
 }
 
 function SummaryCard({ title, value, description, color }: any) {

@@ -16,6 +16,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import PageGuard from "@/components/PageGuard";
 
 type PermissionSet = {
   can_view?: boolean;
@@ -372,24 +373,11 @@ export default function EmployeeBalancesPage() {
     return Array.from(map.values()).sort((a, b) => b.outstanding - a.outstanding);
   }, [balances]);
 
-  if (permissions && permissions.can_view === false) {
-    return (
-      <div className="flex min-h-screen bg-slate-950 text-white">
-        <Sidebar />
-        <main className="flex-1 p-8">
-          <section className="rounded-2xl border border-red-500/30 bg-red-500/10 p-8">
-            <h1 className="text-2xl font-black text-red-300">Access Denied</h1>
-            <p className="mt-2 text-sm text-red-100">
-              Your role does not have permission to view Employee Balances.
-            </p>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
+ 
+  
   /// UI
-  return (
+return (
+  <PageGuard moduleKey="employee_balances">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -632,7 +620,8 @@ export default function EmployeeBalancesPage() {
           getTypeStyle={getTypeStyle}
         />
       )}
-    </div>
+        </div>
+  </PageGuard>
   );
 }
 

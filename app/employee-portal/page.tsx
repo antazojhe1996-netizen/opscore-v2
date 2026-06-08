@@ -194,7 +194,22 @@ export default function EmployeePortalPage() {
   const [reason, setReason] = useState("");
 
   /// DATA
-  const today = new Date().toISOString().split("T")[0];
+  const getPhilippinesDate = () => {
+    return new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
+  };
+
+  const getPhilippinesTime = () => {
+    return new Date().toLocaleTimeString("en-GB", {
+      timeZone: "Asia/Manila",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  };
+
+  const today = getPhilippinesDate();
 
   const fallbackShifts: any = {
     "AM Shift": {
@@ -275,7 +290,7 @@ export default function EmployeePortalPage() {
   };
 
   const getCurrentTime = () => {
-    return new Date().toTimeString().slice(0, 5);
+    return getPhilippinesTime();
   };
 
   const formatTime = (time?: string | null) => {
@@ -546,8 +561,14 @@ export default function EmployeePortalPage() {
     printWindow.document.close();
   };
 
+  const formatLocalDateValue = (date: Date) => {
+    return date.toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
+  };
+
   const getWeekDates = () => {
-    const current = new Date(`${today}T00:00:00`);
+    const current = new Date(`${today}T00:00:00+08:00`);
     const day = current.getDay();
     const mondayOffset = day === 0 ? -6 : 1 - day;
 
@@ -557,14 +578,14 @@ export default function EmployeePortalPage() {
     return Array.from({ length: 7 }).map((_, index) => {
       const date = new Date(monday);
       date.setDate(monday.getDate() + index);
-      return date.toISOString().split("T")[0];
+      return formatLocalDateValue(date);
     });
   };
 
   const getLast30DaysStart = () => {
-    const date = new Date(`${today}T00:00:00`);
+    const date = new Date(`${today}T00:00:00+08:00`);
     date.setDate(date.getDate() - 30);
-    return date.toISOString().split("T")[0];
+    return formatLocalDateValue(date);
   };
 
   const computeLateMinutes = (scheduledIn: string | null, timeIn: string) => {
@@ -943,11 +964,15 @@ export default function EmployeePortalPage() {
   };
 
   const getTodayAttendance = async (employeeId: string) => {
+    const currentDate = getPhilippinesDate();
+
     const { data, error } = await supabase
       .from("attendance_entries")
       .select("*")
       .eq("employee_id", employeeId)
-      .eq("attendance_date", today)
+      .eq("attendance_date", currentDate)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -963,7 +988,7 @@ export default function EmployeePortalPage() {
       .from("schedules")
       .select("*")
       .eq("employee_id", employeeId)
-      .eq("day", today)
+      .eq("day", getPhilippinesDate())
       .maybeSingle();
 
     if (scheduleError) {
@@ -1222,12 +1247,36 @@ export default function EmployeePortalPage() {
 
     setLoading(true);
 
-    const timeIn = getCurrentTime();
+    const attendanceDate = getPhilippinesDate();
+    const timeIn = getPhilippinesTime();
+
+    const { data: existingEntry, error: existingError } = await supabase
+      .from("attendance_entries")
+      .select("*")
+      .eq("employee_id", currentUser.id)
+      .eq("attendance_date", attendanceDate)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) {
+      alert(existingError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (existingEntry?.time_in) {
+      alert("You already timed in for today.");
+      await reloadEmployeeData(currentUser.id);
+      setLoading(false);
+      return;
+    }
+
     const lateMinutes = computeLateMinutes(schedule?.scheduled_in, timeIn);
 
     const { error } = await supabase.from("attendance_entries").insert({
       employee_id: currentUser.id,
-      attendance_date: today,
+      attendance_date: attendanceDate,
       scheduled_shift: schedule?.scheduled_shift || null,
       scheduled_in: schedule?.scheduled_in || null,
       scheduled_out: schedule?.scheduled_out || null,
@@ -1237,7 +1286,7 @@ export default function EmployeePortalPage() {
       undertime_minutes: 0,
       ot_minutes: 0,
       status: lateMinutes > 0 ? "Late" : "Present",
-      remarks: null,
+      remarks: "Employee Portal Time In",
     });
 
     if (error) {
@@ -1251,13 +1300,55 @@ export default function EmployeePortalPage() {
   };
 
   const handleTimeOut = async () => {
-    if (!currentUser || !todayAttendance) return;
+    if (!currentUser) return;
 
     setLoading(true);
 
-    const timeOut = getCurrentTime();
+    const attendanceDate = getPhilippinesDate();
+
+    const { data: latestEntry, error: latestError } = await supabase
+      .from("attendance_entries")
+      .select("*")
+      .eq("employee_id", currentUser.id)
+      .eq("attendance_date", attendanceDate)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestError) {
+      alert(latestError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!latestEntry?.time_in) {
+      alert("Please time in first before timing out.");
+      setLoading(false);
+      return;
+    }
+
+    if (latestEntry?.time_out) {
+      alert("You already timed out for today.");
+      await reloadEmployeeData(currentUser.id);
+      setLoading(false);
+      return;
+    }
+
+    const timeOut = getPhilippinesTime();
+
+    if (String(latestEntry.time_in || "").slice(0, 5) === timeOut) {
+      const confirmSameMinute = confirm(
+        "Time In and Time Out are the same minute. Continue only if this is intentional."
+      );
+
+      if (!confirmSameMinute) {
+        setLoading(false);
+        return;
+      }
+    }
+
     const scheduledOut =
-      todayAttendance.scheduled_out || schedule?.scheduled_out || null;
+      latestEntry.scheduled_out || schedule?.scheduled_out || null;
 
     const undertimeMinutes = computeUndertimeMinutes(scheduledOut, timeOut);
     const otMinutes = computeOTMinutes(scheduledOut, timeOut);
@@ -1269,8 +1360,9 @@ export default function EmployeePortalPage() {
         undertime_minutes: undertimeMinutes,
         ot_minutes: otMinutes,
         status: "Completed",
+        remarks: latestEntry.remarks || "Employee Portal Time Out",
       })
-      .eq("id", todayAttendance.id);
+      .eq("id", latestEntry.id);
 
     if (error) {
       alert(error.message);

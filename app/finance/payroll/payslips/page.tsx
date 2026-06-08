@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, Mail, Printer, Search, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import PageGuard from "@/components/PageGuard";
 
 export default function PayslipsPage() {
   /// STATES
@@ -348,7 +349,8 @@ export default function PayslipsPage() {
     );
 
   /// UI
-  return (
+return (
+  <PageGuard moduleKey="payslips">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -510,8 +512,9 @@ export default function PayslipsPage() {
           onPrint={printCleanPayslip}
         />
       )}
-    </div>
-  );
+       </div>
+  </PageGuard>
+);
 }
 
 function PayslipPreviewModal({

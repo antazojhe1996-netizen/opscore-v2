@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { Database, Search } from "lucide-react";
+import PageGuard from "@/components/PageGuard";
 
 export default function PayrollSnapshotsPage() {
   const [snapshots, setSnapshots] = useState<any[]>([]);
@@ -39,7 +40,8 @@ export default function PayrollSnapshotsPage() {
       .includes(searchTerm.toLowerCase())
   );
 
-  return (
+ return (
+  <PageGuard moduleKey="payroll_snapshots">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -165,6 +167,7 @@ export default function PayrollSnapshotsPage() {
           </div>
         </section>
       </main>
-    </div>
-  );
+      </div>
+  </PageGuard>
+);
 }

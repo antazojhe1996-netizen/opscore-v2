@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import PageGuard from "@/components/PageGuard";
 
 export default function PayrollReleaseHistoryPage() {
   const [historyRows, setHistoryRows] = useState<any[]>([]);
@@ -118,6 +119,7 @@ export default function PayrollReleaseHistoryPage() {
   );
 
   return (
+  <PageGuard moduleKey="payroll_history">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -270,7 +272,8 @@ export default function PayrollReleaseHistoryPage() {
           </div>
         </section>
       </main>
-    </div>
+       </div>
+  </PageGuard>
   );
 }
 
