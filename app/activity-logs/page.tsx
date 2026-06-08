@@ -1,9 +1,15 @@
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Sidebar from "@/components/Sidebar";
+import dynamic from "next/dynamic";
 import { supabase } from "@/app/lib/supabase";
 import { ClipboardList, RefreshCcw, Search } from "lucide-react";
+
+const Sidebar = dynamic(() => import("@/components/Sidebar"), {
+  ssr: false,
+});
 
 export default function ActivityLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
