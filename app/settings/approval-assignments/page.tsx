@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import { Plus, ShieldCheck, Trash2, UserCheck, Users } from "lucide-react";
+import PageGuard from "@/components/PageGuard";
 
 const approvalRoles = [
   "MANAGER",
@@ -369,7 +370,8 @@ export default function ApprovalAssignmentsPage() {
   ).length;
 
   /// UI
-  return (
+ return (
+  <PageGuard moduleKey="approval_assignments">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -653,6 +655,7 @@ export default function ApprovalAssignmentsPage() {
         </section>
       </main>
     </div>
+  </PageGuard>
   );
 }
 

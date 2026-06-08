@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import { CheckCircle, Settings, ShieldCheck, XCircle } from "lucide-react";
@@ -137,7 +138,8 @@ export default function ApprovalControlsPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <PageGuard moduleKey="approval_controls">
+      <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
@@ -304,7 +306,8 @@ export default function ApprovalControlsPage() {
           </div>
         </section>
       </main>
-    </div>
+      </div>
+    </PageGuard>
   );
 }
 
