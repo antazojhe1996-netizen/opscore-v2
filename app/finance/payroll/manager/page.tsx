@@ -18,6 +18,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import { canAccessPage } from "@/app/lib/pageAccess";
 
 export default function PayrollManagerPage() {
   /// STATES
@@ -33,6 +34,9 @@ export default function PayrollManagerPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<"queue" | "partial" | "history">("queue");
+  const [checkingAccess, setCheckingAccess] = useState(true);
+  const [hasPageAccess, setHasPageAccess] = useState(false);
+  const [accessMessage, setAccessMessage] = useState("");
 
   /// HELPERS
   const formatPeso = (value: any) =>
@@ -1197,7 +1201,22 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   /// EFFECTS
   useEffect(() => {
-    loadData();
+    const checkAccessAndLoad = async () => {
+      const access = await canAccessPage("payroll_manager");
+
+      if (!access.allowed) {
+        setAccessMessage(access.reason || "Access denied.");
+        setHasPageAccess(false);
+        setCheckingAccess(false);
+        return;
+      }
+
+      setHasPageAccess(true);
+      setCheckingAccess(false);
+      await loadData();
+    };
+
+    checkAccessAndLoad();
   }, []);
 
   /// CALCULATIONS
@@ -1614,6 +1633,40 @@ ${partialReleaseError?.message || partialReleaseError}`);
   };
 
   /// UI
+  if (checkingAccess) {
+    return (
+      <div className="flex min-h-screen bg-slate-950 text-white">
+        <Sidebar />
+
+        <main className="flex flex-1 items-center justify-center p-8">
+          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-sm text-slate-300">
+            Checking page access...
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!hasPageAccess) {
+    return (
+      <div className="flex min-h-screen bg-slate-950 text-white">
+        <Sidebar />
+
+        <main className="flex flex-1 items-center justify-center p-8">
+          <div className="max-w-md rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
+            <Lock className="mx-auto text-red-300" size={36} />
+            <h1 className="mt-4 text-2xl font-black text-red-200">
+              Access Denied
+            </h1>
+            <p className="mt-2 text-sm text-red-100/80">
+              {accessMessage}
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />

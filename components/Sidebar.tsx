@@ -76,7 +76,6 @@ const menuSections = [
       { label: "Release History", href: "/finance/payroll/history", icon: BarChart3, moduleKey: "release_history" },
       { label: "Snapshot History", href: "/finance/payroll/snapshots", icon: Database, moduleKey: "payroll_snapshots" },
       { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "payroll_settings" },
-      
     ],
   },
   {
@@ -145,6 +144,20 @@ export default function Sidebar() {
     setMounted(true);
   }, []);
 
+  const getStoredCurrentUser = () => {
+    if (typeof window === "undefined") return null;
+
+    const savedUser = localStorage.getItem("opscore_current_user");
+
+    if (!savedUser) return null;
+
+    try {
+      return JSON.parse(savedUser);
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
 
@@ -171,12 +184,19 @@ export default function Sidebar() {
   const getCurrentUserPermissions = async () => {
     setLoadingAccess(true);
 
+    const storedUser = getStoredCurrentUser();
     const currentEmployeeId =
       typeof window !== "undefined"
         ? localStorage.getItem("opscore_current_employee_id")
         : null;
 
-    if (!currentEmployeeId) {
+    const currentRoleId =
+      storedUser?.role_id ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_role_id")
+        : null);
+
+    if (!currentEmployeeId || !currentRoleId) {
       setCurrentEmployee(null);
       setCurrentRoleName("Employee");
       setPermissions([]);
@@ -187,7 +207,7 @@ export default function Sidebar() {
 
     const { data: employee, error: employeeError } = await supabase
       .from("employees")
-      .select("id, employee_no, first_name, last_name, department, position, system_role_id")
+      .select("id, employee_no, first_name, last_name, department, position")
       .eq("id", currentEmployeeId)
       .maybeSingle();
 
@@ -202,36 +222,18 @@ export default function Sidebar() {
 
     setCurrentEmployee(employee);
 
-    let resolvedRoleName = "Employee";
+    const { data: roleData } = await supabase
+      .from("system_roles")
+      .select("role_name")
+      .eq("id", currentRoleId)
+      .maybeSingle();
 
-    if (employee.system_role_id) {
-      const { data: roleData } = await supabase
-        .from("system_roles")
-        .select("*")
-        .eq("id", employee.system_role_id)
-        .maybeSingle();
-
-      resolvedRoleName =
-        roleData?.role_name ||
-        roleData?.name ||
-        roleData?.title ||
-        employee.position ||
-        "Employee";
-    }
-
-    setCurrentRoleName(resolvedRoleName);
-
-    if (!employee.system_role_id) {
-      setPermissions([]);
-      setLoadingAccess(false);
-      await getPendingApprovals();
-      return;
-    }
+    setCurrentRoleName(roleData?.role_name || employee.position || "Employee");
 
     const { data: rolePermissions, error: permissionError } = await supabase
       .from("role_permissions")
       .select("*")
-      .eq("role_id", employee.system_role_id);
+      .eq("role_id", currentRoleId);
 
     if (permissionError) {
       console.log("GET SIDEBAR PERMISSIONS ERROR:", permissionError.message);
@@ -287,6 +289,7 @@ export default function Sidebar() {
 
   const currentPath = normalizePath(pathname || "/");
   const isExactActive = (href: string) => normalizePath(href) === currentPath;
+
   const employeeName = currentEmployee
     ? `${currentEmployee.first_name || ""} ${currentEmployee.last_name || ""}`.trim()
     : fallbackEmployeeName;
@@ -294,13 +297,13 @@ export default function Sidebar() {
   const employeeDepartment =
     currentEmployee?.department || currentEmployee?.position || "OPSCORE User";
 
-  const employeeNo =
-    currentEmployee?.employee_no || currentEmployee?.id || "-";
-
+  const employeeNo = currentEmployee?.employee_no || currentEmployee?.id || "-";
   const portalActive = isExactActive("/employee-portal");
 
-  const logout = () => {
+  const logout = async () => {
     if (typeof window === "undefined") return;
+
+    await supabase.auth.signOut();
 
     localStorage.removeItem("opscore_current_employee");
     localStorage.removeItem("opscore_current_employee_id");
@@ -308,9 +311,11 @@ export default function Sidebar() {
     localStorage.removeItem("opscore_current_user");
     localStorage.removeItem("opscore_current_system_user_id");
     localStorage.removeItem("opscore_must_change_password");
+    localStorage.removeItem("opscore_current_company_id");
+    localStorage.removeItem("opscore_current_role_id");
+
     window.location.href = "/login";
   };
-
 
   const visibleSections = menuSections
     .map((section: any) => {

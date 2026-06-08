@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import {
   Plus,
@@ -757,7 +758,8 @@ export default function UserRolesPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <PageGuard moduleKey="user_roles">
+      <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-8">
@@ -1061,6 +1063,7 @@ export default function UserRolesPage() {
         </section>
       </main>
     </div>
+    </PageGuard>
   );
 }
 

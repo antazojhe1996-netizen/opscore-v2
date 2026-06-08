@@ -2,14 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Eye, EyeOff, LockKeyhole, Save, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Save,
+  ShieldCheck,
+} from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
 
 type SystemUser = {
   id: string;
+  auth_user_id: string | null;
   employee_id: string;
   username: string;
-  password: string;
   is_active: boolean;
   must_change_password?: boolean | null;
 };
@@ -22,7 +29,9 @@ export default function ChangePasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [systemUserId, setSystemUserId] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
 
@@ -34,20 +43,33 @@ export default function ChangePasswordPage() {
 
   /// EFFECTS
   useEffect(() => {
-    const savedEmployeeId = localStorage.getItem(employeeIdKey);
-    const savedUserId = localStorage.getItem(systemUserIdKey);
+    const loadSession = async () => {
+      const savedEmployeeId = localStorage.getItem(employeeIdKey);
+      const savedUserId = localStorage.getItem(systemUserIdKey);
 
-    if (!savedEmployeeId || !savedUserId) {
-      router.replace("/login");
-      return;
-    }
+      if (!savedEmployeeId || !savedUserId) {
+        router.replace("/login");
+        return;
+      }
 
-    setSystemUserId(savedUserId);
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error || !data.user) {
+        router.replace("/login");
+        return;
+      }
+
+      setSystemUserId(savedUserId);
+      setAuthEmail(data.user.email || "");
+      setChecking(false);
+    };
+
+    loadSession();
   }, [router]);
 
   /// FUNCTIONS
   const changePassword = async () => {
-    if (!systemUserId) {
+    if (!systemUserId || !authEmail) {
       setErrorMessage("User session not found. Please login again.");
       return;
     }
@@ -57,13 +79,13 @@ export default function ChangePasswordPage() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setErrorMessage("New password must be at least 6 characters.");
+    if (newPassword.length < 8) {
+      setErrorMessage("New password must be at least 8 characters.");
       return;
     }
 
-    if (newPassword === "Temp123!") {
-      setErrorMessage("Please choose a password different from the temporary password.");
+    if (newPassword === currentPassword) {
+      setErrorMessage("New password must be different from your current password.");
       return;
     }
 
@@ -77,7 +99,7 @@ export default function ChangePasswordPage() {
 
     const { data: userData, error: userError } = await supabase
       .from("system_users")
-      .select("*")
+      .select("id, auth_user_id, employee_id, username, is_active, must_change_password")
       .eq("id", systemUserId)
       .maybeSingle();
 
@@ -95,23 +117,37 @@ export default function ChangePasswordPage() {
       return;
     }
 
-    if (String(user.password || "") !== currentPassword) {
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: authEmail,
+      password: currentPassword,
+    });
+
+    if (verifyError) {
       setSaving(false);
       setErrorMessage("Current password is incorrect.");
       return;
     }
 
-    const { error } = await supabase
+    const { error: updateAuthError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateAuthError) {
+      setSaving(false);
+      setErrorMessage(updateAuthError.message);
+      return;
+    }
+
+    const { error: updateUserError } = await supabase
       .from("system_users")
       .update({
-        password: newPassword,
         must_change_password: false,
       })
       .eq("id", systemUserId);
 
-    if (error) {
+    if (updateUserError) {
       setSaving(false);
-      setErrorMessage(error.message);
+      setErrorMessage(updateUserError.message);
       return;
     }
 
@@ -120,6 +156,7 @@ export default function ChangePasswordPage() {
     if (savedEmployee) {
       try {
         const parsed = JSON.parse(savedEmployee);
+
         localStorage.setItem(
           employeeSessionKey,
           JSON.stringify({
@@ -145,6 +182,16 @@ export default function ChangePasswordPage() {
   };
 
   /// UI
+  if (checking) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-sm text-slate-300">
+          Checking session...
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
       <section className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-black/40">
@@ -152,16 +199,18 @@ export default function ChangePasswordPage() {
           <div className="rounded-2xl bg-amber-400/10 p-3 text-amber-300">
             <ShieldCheck size={24} />
           </div>
+
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-amber-400">
-              OPSCORE Security
+              OPSCORE V3 Security
             </p>
             <h1 className="mt-1 text-3xl font-black">Change Password</h1>
           </div>
         </div>
 
         <p className="text-sm leading-6 text-slate-400">
-          You are using a temporary password. Create your own password before continuing to OPSCORE.
+          You are using a temporary password. Create your own secure password
+          before continuing to OPSCORE.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-7 space-y-4">

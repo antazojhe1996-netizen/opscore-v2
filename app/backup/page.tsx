@@ -1,6 +1,7 @@
 "use client";
 
 import Sidebar from "@/components/Sidebar";
+import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import {
   CalendarDays,
@@ -514,8 +515,9 @@ const exportFullBackup = async () => {
 //// UI
 export default function BackupPage() {
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+    <PageGuard moduleKey="backup_restore">
+      <div className="flex min-h-screen bg-slate-950 text-white">
+        <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-8">
         <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -619,8 +621,9 @@ export default function BackupPage() {
             );
           })}
         </section>
-      </main>
-    </div>
+        </main>
+      </div>
+    </PageGuard>
   );
 }
 

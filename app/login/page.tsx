@@ -19,9 +19,10 @@ import { supabase } from "@/app/lib/supabase";
 
 type SystemUser = {
   id: string;
+  auth_user_id: string | null;
   employee_id: string;
   username: string;
-  password: string;
+  company_id: string | null;
   is_active: boolean;
   must_change_password?: boolean | null;
   last_login_at?: string | null;
@@ -36,14 +37,21 @@ type LoginEmployee = {
   department?: string | null;
   position?: string | null;
   employment_status: string | null;
-  system_role_id?: string | null;
+};
+
+type CompanyUser = {
+  id: string;
+  company_id: string;
+  user_id: string;
+  role_id: string | null;
+  is_active: boolean | null;
 };
 
 export default function LoginPage() {
   const router = useRouter();
 
   /// STATES
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,17 +64,22 @@ export default function LoginPage() {
   const currentUserKey = "opscore_current_user";
   const systemUserIdKey = "opscore_current_system_user_id";
   const mustChangePasswordKey = "opscore_must_change_password";
+  const companyIdKey = "opscore_current_company_id";
+  const roleIdKey = "opscore_current_role_id";
 
   /// HELPERS
   const normalize = (value: string) => value.trim().toLowerCase();
 
-  const clearSession = () => {
+  const clearSession = async () => {
     localStorage.removeItem(employeeSessionKey);
     localStorage.removeItem(employeeIdKey);
     localStorage.removeItem(employeeNameKey);
     localStorage.removeItem(currentUserKey);
     localStorage.removeItem(systemUserIdKey);
     localStorage.removeItem(mustChangePasswordKey);
+    localStorage.removeItem(companyIdKey);
+    localStorage.removeItem(roleIdKey);
+    await supabase.auth.signOut();
   };
 
   /// EFFECTS
@@ -88,26 +101,42 @@ export default function LoginPage() {
   const login = async () => {
     if (isLoading) return;
 
-    const normalizedUsername = normalize(username);
+    const emailInput = normalize(email);
     const passwordInput = password.trim();
 
-    if (!normalizedUsername || !passwordInput) {
-      setErrorMessage("Enter your username and password.");
+    if (!emailInput || !passwordInput) {
+      setErrorMessage("Enter your email and password.");
       return;
     }
 
     setIsLoading(true);
     setErrorMessage("");
 
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email: emailInput,
+        password: passwordInput,
+      });
+
+    if (authError || !authData.user) {
+      console.log("AUTH LOGIN ERROR:", authError?.message);
+      setIsLoading(false);
+      setErrorMessage("Invalid email or password.");
+      return;
+    }
+
+    const authUserId = authData.user.id;
+
     const { data: userData, error: userError } = await supabase
       .from("system_users")
       .select("*")
-      .ilike("username", normalizedUsername)
+      .eq("auth_user_id", authUserId)
       .limit(1)
       .maybeSingle();
 
     if (userError) {
-      console.log("LOGIN USER ERROR:", userError.message);
+      console.log("SYSTEM USER ERROR:", userError.message);
+      await supabase.auth.signOut();
       setIsLoading(false);
       setErrorMessage("Login failed. Please try again.");
       return;
@@ -116,20 +145,16 @@ export default function LoginPage() {
     const systemUser = userData as SystemUser | null;
 
     if (!systemUser) {
+      await supabase.auth.signOut();
       setIsLoading(false);
-      setErrorMessage("No user account found.");
+      setErrorMessage("No OPSCORE user profile linked to this account.");
       return;
     }
 
     if (!systemUser.is_active) {
+      await supabase.auth.signOut();
       setIsLoading(false);
       setErrorMessage("This user account is inactive.");
-      return;
-    }
-
-    if (String(systemUser.password || "") !== passwordInput) {
-      setIsLoading(false);
-      setErrorMessage("Invalid username or password.");
       return;
     }
 
@@ -139,35 +164,60 @@ export default function LoginPage() {
       .eq("id", systemUser.employee_id)
       .maybeSingle();
 
-    if (employeeError) {
-      console.log("LOGIN EMPLOYEE ERROR:", employeeError.message);
+    if (employeeError || !employeeData) {
+      console.log("EMPLOYEE ERROR:", employeeError?.message);
+      await supabase.auth.signOut();
       setIsLoading(false);
       setErrorMessage("Employee profile not found. Contact administrator.");
       return;
     }
 
-    const employee = employeeData as LoginEmployee | null;
-
-    if (!employee) {
-      setIsLoading(false);
-      setErrorMessage("Employee profile not found. Contact administrator.");
-      return;
-    }
+    const employee = employeeData as LoginEmployee;
 
     if (String(employee.employment_status || "").toLowerCase() !== "active") {
+      await supabase.auth.signOut();
       setIsLoading(false);
       setErrorMessage("This employee account is not active.");
       return;
     }
 
-    clearSession();
+    const { data: companyUserData, error: companyUserError } = await supabase
+      .from("company_users")
+      .select("*")
+      .eq("user_id", systemUser.id)
+      .eq("company_id", systemUser.company_id)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
 
+    if (companyUserError || !companyUserData) {
+      console.log("COMPANY USER ERROR:", companyUserError?.message);
+      await supabase.auth.signOut();
+      setIsLoading(false);
+      setErrorMessage("No active company access found for this user.");
+      return;
+    }
+
+    const companyUser = companyUserData as CompanyUser;
     const employeeName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
     const mustChangePassword = Boolean(systemUser.must_change_password);
 
+    localStorage.removeItem(employeeSessionKey);
+    localStorage.removeItem(employeeIdKey);
+    localStorage.removeItem(employeeNameKey);
+    localStorage.removeItem(currentUserKey);
+    localStorage.removeItem(systemUserIdKey);
+    localStorage.removeItem(mustChangePasswordKey);
+    localStorage.removeItem(companyIdKey);
+    localStorage.removeItem(roleIdKey);
+
     const sessionEmployee = {
       ...employee,
+      auth_user_id: authUserId,
       system_user_id: systemUser.id,
+      company_user_id: companyUser.id,
+      company_id: systemUser.company_id,
+      role_id: companyUser.role_id,
       username: systemUser.username,
       must_change_password: mustChangePassword,
     };
@@ -176,15 +226,21 @@ export default function LoginPage() {
     localStorage.setItem(employeeNameKey, employeeName);
     localStorage.setItem(employeeSessionKey, JSON.stringify(sessionEmployee));
     localStorage.setItem(systemUserIdKey, systemUser.id);
+    localStorage.setItem(companyIdKey, String(systemUser.company_id || ""));
+    localStorage.setItem(roleIdKey, String(companyUser.role_id || ""));
     localStorage.setItem(mustChangePasswordKey, String(mustChangePassword));
     localStorage.setItem(
       currentUserKey,
       JSON.stringify({
         id: employee.id,
+        auth_user_id: authUserId,
         system_user_id: systemUser.id,
+        company_user_id: companyUser.id,
+        company_id: systemUser.company_id,
+        role_id: companyUser.role_id,
         name: employeeName,
         username: systemUser.username,
-        email: employee.email || null,
+        email: authData.user.email || employee.email || null,
       })
     );
 
@@ -234,8 +290,8 @@ export default function LoginPage() {
                 </h2>
 
                 <p className="mt-5 max-w-xl text-base leading-7 text-slate-400">
-                  OPSCORE V2 Beta access is controlled by employee credentials,
-                  system roles, and module permissions.
+                  OPSCORE V3 Pilot access is secured by Supabase Auth,
+                  company membership, system roles, and employee records.
                 </p>
               </div>
 
@@ -280,26 +336,26 @@ export default function LoginPage() {
 
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.28em] text-amber-400">
-                  OPSCORE V2 Beta
+                  OPSCORE V3 Pilot
                 </p>
                 <h2 className="mt-3 text-4xl font-black">Welcome back</h2>
                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                  Sign in using the username and temporary password provided by the system administrator.
+                  Sign in using your OPSCORE email and temporary password.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-4">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
-                    Username
+                    Email
                   </label>
                   <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-amber-400">
                     <UserCheck size={18} className="text-slate-500" />
                     <input
-                      value={username}
-                      onChange={(event) => setUsername(event.target.value)}
-                      placeholder="ex. princess"
-                      autoComplete="username"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="ex. princess.cancel@vincent.local"
+                      autoComplete="email"
                       className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
                     />
                   </div>
