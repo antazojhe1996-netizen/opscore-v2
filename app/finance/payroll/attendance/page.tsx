@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import * as XLSX from "xlsx";
 
@@ -1557,8 +1558,9 @@ export default function AttendancePage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+    <PageGuard moduleKey="attendance">
+      <div className="flex min-h-screen bg-slate-950 text-white">
+        <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
         <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -2100,7 +2102,8 @@ export default function AttendancePage() {
           </div>
         </section>
       </main>
-    </div>
+      </div>
+    </PageGuard>
   );
 }
 
