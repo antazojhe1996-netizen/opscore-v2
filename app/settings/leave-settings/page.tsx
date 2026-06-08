@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import PageGuard from "@/components/PageGuard";
 
 export default function LeaveSettingsPage() {
   /// STATES
@@ -78,7 +79,8 @@ export default function LeaveSettingsPage() {
 
   /// UI
 
-  return (
+ return (
+  <PageGuard moduleKey="leave_settings">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -174,6 +176,7 @@ export default function LeaveSettingsPage() {
           </div>
         </section>
       </main>
-    </div>
+        </div>
+  </PageGuard>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 
@@ -15,7 +16,6 @@ export default function EmploymentStatusPage() {
   const [editingStatusId, setEditingStatusId] = useState("");
 
   /// FUNCTIONS
-
   const getCurrentUserEmail = async () => {
     const { data } = await supabase.auth.getUser();
     return data.user?.email || "System User";
@@ -172,180 +172,180 @@ export default function EmploymentStatusPage() {
   };
 
   /// EFFECTS
-
   useEffect(() => {
     getEmploymentStatuses();
   }, []);
 
   /// UI
-
   return (
-    <div className="flex min-h-screen bg-[#050514] text-white">
-      <Sidebar />
+    <PageGuard moduleKey="employment_settings">
+      <div className="flex min-h-screen bg-[#050514] text-white">
+        <Sidebar />
 
-      <main className="flex-1 p-8">
-        <h1 className="text-3xl font-bold">Employment Status Management</h1>
+        <main className="flex-1 p-8">
+          <h1 className="text-3xl font-bold">Employment Status Management</h1>
 
-        <p className="mt-2 text-slate-400">
-          Configure employment statuses and how they behave in workforce and
-          scheduling.
-        </p>
+          <p className="mt-2 text-slate-400">
+            Configure employment statuses and how they behave in workforce and
+            scheduling.
+          </p>
 
-        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-xl font-bold">
-            {editingStatusId
-              ? "Edit Employment Status"
-              : "Add Employment Status"}
-          </h2>
+          <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-xl font-bold">
+              {editingStatusId
+                ? "Edit Employment Status"
+                : "Add Employment Status"}
+            </h2>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <input
-              className="rounded bg-slate-800 p-2 text-white outline-none placeholder:text-slate-400"
-              placeholder="Status Name"
-              value={employmentStatusName}
-              onChange={(e) => setEmploymentStatusName(e.target.value)}
-            />
-
-            <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
               <input
-                type="checkbox"
-                checked={countInWorkforce}
-                onChange={(e) => setCountInWorkforce(e.target.checked)}
+                className="rounded bg-slate-800 p-2 text-white outline-none placeholder:text-slate-400"
+                placeholder="Status Name"
+                value={employmentStatusName}
+                onChange={(e) => setEmploymentStatusName(e.target.value)}
               />
-              Count in Workforce
-            </label>
 
-            <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
-              <input
-                type="checkbox"
-                checked={allowScheduling}
-                onChange={(e) => setAllowScheduling(e.target.checked)}
-              />
-              Allow Scheduling
-            </label>
+              <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={countInWorkforce}
+                  onChange={(e) => setCountInWorkforce(e.target.checked)}
+                />
+                Count in Workforce
+              </label>
 
-            <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
-              <input
-                type="checkbox"
-                checked={showInReports}
-                onChange={(e) => setShowInReports(e.target.checked)}
-              />
-              Show in Reports
-            </label>
-          </div>
+              <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={allowScheduling}
+                  onChange={(e) => setAllowScheduling(e.target.checked)}
+                />
+                Allow Scheduling
+              </label>
 
-          <div className="mt-4 flex gap-3">
-            <button
-              onClick={
-                editingStatusId ? updateEmploymentStatus : addEmploymentStatus
-              }
-              className="rounded bg-yellow-400 px-4 py-2 font-bold text-black hover:bg-yellow-300"
-            >
-              {editingStatusId ? "Update Status" : "Add Status"}
-            </button>
+              <label className="flex items-center gap-2 rounded bg-slate-800 p-2 text-sm font-semibold text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={showInReports}
+                  onChange={(e) => setShowInReports(e.target.checked)}
+                />
+                Show in Reports
+              </label>
+            </div>
 
-            {editingStatusId && (
+            <div className="mt-4 flex gap-3">
               <button
-                onClick={clearForm}
-                className="rounded bg-slate-700 px-4 py-2 font-bold text-white hover:bg-slate-600"
+                onClick={
+                  editingStatusId ? updateEmploymentStatus : addEmploymentStatus
+                }
+                className="rounded bg-yellow-400 px-4 py-2 font-bold text-black hover:bg-yellow-300"
               >
-                Cancel Edit
+                {editingStatusId ? "Update Status" : "Add Status"}
               </button>
-            )}
+
+              {editingStatusId && (
+                <button
+                  onClick={clearForm}
+                  className="rounded bg-slate-700 px-4 py-2 font-bold text-white hover:bg-slate-600"
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-xl font-bold">Employment Status List</h2>
+          <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-xl font-bold">Employment Status List</h2>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-800">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[#08081a] text-slate-300">
-                <tr>
-                  <th className="p-4">Status Name</th>
-                  <th className="p-4 text-center">Workforce</th>
-                  <th className="p-4 text-center">Scheduling</th>
-                  <th className="p-4 text-center">Reports</th>
-                  <th className="w-48 p-4 text-right">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {employmentStatuses.map((status) => (
-                  <tr
-                    key={status.id}
-                    className="border-t border-slate-800 hover:bg-slate-800/40"
-                  >
-                    <td className="p-4 font-bold">{status.name}</td>
-
-                    <td className="p-4 text-center">
-                      <span
-                        className={
-                          status.count_in_workforce
-                            ? "font-semibold text-green-400"
-                            : "font-semibold text-red-400"
-                        }
-                      >
-                        {status.count_in_workforce ? "Yes" : "No"}
-                      </span>
-                    </td>
-
-                    <td className="p-4 text-center">
-                      <span
-                        className={
-                          status.allow_scheduling
-                            ? "font-semibold text-green-400"
-                            : "font-semibold text-red-400"
-                        }
-                      >
-                        {status.allow_scheduling ? "Yes" : "No"}
-                      </span>
-                    </td>
-
-                    <td className="p-4 text-center">
-                      <span
-                        className={
-                          status.show_in_reports
-                            ? "font-semibold text-green-400"
-                            : "font-semibold text-red-400"
-                        }
-                      >
-                        {status.show_in_reports ? "Yes" : "No"}
-                      </span>
-                    </td>
-
-                    <td className="w-48 p-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => editEmploymentStatus(status)}
-                          className="rounded bg-slate-700 px-3 py-1 text-xs font-bold text-white hover:bg-slate-600"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          onClick={() => deleteEmploymentStatus(status)}
-                          className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-
-                {employmentStatuses.length === 0 && (
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-800">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#08081a] text-slate-300">
                   <tr>
-                    <td className="p-4 text-slate-400" colSpan={5}>
-                      No employment statuses yet.
-                    </td>
+                    <th className="p-4">Status Name</th>
+                    <th className="p-4 text-center">Workforce</th>
+                    <th className="p-4 text-center">Scheduling</th>
+                    <th className="p-4 text-center">Reports</th>
+                    <th className="w-48 p-4 text-right">Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {employmentStatuses.map((status) => (
+                    <tr
+                      key={status.id}
+                      className="border-t border-slate-800 hover:bg-slate-800/40"
+                    >
+                      <td className="p-4 font-bold">{status.name}</td>
+
+                      <td className="p-4 text-center">
+                        <span
+                          className={
+                            status.count_in_workforce
+                              ? "font-semibold text-green-400"
+                              : "font-semibold text-red-400"
+                          }
+                        >
+                          {status.count_in_workforce ? "Yes" : "No"}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <span
+                          className={
+                            status.allow_scheduling
+                              ? "font-semibold text-green-400"
+                              : "font-semibold text-red-400"
+                          }
+                        >
+                          {status.allow_scheduling ? "Yes" : "No"}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <span
+                          className={
+                            status.show_in_reports
+                              ? "font-semibold text-green-400"
+                              : "font-semibold text-red-400"
+                          }
+                        >
+                          {status.show_in_reports ? "Yes" : "No"}
+                        </span>
+                      </td>
+
+                      <td className="w-48 p-4">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => editEmploymentStatus(status)}
+                            className="rounded bg-slate-700 px-3 py-1 text-xs font-bold text-white hover:bg-slate-600"
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() => deleteEmploymentStatus(status)}
+                            className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {employmentStatuses.length === 0 && (
+                    <tr>
+                      <td className="p-4 text-slate-400" colSpan={5}>
+                        No employment statuses yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </PageGuard>
   );
 }

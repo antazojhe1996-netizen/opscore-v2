@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import PageGuard from "@/components/PageGuard";
 
 export default function ShiftManagementPage() {
   /// STATES
@@ -254,7 +255,8 @@ export default function ShiftManagementPage() {
 
   /// UI
 
-  return (
+return (
+  <PageGuard moduleKey="shift_settings">
     <div className="flex min-h-screen bg-[#050514] text-white">
       <Sidebar />
 
@@ -413,6 +415,7 @@ export default function ShiftManagementPage() {
           </div>
         </div>
       </main>
-    </div>
+        </div>
+  </PageGuard>
   );
 }
