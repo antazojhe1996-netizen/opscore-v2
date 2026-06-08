@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
+import PageGuard from "@/components/PageGuard";
 
 type ApartmentUnit = {
   id: string;
@@ -178,6 +179,7 @@ export default function PropertySettingsPage() {
 
   /// UI
   return (
+  <PageGuard moduleKey="property_settings">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -351,7 +353,8 @@ export default function PropertySettingsPage() {
           </div>
         </section>
       </main>
-    </div>
+        </div>
+  </PageGuard>
   );
 }
 

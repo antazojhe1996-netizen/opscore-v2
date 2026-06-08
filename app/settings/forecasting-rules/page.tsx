@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import PageGuard from "@/components/PageGuard";
 
 const defaultForecastingRules = {
   demand: {
@@ -202,7 +203,8 @@ export default function ForecastingRulesPage() {
 
   /// UI
 
-  return (
+ return (
+  <PageGuard moduleKey="forecasting_rules">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -336,6 +338,7 @@ export default function ForecastingRulesPage() {
           </div>
         </section>
       </main>
-    </div>
+       </div>
+  </PageGuard>
   );
 }

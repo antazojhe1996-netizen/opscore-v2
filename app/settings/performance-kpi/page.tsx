@@ -13,6 +13,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import PageGuard from "@/components/PageGuard";
 
 type KpiSetting = {
   id?: string;
@@ -345,6 +346,7 @@ export default function PerformanceKpiSettingsPage() {
 
   /// UI
   return (
+  <PageGuard moduleKey="performance_kpi">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
@@ -492,7 +494,8 @@ export default function PerformanceKpiSettingsPage() {
           )}
         </section>
       </main>
-    </div>
+        </div>
+  </PageGuard>
   );
 }
 
