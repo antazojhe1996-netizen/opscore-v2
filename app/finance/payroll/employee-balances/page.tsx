@@ -73,6 +73,7 @@ export default function EmployeeBalancesPage() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("Active");
+  const [ledgerTab, setLedgerTab] = useState<"LIABILITIES" | "PAYROLL_BALANCES">("LIABILITIES");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [selectedEmployeeName, setSelectedEmployeeName] = useState("ALL");
@@ -178,20 +179,48 @@ export default function EmployeeBalancesPage() {
     if (
       text.includes("restaurant") ||
       text.includes("unpaid") ||
-      text.includes("employee charge")
+      text.includes("employee charge") ||
+      text.includes("meal")
     )
       return "Restaurant / Unpaid";
-    if (text.includes("carry")) return "Carry Forward";
+    if (text.includes("carry")) return "Payroll Carry Forward";
     if (text.includes("payroll")) return "Payroll Balance";
+    if (text.includes("salary loan")) return "Salary Loan";
     return "Other Liability";
   };
+
+  const isPayrollBalanceItem = (balance: EmployeeBalance) => {
+    const category = getLiabilityCategory(balance);
+    const text =
+      `${balance.balance_type || ""} ${balance.source_module || ""} ${balance.remarks || ""}`.toLowerCase();
+
+    return (
+      category === "Payroll Balance" ||
+      category === "Payroll Carry Forward" ||
+      text.includes("partial salary") ||
+      text.includes("remaining salary") ||
+      text.includes("unreleased payroll")
+    );
+  };
+
+  const isEmployeeLiabilityItem = (balance: EmployeeBalance) =>
+    !isPayrollBalanceItem(balance);
+
+  const getLedgerDirectionLabel = (balance: EmployeeBalance) =>
+    isPayrollBalanceItem(balance)
+      ? "Company owes employee"
+      : "Employee owes company";
 
   const isPayrollSettled = (balance: EmployeeBalance) => {
     const category = getLiabilityCategory(balance);
     return [
       "Cash Advance",
       "Restaurant / Unpaid",
-      "Carry Forward",
+      "Cash Advance",
+      "Restaurant / Unpaid",
+      "Salary Loan",
+      "Other Liability",
+      "Payroll Carry Forward",
       "Payroll Balance",
     ].includes(category);
   };
@@ -499,6 +528,21 @@ export default function EmployeeBalancesPage() {
     selectedEmployeeName,
   ]);
 
+  const employeeLiabilityBalances = filteredBalances.filter(isEmployeeLiabilityItem);
+  const payrollBalanceRecords = filteredBalances.filter(isPayrollBalanceItem);
+  const displayBalances =
+    ledgerTab === "PAYROLL_BALANCES"
+      ? payrollBalanceRecords
+      : employeeLiabilityBalances;
+
+  const displayTitle =
+    ledgerTab === "PAYROLL_BALANCES" ? "Payroll Balances" : "Employee Liabilities";
+
+  const displayDescription =
+    ledgerTab === "PAYROLL_BALANCES"
+      ? "Outstanding salary balances owed by the company to employees."
+      : "Amounts owed by employees to the company and collected through payroll.";
+
   const activeBalances = enrichedBalances.filter(
     (item) => normalizeLower(item.status || "Active") === "active",
   );
@@ -519,6 +563,27 @@ export default function EmployeeBalancesPage() {
     0,
   );
 
+  const activeEmployeeLiabilities = activeBalances.filter(isEmployeeLiabilityItem);
+  const activePayrollBalances = activeBalances.filter(isPayrollBalanceItem);
+
+  const totalEmployeeLiabilitiesOutstanding = activeEmployeeLiabilities.reduce(
+    (sum, item) => sum + Number(item.remaining_balance || 0),
+    0,
+  );
+
+  const totalPayrollBalancesOutstanding = activePayrollBalances.reduce(
+    (sum, item) => sum + Number(item.remaining_balance || 0),
+    0,
+  );
+
+  const totalEmployeeLiabilitiesPaid = enrichedBalances
+    .filter(isEmployeeLiabilityItem)
+    .reduce((sum, item) => sum + getPaidAmount(item), 0);
+
+  const totalPayrollBalancesPaid = enrichedBalances
+    .filter(isPayrollBalanceItem)
+    .reduce((sum, item) => sum + getPaidAmount(item), 0);
+
   const cashAdvanceOutstanding = activeBalances
     .filter((item) => getLiabilityCategory(item) === "Cash Advance")
     .reduce((sum, item) => sum + Number(item.remaining_balance || 0), 0);
@@ -528,13 +593,13 @@ export default function EmployeeBalancesPage() {
     .reduce((sum, item) => sum + Number(item.remaining_balance || 0), 0);
 
   const carryForwardOutstanding = activeBalances
-    .filter((item) => getLiabilityCategory(item) === "Carry Forward")
+    .filter((item) => getLiabilityCategory(item) === "Payroll Carry Forward")
     .reduce((sum, item) => sum + Number(item.remaining_balance || 0), 0);
 
   const employeeSummary = useMemo(() => {
     const map = new Map<string, any>();
 
-    enrichedBalances.forEach((item) => {
+    displayBalances.forEach((item) => {
       const name = item.employee_name || "Unknown Employee";
       const current = map.get(name) || {
         employeeName: name,
@@ -566,7 +631,7 @@ export default function EmployeeBalancesPage() {
         if (category === "Cash Advance") current.cashAdvance += amount;
         else if (category === "Restaurant / Unpaid")
           current.restaurant += amount;
-        else if (category === "Carry Forward") current.carryForward += amount;
+        else if (category === "Payroll Carry Forward") current.carryForward += amount;
         else if (category === "Payroll Balance")
           current.payrollBalance += amount;
         else current.other += amount;
@@ -586,7 +651,7 @@ export default function EmployeeBalancesPage() {
     return Array.from(map.values()).sort(
       (a, b) => b.outstanding - a.outstanding,
     );
-  }, [enrichedBalances]);
+  }, [displayBalances]);
 
   /// UI
   return (
@@ -635,6 +700,50 @@ export default function EmployeeBalancesPage() {
                 </p>
               </div>
               <ShieldCheck className="shrink-0 text-amber-300" size={30} />
+            </div>
+          </section>
+
+          <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <button
+                onClick={() => setLedgerTab("LIABILITIES")}
+                className={`rounded-2xl border p-5 text-left ${
+                  ledgerTab === "LIABILITIES"
+                    ? "border-amber-400 bg-amber-400 text-slate-950"
+                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.18em]">
+                  Employee Owes Company
+                </p>
+                <h2 className="mt-1 text-xl font-black">Employee Liabilities</h2>
+                <p className="mt-1 text-sm opacity-80">
+                  Cash advances, salary loans, meal charges, and restaurant unpaid items.
+                </p>
+                <p className="mt-3 text-2xl font-black">
+                  {formatPeso(totalEmployeeLiabilitiesOutstanding)}
+                </p>
+              </button>
+
+              <button
+                onClick={() => setLedgerTab("PAYROLL_BALANCES")}
+                className={`rounded-2xl border p-5 text-left ${
+                  ledgerTab === "PAYROLL_BALANCES"
+                    ? "border-blue-400 bg-blue-400 text-slate-950"
+                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.18em]">
+                  Company Owes Employee
+                </p>
+                <h2 className="mt-1 text-xl font-black">Payroll Balances</h2>
+                <p className="mt-1 text-sm opacity-80">
+                  Partial releases, unreleased salary, and payroll carry-forward balances.
+                </p>
+                <p className="mt-3 text-2xl font-black">
+                  {formatPeso(totalPayrollBalancesOutstanding)}
+                </p>
+              </button>
             </div>
           </section>
 
@@ -713,42 +822,85 @@ export default function EmployeeBalancesPage() {
           </section>
 
           <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
-            <KpiCard
-              icon={<WalletCards size={22} />}
-              title="Active Items"
-              value={activeBalances.length}
-              danger={activeBalances.length > 0}
-            />
-            <KpiCard
-              icon={<AlertTriangle size={22} />}
-              title="Total Outstanding"
-              value={formatPeso(totalOutstanding)}
-              danger={totalOutstanding > 0}
-            />
-            <KpiCard
-              icon={<ClipboardList size={22} />}
-              title="Cash Advance"
-              value={formatPeso(cashAdvanceOutstanding)}
-            />
-            <KpiCard
-              icon={<FileText size={22} />}
-              title="Restaurant / Unpaid"
-              value={formatPeso(restaurantOutstanding)}
-            />
-            <KpiCard
-              icon={<AlertTriangle size={22} />}
-              title="Carry Forward"
-              value={formatPeso(carryForwardOutstanding)}
-              danger={carryForwardOutstanding > 0}
-            />
-            <KpiCard
-              icon={<CheckCircle2 size={22} />}
-              title="Paid Through Payroll"
-              value={formatPeso(totalPaidThroughPayroll)}
-              success
-            />
+            {ledgerTab === "LIABILITIES" ? (
+              <>
+                <KpiCard
+                  icon={<WalletCards size={22} />}
+                  title="Active Liabilities"
+                  value={activeEmployeeLiabilities.length}
+                  danger={activeEmployeeLiabilities.length > 0}
+                />
+                <KpiCard
+                  icon={<AlertTriangle size={22} />}
+                  title="Outstanding Liability"
+                  value={formatPeso(totalEmployeeLiabilitiesOutstanding)}
+                  danger={totalEmployeeLiabilitiesOutstanding > 0}
+                />
+                <KpiCard
+                  icon={<ClipboardList size={22} />}
+                  title="Cash Advance"
+                  value={formatPeso(cashAdvanceOutstanding)}
+                />
+                <KpiCard
+                  icon={<FileText size={22} />}
+                  title="Restaurant / Unpaid"
+                  value={formatPeso(restaurantOutstanding)}
+                />
+                <KpiCard
+                  icon={<CheckCircle2 size={22} />}
+                  title="Paid Through Payroll"
+                  value={formatPeso(totalEmployeeLiabilitiesPaid)}
+                  success
+                />
+                <KpiCard
+                  icon={<ShieldCheck size={22} />}
+                  title="Ledger Direction"
+                  value="Employee → Company"
+                />
+              </>
+            ) : (
+              <>
+                <KpiCard
+                  icon={<WalletCards size={22} />}
+                  title="Open Payroll Balances"
+                  value={activePayrollBalances.length}
+                  danger={activePayrollBalances.length > 0}
+                />
+                <KpiCard
+                  icon={<AlertTriangle size={22} />}
+                  title="Outstanding Salary"
+                  value={formatPeso(totalPayrollBalancesOutstanding)}
+                  danger={totalPayrollBalancesOutstanding > 0}
+                />
+                <KpiCard
+                  icon={<ClipboardList size={22} />}
+                  title="Salary Balance Paid"
+                  value={formatPeso(totalPayrollBalancesPaid)}
+                  success={totalPayrollBalancesPaid > 0}
+                />
+                <KpiCard
+                  icon={<FileText size={22} />}
+                  title="Payroll Balance Rows"
+                  value={payrollBalanceRecords.length}
+                />
+                <KpiCard
+                  icon={<CheckCircle2 size={22} />}
+                  title="Paid / Closed"
+                  value={
+                    enrichedBalances.filter(
+                      (item) => isPayrollBalanceItem(item) && ["paid", "closed", "settled"].includes(normalizeLower(item.status)),
+                    ).length
+                  }
+                  success
+                />
+                <KpiCard
+                  icon={<ShieldCheck size={22} />}
+                  title="Ledger Direction"
+                  value="Company → Employee"
+                />
+              </>
+            )}
           </section>
-
           <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
               <div className="relative xl:col-span-2">
@@ -821,9 +973,9 @@ export default function EmployeeBalancesPage() {
               <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-400 xl:col-span-3">
                 Showing{" "}
                 <span className="font-black text-white">
-                  {filteredBalances.length}
+                  {displayBalances.length}
                 </span>{" "}
-                ledger record(s). Settlement is controlled by payroll; cancel is
+                {ledgerTab === "PAYROLL_BALANCES" ? "payroll balance" : "employee liability"} record(s). Settlement is controlled by payroll; cancel is
                 for correction only.
               </div>
             </div>
@@ -833,11 +985,9 @@ export default function EmployeeBalancesPage() {
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:col-span-2">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-black">Liability Ledger</h2>
+                  <h2 className="text-xl font-black">{displayTitle}</h2>
                   <p className="text-sm text-slate-400">
-                    Official employee balance records from Supabase. Paid/closed
-                    status should normally come from payroll deduction
-                    processing.
+                    {displayDescription}
                   </p>
                 </div>
                 <ShieldCheck className="text-amber-400" size={24} />
@@ -855,6 +1005,7 @@ export default function EmployeeBalancesPage() {
                       <th className="px-4 py-3">Progress</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Settlement</th>
+                      <th className="px-4 py-3">Direction</th>
                       <th className="px-4 py-3">Source</th>
                       <th className="px-4 py-3">Created</th>
                       <th className="px-4 py-3">Remarks</th>
@@ -862,7 +1013,7 @@ export default function EmployeeBalancesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredBalances.map((balance) => {
+                    {displayBalances.map((balance) => {
                       const isActive =
                         normalizeLower(balance.status || "Active") === "active";
                       const category = getLiabilityCategory(balance);
@@ -937,6 +1088,17 @@ export default function EmployeeBalancesPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
+                            <span
+                              className={
+                                isPayrollBalanceItem(balance)
+                                  ? "rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300"
+                                  : "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300"
+                              }
+                            >
+                              {getLedgerDirectionLabel(balance)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
                             <p>{balance.source_module || "-"}</p>
                             <p className="break-all text-xs text-slate-600">
                               {balance.source_id || ""}
@@ -973,13 +1135,13 @@ export default function EmployeeBalancesPage() {
                       );
                     })}
 
-                    {filteredBalances.length === 0 && (
+                    {displayBalances.length === 0 && (
                       <tr>
                         <td
-                          colSpan={12}
+                          colSpan={13}
                           className="px-4 py-14 text-center text-slate-500"
                         >
-                          No employee liability records found.
+                          {ledgerTab === "PAYROLL_BALANCES" ? "No payroll balance records found." : "No employee liability records found."}
                         </td>
                       </tr>
                     )}
@@ -989,9 +1151,9 @@ export default function EmployeeBalancesPage() {
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-xl font-black">Employee Summary</h2>
+              <h2 className="text-xl font-black">{ledgerTab === "PAYROLL_BALANCES" ? "Payroll Balance Summary" : "Employee Liability Summary"}</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Employees ranked by active outstanding balance.
+                Employees ranked by active outstanding balance in the selected ledger.
               </p>
 
               <div className="mt-5 max-h-[680px] space-y-3 overflow-auto pr-1">
@@ -1078,6 +1240,7 @@ export default function EmployeeBalancesPage() {
             getPaidAmount={getPaidAmount}
             getProgressPercent={getProgressPercent}
             getProgressLabel={getProgressLabel}
+            getLedgerDirectionLabel={getLedgerDirectionLabel}
           />
         )}
       </div>
@@ -1146,6 +1309,7 @@ function BalanceDrawer({
   getPaidAmount,
   getProgressPercent,
   getProgressLabel,
+  getLedgerDirectionLabel,
 }: any) {
   const category = getLiabilityCategory(balance);
   const payrollSettled = isPayrollSettled(balance);
@@ -1160,7 +1324,7 @@ function BalanceDrawer({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-                Liability Details
+                Ledger Details
               </p>
               <h2 className="mt-2 text-3xl font-black">
                 {balance.employee_name || "Unknown Employee"}
@@ -1258,6 +1422,10 @@ function BalanceDrawer({
           </section>
 
           <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <DetailCard
+              label="Ledger Direction"
+              value={getLedgerDirectionLabel(balance)}
+            />
             <DetailCard
               label="Source Module"
               value={balance.source_module || "-"}

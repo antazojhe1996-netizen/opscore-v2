@@ -149,6 +149,15 @@ export default function CashManagementPage() {
   /// CALCULATIONS - ACTIVE DRAWER
   const activeDrawer = drawers.find((drawer) => drawer.status === "OPEN");
 
+  /// CALCULATIONS - VOID SAFETY
+  const getMovementStatus = (movement: any) =>
+    String(movement?.status || movement?.movement_status || "ACTIVE").toUpperCase();
+
+  const isVoidedMovement = (movement: any) =>
+    getMovementStatus(movement) === "VOIDED" ||
+    Boolean(movement?.voided_at) ||
+    Boolean(movement?.void_reason);
+
   const effectiveHolderFilter =
     holderFilter === "AUTO" ? activeDrawer?.holder_name || "ALL" : holderFilter;
 
@@ -442,7 +451,9 @@ export default function CashManagementPage() {
     if (!activeDrawer) return [];
 
     return movements.filter(
-      (item) => String(item.cash_drawer_id || "") === String(activeDrawer.id || "")
+      (item) =>
+        String(item.cash_drawer_id || "") === String(activeDrawer.id || "") &&
+        !isVoidedMovement(item)
     );
   }, [movements, activeDrawer]);
 
@@ -554,7 +565,9 @@ export default function CashManagementPage() {
   /// CALCULATIONS - DRAWER HISTORY CASH-ONLY LOGIC
   const getDrawerCashSummary = (drawer: any) => {
     const drawerMovements = movements.filter(
-      (item) => String(item.cash_drawer_id || "") === String(drawer.id || "")
+      (item) =>
+        String(item.cash_drawer_id || "") === String(drawer.id || "") &&
+        !isVoidedMovement(item)
     );
 
     const cashMovements = drawerMovements.filter(
@@ -866,7 +879,9 @@ export default function CashManagementPage() {
         .replaceAll("'", "&#039;");
 
     const reportMovements = movements.filter(
-      (item) => String(item.cash_drawer_id || "") === String(drawer.id || "")
+      (item) =>
+        String(item.cash_drawer_id || "") === String(drawer.id || "") &&
+        !isVoidedMovement(item)
     );
 
     const hasClosingRemittance = reportMovements.some(
@@ -2250,8 +2265,8 @@ export default function CashManagementPage() {
     savingRef.current = false;
   };
 
-  /// FUNCTIONS - DELETE MOVEMENT
-  const deleteMovement = async (id: string) => {
+  /// FUNCTIONS - VOID MOVEMENT
+  const voidMovement = async (id: string) => {
     const { data: movement, error: movementFetchError } = await supabase
       .from("finance_cash_movements")
       .select("*")
@@ -2259,13 +2274,13 @@ export default function CashManagementPage() {
       .maybeSingle();
 
     if (movementFetchError) {
-      console.log("FETCH CASH MOVEMENT BEFORE DELETE ERROR:", movementFetchError.message);
+      console.log("FETCH CASH MOVEMENT BEFORE VOID ERROR:", movementFetchError.message);
 
       await createAuditLog({
-        userName: "OPSCORE USER",
+        userName: currentEmployeeName || "OPSCORE USER",
         module: "Cash Management",
-        action: "Delete Cash Movement Failed",
-        description: `Failed to fetch cash movement before delete. Error: ${movementFetchError.message}`,
+        action: "Void Cash Movement Failed",
+        description: `Failed to fetch cash movement before void. Error: ${movementFetchError.message}`,
         severity: "critical",
         recordId: id,
         newValue: {
@@ -2273,7 +2288,7 @@ export default function CashManagementPage() {
         },
       });
 
-      alert("Failed to check cash movement before delete.");
+      alert("Failed to check cash movement before void.");
       return;
     }
 
@@ -2283,11 +2298,17 @@ export default function CashManagementPage() {
       return;
     }
 
+    if (isVoidedMovement(movement)) {
+      alert("This cash movement is already voided.");
+      await getCashMovements();
+      return;
+    }
+
     if (
       movement.reference_type === "drawer_closing_remittance" ||
       movement.source === "Drawer Closing Remittance"
     ) {
-      alert("Drawer closing remittance is locked. Reopen or correct the drawer instead of deleting this record.");
+      alert("Drawer closing remittance is locked. Reopen or correct the drawer instead of voiding this record.");
       return;
     }
 
@@ -2309,90 +2330,104 @@ export default function CashManagementPage() {
 
     const linkedExpense = linkedExpenseByReference || linkedExpenseByMovement;
 
-    const confirmMessage = linkedExpense
-      ? `Delete this cash movement and its linked expense?
+    const reason = prompt(
+      linkedExpense
+        ? `Void this cash movement and mark its linked expense as voided?\n\nPlease enter the void reason:`
+        : "Void this cash movement?\n\nPlease enter the void reason:"
+    );
 
-This will remove:
-• Cash Movement
-• Expenses Ledger entry
-${
-  linkedExpense.employee_balance_id || movement.source === "Cash Advance"
-    ? "• Employee Balance / Payroll deduction link"
-    : ""
-}
+    const voidReason = String(reason || "").trim();
 
-Continue?`
-      : "Delete this cash movement?";
+    if (!voidReason) {
+      alert("Void reason is required. No changes were made.");
+      return;
+    }
 
-    const confirmDelete = confirm(confirmMessage);
-    if (!confirmDelete) return;
+    const confirmVoid = confirm(
+      linkedExpense
+        ? `Confirm void?\n\nThis will keep the records for audit trail and exclude the cash movement from cash totals.\n\nLinked expense will also be marked VOIDED.`
+        : `Confirm void?\n\nThis will keep the record for audit trail and exclude it from cash totals.`
+    );
+
+    if (!confirmVoid) return;
 
     setIsSaving(true);
 
-    let linkedBalanceDeleted = false;
-    let fallbackBalancesDeleted = false;
+    const voidedAt = new Date().toISOString();
+    const voidedBy = currentEmployeeName || currentDrawerHolderName || "OPSCORE USER";
+    const originalRemarks = String(movement.remarks || "").trim();
+    const movementRemarks = [
+      originalRemarks,
+      `[VOIDED by ${voidedBy} at ${formatDateTime(voidedAt)}] Reason: ${voidReason}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const { error: movementVoidError } = await supabase
+      .from("finance_cash_movements")
+      .update({
+        status: "VOIDED",
+        void_reason: voidReason,
+        voided_by: voidedBy,
+        voided_at: voidedAt,
+        remarks: movementRemarks,
+      })
+      .eq("id", id);
+
+    if (movementVoidError) {
+      setIsSaving(false);
+      console.log("VOID CASH MOVEMENT ERROR:", movementVoidError.message);
+
+      await createAuditLog({
+        userName: voidedBy,
+        module: "Cash Management",
+        action: "Void Cash Movement Failed",
+        description: `Failed to void cash movement ${formatMoney(movement.amount)}. Error: ${movementVoidError.message}`,
+        severity: "critical",
+        recordId: movement.id,
+        oldValue: movement,
+        newValue: {
+          voidReason,
+          error: movementVoidError.message,
+        },
+      });
+
+      alert("Failed to void cash movement. Check if void columns exist in finance_cash_movements.");
+      return;
+    }
+
+    let linkedExpenseVoided = false;
+    let linkedBalanceVoided = false;
+    let fallbackBalancesVoided = false;
+    const linkedPeriodId = linkedExpense?.payroll_period_id || linkedExpense?.period_id || null;
 
     if (linkedExpense) {
-      if (linkedExpense.employee_balance_id) {
-        const { error: balanceDeleteError } = await supabase
-          .from("employee_balances")
-          .delete()
-          .eq("id", linkedExpense.employee_balance_id);
+      const expenseRemarks = [
+        String(linkedExpense.remarks || "").trim(),
+        `[VOIDED from Cash Management by ${voidedBy} at ${formatDateTime(voidedAt)}] Reason: ${voidReason}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
 
-        if (balanceDeleteError) {
-          setIsSaving(false);
-          console.log("DELETE LINKED EMPLOYEE BALANCE ERROR:", balanceDeleteError.message);
-
-          await createAuditLog({
-            userName: "OPSCORE USER",
-            module: "Cash Management",
-            action: "Delete Linked Employee Balance Failed",
-            description: `Failed deleting employee balance linked to cash movement ${formatMoney(movement.amount)}. Error: ${balanceDeleteError.message}`,
-            severity: "critical",
-            recordId: movement.id,
-            oldValue: {
-              movement,
-              linkedExpense,
-            },
-            newValue: {
-              error: balanceDeleteError.message,
-            },
-          });
-
-          alert("Failed to delete linked employee balance.");
-          return;
-        }
-
-        linkedBalanceDeleted = true;
-      }
-
-      // Safety fallback for older rows where employee_balance_id was not saved on expenses.
-      const { error: fallbackBalanceError } = await supabase
-        .from("employee_balances")
-        .delete()
-        .eq("source_module", "Cash Drawer")
-        .eq("source_id", id);
-
-      if (!fallbackBalanceError) {
-        fallbackBalancesDeleted = true;
-      }
-
-      const linkedPeriodId = linkedExpense.payroll_period_id || linkedExpense.period_id;
-
-      const { error: expenseDeleteError } = await supabase
+      const { error: expenseVoidError } = await supabase
         .from("expenses")
-        .delete()
+        .update({
+          status: "VOIDED",
+          void_reason: voidReason,
+          voided_by: voidedBy,
+          voided_at: voidedAt,
+          remarks: expenseRemarks,
+        })
         .eq("id", linkedExpense.id);
 
-      if (expenseDeleteError) {
-        setIsSaving(false);
-        console.log("DELETE LINKED EXPENSE ERROR:", expenseDeleteError.message);
+      if (expenseVoidError) {
+        console.log("VOID LINKED EXPENSE ERROR:", expenseVoidError.message);
 
         await createAuditLog({
-          userName: "OPSCORE USER",
+          userName: voidedBy,
           module: "Cash Management",
-          action: "Delete Linked Expense Failed",
-          description: `Failed deleting expense linked to cash movement ${formatMoney(movement.amount)}. Error: ${expenseDeleteError.message}`,
+          action: "Void Linked Expense Failed",
+          description: `Cash movement was voided, but linked expense failed to void. Error: ${expenseVoidError.message}`,
           severity: "critical",
           recordId: movement.id,
           oldValue: {
@@ -2400,59 +2435,82 @@ Continue?`
             linkedExpense,
           },
           newValue: {
-            error: expenseDeleteError.message,
+            voidReason,
+            error: expenseVoidError.message,
           },
         });
 
-        alert("Failed to delete linked expense entry.");
-        return;
+        alert("Cash movement was voided, but linked expense failed to void. Check expense columns.");
+      } else {
+        linkedExpenseVoided = true;
       }
 
-      if (linkedPeriodId) {
-        await supabase
-          .from("payroll_periods")
-          .update({ needs_regeneration: true })
-          .eq("id", linkedPeriodId);
+      if (linkedExpense.employee_balance_id) {
+        const { error: balanceVoidError } = await supabase
+          .from("employee_balances")
+          .update({
+            status: "VOIDED",
+            void_reason: voidReason,
+            voided_by: voidedBy,
+            voided_at: voidedAt,
+          })
+          .eq("id", linkedExpense.employee_balance_id);
+
+        if (balanceVoidError) {
+          console.log("VOID LINKED EMPLOYEE BALANCE ERROR:", balanceVoidError.message);
+
+          await createAuditLog({
+            userName: voidedBy,
+            module: "Cash Management",
+            action: "Void Linked Employee Balance Failed",
+            description: `Cash movement was voided, but linked employee balance failed to void. Error: ${balanceVoidError.message}`,
+            severity: "critical",
+            recordId: movement.id,
+            oldValue: {
+              movement,
+              linkedExpense,
+            },
+            newValue: {
+              voidReason,
+              error: balanceVoidError.message,
+            },
+          });
+        } else {
+          linkedBalanceVoided = true;
+        }
+      }
+
+      // Safety fallback for older rows where employee_balance_id was not saved on expenses.
+      const { error: fallbackBalanceError } = await supabase
+        .from("employee_balances")
+        .update({
+          status: "VOIDED",
+          void_reason: voidReason,
+          voided_by: voidedBy,
+          voided_at: voidedAt,
+        })
+        .eq("source_module", "Cash Drawer")
+        .eq("source_id", id);
+
+      if (!fallbackBalanceError) {
+        fallbackBalancesVoided = true;
       }
     }
 
-    const { error } = await supabase
-      .from("finance_cash_movements")
-      .delete()
-      .eq("id", id);
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("DELETE CASH MOVEMENT ERROR:", error.message);
-
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Cash Management",
-        action: "Delete Cash Movement Failed",
-        description: `Linked records were checked, but failed to delete cash movement ${formatMoney(movement.amount)}. Error: ${error.message}`,
-        severity: "critical",
-        recordId: movement.id,
-        oldValue: {
-          movement,
-          linkedExpense,
-        },
-        newValue: {
-          error: error.message,
-        },
-      });
-
-      alert("Linked records were checked, but failed to delete cash movement.");
-      return;
+    if (linkedPeriodId) {
+      await supabase
+        .from("payroll_periods")
+        .update({ needs_regeneration: true })
+        .eq("id", linkedPeriodId);
     }
 
     await createAuditLog({
-      userName: "OPSCORE USER",
+      userName: voidedBy,
       module: "Cash Management",
-      action: "Delete Cash Movement",
+      action: "Void Cash Movement",
       description: linkedExpense
-        ? `Deleted cash movement and linked expense: ${movement.source} - ${formatMoney(movement.amount)}`
-        : `Deleted cash movement: ${movement.source} - ${formatMoney(movement.amount)}`,
+        ? `Voided cash movement and linked expense: ${movement.source} - ${formatMoney(movement.amount)}. Reason: ${voidReason}`
+        : `Voided cash movement: ${movement.source} - ${formatMoney(movement.amount)}. Reason: ${voidReason}`,
       severity: "critical",
       recordId: movement.id,
       oldValue: {
@@ -2460,21 +2518,25 @@ Continue?`
         linkedExpense,
       },
       newValue: {
-        deleted: true,
-        linkedExpenseDeleted: Boolean(linkedExpense),
-        linkedBalanceDeleted,
-        fallbackBalancesDeleted,
+        status: "VOIDED",
+        voidReason,
+        voidedBy,
+        voidedAt,
+        linkedExpenseVoided,
+        linkedBalanceVoided,
+        fallbackBalancesVoided,
       },
     });
 
+    setIsSaving(false);
     await getCashMovements();
     await getDrawers();
     await getPayrollPeriods();
 
     alert(
       linkedExpense
-        ? "Cash movement, linked expense, and payroll balance link were deleted."
-        : "Cash movement deleted."
+        ? "Cash movement was voided. Linked expense/balance were marked voided when available."
+        : "Cash movement was voided."
     );
   };
 
@@ -2931,7 +2993,7 @@ Continue?`
 
                 <tbody>
                   {filteredMovements.map((item) => (
-                    <tr key={item.id} className="border-t border-slate-800 text-slate-200 hover:bg-slate-800/40">
+                    <tr key={item.id} className={`border-t border-slate-800 text-slate-200 hover:bg-slate-800/40 ${isVoidedMovement(item) ? "bg-red-950/20 opacity-70" : ""}`}>
                       <td className="px-4 py-3">{item.business_date}</td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${getMovementStyle(item.movement_type)}`}>{item.movement_type}</span></td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${getPaymentStyle(item.payment_type || "Cash")}`}>{item.payment_type || "Cash"}</span></td>
@@ -2940,15 +3002,28 @@ Continue?`
                       <td className="px-4 py-3">{item.from_person || "-"}</td>
                       <td className="px-4 py-3">{item.to_person || "-"}</td>
                       <td className="px-4 py-3">{item.encoded_by || "-"}</td>
-                      <td className="px-4 py-3">{item.remarks || "-"}</td>
                       <td className="px-4 py-3">
-                        {item.reference_type === "drawer_closing_remittance" || item.source === "Drawer Closing Remittance" ? (
+                        {isVoidedMovement(item) ? (
+                          <div className="space-y-1">
+                            <p className="line-through text-slate-400">{item.remarks || "-"}</p>
+                            <p className="text-xs text-red-300">Void reason: {item.void_reason || "No reason saved"}</p>
+                          </div>
+                        ) : (
+                          item.remarks || "-"
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isVoidedMovement(item) ? (
+                          <span className="rounded-lg bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
+                            VOIDED
+                          </span>
+                        ) : item.reference_type === "drawer_closing_remittance" || item.source === "Drawer Closing Remittance" ? (
                           <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
                             Locked
                           </span>
                         ) : (
-                          <button onClick={() => deleteMovement(item.id)} className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500">
-                            Delete
+                          <button onClick={() => voidMovement(item.id)} className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold hover:bg-amber-500">
+                            Void
                           </button>
                         )}
                       </td>

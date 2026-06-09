@@ -28,7 +28,8 @@ export default function ApartmentPaymentsPage() {
   const getBills = async () => {
     const { data, error } = await supabase
       .from("apartment_bills")
-      .select(`
+      .select(
+        `
         *,
         apartment_units (
           id,
@@ -38,9 +39,11 @@ export default function ApartmentPaymentsPage() {
         ),
         apartment_payments (
           id,
-          amount
+          amount,
+          status
         )
-      `)
+      `,
+      )
       .order("due_date", { ascending: false });
 
     if (error) {
@@ -55,7 +58,8 @@ export default function ApartmentPaymentsPage() {
   const getPayments = async () => {
     const { data, error } = await supabase
       .from("apartment_payments")
-      .select(`
+      .select(
+        `
         *,
         apartment_bills (
           id,
@@ -72,7 +76,8 @@ export default function ApartmentPaymentsPage() {
             tenant_name
           )
         )
-      `)
+      `,
+      )
       .order("payment_date", { ascending: false });
 
     if (error) {
@@ -104,10 +109,15 @@ export default function ApartmentPaymentsPage() {
   const getTotalPaid = (bill: any) => {
     if (!bill) return 0;
 
-    return (bill.apartment_payments || []).reduce(
-      (sum: number, payment: any) => sum + Number(payment.amount || 0),
-      0
-    );
+    return (bill.apartment_payments || [])
+      .filter(
+        (payment: any) =>
+          String(payment.status || "ACTIVE").toUpperCase() !== "VOIDED",
+      )
+      .reduce(
+        (sum: number, payment: any) => sum + Number(payment.amount || 0),
+        0,
+      );
   };
 
   const getBalance = (bill: any) => getTotalBill(bill) - getTotalPaid(bill);
@@ -159,7 +169,9 @@ export default function ApartmentPaymentsPage() {
     }
 
     if (selectedBill && paymentAmount > selectedBalance) {
-      alert(`Payment is higher than the remaining balance: ${formatMoney(selectedBalance)}`);
+      alert(
+        `Payment is higher than the remaining balance: ${formatMoney(selectedBalance)}`,
+      );
       return;
     }
 
@@ -177,6 +189,7 @@ export default function ApartmentPaymentsPage() {
       amount: paymentAmount,
       payment_method: paymentMethod,
       remarks,
+      status: "ACTIVE",
     };
 
     const { data, error } = await supabase
@@ -234,37 +247,100 @@ export default function ApartmentPaymentsPage() {
     refreshData();
   };
 
-  const deletePayment = async (id: string) => {
+  const getCurrentUserName = () => {
+    if (typeof window === "undefined") return "OPSCORE USER";
+
+    const possibleKeys = [
+      "opscore_user_name",
+      "opscore_current_user_name",
+      "opscore_employee_name",
+      "currentEmployeeName",
+      "userName",
+    ];
+
+    for (const key of possibleKeys) {
+      const value = String(localStorage.getItem(key) || "").trim();
+      if (value) return value;
+    }
+
+    return "OPSCORE USER";
+  };
+
+  const isVoidedPayment = (payment: any) =>
+    String(payment?.status || "ACTIVE").toUpperCase() === "VOIDED";
+
+  const voidPayment = async (id: string) => {
     const payment = payments.find((item) => String(item.id) === String(id));
 
-    const unitName = payment?.apartment_bills?.apartment_units?.unit_name || "-";
-    const tenantName = payment?.apartment_bills?.apartment_units?.tenant_name || "-";
+    if (!payment) {
+      alert("Payment record not found.");
+      return;
+    }
+
+    if (isVoidedPayment(payment)) {
+      alert("This payment is already voided.");
+      return;
+    }
+
+    const unitName =
+      payment?.apartment_bills?.apartment_units?.unit_name || "-";
+    const tenantName =
+      payment?.apartment_bills?.apartment_units?.tenant_name || "-";
     const billMonth = payment?.apartment_bills?.bill_month || "-";
     const paymentAmount = Number(payment?.amount || 0);
+    const voidedBy = getCurrentUserName();
+    const voidedAt = new Date().toISOString();
 
-    const confirmDelete = window.confirm(
-      "Delete this payment? This will reopen the bill balance."
+    const reason = window.prompt(
+      `Void this apartment payment?\n\n${unitName} (${tenantName}) ${billMonth}\nAmount: ${formatMoney(paymentAmount)}\n\nReason is required:`,
     );
 
-    if (!confirmDelete) return;
+    if (reason === null) return;
+
+    const cleanReason = reason.trim();
+
+    if (!cleanReason) {
+      alert("Void reason is required.");
+      return;
+    }
+
+    const oldRemarks = String(payment?.remarks || "").trim();
+    const voidTrail = `[VOIDED by ${voidedBy} at ${voidedAt.slice(0, 16).replace("T", " ")}] Reason: ${cleanReason}`;
+    const updatedRemarks = oldRemarks
+      ? `${oldRemarks} ${voidTrail}`
+      : voidTrail;
+
+    setSaving(true);
 
     const { error } = await supabase
       .from("apartment_payments")
-      .delete()
+      .update({
+        status: "VOIDED",
+        void_reason: cleanReason,
+        voided_by: voidedBy,
+        voided_at: voidedAt,
+        remarks: updatedRemarks,
+      })
       .eq("id", id);
 
+    setSaving(false);
+
     if (error) {
-      console.log("DELETE PAYMENT ERROR:", error);
+      console.log("VOID PAYMENT ERROR:", error);
 
       await createAuditLog({
-        userName: "OPSCORE USER",
+        userName: voidedBy,
         module: "Apartment Payments",
-        action: "Delete Payment Failed",
-        description: `Failed to delete payment for ${unitName} (${tenantName}) ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Error: ${error.message}`,
+        action: "Void Payment Failed",
+        description: `Failed to void payment for ${unitName} (${tenantName}) ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Error: ${error.message}`,
         severity: "critical",
         recordId: id,
         oldValue: payment || null,
         newValue: {
+          status: "VOIDED",
+          voidReason: cleanReason,
+          voidedBy,
+          voidedAt,
           error: error.message,
         },
       });
@@ -274,29 +350,37 @@ export default function ApartmentPaymentsPage() {
     }
 
     await createAuditLog({
-      userName: "OPSCORE USER",
+      userName: voidedBy,
       module: "Apartment Payments",
-      action: "Delete Payment",
-      description: `Deleted payment for ${unitName} (${tenantName}) ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Bill balance reopened.`,
+      action: "Void Payment",
+      description: `Voided payment for ${unitName} (${tenantName}) ${billMonth}. Amount: ${formatMoney(paymentAmount)}. Reason: ${cleanReason}. Bill balance reopened.`,
       severity: "critical",
       recordId: id,
       oldValue: payment || null,
       newValue: {
-        deleted: true,
+        status: "VOIDED",
+        voidReason: cleanReason,
+        voidedBy,
+        voidedAt,
         balanceReopened: true,
       },
     });
 
-    refreshData();
+    await refreshData();
   };
 
   /// CALCULATIONS
   const unpaidBills = bills.filter((bill) => getBalance(bill) > 0);
 
   const totalBilled = bills.reduce((sum, bill) => sum + getTotalBill(bill), 0);
-  const totalCollected = bills.reduce((sum, bill) => sum + getTotalPaid(bill), 0);
+  const totalCollected = bills.reduce(
+    (sum, bill) => sum + getTotalPaid(bill),
+    0,
+  );
   const totalBalance = totalBilled - totalCollected;
-  const overdueCount = bills.filter((bill) => getBillStatus(bill) === "OVERDUE").length;
+  const overdueCount = bills.filter(
+    (bill) => getBillStatus(bill) === "OVERDUE",
+  ).length;
 
   const tenantLedger = useMemo(() => {
     const ledgerMap: Record<string, any> = {};
@@ -328,7 +412,10 @@ export default function ApartmentPaymentsPage() {
       ledgerMap[key].totalBalance += balance;
       ledgerMap[key].billCount += 1;
 
-      if (!ledgerMap[key].latestDueDate || String(bill.due_date || "") > ledgerMap[key].latestDueDate) {
+      if (
+        !ledgerMap[key].latestDueDate ||
+        String(bill.due_date || "") > ledgerMap[key].latestDueDate
+      ) {
         ledgerMap[key].latestDueDate = bill.due_date || "";
       }
 
@@ -338,7 +425,7 @@ export default function ApartmentPaymentsPage() {
     });
 
     return Object.values(ledgerMap).sort((a: any, b: any) =>
-      String(a.unitName || "").localeCompare(String(b.unitName || ""))
+      String(a.unitName || "").localeCompare(String(b.unitName || "")),
     );
   }, [bills]);
 
@@ -362,7 +449,8 @@ export default function ApartmentPaymentsPage() {
             <h1 className="mt-2 text-3xl font-bold">Apartment Payments</h1>
 
             <p className="mt-1 text-sm text-slate-400">
-              Record tenant payments, monitor balances, and review apartment collection ledger.
+              Record tenant payments, monitor balances, and review apartment
+              collection ledger.
             </p>
           </div>
 
@@ -376,9 +464,21 @@ export default function ApartmentPaymentsPage() {
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard title="Total Billed" value={formatMoney(totalBilled)} />
-          <SummaryCard title="Total Collected" value={formatMoney(totalCollected)} color="text-emerald-400" />
-          <SummaryCard title="Total Balance" value={formatMoney(totalBalance)} color="text-red-400" />
-          <SummaryCard title="Overdue Bills" value={overdueCount} color="text-amber-400" />
+          <SummaryCard
+            title="Total Collected"
+            value={formatMoney(totalCollected)}
+            color="text-emerald-400"
+          />
+          <SummaryCard
+            title="Total Balance"
+            value={formatMoney(totalBalance)}
+            color="text-red-400"
+          />
+          <SummaryCard
+            title="Overdue Bills"
+            value={overdueCount}
+            color="text-amber-400"
+          />
         </section>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -396,7 +496,10 @@ export default function ApartmentPaymentsPage() {
                   <option value="">Select unpaid bill</option>
                   {unpaidBills.map((bill) => (
                     <option key={bill.id} value={bill.id}>
-                      {bill.apartment_units?.unit_name} - {bill.apartment_units?.tenant_name || "No tenant"} - {bill.bill_month} - Balance {formatMoney(getBalance(bill))}
+                      {bill.apartment_units?.unit_name} -{" "}
+                      {bill.apartment_units?.tenant_name || "No tenant"} -{" "}
+                      {bill.bill_month} - Balance{" "}
+                      {formatMoney(getBalance(bill))}
                     </option>
                   ))}
                 </select>
@@ -406,7 +509,9 @@ export default function ApartmentPaymentsPage() {
                 <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
                   <div className="flex justify-between gap-3">
                     <span className="text-slate-400">Selected Balance</span>
-                    <span className="font-bold text-red-400">{formatMoney(selectedBalance)}</span>
+                    <span className="font-bold text-red-400">
+                      {formatMoney(selectedBalance)}
+                    </span>
                   </div>
                   <div className="mt-2 flex justify-between gap-3">
                     <span className="text-slate-400">Due Date</span>
@@ -453,7 +558,9 @@ export default function ApartmentPaymentsPage() {
               </div>
 
               <div>
-                <label className="text-sm text-slate-400">Remarks / Reference Number</label>
+                <label className="text-sm text-slate-400">
+                  Remarks / Reference Number
+                </label>
                 <textarea
                   placeholder="Optional remarks"
                   value={remarks}
@@ -495,7 +602,10 @@ export default function ApartmentPaymentsPage() {
                     const status = getBillStatus(bill);
 
                     return (
-                      <tr key={bill.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                      <tr
+                        key={bill.id}
+                        className="border-t border-slate-800 hover:bg-slate-800/40"
+                      >
                         <td className="px-4 py-3 font-medium text-white">
                           {bill.apartment_units?.unit_name || "-"}
                         </td>
@@ -520,7 +630,9 @@ export default function ApartmentPaymentsPage() {
                         </td>
 
                         <td className="px-4 py-3">
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(status)}`}>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(status)}`}
+                          >
                             {status}
                           </span>
                         </td>
@@ -530,7 +642,10 @@ export default function ApartmentPaymentsPage() {
 
                   {unpaidBills.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                      <td
+                        colSpan={8}
+                        className="px-4 py-12 text-center text-slate-500"
+                      >
                         No unpaid apartment bills.
                       </td>
                     </tr>
@@ -562,22 +677,38 @@ export default function ApartmentPaymentsPage() {
 
               <tbody>
                 {tenantLedger.map((row: any) => (
-                  <tr key={row.unitName} className="border-t border-slate-800 hover:bg-slate-800/40">
-                    <td className="px-4 py-3 font-bold text-white">{row.unitName}</td>
+                  <tr
+                    key={row.unitName}
+                    className="border-t border-slate-800 hover:bg-slate-800/40"
+                  >
+                    <td className="px-4 py-3 font-bold text-white">
+                      {row.unitName}
+                    </td>
                     <td className="px-4 py-3">{row.tenantName}</td>
                     <td className="px-4 py-3">{row.unitStatus}</td>
                     <td className="px-4 py-3 text-right">{row.billCount}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(row.totalBill)}</td>
-                    <td className="px-4 py-3 text-right text-emerald-400">{formatMoney(row.totalPaid)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-red-400">{formatMoney(row.totalBalance)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {formatMoney(row.totalBill)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-emerald-400">
+                      {formatMoney(row.totalPaid)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-red-400">
+                      {formatMoney(row.totalBalance)}
+                    </td>
                     <td className="px-4 py-3">{row.latestDueDate || "-"}</td>
-                    <td className="px-4 py-3 text-right text-amber-400">{row.overdueCount}</td>
+                    <td className="px-4 py-3 text-right text-amber-400">
+                      {row.overdueCount}
+                    </td>
                   </tr>
                 ))}
 
                 {tenantLedger.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
+                    <td
+                      colSpan={9}
+                      className="px-4 py-12 text-center text-slate-500"
+                    >
                       No tenant ledger records yet.
                     </td>
                   </tr>
@@ -601,48 +732,103 @@ export default function ApartmentPaymentsPage() {
                   <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3">Method</th>
                   <th className="px-4 py-3">Remarks</th>
+                  <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-center">Action</th>
                 </tr>
               </thead>
 
               <tbody>
-                {payments.map((payment) => (
-                  <tr key={payment.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                    <td className="px-4 py-3">{payment.payment_date}</td>
+                {payments.map((payment) => {
+                  const isVoided = isVoidedPayment(payment);
 
-                    <td className="px-4 py-3 font-medium text-white">
-                      {payment.apartment_bills?.apartment_units?.unit_name || "-"}
-                    </td>
+                  return (
+                    <tr
+                      key={payment.id}
+                      className={`border-t border-slate-800 hover:bg-slate-800/40 ${
+                        isVoided ? "bg-red-950/10 opacity-60" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3">{payment.payment_date}</td>
 
-                    <td className="px-4 py-3">
-                      {payment.apartment_bills?.apartment_units?.tenant_name || "-"}
-                    </td>
+                      <td className="px-4 py-3 font-medium text-white">
+                        {payment.apartment_bills?.apartment_units?.unit_name ||
+                          "-"}
+                      </td>
 
-                    <td className="px-4 py-3">
-                      {payment.apartment_bills?.bill_month || "-"}
-                    </td>
+                      <td className="px-4 py-3">
+                        {payment.apartment_bills?.apartment_units
+                          ?.tenant_name || "-"}
+                      </td>
 
-                    <td className="px-4 py-3 text-right text-emerald-400">
-                      {formatMoney(payment.amount)}
-                    </td>
+                      <td className="px-4 py-3">
+                        {payment.apartment_bills?.bill_month || "-"}
+                      </td>
 
-                    <td className="px-4 py-3">{payment.payment_method || "-"}</td>
-                    <td className="px-4 py-3">{payment.remarks || "-"}</td>
-
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => deletePayment(payment.id)}
-                        className="rounded-lg border border-red-500/40 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10"
+                      <td
+                        className={`px-4 py-3 text-right ${
+                          isVoided
+                            ? "text-slate-500 line-through"
+                            : "text-emerald-400"
+                        }`}
                       >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                        {formatMoney(payment.amount)}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {payment.payment_method || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            isVoided ? "line-through text-slate-500" : ""
+                          }
+                        >
+                          {payment.remarks || "-"}
+                        </span>
+                        {isVoided && payment.void_reason && (
+                          <div className="mt-1 text-xs font-semibold text-red-300">
+                            Void reason: {payment.void_reason}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        {isVoided ? (
+                          <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
+                            VOIDED
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                            ACTIVE
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        {isVoided ? (
+                          <span className="text-xs font-semibold text-slate-500">
+                            —
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => voidPayment(payment.id)}
+                            disabled={saving}
+                            className="rounded-lg border border-amber-500/40 px-3 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
+                          >
+                            Void
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {payments.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                    <td
+                      colSpan={9}
+                      className="px-4 py-12 text-center text-slate-500"
+                    >
                       No apartment payments recorded yet.
                     </td>
                   </tr>

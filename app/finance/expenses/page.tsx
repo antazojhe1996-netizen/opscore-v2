@@ -196,16 +196,23 @@ export default function ExpensesPage() {
     return references.join(" • ");
   };
 
+  const isExpenseVoided = (expense: any) => {
+    const statusText = String(expense?.status || expense?.expense_status || "ACTIVE").toUpperCase();
+    return statusText === "VOIDED" || statusText === "VOID" || Boolean(expense?.voided_at);
+  };
+
+  const activeExpenses = expenses.filter((expense) => !isExpenseVoided(expense));
+
   /// CALCULATIONS - REPORTING CLASSIFICATION
   // Enterprise finance rule:
   // Payroll-linked cash advances are employee receivables, not operating expenses.
   // They remain in the database for audit trail, but they are excluded from the
   // Official Expense Ledger and operating expense summaries.
-  const operatingExpenses = expenses.filter(
+  const operatingExpenses = activeExpenses.filter(
     (expense) => !expense.deduct_to_payroll
   );
 
-  const employeeAdvanceReceivables = expenses.filter(
+  const employeeAdvanceReceivables = activeExpenses.filter(
     (expense) => expense.deduct_to_payroll
   );
 
@@ -623,6 +630,7 @@ export default function ExpensesPage() {
           ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
           : null,
       deduct_to_payroll: isCashAdvance && deductToPayroll === "Yes",
+      status: "ACTIVE",
       payroll_period_id:
         isCashAdvance && deductToPayroll === "Yes"
           ? activePayrollPeriod?.id || null
@@ -758,48 +766,90 @@ export default function ExpensesPage() {
     );
   };
 
-  /// FUNCTIONS - DELETE EXPENSE
-  const deleteExpense = async (expense: any) => {
+  /// FUNCTIONS - VOID EXPENSE
+  const voidExpense = async (expense: any) => {
     if (!canDeleteExpenses) {
       alert("Access denied.");
       return;
     }
 
-    const confirmDelete = confirm(
+    if (isExpenseVoided(expense)) {
+      alert("This expense is already voided.");
+      return;
+    }
+
+    const reason = window.prompt(
       (expense.employee_balance_id || expense.payroll_adjustment_id)
-        ? "Delete this expense and its linked payroll deduction/balance?"
-        : "Are you sure you want to delete this expense?"
+        ? "Enter void reason. This will void the expense and mark linked payroll/balance records inactive when available."
+        : "Enter void reason for this expense."
     );
 
-    if (!confirmDelete) return;
+    if (!reason || !reason.trim()) {
+      alert("Void reason is required.");
+      return;
+    }
 
     const linkedBalanceId = expense.employee_balance_id;
     const linkedAdjustmentId = expense.payroll_adjustment_id;
     const linkedPeriodId = expense.payroll_period_id || expense.period_id;
+    const voidedAt = new Date().toISOString();
+    const voidedBy =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_name") || "OPSCORE USER"
+        : "OPSCORE USER";
+
+    const currentRemarks = String(expense.remarks || "").trim();
+    const voidRemarks = `${currentRemarks}${currentRemarks ? "\n" : ""}[VOIDED by ${voidedBy} at ${voidedAt}] Reason: ${reason.trim()}`;
+
+    const { error: expenseVoidError } = await supabase
+      .from("expenses")
+      .update({
+        status: "VOIDED",
+        void_reason: reason.trim(),
+        voided_by: voidedBy,
+        voided_at: voidedAt,
+        remarks: voidRemarks,
+      })
+      .eq("id", expense.id);
+
+    if (expenseVoidError) {
+      console.log("VOID EXPENSE ERROR:", expenseVoidError);
+      alert("Failed to void expense. Check if expenses void columns exist in Supabase.");
+      return;
+    }
+
+    let linkedBalanceVoided = false;
+    let linkedAdjustmentVoided = false;
 
     if (linkedBalanceId) {
-      const { error: balanceDeleteError } = await supabase
+      const { error: balanceVoidError } = await supabase
         .from("employee_balances")
-        .delete()
+        .update({
+          status: "Voided",
+          remarks: `VOIDED from Expenses. Reason: ${reason.trim()}. Expense ID: ${expense.id}`,
+        })
         .eq("id", linkedBalanceId);
 
-      if (balanceDeleteError) {
-        console.log("DELETE LINKED EMPLOYEE BALANCE ERROR:", balanceDeleteError);
-        alert("Failed to delete linked employee balance.");
-        return;
+      if (balanceVoidError) {
+        console.log("VOID LINKED EMPLOYEE BALANCE WARNING:", balanceVoidError.message);
+      } else {
+        linkedBalanceVoided = true;
       }
     }
 
     if (linkedAdjustmentId) {
-      const { error: adjustmentError } = await supabase
+      const { error: adjustmentVoidError } = await supabase
         .from("payroll_adjustments")
-        .delete()
+        .update({
+          status: "VOIDED",
+          remarks: `VOIDED from Expenses. Reason: ${reason.trim()}. Expense ID: ${expense.id}`,
+        })
         .eq("id", linkedAdjustmentId);
 
-      if (adjustmentError) {
-        console.log("DELETE LINKED PAYROLL ADJUSTMENT ERROR:", adjustmentError);
-        alert("Failed to delete linked payroll deduction.");
-        return;
+      if (adjustmentVoidError) {
+        console.log("VOID LINKED PAYROLL ADJUSTMENT WARNING:", adjustmentVoidError.message);
+      } else {
+        linkedAdjustmentVoided = true;
       }
 
       if (linkedPeriodId) {
@@ -807,32 +857,30 @@ export default function ExpensesPage() {
       }
     }
 
-    const { error } = await supabase.from("expenses").delete().eq("id", expense.id);
-
-    if (error) {
-      console.log("DELETE EXPENSE ERROR:", error);
-      alert("Failed to delete expense.");
-      return;
-    }
-
     await createAuditLog({
-      userName: "OPSCORE USER",
+      userName: voidedBy,
       module: "Expenses",
-      action: expense.deduct_to_payroll ? "Delete Cash Advance Expense" : "Delete Expense",
+      action: expense.deduct_to_payroll ? "Void Cash Advance Expense" : "Void Expense",
       description: expense.deduct_to_payroll
-        ? `Deleted payroll-linked cash advance for ${expense.employee_name || "Unknown employee"} - ${formatCurrency(expense.amount)}`
-        : `Deleted expense: ${expense.description || expense.category || "Expense"} - ${formatCurrency(expense.amount)}`,
+        ? `Voided payroll-linked cash advance for ${expense.employee_name || "Unknown employee"} - ${formatCurrency(expense.amount)}. Reason: ${reason.trim()}`
+        : `Voided expense: ${expense.description || expense.category || "Expense"} - ${formatCurrency(expense.amount)}. Reason: ${reason.trim()}`,
       severity: expense.deduct_to_payroll ? "critical" : "warning",
       recordId: expense.id,
       oldValue: expense,
       newValue: {
-        deleted: true,
-        linkedBalanceDeleted: Boolean(linkedBalanceId),
-        linkedAdjustmentDeleted: Boolean(linkedAdjustmentId),
+        status: "VOIDED",
+        voidReason: reason.trim(),
+        voidedBy,
+        voidedAt,
+        linkedBalanceVoided,
+        linkedAdjustmentVoided,
       },
     });
 
-    getExpenses();
+    await getExpenses();
+    if (linkedPeriodId) await getPayrollPeriods();
+
+    alert("Expense was voided. It is excluded from official expense totals and reports.");
   };
 
   /// FUNCTIONS - EXPORT EXPENSES
@@ -963,6 +1011,7 @@ export default function ExpensesPage() {
           row.payment_method ||
           "",
         remarks: row.Remarks || row.remarks || "Imported expense",
+        status: "ACTIVE",
       }))
       .filter((row) => row.expense_date && row.amount > 0);
 
@@ -1475,10 +1524,10 @@ export default function ExpensesPage() {
                         <td className="whitespace-nowrap px-4 py-3">
                           {canDeleteExpenses ? (
                             <button
-                              onClick={() => deleteExpense(expense)}
-                              className="rounded-lg bg-slate-600 px-3 py-1 text-xs font-semibold hover:bg-slate-500"
+                              onClick={() => voidExpense(expense)}
+                              className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold hover:bg-amber-500"
                             >
-                              Delete
+                              Void
                             </button>
                           ) : (
                             <span className="text-xs text-slate-500">View only</span>

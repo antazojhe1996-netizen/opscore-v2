@@ -2113,6 +2113,53 @@ This will:
     setSelectedRecordIds([]);
   };
 
+
+  const getPayslipReleasedAmount = (record: any) =>
+    Number(record?.paid_amount || record?.amount_released || record?.released_amount || 0);
+
+  const getPayslipRemainingSalary = (record: any) => {
+    if (record?.remaining_amount !== null && record?.remaining_amount !== undefined && record?.remaining_amount !== "") {
+      return Math.max(Number(record.remaining_amount || 0), 0);
+    }
+
+    if (record?.remaining_payroll_balance !== null && record?.remaining_payroll_balance !== undefined && record?.remaining_payroll_balance !== "") {
+      return Math.max(Number(record.remaining_payroll_balance || 0), 0);
+    }
+
+    return Math.max(getDisplayedReleaseAmount(record) - getPayslipReleasedAmount(record), 0);
+  };
+
+  const getPayslipReleaseStatus = (record: any) => {
+    const released = getPayslipReleasedAmount(record);
+    const remaining = getPayslipRemainingSalary(record);
+
+    if (released > 0 && remaining > 0) return "PARTIALLY RELEASED";
+    if (released > 0 && remaining <= 0) return "RELEASED";
+    if (getDisplayedCarryForwardAmount(record) > 0) return "CARRY FORWARD";
+    return String(record?.release_status || record?.status || "DRAFT").toUpperCase();
+  };
+
+  const getPayslipLiabilityRows = (record: any) => {
+    const employeeBalanceRows = payslipAdjustments.filter(
+      (item) => item?.source_module === "Employee Balances" || item?.is_employee_balance
+    );
+
+    if (employeeBalanceRows.length > 0) return employeeBalanceRows;
+
+    if (Number(record?.balance_deduction || 0) > 0) {
+      return [
+        {
+          id: "balance-deduction-summary",
+          adjustment_type: "Employee Liability Deduction",
+          amount: Number(record.balance_deduction || 0),
+          remarks: "Payroll-deductible balance applied in this cutoff.",
+        },
+      ];
+    }
+
+    return [];
+  };
+
   return (
     <PageGuard moduleKey="payroll_register">
       <div className="flex min-h-screen bg-slate-950 text-white">
@@ -2947,7 +2994,12 @@ Active balances are deducted through payroll only. Cancel here only when the bal
         {!selectedPeriod?.needs_regeneration && selectedPayslip && (
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <div className="payslip-no-print mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold">Detailed Payslip Preview</h2>
+              <div>
+                <h2 className="text-xl font-bold">Professional Payslip Preview</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Print-safe A4 payslip with release status, deductions, and liability breakdown.
+                </p>
+              </div>
 
               <button
                 onClick={() => window.print()}
@@ -2973,74 +3025,66 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                       </p>
                     </div>
 
-                    <div className="text-right text-xs">
+                    <div className="rounded-lg border border-slate-300 px-4 py-3 text-right text-xs">
                       <p className="font-black uppercase tracking-[0.18em] text-slate-500">
-                        Payroll Register
+                        Payroll Status
                       </p>
-                      <p className="mt-2">
+                      <p className="mt-2 text-lg font-black text-slate-950">
+                        {getPayslipReleaseStatus(selectedPayslip)}
+                      </p>
+                      <p className="mt-1 text-slate-500">
                         Generated: <b>{new Date().toLocaleDateString()}</b>
-                      </p>
-                      <p>
-                        Status: <b>{selectedPayslip.status || "Draft"}</b>
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="payslip-avoid-break mt-6 grid grid-cols-2 gap-6 text-xs">
-                  <div className="rounded-lg border border-slate-300">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
-                      Employee Information
-                    </div>
-                    <div className="space-y-2 p-4">
-                      <div className="grid grid-cols-2 gap-2">
-                        <span className="text-slate-500">Employee Name</span>
-                        <b>{selectedPayslip.employee_name}</b>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <span className="text-slate-500">Employee No.</span>
-                        <b>{selectedPayslip.employee_no || "-"}</b>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <span className="text-slate-500">Department</span>
-                        <b>{selectedPayslip.department || "-"}</b>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <span className="text-slate-500">Position</span>
-                        <b>{selectedPayslip.position || "-"}</b>
-                      </div>
-                    </div>
-                  </div>
+                <div className="payslip-avoid-break mt-6 grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
+                  <PayslipInfoBox label="Employee Name" value={selectedPayslip.employee_name || "-"} />
+                  <PayslipInfoBox label="Employee No." value={selectedPayslip.employee_no || "-"} />
+                  <PayslipInfoBox label="Department" value={selectedPayslip.department || "-"} />
+                  <PayslipInfoBox label="Position" value={selectedPayslip.position || "-"} />
+                </div>
 
-                  <div className="rounded-lg border border-slate-300">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
-                      Attendance Summary
+                <div className="payslip-avoid-break mt-5 rounded-lg border border-slate-300">
+                  <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                    Attendance Summary
+                  </div>
+                  <div className="grid grid-cols-6 gap-px bg-slate-300 text-center text-xs">
+                    <div className="bg-white p-3"><p className="text-slate-500">Scheduled</p><b>{selectedPayslip.scheduled_days || 0}</b></div>
+                    <div className="bg-white p-3"><p className="text-slate-500">Worked</p><b>{selectedPayslip.days_worked || 0}</b></div>
+                    <div className="bg-white p-3"><p className="text-slate-500">RD/OFF</p><b>{selectedPayslip.rest_days || 0}</b></div>
+                    <div className="bg-white p-3"><p className="text-slate-500">Absent</p><b>{selectedPayslip.absent_days || 0}</b></div>
+                    <div className="bg-white p-3"><p className="text-slate-500">Late</p><b>{selectedPayslip.late_minutes || 0} min</b></div>
+                    <div className="bg-white p-3"><p className="text-slate-500">Undertime</p><b>{selectedPayslip.undertime_minutes || 0} min</b></div>
+                  </div>
+                </div>
+
+                <div className="payslip-avoid-break mt-6 rounded-lg border-2 border-slate-900">
+                  <div className="grid grid-cols-4 divide-x divide-slate-900 text-center">
+                    <div className="p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Net Pay</p>
+                      <p className={`mt-2 text-2xl font-black ${getDisplayedNetPay(selectedPayslip) < 0 ? "text-red-700" : "text-slate-950"}`}>
+                        {formatMoney(getDisplayedNetPay(selectedPayslip))}
+                      </p>
                     </div>
-                    <div className="grid grid-cols-3 gap-px bg-slate-300 text-center">
-                      <div className="bg-white p-3">
-                        <p className="text-slate-500">Scheduled</p>
-                        <b>{selectedPayslip.scheduled_days || 0}</b>
-                      </div>
-                      <div className="bg-white p-3">
-                        <p className="text-slate-500">Worked</p>
-                        <b>{selectedPayslip.days_worked || 0}</b>
-                      </div>
-                      <div className="bg-white p-3">
-                        <p className="text-slate-500">RD/OFF</p>
-                        <b>{selectedPayslip.rest_days || 0}</b>
-                      </div>
-                      <div className="bg-white p-3">
-                        <p className="text-slate-500">Absent</p>
-                        <b>{selectedPayslip.absent_days || 0}</b>
-                      </div>
-                      <div className="bg-white p-3">
-                        <p className="text-slate-500">Late</p>
-                        <b>{selectedPayslip.late_minutes || 0} min</b>
-                      </div>
-                      <div className="bg-white p-3">
-                        <p className="text-slate-500">UT</p>
-                        <b>{selectedPayslip.undertime_minutes || 0} min</b>
-                      </div>
+                    <div className="p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Already Released</p>
+                      <p className="mt-2 text-2xl font-black text-blue-700">
+                        {formatMoney(getPayslipReleasedAmount(selectedPayslip))}
+                      </p>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Release / Payable</p>
+                      <p className="mt-2 text-2xl font-black text-emerald-700">
+                        {formatMoney(getDisplayedReleaseAmount(selectedPayslip))}
+                      </p>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Remaining Salary</p>
+                      <p className="mt-2 text-2xl font-black text-yellow-700">
+                        {formatMoney(getPayslipRemainingSalary(selectedPayslip))}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -3050,18 +3094,13 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                     <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
                       Earnings
                     </div>
-
                     <table className="w-full">
                       <tbody>
                         <PayslipLine label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
                         <PayslipLine label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
                         <PayslipLine label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
                         <PayslipLine label="Allowance / Bonus" value={formatMoney(selectedPayslip.allowance)} />
-                        <PayslipLine
-                          label="Gross Pay"
-                          value={formatMoney(selectedPayslip.gross_pay)}
-                          strong
-                        />
+                        <PayslipLine label="Gross Pay" value={formatMoney(selectedPayslip.gross_pay)} strong />
                       </tbody>
                     </table>
                   </div>
@@ -3070,105 +3109,68 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                     <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
                       Deductions
                     </div>
-
                     <table className="w-full">
                       <tbody>
                         <PayslipLine label="Late Deduction" value={formatMoney(selectedPayslip?.late_deduction)} />
                         <PayslipLine label="Undertime Deduction" value={formatMoney(selectedPayslip?.undertime_deduction)} />
                         <PayslipLine label="Absent Deduction" value={formatMoney(selectedPayslip?.absent_deduction)} />
                         <PayslipLine label="Manual Deductions" value={formatMoney(selectedPayslip?.manual_deduction)} />
-
-                        {showSss && (
-                          <PayslipLine label="SSS" value={formatMoney(selectedPayslip?.sss_deduction)} />
-                        )}
-
-                        {showPhilHealth && (
-                          <PayslipLine
-                            label="PhilHealth"
-                            value={formatMoney(selectedPayslip?.philhealth_deduction)}
-                          />
-                        )}
-
-                        {showPagibig && (
-                          <PayslipLine
-                            label="Pag-IBIG"
-                            value={formatMoney(selectedPayslip?.pagibig_deduction)}
-                          />
-                        )}
-
-                        {showTax && (
-                          <PayslipLine
-                            label="Withholding Tax"
-                            value={formatMoney(selectedPayslip?.tax_deduction)}
-                          />
-                        )}
-
-                        <PayslipLine label="Carry Forward Balance" value={formatMoney(selectedPayslip?.balance_deduction)} />
-                        <PayslipLine
-                          label="Total Deductions"
-                          value={formatMoney(getDisplayedTotalDeductions(selectedPayslip))}
-                          strong
-                        />
+                        {showSss && <PayslipLine label="SSS" value={formatMoney(selectedPayslip?.sss_deduction)} />}
+                        {showPhilHealth && <PayslipLine label="PhilHealth" value={formatMoney(selectedPayslip?.philhealth_deduction)} />}
+                        {showPagibig && <PayslipLine label="Pag-IBIG" value={formatMoney(selectedPayslip?.pagibig_deduction)} />}
+                        {showTax && <PayslipLine label="Withholding Tax" value={formatMoney(selectedPayslip?.tax_deduction)} />}
+                        <PayslipLine label="Employee Liability Deduction" value={formatMoney(selectedPayslip?.balance_deduction)} />
+                        <PayslipLine label="Total Deductions" value={formatMoney(getDisplayedTotalDeductions(selectedPayslip))} strong />
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                <div className="payslip-avoid-break mt-6 rounded-lg border-2 border-slate-900">
-                  <div className="grid grid-cols-3 divide-x divide-slate-900 text-center">
-                    <div className="p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                        Computed Net Pay
-                      </p>
-                      <p className={`mt-2 text-2xl font-black ${
-                        getDisplayedNetPay(selectedPayslip) < 0 ? "text-red-700" : "text-slate-950"
-                      }`}>
-                        {formatMoney(getDisplayedNetPay(selectedPayslip))}
-                      </p>
+                {getPayslipLiabilityRows(selectedPayslip).length > 0 && (
+                  <div className="payslip-avoid-break mt-6 rounded-lg border border-slate-300">
+                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                      Employee Liability Breakdown
                     </div>
-
-                    <div className="p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                        Release Amount
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-emerald-700">
-                        {formatMoney(
-                          getDisplayedReleaseAmount(selectedPayslip)
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                        Next Cutoff Balance
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-yellow-700">
-                        {formatMoney(
-                          getDisplayedCarryForwardAmount(selectedPayslip)
-                        )}
-                      </p>
-                    </div>
+                    <table className="w-full text-xs">
+                      <thead className="bg-white text-left text-slate-500">
+                        <tr>
+                          <th className="px-4 py-2">Type</th>
+                          <th className="px-4 py-2">Source / Remarks</th>
+                          <th className="px-4 py-2 text-right">Available / Related Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getPayslipLiabilityRows(selectedPayslip).map((item: any) => (
+                          <tr key={item.id || item.source_id || item.adjustment_type} className="border-t border-slate-200">
+                            <td className="px-4 py-2 font-bold text-slate-900">{item.adjustment_type || item.balance_type || "Employee Liability"}</td>
+                            <td className="px-4 py-2 text-slate-600">{item.remarks || "Payroll-deductible employee balance"}</td>
+                            <td className="px-4 py-2 text-right font-bold">{formatMoney(item.amount || item.remaining_balance || 0)}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t-2 border-slate-900 font-black">
+                          <td className="px-4 py-2" colSpan={2}>Deducted This Payroll</td>
+                          <td className="px-4 py-2 text-right">{formatMoney(selectedPayslip?.balance_deduction)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                </div>
+                )}
 
                 {getDisplayedCarryForwardAmount(selectedPayslip) > 0 && (
                   <div className="payslip-avoid-break mt-4 rounded-lg border border-yellow-600 bg-yellow-50 p-4 text-xs text-yellow-900">
-                    <b>Carry Forward Notice:</b> This employee has a remaining balance after this cutoff.
-                    Release amount is set to ₱0.00 and the remaining balance will continue to the next payroll cutoff.
+                    <b>Carry Forward Notice:</b> Deductions exceeded available net pay. The unpaid amount will continue to the next payroll cutoff as employee balance.
+                  </div>
+                )}
+
+                {getPayslipReleasedAmount(selectedPayslip) > 0 && getPayslipRemainingSalary(selectedPayslip) > 0 && (
+                  <div className="payslip-avoid-break mt-4 rounded-lg border border-blue-600 bg-blue-50 p-4 text-xs text-blue-900">
+                    <b>Partial Release Notice:</b> This payroll has already released {formatMoney(getPayslipReleasedAmount(selectedPayslip))}. Remaining salary balance is {formatMoney(getPayslipRemainingSalary(selectedPayslip))}.
                   </div>
                 )}
 
                 <div className="payslip-avoid-break mt-8 grid grid-cols-2 gap-10 text-xs">
-                  <div>
-                    <div className="mt-10 border-t border-slate-900 pt-2 text-center">
-                      Prepared / Checked By
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mt-10 border-t border-slate-900 pt-2 text-center">
-                      Employee Signature
-                    </div>
-                  </div>
+                  <div><div className="mt-10 border-t border-slate-900 pt-2 text-center">Prepared / Checked By</div></div>
+                  <div><div className="mt-10 border-t border-slate-900 pt-2 text-center">Employee Signature</div></div>
                 </div>
 
                 <p className="mt-8 border-t border-slate-300 pt-3 text-center text-[10px] text-slate-500">
@@ -3184,6 +3186,16 @@ Active balances are deducted through payroll only. Cancel here only when the bal
   );
 }
 
+
+
+function PayslipInfoBox({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-lg border border-slate-300 bg-slate-50 p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
 
 function PayslipLine({
   label,
