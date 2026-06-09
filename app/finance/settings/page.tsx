@@ -12,6 +12,7 @@ export default function FinanceSettingsPage() {
   const [expenseAreas, setExpenseAreas] = useState<any[]>([]);
   const [expenseSources, setExpenseSources] = useState<any[]>([]);
   const [revenueSources, setRevenueSources] = useState<any[]>([]);
+  const [cashMovementSources, setCashMovementSources] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [newCategory, setNewCategory] = useState("");
@@ -19,6 +20,7 @@ export default function FinanceSettingsPage() {
   const [newExpenseArea, setNewExpenseArea] = useState("");
   const [newExpenseSource, setNewExpenseSource] = useState("");
   const [newRevenueSource, setNewRevenueSource] = useState("");
+  const [newCashMovementSource, setNewCashMovementSource] = useState("");
 
   /// FUNCTIONS
   const getFinanceSettings = async () => {
@@ -49,12 +51,18 @@ export default function FinanceSettingsPage() {
       .select("*")
       .order("name", { ascending: true });
 
+    const { data: cashMovementSourcesData, error: cashMovementSourcesError } = await supabase
+      .from("finance_cash_sources")
+      .select("*")
+      .order("name", { ascending: true });
+
 
     if (categoriesError) console.log("GET CATEGORIES ERROR:", categoriesError);
     if (paymentsError) console.log("GET PAYMENTS ERROR:", paymentsError);
     if (areasError) console.log("GET AREAS ERROR:", areasError);
     if (sourcesError) console.log("GET SOURCES ERROR:", sourcesError);
     if (revenueError) console.log("GET REVENUE ERROR:", revenueError);
+    if (cashMovementSourcesError) console.log("GET CASH MOVEMENT SOURCES ERROR:", cashMovementSourcesError);
 
     console.log("EXPENSE CATEGORIES COUNT:", categories?.length);
 
@@ -63,6 +71,7 @@ export default function FinanceSettingsPage() {
     setExpenseAreas(areas || []);
     setExpenseSources(expenseSourcesData || []);
     setRevenueSources(revenueSourcesData || []);
+    setCashMovementSources(cashMovementSourcesData || []);
 
     setLoading(false);
   };
@@ -116,6 +125,28 @@ export default function FinanceSettingsPage() {
   };
 
 
+  const deleteItem = async (table: string, id: string, name: string) => {
+    const confirmed = window.confirm(
+      `Delete "${name}"? This should only be used for newly added or unused settings.`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.log("DELETE ITEM ERROR:", error);
+      alert("Failed to delete item. It may already be linked to existing records. Use Disable instead.");
+      return;
+    }
+
+    getFinanceSettings();
+  };
+
+
   useEffect(() => {
     getFinanceSettings();
   }, []);
@@ -157,6 +188,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
+              deleteItem={deleteItem}
               loading={loading}
             />
 
@@ -173,6 +205,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
+              deleteItem={deleteItem}
               loading={loading}
             />
 
@@ -189,6 +222,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
+              deleteItem={deleteItem}
               loading={loading}
             />
 
@@ -205,6 +239,35 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
+              deleteItem={deleteItem}
+              loading={loading}
+            />
+          </div>
+        </section>
+
+        <section className="mb-8">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold">Cash Movement Settings</h2>
+            <p className="text-sm text-slate-400">
+              Used by Cash Management source dropdowns. Add or disable sources without editing code.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <SettingsPanel
+              title="Cash Movement Sources"
+              description="Master list used by the Cash Management source dropdown."
+              inputValue={newCashMovementSource}
+              setInputValue={setNewCashMovementSource}
+              items={cashMovementSources}
+              tableName="finance_cash_sources"
+              addItem={() =>
+                addItem("finance_cash_sources", newCashMovementSource, () =>
+                  setNewCashMovementSource("")
+                )
+              }
+              toggleItem={toggleItem}
+              deleteItem={deleteItem}
               loading={loading}
             />
           </div>
@@ -232,6 +295,7 @@ export default function FinanceSettingsPage() {
                 )
               }
               toggleItem={toggleItem}
+              deleteItem={deleteItem}
               loading={loading}
             />
           </div>
@@ -251,6 +315,7 @@ function SettingsPanel({
   tableName,
   addItem,
   toggleItem,
+  deleteItem,
   loading,
 }: any) {
   const activeCount = items.filter((item: any) => item.is_active).length;
@@ -348,18 +413,27 @@ function SettingsPanel({
                   </td>
 
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() =>
-                        toggleItem(tableName, item.id, item.is_active)
-                      }
-                      className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                        item.is_active
-                          ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950"
-                          : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950"
-                      }`}
-                    >
-                      {item.is_active ? "Disable" : "Enable"}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() =>
+                          toggleItem(tableName, item.id, item.is_active)
+                        }
+                        className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                          item.is_active
+                            ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950"
+                            : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950"
+                        }`}
+                      >
+                        {item.is_active ? "Disable" : "Enable"}
+                      </button>
+
+                      <button
+                        onClick={() => deleteItem(tableName, item.id, item.name)}
+                        className="rounded-lg bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-300 hover:bg-red-500 hover:text-white"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

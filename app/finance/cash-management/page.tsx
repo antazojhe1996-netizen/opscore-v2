@@ -15,6 +15,7 @@ export default function CashManagementPage() {
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [expenseSubcategories, setExpenseSubcategories] = useState<any[]>([]);
   const [approvalRequests, setApprovalRequests] = useState<any[]>([]);
+  const [cashSources, setCashSources] = useState<any[]>([]);
 
   /// STATES - DRAWER
   const getToday = () => {
@@ -37,7 +38,7 @@ export default function CashManagementPage() {
   /// STATES - CASH MOVEMENT FORM
   const [businessDate, setBusinessDate] = useState(today);
   const [movementType, setMovementType] = useState("Cash In");
-  const [source, setSource] = useState("Room Sales");
+  const [source, setSource] = useState("");
   const [paymentType, setPaymentType] = useState("Cash");
   const [amount, setAmount] = useState("");
   const [fromPerson, setFromPerson] = useState("");
@@ -80,6 +81,7 @@ export default function CashManagementPage() {
   const [currentEmployeeId, setCurrentEmployeeId] = useState("");
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [currentRoleName, setCurrentRoleName] = useState("");
+  const [currentCompanyId, setCurrentCompanyId] = useState("");
 
   /// DATA - OPTIONS
   const movementTypes = [
@@ -90,17 +92,13 @@ export default function CashManagementPage() {
     "Adjustment",
   ];
 
-  const sourceOptions = [
-    "Room Sales",
-    "Restaurant Sales",
-    "Apartment Collection",
-    "Expense Release",
-    "Cash Advance",
-    "Owner Withdrawal",
-    "Bank Deposit",
-    "Petty Cash",
-    "Other",
-  ];
+  const sourceOptions = useMemo(() => {
+    return cashSources
+      .filter((item) => item?.is_active !== false)
+      .map((item) => String(item?.name || item?.source_name || "").trim())
+      .filter(Boolean)
+      .filter((item, index, list) => list.indexOf(item) === index);
+  }, [cashSources]);
 
   const paymentTypes = ["Cash", "GCash", "Bank", "Terminal"];
 
@@ -173,6 +171,51 @@ export default function CashManagementPage() {
 
   const getEmployeeFullName = (employee: any) =>
     `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
+
+  const getCurrentCompanyId = async () => {
+    const storedCompanyId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_company_id") || ""
+        : "";
+
+    const cachedCompanyId = String(
+      currentCompanyId || currentEmployeeRecord?.company_id || storedCompanyId || ""
+    ).trim();
+
+    if (cachedCompanyId) {
+      if (!currentCompanyId) setCurrentCompanyId(cachedCompanyId);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("opscore_current_company_id", cachedCompanyId);
+      }
+      return cachedCompanyId;
+    }
+
+    const employeeId = String(currentEmployeeId || "").trim();
+
+    if (!employeeId) return "";
+
+    const { data, error } = await supabase
+      .from("employees")
+      .select("company_id")
+      .eq("id", employeeId)
+      .maybeSingle();
+
+    if (error) {
+      console.log("GET CURRENT COMPANY ID ERROR:", error.message);
+      return "";
+    }
+
+    const companyId = String(data?.company_id || "").trim();
+
+    if (companyId) {
+      setCurrentCompanyId(companyId);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("opscore_current_company_id", companyId);
+      }
+    }
+
+    return companyId;
+  };
 
   const hasCompleteEmployeeIdentity = (employee: any) => {
     const payrollEmployeeId = getEmployeePayrollId(employee);
@@ -666,7 +709,7 @@ export default function CashManagementPage() {
   const getEmployees = async () => {
     const { data, error } = await supabase
       .from("employees")
-      .select("id, employee_no, first_name, last_name, department, position, employment_status, payroll_active")
+      .select("id, company_id, employee_no, first_name, last_name, department, position, employment_status, payroll_active")
       .eq("payroll_active", true)
       .order("first_name", { ascending: true });
 
@@ -749,6 +792,22 @@ export default function CashManagementPage() {
     }
   };
 
+  const getCashSources = async () => {
+    const { data, error } = await supabase
+      .from("finance_cash_sources")
+      .select("*")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.log("GET CASH SOURCES ERROR:", error.message);
+      setCashSources([]);
+      return;
+    }
+
+    setCashSources(data || []);
+  };
+
   const getApprovalRequests = async () => {
     const { data, error } = await supabase
       .from("approval_requests")
@@ -769,7 +828,7 @@ export default function CashManagementPage() {
   const resetForm = () => {
     setBusinessDate(getToday());
     setMovementType("Cash In");
-    setSource("Room Sales");
+    setSource(sourceOptions[0] || "");
     setPaymentType("Cash");
     setAmount("");
     setFromPerson("");
@@ -1269,6 +1328,13 @@ export default function CashManagementPage() {
       return;
     }
 
+    const companyId = await getCurrentCompanyId();
+
+    if (!companyId) {
+      alert("Unable to open drawer. No company_id found for current user.");
+      return;
+    }
+
     setIsSaving(true);
 
     const { data: drawerData, error: drawerError } = await supabase
@@ -1307,6 +1373,7 @@ export default function CashManagementPage() {
     const { error: movementError } = await supabase
       .from("finance_cash_movements")
       .insert({
+        company_id: companyId,
         business_date: today,
         movement_type: "Opening Float",
         source: "Petty Cash",
@@ -1314,7 +1381,7 @@ export default function CashManagementPage() {
         amount: Number(openingFloat || 0),
         from_person: "",
         to_person: drawerHolder,
-        encoded_by: drawerHolder,
+        encoded_by: currentEmployeeName || drawerHolder,
         remarks: drawerRemarks.trim() || "Opening drawer float",
         cash_drawer_id: drawerData.id,
       });
@@ -1372,6 +1439,13 @@ export default function CashManagementPage() {
       return;
     }
 
+    const companyId = await getCurrentCompanyId();
+
+    if (!companyId) {
+      alert("Unable to close drawer. No company_id found for current user.");
+      return;
+    }
+
     if (!actualClosingCash) {
       alert("Please enter actual closing cash.");
       return;
@@ -1417,6 +1491,7 @@ export default function CashManagementPage() {
       const { data: remittanceData, error: remittanceError } = await supabase
         .from("finance_cash_movements")
         .insert({
+          company_id: companyId,
           business_date: today,
           movement_type: "Remittance",
           source: "Drawer Closing Remittance",
@@ -1424,7 +1499,7 @@ export default function CashManagementPage() {
           amount: remittanceValue,
           from_person: activeDrawer.holder_name,
           to_person: receiverName,
-          encoded_by: activeDrawer.holder_name,
+          encoded_by: currentEmployeeName || activeDrawer.holder_name,
           remarks:
             closingRemittanceRemarks.trim() ||
             `Auto remittance during drawer closing. Remaining cash after remittance: ${formatMoney(remainingCashAfterRemittance)}`,
@@ -1709,6 +1784,15 @@ export default function CashManagementPage() {
       return;
     }
 
+    // ENTERPRISE AUDIT RULE:
+    // Cash / expense releases must always identify the receiver.
+    // This prevents approved finance records with Employee / Receiver shown as "-".
+    if (isExpenseRelease && !expenseReleasedTo.trim()) {
+      alert("Please enter Released To / Receiver for this expense release.");
+      savingRef.current = false;
+      return;
+    }
+
     const autoFrom =
       paymentType === "Cash" && !fromPerson.trim()
         ? activeDrawer?.holder_name || ""
@@ -1724,7 +1808,24 @@ export default function CashManagementPage() {
       ? activeDrawer?.holder_name || ""
       : toPerson.trim();
 
-    const autoEncoded = activeDrawer?.holder_name || currentDrawerHolderName || encodedBy.trim() || "System";
+    // Audit identity rule:
+    // - encoded_by / requested_by must be the logged-in user who created the transaction.
+    // - drawer holder remains separate through from_person / to_person / cash_drawer_id.
+    // This prevents admin-created transactions from being incorrectly attributed to the drawer holder.
+    const autoEncoded =
+      currentEmployeeName ||
+      encodedBy.trim() ||
+      currentDrawerHolderName ||
+      activeDrawer?.holder_name ||
+      "System";
+
+    const companyId = await getCurrentCompanyId();
+
+    if (!companyId) {
+      alert("Unable to save cash movement. No company_id found for current user.");
+      savingRef.current = false;
+      return;
+    }
 
     if (
       paymentType === "Cash" &&
@@ -1766,6 +1867,10 @@ export default function CashManagementPage() {
       const requestType = getCashApprovalRequestType();
 
       const approvalPayload = {
+        company_id: companyId,
+        requested_by_employee_id: currentEmployeeId || null,
+        requested_by_name: autoEncoded,
+        drawer_holder_name: activeDrawer?.holder_name || null,
         business_date: businessDate,
         movement_type: movementType,
         source,
@@ -1825,6 +1930,7 @@ export default function CashManagementPage() {
       const { error: approvalError } = await supabase
         .from("approval_requests")
         .insert({
+          company_id: companyId,
           request_type: requestType,
           module: "Cash Management",
           reference_id: activeDrawer?.id || null,
@@ -1840,7 +1946,7 @@ export default function CashManagementPage() {
 
       if (approvalError) {
         console.log("CREATE CASH DRAWER APPROVAL ERROR:", approvalError.message);
-        alert("Failed to send cash movement to Approval Center. Check approval_requests.request_payload column.");
+        alert(`Failed to send cash movement to Approval Center. ${approvalError.message}`);
         savingRef.current = false;
       return;
       }
@@ -1891,6 +1997,7 @@ export default function CashManagementPage() {
     const { data: movementData, error: movementError } = await supabase
       .from("finance_cash_movements")
       .insert({
+        company_id: companyId,
         business_date: businessDate,
         movement_type: movementType,
         source,
@@ -1945,6 +2052,7 @@ export default function CashManagementPage() {
       const { data: expenseData, error: expenseError } = await supabase
         .from("expenses")
         .insert({
+          company_id: companyId,
           expense_date: businessDate,
           category: isCashAdvanceCashOut ? "Cash Advance" : expenseCategory,
           subcategory: isCashAdvanceCashOut
@@ -2031,6 +2139,7 @@ export default function CashManagementPage() {
         const { data: balanceData, error: balanceError } = await supabase
           .from("employee_balances")
           .insert({
+            company_id: companyId,
             employee_id: cashAdvanceEmployeeId,
             employee_name: cashAdvanceEmployeeName,
             balance_type: "Cash Advance",
@@ -2375,6 +2484,7 @@ Continue?`
 
     setCurrentEmployeeId(localStorage.getItem("opscore_current_employee_id") || "");
     setCurrentEmployeeName(localStorage.getItem("opscore_current_employee_name") || "");
+    setCurrentCompanyId(localStorage.getItem("opscore_current_company_id") || "");
     setCurrentRoleName(
       localStorage.getItem("opscore_current_role_name") ||
         localStorage.getItem("opscore_current_role") ||
@@ -2447,8 +2557,21 @@ Continue?`
     getEmployees();
     getPayrollPeriods();
     getExpenseCategories();
+    getCashSources();
     getApprovalRequests();
   }, []);
+
+  useEffect(() => {
+    if (sourceOptions.length === 0) {
+      if (source) setSource("");
+      return;
+    }
+
+    if (!sourceOptions.includes(source)) {
+      setSource(sourceOptions[0]);
+    }
+  }, [sourceOptions, source]);
+
 
   /// UI
   return (
@@ -2569,7 +2692,7 @@ Continue?`
                   }
 
                   if (nextType === "Cash In") {
-                    setSource("Room Sales");
+                    setSource(sourceOptions[0] || "");
                     return;
                   }
 
@@ -2587,7 +2710,14 @@ Continue?`
                 onChange={(e) => setSource(e.target.value)}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               >
-                {sourceOptions.map((item) => <option key={item}>{item}</option>)}
+                {sourceOptions.length === 0 && (
+                  <option value="">No active cash sources found</option>
+                )}
+                {sourceOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
 
               <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
