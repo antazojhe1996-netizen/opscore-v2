@@ -1079,24 +1079,27 @@ export default function EmployeePortalPage() {
   };
 
   const getLeaveHistory = async (employeeId: string) => {
-    const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
-    const employeeNameFilter = employeeName.trim();
+    const cleanEmployeeId = String(employeeId || "").trim();
 
-    const filters = [
-      `employee_id.eq.${employeeId}`,
-      employeeNo ? `employee_id.eq.${employeeNo}` : "",
-      employeeNo ? `employee_no.eq.${employeeNo}` : "",
-      employeeNameFilter ? `employee_name.eq.${employeeNameFilter}` : "",
-    ].filter(Boolean);
+    if (!cleanEmployeeId) {
+      setLeaveHistory([]);
+      return;
+    }
 
-    const query = supabase
+    const companyId = await getCurrentCompanyId();
+
+    let query = supabase
       .from("leave_requests")
       .select("*")
-      .order("id", { ascending: false })
+      .eq("employee_id", cleanEmployeeId)
+      .order("created_at", { ascending: false })
       .limit(50);
 
-    const { data, error } =
-      filters.length > 0 ? await query.or(filters.join(",")) : await query.eq("employee_id", employeeId);
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.log("LEAVE HISTORY ERROR:", error.message);
@@ -1135,25 +1138,28 @@ export default function EmployeePortalPage() {
   };
 
   const getPendingCancellationRequests = async (employeeId: string) => {
-    const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
-    const employeeNameFilter = employeeName.trim();
+    const cleanEmployeeId = String(employeeId || "").trim();
 
-    const filters = [
-      `request_payload->>employee_id.eq.${employeeId}`,
-      employeeNo ? `request_payload->>employee_id.eq.${employeeNo}` : "",
-      employeeNo ? `request_payload->>employee_no.eq.${employeeNo}` : "",
-      employeeNameFilter ? `request_payload->>employee_name.eq.${employeeNameFilter}` : "",
-    ].filter(Boolean);
+    if (!cleanEmployeeId) {
+      setPendingCancellationRequests([]);
+      return;
+    }
+
+    const companyId = await getCurrentCompanyId();
 
     let query = supabase
       .from("approval_requests")
       .select("*")
       .eq("request_type", "LEAVE_CANCELLATION")
       .eq("status", "PENDING")
-      .order("id", { ascending: false });
+      .eq("request_payload->>employee_id", cleanEmployeeId)
+      .order("created_at", { ascending: false });
 
-    const { data, error } =
-      filters.length > 0 ? await query.or(filters.join(",")) : await query;
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.log("PENDING CANCELLATION ERROR:", error.message);
@@ -1455,8 +1461,15 @@ export default function EmployeePortalPage() {
   const submitLeaveRequest = async () => {
     if (!currentUser) return;
 
-    if (!startDate || !endDate || !reason.trim()) {
-      alert("Please complete leave request details.");
+    const cleanReason = reason.trim();
+
+    if (!startDate || !endDate || !cleanReason) {
+      alert("Please complete leave request details, including the reason.");
+      return;
+    }
+
+    if (cleanReason.length < 5) {
+      alert("Please enter a valid leave reason with at least 5 characters.");
       return;
     }
 
@@ -1507,7 +1520,7 @@ export default function EmployeePortalPage() {
       end_date: endDate,
       days: leaveDays,
       total_days: leaveDays,
-      reason: reason.trim(),
+      reason: cleanReason,
       requested_by: getCurrentUserName(),
       requested_at: new Date().toISOString(),
     };
@@ -1525,7 +1538,7 @@ export default function EmployeePortalPage() {
         start_date: startDate,
         end_date: endDate,
         days: leaveDays,
-        reason: reason.trim(),
+        reason: cleanReason,
         status: "Pending",
         requested_by: getCurrentUserName(),
         requested_at: new Date().toISOString(),
@@ -1547,7 +1560,7 @@ export default function EmployeePortalPage() {
         module: "Leave Management",
         reference_id: leaveData.id,
         title: `Leave Request - ${employeeName}`,
-        description: `${employeeName} requested ${leaveType} from ${startDate} to ${endDate} (${leaveDays} day/s). Reason: ${reason.trim()}`,
+        description: `${employeeName} requested ${leaveType} from ${startDate} to ${endDate} (${leaveDays} day/s). Reason: ${cleanReason}`,
         requested_by: getCurrentUserName(),
         status: "PENDING",
         request_payload: leavePayload,
@@ -1558,7 +1571,7 @@ export default function EmployeePortalPage() {
         .from("leave_requests")
         .update({
           status: "Draft",
-          reason: `${reason.trim()} | Approval request failed: ${approvalError.message}`,
+          reason: `${cleanReason} | Approval request failed: ${approvalError.message}`,
         })
         .eq("id", leaveData.id);
 
@@ -2237,9 +2250,15 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                   <textarea
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="Reason"
+                    placeholder="Reason is required. Example: Family matter, medical appointment, personal emergency..."
+                    required
+                    minLength={5}
                     className="min-h-28 rounded-xl border border-slate-700 bg-slate-950 p-3"
                   />
+
+                  <p className="text-xs font-semibold text-slate-500">
+                    Reason is required before submitting a leave request.
+                  </p>
 
                   <button
                     onClick={submitLeaveRequest}
