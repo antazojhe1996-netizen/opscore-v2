@@ -146,6 +146,30 @@ export default function FinanceSettingsPage() {
     getFinanceSettings();
   };
 
+  /// CALCULATIONS
+  const totalMasterData =
+    expenseCategories.length +
+    paymentMethods.length +
+    expenseAreas.length +
+    expenseSources.length +
+    revenueSources.length +
+    cashMovementSources.length;
+
+  const totalActiveMasterData = [
+    ...expenseCategories,
+    ...paymentMethods,
+    ...expenseAreas,
+    ...expenseSources,
+    ...revenueSources,
+    ...cashMovementSources,
+  ].filter((item) => item.is_active).length;
+
+  const payrollDeductibleCategories = expenseCategories.filter(
+    (item) => item.is_payroll_deductible
+  ).length;
+
+  const inactiveMasterData = Math.max(totalMasterData - totalActiveMasterData, 0);
+
 
   useEffect(() => {
     getFinanceSettings();
@@ -158,21 +182,45 @@ export default function FinanceSettingsPage() {
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Finance Settings</h1>
-          <p className="text-sm text-slate-400">
-            Configure finance dropdowns, revenue sources, expense categories, and payment master data.
-          </p>
-        </div>
-
-        <section className="mb-8">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">Expense Settings</h2>
-            <p className="text-sm text-slate-400">
-              Used for expense requests, manual expenses, approval, release,
-              liquidation, payroll deduction, and reports.
+        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+              Finance Administration
+            </p>
+            <h1 className="mt-2 text-3xl font-bold">Finance Settings</h1>
+            <p className="mt-2 max-w-5xl text-sm text-slate-400">
+              Maintain controlled master data for expenses, cash movements, revenue sources, and finance reports.
             </p>
           </div>
+
+          <button
+            onClick={getFinanceSettings}
+            disabled={loading}
+            className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          >
+            {loading ? "Refreshing..." : "Refresh Settings"}
+          </button>
+        </section>
+
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard title="Master Data Items" value={totalMasterData} />
+          <SummaryCard title="Active Items" value={totalActiveMasterData} color="text-blue-300" />
+          <SummaryCard title="Inactive Items" value={inactiveMasterData} color="text-slate-300" />
+          <SummaryCard title="Payroll Rules" value={payrollDeductibleCategories} color="text-blue-300" />
+        </section>
+
+        <section className="mb-8 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+          <p className="text-sm font-bold text-blue-200">Finance Control Center</p>
+          <p className="mt-1 max-w-5xl text-sm leading-6 text-blue-100/80">
+            Use Disable for master data already connected to historical records. Delete should only be used for newly added or unused items.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <SectionHeader
+            title="Expense Settings"
+            description="Used by expense requests, manual expenses, approvals, cash releases, liquidation, payroll deductions, and reports."
+          />
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <SettingsPanel
@@ -246,12 +294,10 @@ export default function FinanceSettingsPage() {
         </section>
 
         <section className="mb-8">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">Cash Movement Settings</h2>
-            <p className="text-sm text-slate-400">
-              Used by Cash Management source dropdowns. Add or disable sources without editing code.
-            </p>
-          </div>
+          <SectionHeader
+            title="Cash Movement Settings"
+            description="Used by Cash Management source dropdowns. Add or disable sources without editing code."
+          />
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <SettingsPanel
@@ -274,12 +320,10 @@ export default function FinanceSettingsPage() {
         </section>
 
         <section>
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">Revenue Settings</h2>
-            <p className="text-sm text-slate-400">
-              Used for sales and future profit dashboard grouping.
-            </p>
-          </div>
+          <SectionHeader
+            title="Revenue Settings"
+            description="Used for sales and future profit dashboard grouping."
+          />
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <SettingsPanel
@@ -306,6 +350,25 @@ export default function FinanceSettingsPage() {
   );
 }
 
+
+function SummaryCard({ title, value, color = "text-white" }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+      <p className="text-sm text-slate-400">{title}</p>
+      <h2 className={`mt-2 text-2xl font-bold ${color}`}>{value}</h2>
+    </div>
+  );
+}
+
+function SectionHeader({ title, description }: any) {
+  return (
+    <div className="mb-4">
+      <h2 className="text-xl font-bold">{title}</h2>
+      <p className="mt-1 max-w-4xl text-sm text-slate-400">{description}</p>
+    </div>
+  );
+}
+
 function SettingsPanel({
   title,
   description,
@@ -328,7 +391,7 @@ function SettingsPanel({
           <h3 className="text-lg font-bold">{title}</h3>
           <p className="mt-1 text-sm text-slate-400">{description}</p>
           <p className="mt-2 text-xs text-slate-500">
-            Table: <span className="text-amber-400">{tableName}</span>
+            Table: <span className="text-blue-300">{tableName}</span>
           </p>
         </div>
 
@@ -347,7 +410,7 @@ function SettingsPanel({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Add new item..."
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-400"
+          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
         />
 
         <button
@@ -390,8 +453,8 @@ function SettingsPanel({
                     <span
                       className={`inline-flex w-24 justify-center rounded-full border px-3 py-1 text-xs font-semibold ${
                         item.is_active
-                          ? "border-green-500/30 bg-green-500/20 text-green-400"
-                          : "border-red-500/30 bg-red-500/20 text-red-400"
+                          ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                          : "border-slate-600 bg-slate-800 text-slate-300"
                       }`}
                     >
                       {item.is_active ? "Active" : "Inactive"}
@@ -400,7 +463,7 @@ function SettingsPanel({
 
                   <td className="px-4 py-3">
                     {item.is_payroll_deductible ? (
-                      <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
+                      <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-blue-300">
                         Payroll Deductible
                       </span>
                     ) : item.is_employee_related ? (
@@ -420,8 +483,8 @@ function SettingsPanel({
                         }
                         className={`rounded-lg px-3 py-1 text-xs font-semibold ${
                           item.is_active
-                            ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950"
-                            : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950"
+                            ? "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            : "bg-blue-500/10 text-blue-300 hover:bg-blue-600 hover:text-white"
                         }`}
                       >
                         {item.is_active ? "Disable" : "Enable"}
@@ -429,7 +492,7 @@ function SettingsPanel({
 
                       <button
                         onClick={() => deleteItem(tableName, item.id, item.name)}
-                        className="rounded-lg bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-300 hover:bg-red-500 hover:text-white"
+                        className="rounded-lg bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-red-600 hover:text-white"
                       >
                         Delete
                       </button>

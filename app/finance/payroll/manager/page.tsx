@@ -1874,7 +1874,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
       : []),
   ];
 
-  const releaseBlocked = pendingAdjustments.length > 0;
+  const releaseActionRequired = pendingAdjustments.length > 0;
 
   const filteredReleasedPayroll = releasedPayroll.filter((record) => {
     const text =
@@ -1922,8 +1922,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
     );
   };
 
-  const selectAllReady = () => {
-    if (activeTab === "history") {
+const selectAllReadyForRelease = () => {
+      if (activeTab === "history") {
       setSelectedRecordIds(
         filteredReleasedPayroll.map((record) => String(record.id)),
       );
@@ -1986,31 +1986,31 @@ ${partialReleaseError?.message || partialReleaseError}`);
       <main className="min-w-0 flex-1 overflow-x-hidden p-8">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Payroll Manager</h1>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">Payroll Operations</p>
+            <h1 className="mt-2 text-3xl font-bold">Payroll Manager</h1>
             <p className="mt-2 text-slate-400">
-              Release approved payroll only. Released records stay in history
-              and cannot be released again.
+              Review, release, and audit approved payroll records using the OPSCORE payroll release workflow.
             </p>
           </div>
 
           <div
             className={`rounded-2xl border px-5 py-4 ${
-              releaseBlocked
-                ? "border-red-500/30 bg-red-500/10 text-red-300"
-                : "border-green-500/30 bg-green-500/10 text-green-300"
+              releaseActionRequired
+                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
             }`}
           >
             <p className="text-xs uppercase tracking-[0.18em]">
-              Release Status
+              Release Control
             </p>
             <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
-              {releaseBlocked ? (
+              {releaseActionRequired ? (
                 <>
-                  <Lock size={18} /> Blocked
+                  <Lock size={18} /> Action Required
                 </>
               ) : (
                 <>
-                  <CheckCircle2 size={18} /> Ready
+                  <CheckCircle2 size={18} /> Ready for Release
                 </>
               )}
             </h2>
@@ -2059,16 +2059,14 @@ ${partialReleaseError?.message || partialReleaseError}`);
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Payroll Manager Tabs</h2>
+                <h2 className="text-xl font-bold">Payroll Release Workspace</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Release Queue is for new approved payroll. Partial Releases
-                  are unpaid salary balances. Released History is read-only
-                  audit view.
+                  Manage first-time releases, remaining salary balances, and released payroll history in one controlled workspace.
                 </p>
               </div>
 
               <button
-                onClick={selectAllReady}
+onClick={selectAllReadyForRelease}
                 disabled={tabRows.length === 0}
                 className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
               >
@@ -2089,7 +2087,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
-                  Tab 1
+                  Queue
                 </p>
                 <h3 className="mt-1 text-lg font-black">Release Queue</h3>
                 <p className="mt-1 text-sm opacity-80">
@@ -2109,7 +2107,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
-                  Tab 2
+                  Partial
                 </p>
                 <h3 className="mt-1 text-lg font-black">Partial Releases</h3>
                 <p className="mt-1 text-sm opacity-80">
@@ -2129,7 +2127,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
-                  Tab 3
+                  History
                 </p>
                 <h3 className="mt-1 text-lg font-black">Released History</h3>
                 <p className="mt-1 text-sm opacity-80">
@@ -2141,12 +2139,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
             {pendingAdjustments.length > 0 && (
               <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
                 <p className="font-black text-red-300">
-                  Release blocked: pending approvals must be handled in Payroll
-                  Register.
+                  Action required before release
                 </p>
                 <p className="mt-1 text-sm text-red-200">
-                  Approve/reject CA, deductions, or adjustments in Register,
-                  then generate payroll again before release.
+                  Resolve pending register approvals, regenerate payroll if needed, then continue release processing.
                 </p>
               </div>
             )}
@@ -2241,10 +2237,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
               </h2>
               <p className="mt-1 text-sm text-slate-400">
                 {activeTab === "queue"
-                  ? "New approved payroll records waiting for first release."
+                  ? "Approved payroll records ready for first release."
                   : activeTab === "partial"
-                    ? "Employees with remaining salary balance after partial release."
-                    : "Read-only released payroll history. Select records only when reopening is required."}
+                    ? "Outstanding salary balances from previous partial releases."
+                    : "Released payroll archive for audit review and verified corrections."}
               </p>
             </div>
 
@@ -2254,7 +2250,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 disabled={
                   isProcessing ||
                   selectedRecordIds.length === 0 ||
-                  releaseBlocked
+                  releaseActionRequired
                 }
                 className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
               >
@@ -2477,7 +2473,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                             )}
                             <button
                               onClick={() => releaseSinglePayroll(record)}
-                              disabled={isProcessing || releaseBlocked}
+                              disabled={isProcessing || releaseActionRequired}
                               className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500 disabled:opacity-50"
                             >
                               Release

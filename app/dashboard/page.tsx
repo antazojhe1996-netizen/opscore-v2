@@ -703,6 +703,34 @@ export default function ExecutiveDashboardPage() {
     )
     .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
+  const bankDepositTotal = cashMovementRows
+    .filter(
+      (row) =>
+        (row.payment_type || "Cash") === "Cash" &&
+        String(row.source || "") === "Bank Deposit",
+    )
+    .reduce((sum, row) => sum + Math.abs(Number(row.amount || 0)), 0);
+
+  const ownerWithdrawalTotal = cashMovementRows
+    .filter(
+      (row) =>
+        (row.payment_type || "Cash") === "Cash" &&
+        String(row.source || "") === "Owner Withdrawal",
+    )
+    .reduce((sum, row) => sum + Math.abs(Number(row.amount || 0)), 0);
+
+  const operationalCashOut = cashMovementRows
+    .filter(
+      (row) =>
+        (row.payment_type || "Cash") === "Cash" &&
+        row.movement_type === "Cash Out" &&
+        String(row.source || "") !== "Bank Deposit" &&
+        String(row.source || "") !== "Owner Withdrawal",
+    )
+    .reduce((sum, row) => sum + Math.abs(Number(row.amount || 0)), 0);
+
+  const totalRemitted = cashMovementRemittance;
+
   const movementBasedCash =
     cashMovementCashIn - cashMovementCashOut - cashMovementRemittance;
 
@@ -770,6 +798,11 @@ export default function ExecutiveDashboardPage() {
   );
 
   const cashAvailable = verifiedCash;
+
+  const unremittedCash = Math.max(movementBasedCash, 0);
+  const cashAccountedFor =
+    operationalCashOut + totalRemitted + bankDepositTotal + ownerWithdrawalTotal + cashAvailable;
+  const cashAccountabilityVariance = cashMovementCashIn - cashAccountedFor;
 
   const expenseReleasedFromDrawer = cashMovementRows
     .filter((row) => String(row.source || "").includes("Expense Release"))
@@ -924,10 +957,10 @@ export default function ExecutiveDashboardPage() {
 
   const cashFlowStyle =
     cashFlowStatus === "Critical"
-      ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+      ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
       : cashFlowStatus === "Watch"
-        ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
-        : "border-sky-500/25 bg-sky-500/10 text-sky-300";
+        ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+        : "border-blue-500/20 bg-blue-500/10 text-blue-300";
 
   const payrollRatio =
     totalRevenue > 0 ? Math.round((payrollTotal / totalRevenue) * 100) : 0;
@@ -1175,6 +1208,12 @@ export default function ExecutiveDashboardPage() {
     ...(openDrawers.length > 0
       ? [`${openDrawers.length} cash drawer(s) still open.`]
       : []),
+    ...(unremittedCash > 0
+      ? [`Unremitted cash still visible: ${formatPeso(unremittedCash)}.`]
+      : []),
+    ...(Math.abs(cashAccountabilityVariance) > 1
+      ? [`Cash accountability variance needs review: ${formatPeso(cashAccountabilityVariance)}.`]
+      : []),
     ...(apartmentReceivables > 0
       ? [`Apartment receivables: ${formatPeso(apartmentReceivables)}.`]
       : []),
@@ -1270,6 +1309,9 @@ export default function ExecutiveDashboardPage() {
     ...(openDrawers.length > 0
       ? ["Follow up open cash drawers before end-of-day reporting."]
       : []),
+    ...(unremittedCash > 0
+      ? ["Confirm remittance or bank deposit for any unremitted cash before closing finance reports."]
+      : []),
     ...(payrollNeedsRegeneration.length > 0
       ? [
           "Regenerate outdated payroll cutoffs before sending to Payroll Manager.",
@@ -1351,10 +1393,10 @@ export default function ExecutiveDashboardPage() {
 
   const statusStyle =
     businessStatus === "Stable"
-      ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+      ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
       : businessStatus === "Watchlist"
-        ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
-        : "border-sky-500/25 bg-sky-500/10 text-sky-300";
+        ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+        : "border-blue-500/20 bg-blue-500/10 text-blue-300";
 
   const getChartLabel = (dateString: string) => {
     const date = new Date(`${dateString}T00:00:00`);
@@ -1459,15 +1501,14 @@ export default function ExecutiveDashboardPage() {
       <main className="min-w-0 flex-1 overflow-x-hidden p-8">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-300">
-              OPSCORE Owner Command Center
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+              OPSCORE Executive Workspace
             </p>
 
             <h1 className="mt-2 text-4xl font-black">Executive Dashboard</h1>
 
             <p className="mt-2 text-slate-400">
-              Clean owner view for cash, revenue, expenses, apartment status,
-              payroll, and alerts.
+              Enterprise owner view for cash, revenue, expenses, payroll, collections, and operational risk.
             </p>
           </div>
 
@@ -1483,7 +1524,7 @@ export default function ExecutiveDashboardPage() {
                     }}
                     className={
                       !useCustomRange && rangeType === range
-                        ? "rounded-lg bg-sky-400 px-4 py-2 text-sm font-bold text-slate-950"
+                        ? "rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-slate-950"
                         : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
                     }
                   >
@@ -1516,7 +1557,7 @@ export default function ExecutiveDashboardPage() {
 
               <button
                 onClick={applyCustomRange}
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-500"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500"
               >
                 Apply
               </button>
@@ -1529,7 +1570,7 @@ export default function ExecutiveDashboardPage() {
               </button>
             </div>
 
-            <p className="text-xs font-semibold text-sky-300">
+            <p className="text-xs font-semibold text-blue-300">
               {getActiveRangeLabel()}
             </p>
           </div>
@@ -1544,6 +1585,15 @@ export default function ExecutiveDashboardPage() {
             success={cashAvailable > 0}
             subtitle={openDrawers.length > 0 ? "Open drawer live cash" : "Latest closed drawer cash"}
             formula="Open drawer live cash or latest closed drawer actual cash. Revenue net position is excluded."
+          />
+
+          <KpiCard
+            icon={<Banknote size={22} />}
+            title="Total Remitted"
+            value={formatPeso(totalRemitted)}
+            success={totalRemitted > 0}
+            subtitle="Custody transfer"
+            formula="Total cash remittance entries from Cash Management. This is not an expense."
           />
 
           <KpiCard
@@ -1580,24 +1630,67 @@ export default function ExecutiveDashboardPage() {
             formula="Hotel collectible balance + apartment receivables. Negative credits/refunds are excluded."
           />
 
-          <KpiCard
-            icon={<Brain size={22} />}
-            title="Health Score"
-            value={`${businessHealthScore}/100`}
-            success={businessStatus === "Stable"}
-            danger={businessStatus === "Critical"}
-            subtitle={businessStatus}
-            formula="Cash, operations, and collections weighted score"
-          />
         </section>
 
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-300">
+                Cash Accountability
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-white">
+                Remittance & Custody Control
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Shows where cash went: operating releases, remittance, deposits, owner withdrawals, and verified drawer cash.
+              </p>
+            </div>
 
+            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black text-blue-300">
+              {Math.abs(cashAccountabilityVariance) <= 1 ? "Balanced" : "Review Variance"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <AccountabilityCard
+              title="Cash In"
+              value={formatPeso(cashMovementCashIn)}
+              helper="Opening float + cash collections"
+            />
+            <AccountabilityCard
+              title="Cash Out"
+              value={formatPeso(operationalCashOut)}
+              helper="Expenses and cash advances"
+            />
+            <AccountabilityCard
+              title="Remitted"
+              value={formatPeso(totalRemitted)}
+              helper="Cash transferred to receiver"
+            />
+            <AccountabilityCard
+              title="Bank / Owner"
+              value={formatPeso(bankDepositTotal + ownerWithdrawalTotal)}
+              helper="Bank deposit + owner withdrawal"
+            />
+            <AccountabilityCard
+              title="Verified Cash"
+              value={formatPeso(cashAvailable)}
+              helper="Drawer actual/live cash"
+            />
+            <AccountabilityCard
+              title="Variance"
+              value={formatPeso(cashAccountabilityVariance)}
+              helper="Cash in minus accounted cash"
+              danger={Math.abs(cashAccountabilityVariance) > 1}
+            />
+          </div>
+        </section>
 
         <section className="mb-6">
           <div className="h-[340px] rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20">
-            <h2 className="text-xl font-bold">Cash, Revenue & Expense Trend</h2>
+            <h2 className="text-xl font-bold">Revenue, Expense & Cash Trend</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Owner-level trend without duplicate cash drawer cards.
+              Executive trend for revenue, expenses, verified cash, and net position.
             </p>
 
             <div className="mt-4 h-[220px] min-h-[220px] min-w-0">
@@ -1671,21 +1764,21 @@ export default function ExecutiveDashboardPage() {
         </section>
 
         <section className="mb-6">
-          <section className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5 shadow-2xl shadow-sky-950/20">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-sky-300">
-                  <Brain size={18} /> OPSCORE AI Advisor
+                <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-blue-300">
+                  <Brain size={18} /> Executive Briefing
                 </p>
                 <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Automated watchlist based on cash, collections, payroll, and operations.
+                  Automated operating brief based on cash, collections, payroll, and operational risk.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 rounded-2xl border border-sky-400/20 bg-slate-950/60 p-4 text-center xl:min-w-[360px]">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300/70">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300/70">
                     Alerts
                   </p>
                   <p className="mt-1 text-3xl font-black text-white">
@@ -1693,7 +1786,7 @@ export default function ExecutiveDashboardPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300/70">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300/70">
                     Actions
                   </p>
                   <p className="mt-1 text-3xl font-black text-white">
@@ -1705,7 +1798,7 @@ export default function ExecutiveDashboardPage() {
 
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
               <BriefingBox
-                title="Critical Alerts"
+                title="Risk Alerts"
                 items={criticalAlerts}
                 empty="No major issue detected."
               />
@@ -1720,17 +1813,17 @@ export default function ExecutiveDashboardPage() {
         </section>
 
 
-        <section className="mb-6 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-6 shadow-2xl shadow-sky-950/20">
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-sky-300">
-                Financial Culprit Finder
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-300">
+                Financial Review
               </p>
               <h2 className="mt-1 text-2xl font-black text-white">
-                Leakage Watchlist
+                Leakage & Cost Watchlist
               </h2>
               <p className="mt-1 text-sm text-slate-400">
-                Fast view of cash variance, payroll load, cash advances, guest collectibles, and expense pressure.
+                Focused view of cash variance, payroll load, employee balances, guest collectibles, and expense pressure.
               </p>
             </div>
 
@@ -1760,7 +1853,7 @@ export default function ExecutiveDashboardPage() {
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
             <CulpritPanel
-              title="Payroll Cost Ranking"
+              title="Payroll Cost Review"
               description="Employees with the highest payroll cost in the selected range."
               empty="No payroll cost found."
               rows={payrollCulpritRows.map((row: any) => ({
@@ -1772,7 +1865,7 @@ export default function ExecutiveDashboardPage() {
             />
 
             <CulpritPanel
-              title="Cash Advance Watchlist"
+              title="Employee Balance Review"
               description="Employees with remaining cash advance balances."
               empty="No outstanding cash advances."
               rows={cashAdvanceWatchlist.map((row: any) => ({
@@ -1784,7 +1877,7 @@ export default function ExecutiveDashboardPage() {
             />
 
             <CulpritPanel
-              title="Uncollected Guest Balances"
+              title="Guest Collections Review"
               description="Active hotel reservations with positive collectible balance."
               empty="No uncollected guest balance found."
               rows={uncollectedGuestRows.map((row: any) => ({
@@ -1796,7 +1889,7 @@ export default function ExecutiveDashboardPage() {
             />
 
             <CulpritPanel
-              title="Expense Pressure by Department"
+              title="Expense Review by Department"
               description="Departments or areas with the highest expense amount."
               empty="No expense pressure found."
               rows={expenseCulpritRows.map((row: any) => ({
@@ -1820,6 +1913,11 @@ export default function ExecutiveDashboardPage() {
                 label: "Verified Cash",
                 value: formatPeso(cashAvailable),
                 formula: "Verified drawer cash only",
+              },
+              {
+                label: "Total Remitted",
+                value: formatPeso(totalRemitted),
+                formula: "Cash transferred out through remittance process",
               },
               {
                 label: "Collected Revenue",
@@ -1855,8 +1953,8 @@ export default function ExecutiveDashboardPage() {
             status={outstandingGuestBalance > 0 ? "Collect" : "Clean"}
             statusClass={
               outstandingGuestBalance > 0
-                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
-                : "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
             }
             rows={[
               {
@@ -1964,10 +2062,10 @@ export default function ExecutiveDashboardPage() {
             statusClass={
               payrollNeedsRegeneration.length > 0 ||
               attendanceIssueRows.length > 0
-                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
                 : pendingPayrollReleaseAmount > 0
-                  ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
-                  : "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                  ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+                  : "border-blue-500/20 bg-blue-500/10 text-blue-300"
             }
             rows={[
               {
@@ -1999,8 +2097,8 @@ export default function ExecutiveDashboardPage() {
             status={recoverableCash > 0 ? "Recoverable" : "Clean"}
             statusClass={
               recoverableCash > 0
-                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
-                : "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
             }
             rows={[
               {
@@ -2029,8 +2127,8 @@ export default function ExecutiveDashboardPage() {
             }
             statusClass={
               openDrawers.length > 0 || totalVariance !== 0
-                ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
-                : "border-sky-500/25 bg-sky-500/10 text-sky-300"
+                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
             }
             rows={[
               {
@@ -2063,7 +2161,7 @@ export default function ExecutiveDashboardPage() {
 
         <section className="mb-6">
           <div className="mb-4 flex items-center gap-3">
-            <TrendingUp className="text-sky-300" size={28} />
+            <TrendingUp className="text-blue-300" size={28} />
 
             <div>
               <h2 className="text-2xl font-black">Department Profitability</h2>
@@ -2117,8 +2215,8 @@ export default function ExecutiveDashboardPage() {
         </section>
 
         {Object.keys(allocatedExpenses.unmappedItems).length > 0 && (
-          <section className="mb-6 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-6">
-            <h2 className="text-xl font-black text-sky-300">
+          <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
+            <h2 className="text-xl font-black text-blue-300">
               Allocation Review Needed
             </h2>
 
@@ -2131,7 +2229,7 @@ export default function ExecutiveDashboardPage() {
                 ([category, amount]) => (
                   <div key={category} className="rounded-xl bg-slate-950 p-4">
                     <p className="font-semibold">{category}</p>
-                    <p className="mt-1 text-sky-300">
+                    <p className="mt-1 text-blue-300">
                       {formatPeso(Number(amount))}
                     </p>
                   </div>
@@ -2208,8 +2306,8 @@ export default function ExecutiveDashboardPage() {
                 <span
                   className={
                     varianceDrawerCount > 0
-                      ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
-                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
+                      ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
+                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
                   }
                 >
                   {varianceDrawerCount > 0
@@ -2270,8 +2368,8 @@ export default function ExecutiveDashboardPage() {
                                 variance < 0
                                   ? "px-4 py-3 text-right font-bold text-red-400"
                                   : variance > 0
-                                    ? "px-4 py-3 text-right font-bold text-sky-300"
-                                    : "px-4 py-3 text-right font-bold text-sky-300"
+                                    ? "px-4 py-3 text-right font-bold text-blue-300"
+                                    : "px-4 py-3 text-right font-bold text-blue-300"
                               }
                             >
                               {formatPeso(variance)}
@@ -2281,10 +2379,10 @@ export default function ExecutiveDashboardPage() {
                               <span
                                 className={
                                   variance < 0
-                                    ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
+                                    ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
                                     : variance > 0
-                                      ? "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-sky-300"
-                                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-300"
+                                      ? "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-blue-300"
+                                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
                                 }
                               >
                                 {status}
@@ -2316,6 +2414,30 @@ export default function ExecutiveDashboardPage() {
 
 
 
+function AccountabilityCard({
+  title,
+  value,
+  helper,
+  danger,
+}: {
+  title: string;
+  value: string;
+  helper: string;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <p className={danger ? "mt-2 text-xl font-black text-blue-300" : "mt-2 text-xl font-black text-white"}>
+        {value}
+      </p>
+      <p className="mt-1 text-xs leading-4 text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
 function CulpritMiniCard({
   title,
   value,
@@ -2326,8 +2448,8 @@ function CulpritMiniCard({
   subtitle: string;
 }) {
   return (
-    <div className="rounded-2xl border border-red-400/10 bg-slate-950/70 p-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300/80">
+    <div className="rounded-2xl border border-blue-500/10 bg-slate-950/70 p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-300/80">
         {title}
       </p>
       <p className="mt-2 text-lg font-black text-white">{value}</p>
@@ -2365,7 +2487,7 @@ function CulpritPanel({
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-black text-sky-300">
+                  <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-black text-blue-300">
                     #{index + 1}
                   </span>
                   <p className="truncate font-black text-white">{row.name}</p>
@@ -2376,8 +2498,8 @@ function CulpritPanel({
               <p
                 className={
                   row.danger
-                    ? "shrink-0 text-right text-sm font-black text-sky-300"
-                    : "shrink-0 text-right text-sm font-black text-sky-300"
+                    ? "shrink-0 text-right text-sm font-black text-blue-300"
+                    : "shrink-0 text-right text-sm font-black text-blue-300"
                 }
               >
                 {row.value}
@@ -2434,9 +2556,9 @@ function KpiCard({
   danger?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-sky-500/15 bg-slate-900/90 p-5 shadow-lg shadow-sky-950/10">
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-sky-500/10 p-3 text-sky-300">
+        <div className="rounded-xl bg-blue-500/10 p-3 text-blue-300">
           {icon}
         </div>
 
@@ -2486,7 +2608,7 @@ function InsightCard({
             <div>
               <h2 className="text-xl font-black text-white">{title}</h2>
               <p className="mt-0.5 text-xs text-slate-400">
-                Live operational summary
+                Executive summary
               </p>
             </div>
           </div>

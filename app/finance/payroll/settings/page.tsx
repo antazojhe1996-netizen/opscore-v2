@@ -778,10 +778,10 @@ return (
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
         <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-300">
               Payroll
             </p>
-            <h1 className="mt-2 text-3xl font-bold">Payroll Settings</h1>
+            <h1 className="mt-2 text-3xl font-black">Payroll Settings</h1>
             <p className="mt-2 max-w-4xl text-sm text-slate-400">
               Configure payroll rules before building payroll register,
               attendance import, OT approval, payslip, and employee KPI.
@@ -791,7 +791,7 @@ return (
           <button
             onClick={saveSettings}
             disabled={isSaving}
-            className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving ? "Saving..." : "Save Settings"}
           </button>
@@ -814,7 +814,7 @@ return (
             title="OT Approval"
             value={settings.ot_requires_approval || "Yes"}
             description="OT must be approved first."
-            color="text-amber-400"
+            color="text-blue-300"
           />
           <SummaryCard
             title="Gov Contributions"
@@ -824,7 +824,7 @@ return (
           />
         </section>
 
-        <section className="mt-8 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
+        <section className="mt-8 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
           <h2 className="text-xl font-black text-blue-300">
             Future-Ready Payroll Compliance
           </h2>
@@ -834,9 +834,9 @@ return (
           </p>
         </section>
 
-        <section className="mt-8 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5">
-          <p className="text-sm font-bold text-amber-300">Audit Protected Settings</p>
-          <p className="mt-1 text-xs leading-5 text-amber-100/80">
+        <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <p className="text-sm font-bold text-blue-300">Audit Protected Settings</p>
+          <p className="mt-1 text-xs leading-5 text-blue-100/80">
             Saving payroll rules, adding holidays, toggling holidays, and deleting holidays are recorded in Audit Center.
             Changed settings compared to defaults: {changedSettings.length}.
           </p>
@@ -1026,7 +1026,7 @@ function HolidayTable({
               </td>
               <td className="px-4 py-3">{holiday.holiday_date}</td>
               <td className="px-4 py-3">{holiday.holiday_type}</td>
-              <td className="px-4 py-3 text-right font-bold text-amber-400">
+              <td className="px-4 py-3 text-right font-bold text-blue-300">
                 {formatMultiplier(holiday.multiplier)}
               </td>
               <td className="px-4 py-3">

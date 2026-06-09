@@ -1494,7 +1494,7 @@ ${error.message}`);
 
     if (source === "Cash Drawer") return "bg-blue-500/10 text-blue-400";
     if (source === "Expenses") return "bg-purple-500/10 text-purple-400";
-    if (source === "Payroll Manager") return "bg-amber-500/10 text-amber-400";
+    if (source === "Payroll Manager") return "bg-blue-500/10 text-blue-300";
 
     return "bg-slate-700 text-slate-300";
   };
@@ -2267,7 +2267,7 @@ This will:
     riskLevel === "High Risk"
       ? "border-red-500/30 bg-red-500/10 text-red-300"
       : riskLevel === "Medium Risk"
-      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+      ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
       : "border-green-500/30 bg-green-500/10 text-green-300";
 
   const toggleRecordSelection = (id: any) => {
@@ -2459,13 +2459,13 @@ This will:
           </section>
         )}
 
-        <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
+        <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="flex items-center gap-2 text-xl font-bold text-yellow-300">
+              <h2 className="flex items-center gap-2 text-xl font-bold text-blue-300">
                 <Brain size={22} /> AI Payroll Audit
               </h2>
-              <p className="mt-1 text-sm text-yellow-100/70">
+              <p className="mt-1 text-sm text-blue-100/70">
                 Warning only. Approval buttons are in the Payroll Review table.
               </p>
             </div>
@@ -2474,7 +2474,7 @@ This will:
               <span className="rounded-full bg-red-500/10 px-4 py-2 text-xs font-black text-red-300">
                 {highAlertCount} High
               </span>
-              <span className="rounded-full bg-yellow-500/10 px-4 py-2 text-xs font-black text-yellow-300">
+              <span className="rounded-full bg-blue-500/10 px-4 py-2 text-xs font-black text-blue-300">
                 {mediumAlertCount} Medium
               </span>
             </div>
@@ -2488,7 +2488,7 @@ This will:
                   className={`rounded-xl border p-4 text-sm ${
                     alert.severity === "High"
                       ? "border-red-500/20 bg-red-500/10 text-red-200"
-                      : "border-yellow-500/20 bg-slate-950/70 text-yellow-200"
+                      : "border-blue-500/20 bg-slate-950/70 text-blue-200"
                   }`}
                 >
                   <p className="font-bold">{alert.employee}</p>
@@ -2573,7 +2573,7 @@ This will:
                 <button
                   onClick={reopenPayroll}
                   disabled={isSaving || !selectedPeriodId || !isLocked}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RotateCcw size={16} /> Reopen
                 </button>
@@ -2588,7 +2588,7 @@ This will:
               </div>
 
               {selectedPeriodId && isLocked && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold leading-5 text-amber-200">
+                <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs font-semibold leading-5 text-blue-200">
                   This payroll is locked. Click <span className="font-black">Reopen</span> to unlock attendance, regenerate payroll, or edit partial CA deductions.
                 </div>
               )}
@@ -2608,7 +2608,7 @@ This will:
                     </p>
                   )}
                   {selectedPeriod?.attendance_locked && (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-yellow-400">
+                    <p className="mt-2 flex items-center gap-1 text-xs text-blue-300">
                       <Lock size={12} /> Attendance locked for this cutoff. Reopen payroll to unlock.
                     </p>
                   )}
@@ -2618,7 +2618,7 @@ This will:
                     </p>
                   )}
                   {isLocked && (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-yellow-400">
+                    <p className="mt-2 flex items-center gap-1 text-xs text-blue-300">
                       <Lock size={12} /> Locked. Reopen to edit.
                     </p>
                   )}
@@ -2637,7 +2637,7 @@ This will:
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs font-black">
-                <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-yellow-300">
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-blue-300">
                   Pending {pendingAdjustments.length}
                 </span>
                 <span className="rounded-full bg-green-500/10 px-3 py-1 text-green-300">
@@ -2729,7 +2729,7 @@ This will:
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
                           {String(item.status || "Pending") === "Pending" && (
-                            <span className="rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300">
+                            <span className="rounded-lg bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-300">
                               Pending Approval Center
                             </span>
                           )}
@@ -2758,7 +2758,7 @@ This will:
             </div>
 
             {pendingAdjustments.length > 0 && (
-              <p className="mt-3 text-xs text-yellow-300">
+              <p className="mt-3 text-xs text-blue-300">
                 Reminder: pending adjustments will NOT affect payroll. Approve then click Generate.
               </p>
             )}
@@ -2774,7 +2774,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
               </p>
             </div>
 
-            <div className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm font-black text-yellow-300">
+            <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-sm font-black text-blue-300">
               {employeesWithBalances} employee(s) • {formatMoney(activeBalanceTotal)}
             </div>
           </div>
@@ -2805,7 +2805,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">{formatMoney(balance.original_amount)}</td>
-                    <td className="px-4 py-3 text-right font-black text-yellow-300">
+                    <td className="px-4 py-3 text-right font-black text-blue-300">
                       {formatMoney(balance.remaining_balance)}
                     </td>
                     <td className="px-4 py-3">
@@ -2837,13 +2837,13 @@ Active balances are deducted through payroll only. Cancel here only when the bal
         </section>
 
         {selectedRecordIds.length > 0 && (
-          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 backdrop-blur">
+          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5 backdrop-blur">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-sm font-black text-yellow-300">
+                <p className="text-sm font-black text-blue-300">
                   {selectedRecordIds.length} employee(s) selected
                 </p>
-                <p className="mt-1 text-xs text-yellow-100/80">
+                <p className="mt-1 text-xs text-blue-100/80">
                   Gross: {formatMoney(selectedGross)} • Deductions:{" "}
                   {formatMoney(selectedDeductions)} • Computed Net:{" "}
                   {formatMoney(selectedNet)} • To Manager: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
@@ -3033,7 +3033,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                                   }));
                                 }}
                                 onBlur={(event) => updateRecordBalanceDeduction(record, event.target.value)}
-                                className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-right text-xs font-black text-yellow-300 outline-none disabled:opacity-40"
+                                className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-right text-xs font-black text-blue-300 outline-none disabled:opacity-40"
                               />
                               <p className="text-[10px] text-slate-500">
                                 Max CA: {formatMoney(maxBalance)}
@@ -3052,7 +3052,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                       <td className="px-4 py-3 text-right font-black text-emerald-400">
                         {formatMoney(displayedReleaseAmount)}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                      <td className="px-4 py-3 text-right font-black text-blue-300">
                         {formatMoney(displayedCarryForwardAmount)}
                       </td>
                       <td className="px-4 py-3">
@@ -3330,7 +3330,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                 )}
 
                 {getDisplayedCarryForwardAmount(selectedPayslip) > 0 && (
-                  <div className="payslip-avoid-break mt-4 rounded-lg border border-yellow-600 bg-yellow-50 p-4 text-xs text-yellow-900">
+                  <div className="payslip-avoid-break mt-4 rounded-lg border border-blue-600 bg-blue-50 p-4 text-xs text-blue-900">
                     <b>Carry Forward Notice:</b> Deductions exceeded available net pay. The unpaid amount will continue to the next payroll cutoff as employee balance.
                   </div>
                 )}
@@ -3411,7 +3411,7 @@ function KpiCard({
       }`}
     >
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+        <div className="rounded-full bg-slate-800 p-3 text-blue-300">
           {icon}
         </div>
         <p className="text-sm text-slate-400">{title}</p>
@@ -3426,7 +3426,7 @@ function StatusBadge({ status }: { status: string }) {
 
   const style =
     normalized === "Active"
-      ? "bg-yellow-500/10 text-yellow-400"
+      ? "bg-blue-500/10 text-blue-300"
       : normalized === "Closed"
       ? "bg-green-500/10 text-green-400"
       : normalized === "Released" || normalized === "Paid"
@@ -3434,7 +3434,7 @@ function StatusBadge({ status }: { status: string }) {
       : normalized === "Approved" || normalized === "For Approval"
       ? "bg-green-500/10 text-green-400"
       : normalized === "Partially Approved"
-      ? "bg-yellow-500/10 text-yellow-400"
+      ? "bg-blue-500/10 text-blue-300"
       : normalized === "Reopened"
       ? "bg-orange-500/10 text-orange-400"
       : normalized === "Rejected"

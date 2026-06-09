@@ -135,11 +135,11 @@ export default function ExpensesPage() {
   };
 
   const getSourceBadgeStyle = (sourceType: string) => {
-    if (sourceType === "Cash Drawer") return "bg-amber-500/10 text-amber-400";
-    if (sourceType === "Payroll Release") return "bg-cyan-500/10 text-cyan-400";
-    if (sourceType === "Imported") return "bg-purple-500/10 text-purple-400";
+    if (sourceType === "Cash Drawer") return "bg-amber-500/10 text-blue-300";
+    if (sourceType === "Payroll Release") return "bg-cyan-500/10 text-blue-300";
+    if (sourceType === "Imported") return "bg-purple-500/10 text-blue-300";
     if (sourceType === "Expense Request") return "bg-blue-500/10 text-blue-400";
-    return "bg-emerald-500/10 text-emerald-400";
+    return "bg-emerald-500/10 text-blue-300";
   };
 
   const getPayrollBadge = (expense: any) => {
@@ -147,14 +147,14 @@ export default function ExpensesPage() {
 
     if (expense.employee_balance_id || expense.payroll_adjustment_id) {
       return (
-        <span className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+        <span className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-blue-300">
           Payroll Linked
         </span>
       );
     }
 
     return (
-      <span className="w-fit rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
+      <span className="w-fit rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-blue-300">
         Payroll Pending
       </span>
     );
@@ -1075,12 +1075,12 @@ export default function ExpensesPage() {
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
         <div className="mb-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
             Finance Ledger
           </p>
           <h1 className="mt-2 text-3xl font-bold">Expenses Ledger</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Review operating expenses, cash drawer releases, imported expenses, and payroll releases. Payroll-linked cash advances are tracked separately as employee receivables.
+            Manage operating expenses, source controls, employee advances, imports, and payroll-linked finance records in one controlled ledger.
           </p>
         </div>
 
@@ -1088,40 +1088,40 @@ export default function ExpensesPage() {
           <SummaryCard
             title="This Month Expenses"
             value={formatCurrency(thisMonthExpenses)}
-            color="text-red-400"
+            color="text-slate-300"
           />
 
           <SummaryCard
             title="Manual Expenses"
             value={formatCurrency(manualExpenseTotal)}
-            color="text-emerald-400"
+            color="text-blue-300"
           />
 
           <SummaryCard
             title="Cash Drawer Releases"
             value={formatCurrency(cashDrawerExpenseTotal)}
-            color="text-amber-400"
+            color="text-blue-300"
           />
 
           <SummaryCard
             title="Employee Advances"
             value={formatCurrency(cashAdvanceTotal)}
-            color="text-purple-400"
+            color="text-blue-300"
           />
 
           <SummaryCard
             title="Payroll Release"
             value={formatCurrency(payrollReleaseTotal)}
-            color="text-cyan-400"
+            color="text-blue-300"
           />
         </section>
 
         {unlinkedCashAdvanceTotal > 0 && (
-          <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
-            <h2 className="text-lg font-black text-red-300">
-              ⚠ Cash Advance Payroll Link Warning
+          <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+            <h2 className="text-lg font-black text-blue-300">
+              Cash Advance Payroll Link Warning
             </h2>
-            <p className="mt-1 text-sm text-red-200">
+            <p className="mt-1 text-sm text-blue-100/80">
               {formatCurrency(unlinkedCashAdvanceTotal)} cash advance expense is not linked to payroll deduction.
               Check employee and payroll period before payroll generation.
             </p>
@@ -1129,18 +1129,18 @@ export default function ExpensesPage() {
         )}
 
         {cashAdvanceTotal > 0 && (
-          <section className="mb-6 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-5">
-            <h2 className="text-lg font-black text-purple-300">
+          <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+            <h2 className="text-lg font-black text-blue-300">
               Employee Advances / Payroll Receivables
             </h2>
-            <p className="mt-1 text-sm text-purple-100/80">
+            <p className="mt-1 text-sm text-blue-100/80">
               {formatCurrency(cashAdvanceTotal)} payroll-linked cash advance is excluded from operating expenses to avoid inflating reports. These records remain linked to employee balances and payroll deduction.
             </p>
           </section>
         )}
 
         {!canCreateExpenses && (
-          <section className="mb-6 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5 text-sm text-yellow-100">
+          <section className="mb-6 rounded-2xl border border-slate-700 bg-slate-900 p-5 text-sm text-slate-300">
             View-only access: you can review and export the expense ledger, but creating, importing, and deleting expenses are disabled for this role.
           </section>
         )}
@@ -1196,8 +1196,8 @@ export default function ExpensesPage() {
               )}
 
               {isCashAdvance && (
-                <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4">
-                  <p className="mb-3 text-sm font-bold text-purple-300">
+                <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                  <p className="mb-3 text-sm font-bold text-blue-300">
                     Employee Cash Advance
                   </p>
 
@@ -1229,14 +1229,14 @@ export default function ExpensesPage() {
                       <div className={`rounded-xl border p-3 ${
                         getPayrollPeriodCoveringDate(expenseDate)
                           ? "border-emerald-500/30 bg-emerald-500/10"
-                          : "border-red-500/30 bg-red-500/10"
+                          : "border-blue-500/20 bg-blue-500/10"
                       }`}>
                         <p className={`text-xs font-black ${
-                          getPayrollPeriodCoveringDate(expenseDate) ? "text-emerald-300" : "text-red-300"
+                          getPayrollPeriodCoveringDate(expenseDate) ? "text-emerald-300" : "text-blue-300"
                         }`}>
                           {getPayrollPeriodCoveringDate(expenseDate)
-                            ? "✓ Auto Linked by Expense Date"
-                            : "⚠ No Payroll Period for Expense Date"}
+                            ? "Auto Linked by Expense Date"
+                            : "No Payroll Period for Expense Date"}
                         </p>
                         <p className="mt-1 text-xs leading-5 text-slate-300">
                           {getPayrollPeriodCoveringDate(expenseDate)
@@ -1329,7 +1329,7 @@ export default function ExpensesPage() {
                   Save Manual Expense
                 </button>
               ) : (
-                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+                <div className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
                   You have view-only access. Manual expense creation is disabled.
                 </div>
               )}
@@ -1347,7 +1347,7 @@ export default function ExpensesPage() {
 
               <button
                 onClick={exportExpenses}
-                className="w-fit rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold hover:bg-green-500"
+                className="w-fit rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
               >
                 Export Excel
               </button>
@@ -1525,7 +1525,7 @@ export default function ExpensesPage() {
                           {canDeleteExpenses ? (
                             <button
                               onClick={() => voidExpense(expense)}
-                              className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold hover:bg-amber-500"
+                              className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold hover:bg-slate-600"
                             >
                               Void
                             </button>
@@ -1715,11 +1715,11 @@ export default function ExpensesPage() {
 }
 
 /// COMPONENT - SUMMARY CARD
-function SummaryCard({ title, value, color }: any) {
+function SummaryCard({ title, value, color = "text-blue-300" }: any) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
+      <h2 className={`mt-3 break-words text-2xl font-black ${color}`}>
         {value}
       </h2>
     </div>

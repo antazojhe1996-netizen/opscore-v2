@@ -390,9 +390,9 @@ export default function CashManagementPage() {
   const getApprovalStatusStyle = (status: string) => {
     const normalized = String(status || "").toUpperCase();
 
-    if (normalized === "APPROVED") return "bg-emerald-500/10 text-emerald-400";
-    if (normalized === "REJECTED") return "bg-red-500/10 text-red-400";
-    if (normalized === "PENDING") return "bg-amber-500/10 text-amber-400";
+    if (normalized === "APPROVED") return "bg-blue-500/10 text-blue-300";
+    if (normalized === "REJECTED") return "bg-blue-500/10 text-blue-300";
+    if (normalized === "PENDING") return "bg-blue-500/10 text-blue-300";
     if (normalized === "CANCELLED") return "bg-slate-700 text-slate-300";
 
     return "bg-slate-700 text-slate-300";
@@ -674,16 +674,16 @@ export default function CashManagementPage() {
 
   const getMovementStyle = (type: string) => {
     if (type === "Opening Float") return "bg-blue-500/10 text-blue-400";
-    if (type === "Cash In") return "bg-emerald-500/10 text-emerald-400";
-    if (type === "Cash Out") return "bg-red-500/10 text-red-400";
-    if (type === "Remittance") return "bg-amber-500/10 text-amber-400";
-    if (type === "Adjustment") return "bg-purple-500/10 text-purple-400";
+    if (type === "Cash In") return "bg-blue-500/10 text-blue-300";
+    if (type === "Cash Out") return "bg-blue-500/10 text-blue-300";
+    if (type === "Remittance") return "bg-blue-500/10 text-blue-300";
+    if (type === "Adjustment") return "bg-blue-500/10 text-blue-300";
     return "bg-slate-700 text-slate-300";
   };
 
   const getPaymentStyle = (payment: string) => {
-    if (payment === "Cash") return "bg-emerald-500/10 text-emerald-400";
-    if (payment === "GCash") return "bg-purple-500/10 text-purple-400";
+    if (payment === "Cash") return "bg-blue-500/10 text-blue-300";
+    if (payment === "GCash") return "bg-blue-500/10 text-blue-300";
     if (payment === "Bank") return "bg-blue-500/10 text-blue-400";
     if (payment === "Terminal") return "bg-sky-500/10 text-sky-400";
     return "bg-slate-700 text-slate-300";
@@ -1066,7 +1066,7 @@ export default function CashManagementPage() {
     const html = `
       <html>
         <head>
-          <title>Daily Cash Drawer Report</title>
+          <title>Daily Cash Control Report</title>
           <style>
             @page { size: A4 portrait; margin: 10mm; }
             * { box-sizing: border-box; }
@@ -1977,7 +1977,7 @@ export default function CashManagementPage() {
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Cash Management",
-        action: "Submit Cash Drawer Approval Request",
+        action: "Submit Cash Control Approval Request",
         description: `${requestType} submitted for approval - ${formatMoney(amountValue)}`,
         severity: "warning",
         newValue: approvalPayload,
@@ -2092,7 +2092,7 @@ export default function CashManagementPage() {
           deduct_to_payroll: isCashAdvanceCashOut,
           payroll_period_id: isCashAdvanceCashOut ? targetPayrollPeriod?.id || null : null,
           remarks: isCashAdvanceCashOut
-            ? `Source: ${paymentType === "Cash" ? "Cash Drawer" : paymentType}. Auto linked by selected date to: ${
+            ? `Source: ${paymentType === "Cash" ? "Cash Control" : paymentType}. Auto linked by selected date to: ${
                 targetPayrollPeriod
                   ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
                   : activePayrollLabel
@@ -2102,9 +2102,9 @@ export default function CashManagementPage() {
               }`.trim(),
           source: isCashAdvanceCashOut
             ? paymentType === "Cash"
-              ? "Cash Drawer - Cash Advance"
+              ? "Cash Control - Cash Advance"
               : `${paymentType} - Cash Advance`
-            : "Cash Drawer",
+            : "Cash Control",
           posted_to_cash_movements: true,
           cash_movement_id: movementData.id,
           cash_posted_date: new Date().toISOString(),
@@ -2149,7 +2149,7 @@ export default function CashManagementPage() {
           : activePayrollLabel;
 
         const cashDrawerReference = [
-          `Source: ${paymentType === "Cash" ? "Cash Drawer" : paymentType}`,
+          `Source: ${paymentType === "Cash" ? "Cash Control" : paymentType}`,
           `Cutoff: ${cutoffLabel}`,
           `Expense ID: ${expenseData.id}`,
           `Cash Movement ID: ${movementData.id}`,
@@ -2169,7 +2169,7 @@ export default function CashManagementPage() {
             original_amount: amountValue,
             remaining_balance: amountValue,
             status: "Active",
-            source_module: "Cash Drawer",
+            source_module: "Cash Control",
             source_id: isUuid(movementData.id) ? movementData.id : null,
             period_id: targetPayrollPeriod.id,
             remarks: cashDrawerReference,
@@ -2264,7 +2264,7 @@ export default function CashManagementPage() {
     }
 
     if (isExpenseRelease) {
-      alert("Cash expense saved to Cash Drawer and Expenses.");
+      alert("Cash expense saved to Cash Control and Expenses.");
       savingRef.current = false;
       return;
     }
@@ -2497,7 +2497,7 @@ export default function CashManagementPage() {
           voided_by: voidedBy,
           voided_at: voidedAt,
         })
-        .eq("source_module", "Cash Drawer")
+        .eq("source_module", "Cash Control")
         .eq("source_id", id);
 
       if (!fallbackBalanceError) {
@@ -2652,7 +2652,7 @@ export default function CashManagementPage() {
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
               Finance Control
             </p>
             <h1 className="mt-2 text-3xl font-bold">Cash Management</h1>
@@ -2683,7 +2683,7 @@ export default function CashManagementPage() {
             {!activeDrawer && (
               <button
                 onClick={() => setShowOpenDrawer(true)}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold hover:bg-emerald-500"
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500"
               >
                 Open Drawer
               </button>
@@ -2692,7 +2692,7 @@ export default function CashManagementPage() {
             {activeDrawer && (
               <button
                 onClick={() => setShowCloseDrawer(true)}
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold hover:bg-red-500"
+                className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold hover:bg-slate-600"
               >
                 Close Drawer
               </button>
@@ -2703,14 +2703,14 @@ export default function CashManagementPage() {
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
           {activeDrawer ? (
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard title="Active Drawer Holder" value={activeDrawer.holder_name} color="text-amber-400" />
+              <SummaryCard title="Active Drawer Holder" value={activeDrawer.holder_name} color="text-blue-300" />
               <SummaryCard title="Opening Float" value={formatMoney(activeDrawer.opening_float)} color="text-blue-400" />
-              <SummaryCard title="Drawer Cash" value={formatMoney(activeDrawerCash)} color="text-emerald-400" />
-              <SummaryCard title="Status" value="OPEN" color="text-emerald-400" />
+              <SummaryCard title="Drawer Cash" value={formatMoney(activeDrawerCash)} color="text-blue-300" />
+              <SummaryCard title="Status" value="OPEN" color="text-blue-300" />
             </div>
           ) : (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
-              <h2 className="text-xl font-bold text-amber-400">No Active Drawer</h2>
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-5">
+              <h2 className="text-xl font-bold text-blue-300">No Active Drawer</h2>
               <p className="mt-1 text-sm text-slate-300">
                 Open a drawer first before releasing cash expenses or cash advances.
               </p>
@@ -2719,16 +2719,16 @@ export default function CashManagementPage() {
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Cash On Hand After Remittance" value={formatMoney(cashOnHand)} color="text-emerald-400" />
-          <SummaryCard title="GCash / Digital" value={formatMoney(gcashTotal)} color="text-purple-400" />
+          <SummaryCard title="Cash On Hand After Remittance" value={formatMoney(cashOnHand)} color="text-blue-300" />
+          <SummaryCard title="GCash / Digital" value={formatMoney(gcashTotal)} color="text-blue-300" />
           <SummaryCard title="Bank" value={formatMoney(bankTotal)} color="text-blue-400" />
           <SummaryCard title="Terminal" value={formatMoney(terminalTotal)} color="text-sky-400" />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
           <SummaryCard title="Cash In" value={formatMoney(cashInTotal)} color="text-blue-400" />
-          <SummaryCard title="Cash Out" value={formatMoney(cashOutTotal)} color="text-red-400" />
-          <SummaryCard title="Cash Remitted" value={formatMoney(remittanceTotal)} color="text-amber-400" />
+          <SummaryCard title="Cash Out" value={formatMoney(cashOutTotal)} color="text-blue-300" />
+          <SummaryCard title="Cash Remitted" value={formatMoney(remittanceTotal)} color="text-blue-300" />
         </section>
 
         <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[430px_minmax(0,1fr)]">
@@ -2808,11 +2808,11 @@ export default function CashManagementPage() {
               {shouldCreateExpenseFromCashOut && (
                 <div className={`rounded-2xl border p-4 ${
                   isCashAdvanceCashOut
-                    ? "border-amber-500/20 bg-amber-500/10"
-                    : "border-red-500/20 bg-red-500/10"
+                    ? "border-blue-500/20 bg-blue-500/10"
+                    : "border-red-500/20 bg-blue-500/10"
                 }`}>
                   <p className={`mb-3 text-sm font-bold ${
-                    isCashAdvanceCashOut ? "text-amber-300" : "text-red-300"
+                    isCashAdvanceCashOut ? "text-blue-300" : "text-blue-300"
                   }`}>
                     {isCashAdvanceCashOut ? "Cash Advance Details" : "Cash Expense Details"}
                   </p>
@@ -2841,11 +2841,11 @@ export default function CashManagementPage() {
 
                       <div className={`rounded-xl border p-3 ${
                         activePayrollPeriod
-                          ? "border-emerald-500/30 bg-emerald-500/10"
-                          : "border-red-500/30 bg-red-500/10"
+                          ? "border-blue-500/20 bg-blue-500/10"
+                          : "border-blue-500/20 bg-blue-500/10"
                       }`}>
                         <p className={`text-xs font-black ${
-                          activePayrollPeriod ? "text-emerald-300" : "text-red-300"
+                          activePayrollPeriod ? "text-emerald-300" : "text-blue-300"
                         }`}>
                           {activePayrollPeriod
                             ? "✓ Auto Linked by Selected Date"
@@ -2865,7 +2865,7 @@ export default function CashManagementPage() {
                         className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                       />
 
-                      <p className="text-xs leading-5 text-amber-200">
+                      <p className="text-xs leading-5 text-blue-200">
                         No cutoff selection needed. Cash requires an open drawer. GCash, Bank, and Terminal cash advances post to Cash Movements, Expenses, and Employee Balances for Payroll Register deduction.
                       </p>
                     </div>
@@ -2903,7 +2903,7 @@ export default function CashManagementPage() {
 
                       <input value={expenseReleasedTo} onChange={(e) => setExpenseReleasedTo(e.target.value)} placeholder="Released to / received by" list="employee-name-list" autoComplete="off" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
-                      <p className="text-xs leading-5 text-red-200">
+                      <p className="text-xs leading-5 text-blue-200">
                         This creates both Cash Movement and Expenses entry. No approval workflow.
                       </p>
                     </div>
@@ -3014,7 +3014,7 @@ export default function CashManagementPage() {
                         {isVoidedMovement(item) ? (
                           <div className="space-y-1">
                             <p className="line-through text-slate-400">{item.remarks || "-"}</p>
-                            <p className="text-xs text-red-300">Void reason: {item.void_reason || "No reason saved"}</p>
+                            <p className="text-xs text-blue-300">Void reason: {item.void_reason || "No reason saved"}</p>
                           </div>
                         ) : (
                           item.remarks || "-"
@@ -3022,7 +3022,7 @@ export default function CashManagementPage() {
                       </td>
                       <td className="px-4 py-3">
                         {isVoidedMovement(item) ? (
-                          <span className="rounded-lg bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
+                          <span className="rounded-lg bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
                             VOIDED
                           </span>
                         ) : item.reference_type === "drawer_closing_remittance" || item.source === "Drawer Closing Remittance" ? (
@@ -3215,7 +3215,7 @@ export default function CashManagementPage() {
                       <td className="px-4 py-3 text-right">{formatMoney(displayActual)}</td>
                       <td className="px-4 py-3 text-right">{formatMoney(summary.closingRemittance)}</td>
                       <td className="px-4 py-3 text-right">{formatMoney(displayRemaining)}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${summary.variance < 0 ? "text-red-400" : "text-emerald-400"}`}>{formatMoney(summary.variance)}</td>
+                      <td className={`px-4 py-3 text-right font-semibold ${summary.variance < 0 ? "text-blue-300" : "text-blue-300"}`}>{formatMoney(summary.variance)}</td>
                       <td className="px-4 py-3">{drawer.status}</td>
                       <td className="px-4 py-3">
                         <button
@@ -3261,7 +3261,7 @@ export default function CashManagementPage() {
           <Modal title="Drawer Holder Settings" onClose={() => setShowDrawerHolderSettings(false)}>
             <div className="space-y-4">
               <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
-                <p className="text-sm font-bold text-sky-300">Authorized Cash Drawer Holders</p>
+                <p className="text-sm font-bold text-sky-300">Authorized Cash Control Holders</p>
                 <p className="mt-1 text-xs leading-5 text-slate-300">
                   Only selected names will appear when opening a drawer. Admin/Finance may open drawers for others; normal cashiers can only open their own drawer. Current settings are browser-local until the finance_drawer_holders table is added.
                 </p>
@@ -3283,7 +3283,7 @@ export default function CashManagementPage() {
                 </button>
                 <button
                   onClick={() => setAuthorizedDrawerHolders([])}
-                  className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold hover:bg-red-500"
+                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
                 >
                   Clear All
                 </button>
@@ -3338,7 +3338,7 @@ export default function CashManagementPage() {
 
         {showOpenDrawer && (
           <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-100">
               {canManageDrawerForOthers
                 ? "Admin/Finance/Manager override is enabled. You may open a drawer for an authorized holder."
                 : "Cash drawer is locked to your own logged-in employee account."}
@@ -3360,13 +3360,13 @@ export default function CashManagementPage() {
             </select>
 
             {drawerHolderOptions.length === 0 && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
                 No authorized drawer holders yet. Admin/Finance must open Drawer Holder Settings and choose who is allowed to handle cash drawers.
               </div>
             )}
 
             {!canManageDrawerForOthers && currentDrawerHolderName && !authorizedDrawerHolders.includes(currentDrawerHolderName) && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
                 Your account is not authorized as a drawer holder. Ask Admin/Finance to authorize {currentDrawerHolderName}.
               </div>
             )}
@@ -3383,7 +3383,7 @@ export default function CashManagementPage() {
                 !drawerHolder ||
                 (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName)
               }
-              className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSaving ? "Opening..." : "Open Drawer"}
             </button>
@@ -3392,9 +3392,9 @@ export default function CashManagementPage() {
 
         {showCloseDrawer && activeDrawer && (
           <Modal title="Close Drawer" onClose={() => setShowCloseDrawer(false)}>
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
               <p className="text-sm text-slate-300">Expected Drawer Cash</p>
-              <h3 className="mt-2 text-2xl font-bold text-amber-400">
+              <h3 className="mt-2 text-2xl font-bold text-blue-300">
                 {formatMoney(activeDrawerCash)}
               </h3>
             </div>
@@ -3441,7 +3441,7 @@ export default function CashManagementPage() {
                   </div>
                   <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
                     <p className="text-slate-500">Variance before remittance</p>
-                    <p className={`mt-1 font-black ${Number(actualClosingCash || 0) - activeDrawerCash < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                    <p className={`mt-1 font-black ${Number(actualClosingCash || 0) - activeDrawerCash < 0 ? "text-blue-300" : "text-emerald-300"}`}>
                       {formatMoney(Number(actualClosingCash || 0) - activeDrawerCash)}
                     </p>
                   </div>
@@ -3451,7 +3451,7 @@ export default function CashManagementPage() {
 
             <textarea value={closeRemarks} onChange={(e) => setCloseRemarks(e.target.value)} rows={3} placeholder="Closing remarks / variance explanation" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
-            <button onClick={closeDrawer} disabled={isSaving} className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold hover:bg-red-500 disabled:opacity-50">
+            <button onClick={closeDrawer} disabled={isSaving} className="w-full rounded-xl bg-slate-700 px-4 py-3 text-sm font-bold hover:bg-slate-600 disabled:opacity-50">
               {isSaving ? "Closing..." : "Save Remittance & Close Drawer"}
             </button>
           </Modal>

@@ -356,12 +356,12 @@ return (
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-6">
         <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
             Payroll
           </p>
-          <h1 className="mt-2 text-4xl font-black">Payslip Center</h1>
+          <h1 className="mt-2 text-4xl font-black">Payslip Management</h1>
           <p className="mt-2 max-w-5xl text-sm text-slate-400">
-            Release approved payroll payslips, print clean HR documents, send email payslips, and track employee release status.
+            Review released payroll records, generate official payslips, send employee copies, and monitor document release status.
           </p>
         </section>
 
@@ -370,7 +370,7 @@ return (
           <SummaryCard title="Payroll Released" value={payrollReleasedCount} color="text-emerald-400" />
           <SummaryCard title="Payslip Released" value={releasedCount} color="text-emerald-400" />
           <SummaryCard title="Email Sent" value={sentCount} color="text-blue-400" />
-          <SummaryCard title="Pending" value={Math.max(records.length - releasedCount, 0)} color="text-amber-400" />
+          <SummaryCard title="Pending Release" value={Math.max(records.length - releasedCount, 0)} color="text-blue-300" />
         </section>
 
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
@@ -401,7 +401,7 @@ return (
         </section>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-xl font-black">Payslip Release List</h2>
+          <h2 className="text-xl font-black">Payslip Records</h2>
 
           <div className="mt-4 max-h-[700px] overflow-auto rounded-xl border border-slate-800">
             <table className="w-full min-w-[1450px] text-sm">
@@ -443,9 +443,9 @@ return (
                       <td className="px-4 py-3 text-right text-red-400">{formatMoney(getDisplayedTotalDeductions(record))}</td>
                       <td className="px-4 py-3 text-right font-black text-emerald-400">{formatMoney(getDisplayedNetPay(record))}</td>
                       <td className="px-4 py-3 text-right font-bold text-blue-300">{formatMoney(getReleasedAmount(record))}</td>
-                      <td className="px-4 py-3 text-right font-bold text-yellow-300">{formatMoney(getRemainingAmount(record))}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-300">{formatMoney(getRemainingAmount(record))}</td>
 
-                      <td className="px-4 py-3"><StatusBadge value={payrollReleased ? "Released" : record.status || "Pending"} /></td>
+                      <td className="px-4 py-3"><StatusBadge value={payrollReleased ? "Released" : record.status || "Pending Release"} /></td>
                       <td className="px-4 py-3"><StatusBadge value={record.payslip_status || "Not Released"} /></td>
                       <td className="px-4 py-3"><StatusBadge value={record.payslip_email_status || "Not Sent"} /></td>
 
@@ -547,14 +547,14 @@ function PayslipPreviewModal({
           <div>
             <h2 className="text-2xl font-black">Payslip Preview</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Clean document preview. Print output will be A4 and will not include OPSCORE sidebar or dashboard UI.
+              Official payslip preview. Print output is optimized for A4 and excludes OPSCORE interface elements.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={onPrint}
-              className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white hover:bg-blue-500"
             >
               <Printer size={16} /> Print / Save PDF
             </button>
@@ -640,7 +640,7 @@ function CleanPayslipDocument({
         <div className="badge-line">
           <div><strong>Payslip No:</strong> {String(record.id || "").slice(0, 8).toUpperCase()}</div>
           <div><strong>Generated:</strong> {formatDateTime(new Date().toISOString())}</div>
-          <div><strong>Payroll:</strong> {isPayrollReleased(record) ? "Released" : record.status || "Pending"}</div>
+          <div><strong>Payroll:</strong> {isPayrollReleased(record) ? "Released" : record.status || "Pending Release"}</div>
           <div><strong>Payslip:</strong> {record.payslip_status || "Not Released"}</div>
           <div><strong>Email:</strong> {record.payslip_email_status || "Not Sent"}</div>
         </div>
@@ -805,7 +805,7 @@ function StatusBadge({ value }: any) {
       ? "bg-emerald-500/10 text-emerald-400"
       : value === "Failed" || value === "Rejected"
       ? "bg-red-500/10 text-red-400"
-      : "bg-amber-500/10 text-amber-400";
+      : "bg-amber-500/10 text-blue-300";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-black ${color}`}>
