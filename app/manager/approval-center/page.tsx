@@ -110,6 +110,120 @@ export default function ApprovalCenterPage() {
     return request.request_payload;
   };
 
+
+  const getCompanyIdForRequest = async (request: any, payload?: any) => {
+    const directCompanyId = String(
+      request?.company_id ||
+        payload?.company_id ||
+        localStorage.getItem("opscore_current_company_id") ||
+        ""
+    ).trim();
+
+    if (directCompanyId) return directCompanyId;
+
+    if (!currentEmployeeId) return "";
+
+    const { data, error } = await supabase
+      .from("employees")
+      .select("company_id")
+      .eq("id", currentEmployeeId)
+      .maybeSingle();
+
+    if (error) {
+      console.log("APPROVAL CENTER COMPANY ID LOOKUP ERROR:", error.message);
+      return "";
+    }
+
+    const companyId = String(data?.company_id || "").trim();
+
+    if (companyId) {
+      localStorage.setItem("opscore_current_company_id", companyId);
+    }
+
+    return companyId;
+  };
+
+  const validateLeaveApprovalNoOverlap = async (request: any) => {
+    if (request?.request_type !== "LEAVE_REQUEST" || !request?.reference_id) {
+      return true;
+    }
+
+    const payload = getPayload(request) || {};
+
+    const { data: leaveData, error: leaveFetchError } = await supabase
+      .from("leave_requests")
+      .select("id, company_id, employee_id, employee_name, leave_type, start_date, end_date, status")
+      .eq("id", request.reference_id)
+      .maybeSingle();
+
+    if (leaveFetchError) {
+      console.log("LEAVE APPROVAL OVERLAP FETCH ERROR:", leaveFetchError.message);
+      alert(`Leave approval safety check failed. ${leaveFetchError.message}`);
+      return false;
+    }
+
+    if (!leaveData) {
+      alert("Leave approval safety check failed. Linked leave request was not found.");
+      return false;
+    }
+
+    const companyId = String(
+      leaveData.company_id || request.company_id || payload.company_id || ""
+    ).trim();
+    const employeeId = String(leaveData.employee_id || payload.employee_id || "").trim();
+    const startDate = String(leaveData.start_date || payload.start_date || "").trim();
+    const endDate = String(leaveData.end_date || payload.end_date || "").trim();
+
+    if (!companyId || !employeeId || !startDate || !endDate) {
+      alert("Leave approval safety check failed. Missing company, employee, or leave dates.");
+      return false;
+    }
+
+    const { data: overlappingLeaves, error: overlapError } = await supabase
+      .from("leave_requests")
+      .select("id, leave_type, start_date, end_date, status")
+      .eq("company_id", companyId)
+      .eq("employee_id", employeeId)
+      .eq("status", "Approved")
+      .neq("id", leaveData.id)
+      .lte("start_date", endDate)
+      .gte("end_date", startDate)
+      .order("start_date", { ascending: true })
+      .limit(1);
+
+    if (overlapError) {
+      console.log("LEAVE APPROVAL OVERLAP CHECK ERROR:", overlapError.message);
+      alert(`Leave approval safety check failed. ${overlapError.message}`);
+      return false;
+    }
+
+    const conflict = overlappingLeaves?.[0];
+
+    if (conflict) {
+      alert(
+        `Cannot approve leave. Selected dates overlap with ${conflict.leave_type || "approved leave"} from ${formatDate(conflict.start_date)} to ${formatDate(conflict.end_date)} (${conflict.status}).`
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+
+  const formatDate = (value: any) => {
+    if (!value) return "-";
+
+    const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+
+    if (Number.isNaN(parsed.getTime())) return String(value);
+
+    return parsed.toLocaleDateString("en-PH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   const formatDateTime = (value: any) => {
     if (!value) return "-";
 
@@ -323,6 +437,12 @@ export default function ApprovalCenterPage() {
     }
 
     const amountValue = Number(payload.amount || 0);
+    const companyId = await getCompanyIdForRequest(request, payload);
+
+    if (!companyId) {
+      alert("Approval cannot continue. No company_id found for this request.");
+      return false;
+    }
 
     if (amountValue <= 0) {
       alert("Invalid approval amount.");
@@ -351,6 +471,7 @@ export default function ApprovalCenterPage() {
     const { data: movementData, error: movementError } = await supabase
       .from("finance_cash_movements")
       .insert({
+        company_id: companyId,
         business_date: payload.business_date,
         movement_type: payload.movement_type,
         source: payload.source,
@@ -380,6 +501,7 @@ export default function ApprovalCenterPage() {
       const { data: expenseData, error: expenseError } = await supabase
         .from("expenses")
         .insert({
+          company_id: companyId,
           expense_date: payload.business_date,
           category: payload.is_cash_advance_cash_out
             ? "Cash Advance"
@@ -435,6 +557,7 @@ export default function ApprovalCenterPage() {
         const { data: balanceData, error: balanceError } = await supabase
           .from("employee_balances")
           .insert({
+            company_id: companyId,
             employee_id: payload.cash_advance_employee_id,
             employee_name: payload.cash_advance_employee_name,
             balance_type: "Cash Advance",
@@ -495,6 +618,11 @@ export default function ApprovalCenterPage() {
     }
 
     const payload = getPayload(request);
+    const noOverlap = await validateLeaveApprovalNoOverlap(request);
+
+    if (!noOverlap) {
+      return false;
+    }
 
     const { error } = await supabase
       .from("leave_requests")

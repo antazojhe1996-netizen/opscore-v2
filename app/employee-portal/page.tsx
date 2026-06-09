@@ -28,6 +28,7 @@ type AttendanceEntry = {
 
 type LeaveRequest = {
   id?: string | number;
+  company_id?: string | null;
   employee_id: string;
   employee_name?: string | null;
   employee_no?: string | null;
@@ -69,6 +70,7 @@ type LeaveCredit = {
 
 type ApprovalRequest = {
   id?: string | number;
+  company_id?: string | null;
   request_type?: string | null;
   module?: string | null;
   reference_id?: string | number | null;
@@ -1374,6 +1376,82 @@ export default function EmployeePortalPage() {
     setLoading(false);
   };
 
+  const getCurrentCompanyId = async () => {
+    const storedCompanyId = String(
+      currentUser?.company_id ||
+        localStorage.getItem("opscore_current_company_id") ||
+        ""
+    ).trim();
+
+    if (storedCompanyId) return storedCompanyId;
+
+    if (!currentUser?.id) return "";
+
+    const { data, error } = await supabase
+      .from("employees")
+      .select("company_id")
+      .eq("id", currentUser.id)
+      .maybeSingle();
+
+    if (error) {
+      console.log("GET CURRENT COMPANY ID ERROR:", error.message);
+      return "";
+    }
+
+    const companyId = String(data?.company_id || "").trim();
+
+    if (companyId) {
+      setCurrentUser((previous: any) => ({
+        ...(previous || currentUser),
+        company_id: companyId,
+      }));
+      localStorage.setItem("opscore_current_company_id", companyId);
+    }
+
+    return companyId;
+  };
+
+  const findOverlappingLeave = async ({
+    companyId,
+    employeeId,
+    startDateValue,
+    endDateValue,
+    statuses,
+    excludedLeaveId,
+  }: {
+    companyId: string;
+    employeeId: string;
+    startDateValue: string;
+    endDateValue: string;
+    statuses: string[];
+    excludedLeaveId?: string | number | null;
+  }) => {
+    let overlapQuery = supabase
+      .from("leave_requests")
+      .select("id, leave_type, start_date, end_date, status")
+      .eq("company_id", companyId)
+      .eq("employee_id", employeeId)
+      .in("status", statuses)
+      .lte("start_date", endDateValue)
+      .gte("end_date", startDateValue)
+      .order("start_date", { ascending: true })
+      .limit(1);
+
+    if (excludedLeaveId) {
+      overlapQuery = overlapQuery.neq("id", excludedLeaveId);
+    }
+
+    return await overlapQuery;
+  };
+
+  const buildOverlapAlertMessage = (overlap: any) => {
+    if (!overlap) {
+      return "Leave request failed. One or more selected dates already exist in a pending or approved leave request.";
+    }
+
+    return `Leave request failed. The selected dates overlap with ${overlap.leave_type || "an existing leave"} from ${formatDate(overlap.start_date)} to ${formatDate(overlap.end_date)} (${overlap.status || "Active"}).`;
+  };
+
   const submitLeaveRequest = async () => {
     if (!currentUser) return;
 
@@ -1388,8 +1466,37 @@ export default function EmployeePortalPage() {
     }
 
     const employeeNo = String(currentUser.employee_no || employeeNumber || "").trim();
+    const companyId = await getCurrentCompanyId();
+
+    if (!companyId) {
+      alert("Unable to submit leave. No company_id found for this employee.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data: overlappingLeaves, error: overlapError } = await findOverlappingLeave({
+      companyId,
+      employeeId: currentUser.id,
+      startDateValue: startDate,
+      endDateValue: endDate,
+      statuses: ["Pending", "Approved"],
+    });
+
+    if (overlapError) {
+      alert(overlapError.message);
+      setLoading(false);
+      return;
+    }
+
+    if ((overlappingLeaves || []).length > 0) {
+      alert(buildOverlapAlertMessage(overlappingLeaves?.[0]));
+      setLoading(false);
+      return;
+    }
 
     const leavePayload = {
+      company_id: companyId,
       employee_id: currentUser.id,
       employee_name: employeeName,
       employee_no: employeeNo || null,
@@ -1405,11 +1512,10 @@ export default function EmployeePortalPage() {
       requested_at: new Date().toISOString(),
     };
 
-    setLoading(true);
-
     const { data: leaveData, error: leaveError } = await supabase
       .from("leave_requests")
       .insert({
+        company_id: companyId,
         employee_id: currentUser.id,
         employee_name: employeeName,
         employee_no: employeeNo || null,
@@ -1436,6 +1542,7 @@ export default function EmployeePortalPage() {
     const { error: approvalError } = await supabase
       .from("approval_requests")
       .insert({
+        company_id: companyId,
         request_type: "LEAVE_REQUEST",
         module: "Leave Management",
         reference_id: leaveData.id,
@@ -1495,8 +1602,15 @@ export default function EmployeePortalPage() {
     const employeeNo = String(
       currentUser.employee_no || employeeNumber || leave.employee_no || ""
     ).trim();
+    const companyId = await getCurrentCompanyId();
+
+    if (!companyId) {
+      alert("Unable to submit leave cancellation. No company_id found for this employee.");
+      return;
+    }
 
     const payload = {
+      company_id: companyId,
       leave_id: leave.id,
       employee_id: leave.employee_id || currentUser.id,
       employee_name: leave.employee_name || employeeName,
@@ -1517,6 +1631,7 @@ export default function EmployeePortalPage() {
     setLoading(true);
 
     const { error } = await supabase.from("approval_requests").insert({
+      company_id: companyId,
       request_type: "LEAVE_CANCELLATION",
       module: "Leave Management",
       reference_id: leave.id,
@@ -1550,6 +1665,38 @@ export default function EmployeePortalPage() {
     setActionLoadingId(request.id as string | number);
 
     if (requestType === "LEAVE_REQUEST" && referenceId) {
+      const approvalCompanyId = String(request.company_id || payload.company_id || currentUser?.company_id || "").trim();
+      const approvalEmployeeId = String(payload.employee_id || "").trim();
+      const approvalStartDate = String(payload.start_date || "").trim();
+      const approvalEndDate = String(payload.end_date || "").trim();
+
+      if (!approvalCompanyId || !approvalEmployeeId || !approvalStartDate || !approvalEndDate) {
+        alert("Cannot approve leave. Missing company, employee, or date details in this approval request.");
+        setActionLoadingId(null);
+        return;
+      }
+
+      const { data: approvedOverlap, error: approvedOverlapError } = await findOverlappingLeave({
+        companyId: approvalCompanyId,
+        employeeId: approvalEmployeeId,
+        startDateValue: approvalStartDate,
+        endDateValue: approvalEndDate,
+        statuses: ["Approved"],
+        excludedLeaveId: referenceId,
+      });
+
+      if (approvedOverlapError) {
+        alert(approvedOverlapError.message);
+        setActionLoadingId(null);
+        return;
+      }
+
+      if ((approvedOverlap || []).length > 0) {
+        alert(`Cannot approve leave. This request overlaps with an already approved leave from ${formatDate(approvedOverlap?.[0]?.start_date)} to ${formatDate(approvedOverlap?.[0]?.end_date)}.`);
+        setActionLoadingId(null);
+        return;
+      }
+
       const { error: leaveError } = await supabase
         .from("leave_requests")
         .update({
