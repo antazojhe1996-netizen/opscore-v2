@@ -196,17 +196,30 @@ export default function ExpensesPage() {
     return references.join(" • ");
   };
 
+  /// CALCULATIONS - REPORTING CLASSIFICATION
+  // Enterprise finance rule:
+  // Payroll-linked cash advances are employee receivables, not operating expenses.
+  // They remain in the database for audit trail, but they are excluded from the
+  // Official Expense Ledger and operating expense summaries.
+  const operatingExpenses = expenses.filter(
+    (expense) => !expense.deduct_to_payroll
+  );
+
+  const employeeAdvanceReceivables = expenses.filter(
+    (expense) => expense.deduct_to_payroll
+  );
+
   /// CALCULATIONS - SUMMARY CARDS
-  const totalExpenses = expenses.reduce(
+  const totalExpenses = operatingExpenses.reduce(
     (sum, expense) => sum + Number(expense.amount || 0),
     0
   );
 
-  const todayExpenses = expenses
+  const todayExpenses = operatingExpenses
     .filter((expense) => expense.expense_date === today)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const thisMonthExpenses = expenses
+  const thisMonthExpenses = operatingExpenses
     .filter((expense) => {
       const date = new Date(expense.expense_date + "T00:00:00");
       return (
@@ -216,27 +229,27 @@ export default function ExpensesPage() {
     })
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const cashDrawerExpenseTotal = expenses
+  const cashDrawerExpenseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Cash Drawer")
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const manualExpenseTotal = expenses
+  const manualExpenseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Manual Entry")
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const importedExpenseTotal = expenses
+  const importedExpenseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Imported")
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const payrollReleaseTotal = expenses
+  const payrollReleaseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Payroll Release")
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const cashAdvanceTotal = expenses
+  const cashAdvanceTotal = employeeAdvanceReceivables
     .filter((expense) => expense.deduct_to_payroll)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const linkedCashAdvanceTotal = expenses
+  const linkedCashAdvanceTotal = employeeAdvanceReceivables
     .filter(
       (expense) =>
         expense.deduct_to_payroll &&
@@ -244,7 +257,7 @@ export default function ExpensesPage() {
     )
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const unlinkedCashAdvanceTotal = expenses
+  const unlinkedCashAdvanceTotal = employeeAdvanceReceivables
     .filter(
       (expense) =>
         expense.deduct_to_payroll &&
@@ -257,7 +270,7 @@ export default function ExpensesPage() {
     const row: any = { month };
 
     categories.forEach((cat) => {
-      row[cat] = expenses
+      row[cat] = operatingExpenses
         .filter((expense) => {
           const date = new Date(expense.expense_date + "T00:00:00");
 
@@ -275,7 +288,7 @@ export default function ExpensesPage() {
 
   /// CALCULATIONS - FILTERED EXPENSES
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
+    return operatingExpenses.filter((expense) => {
       const search = searchTerm.toLowerCase();
 
       const matchesSearch =
@@ -301,7 +314,7 @@ export default function ExpensesPage() {
 
       return matchesSearch && matchesSource && matchesCategory && matchesDepartment;
     });
-  }, [expenses, searchTerm, sourceFilter, categoryFilter, departmentFilter]);
+  }, [operatingExpenses, searchTerm, sourceFilter, categoryFilter, departmentFilter]);
 
   /// CALCULATIONS - SORTED EXPENSES
   const sortedExpenses = [...filteredExpenses].sort((a, b) => {
@@ -824,12 +837,31 @@ export default function ExpensesPage() {
 
   /// FUNCTIONS - EXPORT EXPENSES
   const exportExpenses = () => {
-    if (expenses.length === 0) {
-      alert("No expenses to export.");
+    if (operatingExpenses.length === 0 && employeeAdvanceReceivables.length === 0) {
+      alert("No expense or employee advance records to export.");
       return;
     }
 
-    const expenseRows = expenses.map((expense) => ({
+    const expenseRows = operatingExpenses.map((expense) => ({
+      Date: expense.expense_date,
+      Category: expense.category,
+      Subcategory: expense.subcategory || "",
+      Expense_Area: expense.department,
+      Employee: expense.employee_name || "",
+      Description: expense.description,
+      Source: expense.source || "",
+      Source_Type: getExpenseSourceType(expense),
+      Amount: Number(expense.amount || 0),
+      Payment_Method: expense.payment_method,
+      Deduct_To_Payroll: expense.deduct_to_payroll ? "Yes" : "No",
+      Payroll_Period_ID: expense.payroll_period_id || "",
+      Payroll_Adjustment_ID: expense.payroll_adjustment_id || "",
+      Employee_Balance_ID: expense.employee_balance_id || "",
+      Cash_Movement_ID: expense.cash_movement_id || "",
+      Remarks: expense.remarks || "",
+    }));
+
+    const employeeAdvanceRows = employeeAdvanceReceivables.map((expense) => ({
       Date: expense.expense_date,
       Category: expense.category,
       Subcategory: expense.subcategory || "",
@@ -863,7 +895,13 @@ export default function ExpensesPage() {
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(expenseRows),
-      "Expense Ledger"
+      "Operating Expenses"
+    );
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(employeeAdvanceRows),
+      "Employee Advances"
     );
 
     XLSX.utils.book_append_sheet(
@@ -993,7 +1031,7 @@ export default function ExpensesPage() {
           </p>
           <h1 className="mt-2 text-3xl font-bold">Expenses Ledger</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Review direct expenses, cash drawer releases, imported expenses, and payroll-linked cash advances in one official ledger.
+            Review operating expenses, cash drawer releases, imported expenses, and payroll releases. Payroll-linked cash advances are tracked separately as employee receivables.
           </p>
         </div>
 
@@ -1017,7 +1055,7 @@ export default function ExpensesPage() {
           />
 
           <SummaryCard
-            title="Cash Advance"
+            title="Employee Advances"
             value={formatCurrency(cashAdvanceTotal)}
             color="text-purple-400"
           />
@@ -1037,6 +1075,17 @@ export default function ExpensesPage() {
             <p className="mt-1 text-sm text-red-200">
               {formatCurrency(unlinkedCashAdvanceTotal)} cash advance expense is not linked to payroll deduction.
               Check employee and payroll period before payroll generation.
+            </p>
+          </section>
+        )}
+
+        {cashAdvanceTotal > 0 && (
+          <section className="mb-6 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-5">
+            <h2 className="text-lg font-black text-purple-300">
+              Employee Advances / Payroll Receivables
+            </h2>
+            <p className="mt-1 text-sm text-purple-100/80">
+              {formatCurrency(cashAdvanceTotal)} payroll-linked cash advance is excluded from operating expenses to avoid inflating reports. These records remain linked to employee balances and payroll deduction.
             </p>
           </section>
         )}
@@ -1243,7 +1292,7 @@ export default function ExpensesPage() {
               <div>
                 <h2 className="text-xl font-bold">Official Expense Ledger</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Click table headers to sort. Use filters to separate manual entries, cash drawer releases, payroll releases, and imports.
+                  Operating expenses only. Payroll-linked cash advances are excluded from this ledger and tracked separately as employee receivables.
                 </p>
               </div>
 
@@ -1441,7 +1490,7 @@ export default function ExpensesPage() {
 
                   {sortedExpenses.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-500">
+                      <td colSpan={11} className="py-12 text-center text-slate-500">
                         No expenses found.
                       </td>
                     </tr>

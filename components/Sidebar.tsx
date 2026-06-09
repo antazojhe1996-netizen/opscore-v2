@@ -190,11 +190,15 @@ export default function Sidebar() {
         ? localStorage.getItem("opscore_current_employee_id")
         : null;
 
-    const currentRoleId =
-      storedUser?.role_id ||
-      (typeof window !== "undefined"
+    // OPSCORE SESSION SOURCE OF TRUTH FIX
+    // Use the latest explicit role ID first.
+    // storedUser.role_id can become stale after role/permission changes.
+    const localRoleId =
+      typeof window !== "undefined"
         ? localStorage.getItem("opscore_current_role_id")
-        : null);
+        : null;
+
+    const currentRoleId = localRoleId || storedUser?.role_id || null;
 
     if (!currentEmployeeId || !currentRoleId) {
       setCurrentEmployee(null);
@@ -273,14 +277,21 @@ export default function Sidebar() {
     };
   }, [mounted]);
 
-  const canView = (moduleKey: string) => {
-    if (moduleKey === "always_allow") return true;
+ const canView = (moduleKey: string) => {
+  if (moduleKey === "always_allow") return true;
 
-    return permissions.some(
-      (permission) =>
-        permission.module_key === moduleKey && permission.can_view === true
-    );
-  };
+  const roleText = String(currentRoleName || "").toLowerCase();
+
+  if (roleText.includes("super admin") || roleText.includes("admin")) {
+    return true;
+  }
+
+  return permissions.some(
+    (permission) =>
+      String(permission.module_key) === String(moduleKey) &&
+      permission.can_view === true
+  );
+};
 
   const normalizePath = (value: string) => {
     if (value.length > 1 && value.endsWith("/")) return value.slice(0, -1);
@@ -313,6 +324,7 @@ export default function Sidebar() {
     localStorage.removeItem("opscore_must_change_password");
     localStorage.removeItem("opscore_current_company_id");
     localStorage.removeItem("opscore_current_role_id");
+    localStorage.removeItem("opscore_current_role_name");
 
     window.location.href = "/login";
   };

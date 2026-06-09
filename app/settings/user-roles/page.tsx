@@ -45,6 +45,7 @@ const modules = [
   { key: "payroll_register", label: "Payroll Register" },
   { key: "payroll_manager", label: "Payroll Manager" },
   { key: "payslips", label: "Payslips" },
+  { key: "employee_balances", label: "Employee Balances" },
   { key: "payroll_snapshots", label: "Payroll Snapshots" },
   { key: "release_history", label: "Release History" },
   { key: "payroll_settings", label: "Payroll Settings" },
@@ -451,6 +452,7 @@ export default function UserRolesPage() {
       "payroll_register",
       "payroll_manager",
       "payslips",
+      "employee_balances",
       "payroll_snapshots",
       "release_history",
     ];
@@ -612,6 +614,7 @@ export default function UserRolesPage() {
       "payroll_register",
       "payroll_manager",
       "payslips",
+      "employee_balances",
       "payroll_snapshots",
       "release_history",
       "payroll_settings",

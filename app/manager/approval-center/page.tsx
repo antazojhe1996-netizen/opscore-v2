@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
@@ -27,6 +27,7 @@ export default function ApprovalCenterPage() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingRequestRef = useRef<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -247,6 +248,72 @@ export default function ApprovalCenterPage() {
     return labels[category] || category;
   };
 
+  const getApprovalRequestMarker = (requestId: any) =>
+    `Approval Request ID: ${String(requestId || "")}`;
+
+  const appendApprovalRequestMarker = (remarks: any, requestId: any) => {
+    const baseRemarks = String(remarks || "Approved cash drawer movement").trim();
+    const marker = getApprovalRequestMarker(requestId);
+
+    if (baseRemarks.includes(marker)) return baseRemarks;
+
+    return `${baseRemarks} | ${marker}`;
+  };
+
+  const cashDrawerMovementAlreadyPosted = async (
+    request: any,
+    payload: any,
+    amountValue: number
+  ) => {
+    const marker = getApprovalRequestMarker(request.id);
+
+    const { data: markerMatch, error: markerError } = await supabase
+      .from("finance_cash_movements")
+      .select("id, created_at")
+      .ilike("remarks", `%${marker}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (markerError) {
+      console.log("CASH APPROVAL DUPLICATE MARKER CHECK ERROR:", markerError.message);
+      throw new Error(markerError.message);
+    }
+
+    if (markerMatch) return true;
+
+    // Safety fallback for older rows created before the approval-request marker existed.
+    // This catches accidental double-clicks / repeated approval execution with the same payload.
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+    const baseRemarks = String(payload.remarks || request.description || "Approved cash drawer movement").trim();
+
+    let fallbackQuery = supabase
+      .from("finance_cash_movements")
+      .select("id, created_at")
+      .eq("business_date", payload.business_date)
+      .eq("movement_type", payload.movement_type)
+      .eq("source", payload.source)
+      .eq("payment_type", payload.payment_type || "Cash")
+      .eq("amount", amountValue)
+      .eq("from_person", payload.from_person || "")
+      .eq("to_person", payload.to_person || "")
+      .ilike("remarks", `%${baseRemarks}%`)
+      .gte("created_at", tenMinutesAgo)
+      .limit(1);
+
+    fallbackQuery = payload.cash_drawer_id
+      ? fallbackQuery.eq("cash_drawer_id", payload.cash_drawer_id)
+      : fallbackQuery.is("cash_drawer_id", null);
+
+    const { data: fallbackMatch, error: fallbackError } = await fallbackQuery.maybeSingle();
+
+    if (fallbackError) {
+      console.log("CASH APPROVAL DUPLICATE FALLBACK CHECK ERROR:", fallbackError.message);
+      throw new Error(fallbackError.message);
+    }
+
+    return Boolean(fallbackMatch);
+  };
+
   const executeCashDrawerMovement = async (request: any) => {
     const payload = getPayload(request);
 
@@ -262,6 +329,25 @@ export default function ApprovalCenterPage() {
       return false;
     }
 
+    let alreadyPosted = false;
+
+    try {
+      alreadyPosted = await cashDrawerMovementAlreadyPosted(request, payload, amountValue);
+    } catch (duplicateCheckError: any) {
+      alert(`Duplicate safety check failed. Nothing was posted. ${duplicateCheckError?.message || duplicateCheckError}`);
+      return false;
+    }
+
+    if (alreadyPosted) {
+      alert("Possible duplicate approval detected. This request already created a cash movement. Nothing was posted again.");
+      return false;
+    }
+
+    const movementRemarks = appendApprovalRequestMarker(
+      payload.remarks || request.description || "Approved cash drawer movement",
+      request.id
+    );
+
     const { data: movementData, error: movementError } = await supabase
       .from("finance_cash_movements")
       .insert({
@@ -273,9 +359,9 @@ export default function ApprovalCenterPage() {
         from_person: payload.from_person || "",
         to_person: payload.to_person || "",
         encoded_by: payload.encoded_by || currentEmployeeName || "Manager Approval Center",
-        remarks: payload.remarks || request.description || "Approved cash drawer movement",
-        reference_type: payload.should_create_expense ? "expense" : null,
-        reference_id: null,
+        remarks: movementRemarks,
+        reference_type: payload.should_create_expense ? "expense" : "approval_request",
+        reference_id: payload.should_create_expense ? null : request.id,
         cash_drawer_id: payload.cash_drawer_id || null,
       })
       .select()
@@ -308,7 +394,7 @@ export default function ApprovalCenterPage() {
             ? `Cash Advance - ${payload.cash_advance_employee_name || ""}`
             : payload.expense_description,
           amount: amountValue,
-          payment_method: "Cash",
+          payment_method: payload.payment_type || "Cash",
           employee_id: payload.is_cash_advance_cash_out
             ? payload.cash_advance_employee_id || null
             : null,
@@ -320,8 +406,8 @@ export default function ApprovalCenterPage() {
             ? payload.payroll_period_id || null
             : null,
           remarks: payload.is_cash_advance_cash_out
-            ? `Source: Cash Drawer Approval. Auto linked to: ${payload.payroll_period_label || "Payroll Period"}. ${payload.cash_advance_purpose || ""} ${payload.remarks || ""}`.trim()
-            : `${payload.remarks || ""}${payload.expense_released_to ? ` Released to: ${payload.expense_released_to}` : ""}`.trim(),
+            ? `Source: Cash Drawer Approval. Auto linked to: ${payload.payroll_period_label || "Payroll Period"}. ${payload.cash_advance_purpose || ""} ${movementRemarks}`.trim()
+            : `${movementRemarks}${payload.expense_released_to ? ` Released to: ${payload.expense_released_to}` : ""}`.trim(),
           source: payload.is_cash_advance_cash_out
             ? "Cash Drawer - Cash Advance"
             : "Cash Drawer",
@@ -358,7 +444,7 @@ export default function ApprovalCenterPage() {
             source_module: "Cash Drawer",
             source_id: movementData.id,
             period_id: payload.payroll_period_id || null,
-            remarks: `Source: Cash Drawer Approval. Expense ID: ${expenseData.id}. Cash Movement ID: ${movementData.id}. ${payload.cash_advance_purpose || ""}`,
+            remarks: `Source: Cash Drawer Approval. Expense ID: ${expenseData.id}. Cash Movement ID: ${movementData.id}. ${payload.cash_advance_purpose || ""}. ${getApprovalRequestMarker(request.id)}`,
           })
           .select()
           .single();
@@ -566,18 +652,48 @@ export default function ApprovalCenterPage() {
   const approveRequest = async (request: any) => {
     if (!request?.id || isProcessing) return;
 
+    const processingKey = String(request.id);
+
+    if (processingRequestRef.current === processingKey) return;
+
+    processingRequestRef.current = processingKey;
+
     if (!canCurrentUserApproveRequest(request)) {
       alert("You are not assigned as approver for this request.");
+      processingRequestRef.current = null;
       return;
     }
 
     setIsProcessing(true);
+
+    const { data: freshRequest, error: freshRequestError } = await supabase
+      .from("approval_requests")
+      .select("id, status, approved_at, approved_by, rejected_at, rejected_by")
+      .eq("id", request.id)
+      .maybeSingle();
+
+    if (freshRequestError) {
+      setIsProcessing(false);
+      processingRequestRef.current = null;
+      alert(`Approval status safety check failed. ${freshRequestError.message}`);
+      return;
+    }
+
+    if (!freshRequest || String(freshRequest.status || "") !== "PENDING") {
+      setIsProcessing(false);
+      processingRequestRef.current = null;
+      alert("This request is no longer pending. It may have already been processed.");
+      await refreshApprovalCenter();
+      setSelectedRequest(null);
+      return;
+    }
 
     if (CASH_DRAWER_REQUEST_TYPES.includes(request.request_type)) {
       const executed = await executeCashDrawerMovement(request);
 
       if (!executed) {
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }
@@ -595,6 +711,7 @@ export default function ApprovalCenterPage() {
         console.log("SYNC PAYROLL ADJUSTMENT APPROVAL ERROR:", adjustmentError.message);
         alert("Approval saved failed before payroll adjustment sync.");
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
 
@@ -622,6 +739,7 @@ export default function ApprovalCenterPage() {
         console.log("SYNC EXPENSE REQUEST APPROVAL ERROR:", expenseRequestError.message);
         alert("Approval saved failed before expense request sync.");
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }
@@ -631,6 +749,7 @@ export default function ApprovalCenterPage() {
 
       if (!synced) {
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }
@@ -640,6 +759,7 @@ export default function ApprovalCenterPage() {
 
       if (!synced) {
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }
@@ -654,6 +774,7 @@ export default function ApprovalCenterPage() {
       .eq("id", request.id);
 
     setIsProcessing(false);
+    processingRequestRef.current = null;
 
     if (error) {
       alert(error.message);
@@ -695,6 +816,7 @@ export default function ApprovalCenterPage() {
         console.log("SYNC PAYROLL ADJUSTMENT REJECTION ERROR:", adjustmentError.message);
         alert("Rejection saved failed before payroll adjustment sync.");
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }
@@ -712,6 +834,7 @@ export default function ApprovalCenterPage() {
         console.log("SYNC EXPENSE REQUEST REJECTION ERROR:", expenseRequestError.message);
         alert("Rejection saved failed before expense request sync.");
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }
@@ -721,6 +844,7 @@ export default function ApprovalCenterPage() {
 
       if (!synced) {
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }
@@ -730,6 +854,7 @@ export default function ApprovalCenterPage() {
 
       if (!synced) {
         setIsProcessing(false);
+        processingRequestRef.current = null;
         return;
       }
     }

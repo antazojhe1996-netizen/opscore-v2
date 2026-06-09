@@ -119,7 +119,7 @@ export default function PayrollReleaseHistoryPage() {
   );
 
   return (
-  <PageGuard moduleKey="payroll_history">
+<PageGuard moduleKey="release_history">
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Brain,
@@ -32,6 +32,7 @@ export default function PayrollManagerPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [periodFilter, setPeriodFilter] = useState("All");
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingRef = useRef(false);
   const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<"queue" | "partial" | "history">("queue");
   const [checkingAccess, setCheckingAccess] = useState(true);
@@ -711,6 +712,31 @@ export default function PayrollManagerPage() {
     return appliedMap;
   };
 
+  const hasRecentPayrollReleaseDuplicate = async (transactionRows: any[]) => {
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+
+    for (const row of transactionRows) {
+      const { data, error } = await supabase
+        .from("payroll_release_transactions")
+        .select("id, created_at, released_at")
+        .eq("payroll_record_id", row.payroll_record_id)
+        .eq("release_amount", row.release_amount)
+        .eq("released_by", row.released_by)
+        .gte("created_at", oneMinuteAgo)
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.log("PAYROLL RELEASE DUPLICATE CHECK ERROR:", error.message);
+        throw new Error(error.message);
+      }
+
+      if (data?.id) return true;
+    }
+
+    return false;
+  };
+
   const savePayrollReleaseTransactions = async (
     recordsToRelease: any[],
     releasedBy: string,
@@ -742,6 +768,12 @@ export default function PayrollManagerPage() {
       };
     });
 
+    const duplicateReleaseExists = await hasRecentPayrollReleaseDuplicate(transactionRows);
+
+    if (duplicateReleaseExists) {
+      throw new Error("Possible duplicate payroll release detected. Transaction was not saved again.");
+    }
+
     const { error } = await supabase
       .from("payroll_release_transactions")
       .insert(transactionRows);
@@ -753,6 +785,8 @@ export default function PayrollManagerPage() {
   };
 
   const releasePayrollRecords = async (targetRecords: any[], label: string) => {
+    if (processingRef.current || isProcessing) return;
+
     if (targetRecords.length === 0) {
       alert("No approved payroll records selected for release.");
       return;
@@ -819,6 +853,7 @@ This will record the actual released amount only. Any unpaid salary balance will
     const releasedBy =
       prompt("Released by:", "Payroll Admin") || "Payroll Admin";
 
+    processingRef.current = true;
     setIsProcessing(true);
 
     const targetIds = targetRecords.map((record) => getActualPayrollRecordId(record));
@@ -835,6 +870,7 @@ This will record the actual released amount only. Any unpaid salary balance will
       caPreviews = await previewCashAdvanceApplications(targetRecords);
     } catch (validationError: any) {
       setIsProcessing(false);
+      processingRef.current = false;
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
@@ -881,6 +917,7 @@ ${validationError?.message || validationError}`);
 
     if (failedStatusUpdate?.error) {
       setIsProcessing(false);
+      processingRef.current = false;
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
@@ -912,6 +949,7 @@ ${failedStatusUpdate.error.message}`);
       );
     } catch (partialReleaseError: any) {
       setIsProcessing(false);
+      processingRef.current = false;
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
@@ -964,6 +1002,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
     }
 
     setIsProcessing(false);
+      processingRef.current = false;
     setSelectedRecordIds([]);
     await loadData();
 
@@ -1057,6 +1096,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
     if (error) {
       setIsProcessing(false);
+      processingRef.current = false;
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
@@ -1097,6 +1137,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
     });
 
     setIsProcessing(false);
+      processingRef.current = false;
     setSelectedRecordIds([]);
     await loadData();
 
@@ -1143,6 +1184,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
     if (error) {
       setIsProcessing(false);
+      processingRef.current = false;
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
@@ -1179,6 +1221,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
       .in("source_id", targetIds);
 
     setIsProcessing(false);
+      processingRef.current = false;
     setSelectedRecordIds([]);
     await loadData();
 

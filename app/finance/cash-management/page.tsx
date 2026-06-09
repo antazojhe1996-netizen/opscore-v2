@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
@@ -70,12 +70,16 @@ export default function CashManagementPage() {
 
   /// STATES - SYSTEM
   const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
   const [showOpenDrawer, setShowOpenDrawer] = useState(false);
   const [showCloseDrawer, setShowCloseDrawer] = useState(false);
   const [showDrawerHolderSettings, setShowDrawerHolderSettings] = useState(false);
   const [drawerHolderSearch, setDrawerHolderSearch] = useState("");
   const [authorizedDrawerHolders, setAuthorizedDrawerHolders] = useState<string[]>([]);
   const [drawerHolderSettingsLoaded, setDrawerHolderSettingsLoaded] = useState(false);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState("");
+  const [currentEmployeeName, setCurrentEmployeeName] = useState("");
+  const [currentRoleName, setCurrentRoleName] = useState("");
 
   /// DATA - OPTIONS
   const movementTypes = [
@@ -197,6 +201,42 @@ export default function CashManagementPage() {
     authorizedDrawerHolders.includes(getEmployeeFullName(employee))
   );
 
+  const currentEmployeeRecord = validEmployeeOptions.find((employee) => {
+    const employeeId = getEmployeePayrollId(employee);
+    const fullName = getEmployeeFullName(employee);
+
+    return (
+      String(employeeId || "") === String(currentEmployeeId || "") ||
+      String(fullName || "").toLowerCase() === String(currentEmployeeName || "").toLowerCase()
+    );
+  });
+
+  const currentDrawerHolderName =
+    currentEmployeeRecord ? getEmployeeFullName(currentEmployeeRecord) : currentEmployeeName;
+
+  const canManageDrawerForOthers = (() => {
+    const roleText = String(currentRoleName || "").toLowerCase();
+    const positionText = String(currentEmployeeRecord?.position || "").toLowerCase();
+    const nameText = String(currentDrawerHolderName || "").toLowerCase();
+
+    return (
+      roleText.includes("admin") ||
+      roleText.includes("finance") ||
+      roleText.includes("manager") ||
+      positionText.includes("manager") ||
+      positionText.includes("finance") ||
+      positionText.includes("owner") ||
+      nameText.includes("princess") ||
+      nameText.includes("jherome")
+    );
+  })();
+
+  const allowedOpenDrawerHolderOptions = canManageDrawerForOthers
+    ? drawerHolderOptions
+    : drawerHolderOptions.filter(
+        (employee) => getEmployeeFullName(employee) === currentDrawerHolderName
+      );
+
   const filteredDrawerHolderSettingEmployees = validEmployeeOptions.filter((employee) => {
     const fullName = getEmployeeFullName(employee);
     const search = drawerHolderSearch.toLowerCase();
@@ -222,17 +262,19 @@ export default function CashManagementPage() {
   const isCashAdvanceCashOut =
     movementType === "Cash Out" && source === "Cash Advance";
 
-  const isCashExpenseCashOut =
-    movementType === "Cash Out" &&
-    paymentType === "Cash" &&
-    source === "Expense Release";
+  const isExpenseRelease =
+    movementType === "Cash Out" && source === "Expense Release";
 
-  const shouldCreateExpenseFromCashOut = isCashExpenseCashOut || isCashAdvanceCashOut;
+  const isCashExpenseCashOut =
+    isExpenseRelease && paymentType === "Cash";
+
+  const shouldCreateExpenseFromCashOut = isExpenseRelease || isCashAdvanceCashOut;
 
   // CASH DRAWER APPROVAL GATE V1
   // Money IN records immediately. Money OUT goes to Manager Approval Center first.
   const isCashDrawerMoneyOut =
     isCashAdvanceCashOut ||
+    isExpenseRelease ||
     (paymentType === "Cash" &&
       (movementType === "Cash Out" ||
         source === "Owner Withdrawal" ||
@@ -241,7 +283,7 @@ export default function CashManagementPage() {
 
   const getCashApprovalRequestType = () => {
     if (isCashAdvanceCashOut) return "CASH_ADVANCE_RELEASE";
-    if (isCashExpenseCashOut) return "CASH_EXPENSE_RELEASE";
+    if (isExpenseRelease) return "CASH_EXPENSE_RELEASE";
     if (source === "Owner Withdrawal") return "OWNER_WITHDRAWAL";
     if (source === "Bank Deposit") return "BANK_DEPOSIT";
     if (movementType === "Adjustment") return "ADJUSTMENT_OUT";
@@ -432,9 +474,27 @@ export default function CashManagementPage() {
   const cashOnHand = cashInTotal - cashOutTotal - remittanceTotal;
 
   /// CALCULATIONS - DIGITAL / NON-CASH FUNDS
+  const getNonCashSignedAmount = (item: any) => {
+    const value = Math.abs(Number(item.amount || 0));
+
+    if (
+      item.movement_type === "Cash Out" ||
+      item.movement_type === "Remittance" ||
+      item.source === "Expense Release" ||
+      item.source === "Cash Advance" ||
+      item.source === "Owner Withdrawal" ||
+      item.source === "Bank Deposit" ||
+      (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
+    ) {
+      return -value;
+    }
+
+    return value;
+  };
+
   const gcashTotal = operationalMovements
     .filter((item) => (item.payment_type || "Cash") === "GCash")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
   const bankTotal = operationalMovements
     .filter(
@@ -442,11 +502,11 @@ export default function CashManagementPage() {
         (item.payment_type || "Cash") === "Bank" ||
         item.source === "Bank Deposit"
     )
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
   const terminalTotal = operationalMovements
     .filter((item) => (item.payment_type || "Cash") === "Terminal")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
   /// CALCULATIONS - DRAWER HISTORY CASH-ONLY LOGIC
   const getDrawerCashSummary = (drawer: any) => {
@@ -1204,6 +1264,11 @@ export default function CashManagementPage() {
       return;
     }
 
+    if (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName) {
+      alert("You can only open your own cash drawer. Ask Admin/Finance to open a drawer for another holder.");
+      return;
+    }
+
     setIsSaving(true);
 
     const { data: drawerData, error: drawerError } = await supabase
@@ -1491,12 +1556,90 @@ export default function CashManagementPage() {
     await getDrawers();
   };
 
+  /// FUNCTIONS - DUPLICATE SAFETY
+  const hasDuplicateCashMovement = async ({
+    businessDate,
+    movementType,
+    source,
+    paymentType,
+    amountValue,
+    autoFrom,
+    autoTo,
+    movementRemarks,
+  }: {
+    businessDate: string;
+    movementType: string;
+    source: string;
+    paymentType: string;
+    amountValue: number;
+    autoFrom: string;
+    autoTo: string;
+    movementRemarks: string;
+  }) => {
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+
+    const { data, error } = await supabase
+      .from("finance_cash_movements")
+      .select("id, created_at")
+      .eq("business_date", businessDate)
+      .eq("movement_type", movementType)
+      .eq("source", source)
+      .eq("payment_type", paymentType)
+      .eq("amount", amountValue)
+      .eq("from_person", autoFrom)
+      .eq("to_person", autoTo)
+      .eq("remarks", movementRemarks)
+      .gte("created_at", oneMinuteAgo)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.log("DUPLICATE CASH MOVEMENT CHECK ERROR:", error.message);
+      throw error;
+    }
+
+    return Boolean(data);
+  };
+
+  const hasDuplicateCashApprovalRequest = async ({
+    requestType,
+    title,
+    requestedBy,
+  }: {
+    requestType: string;
+    title: string;
+    requestedBy: string;
+  }) => {
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+
+    const { data, error } = await supabase
+      .from("approval_requests")
+      .select("id, created_at")
+      .eq("request_type", requestType)
+      .eq("module", "Cash Management")
+      .eq("title", title)
+      .eq("requested_by", requestedBy)
+      .eq("status", "PENDING")
+      .gte("created_at", oneMinuteAgo)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.log("DUPLICATE CASH APPROVAL CHECK ERROR:", error.message);
+      throw error;
+    }
+
+    return Boolean(data);
+  };
+
   /// FUNCTIONS - SAVE CASH MOVEMENT
   const saveMovement = async () => {
-    if (isSaving) return;
+    if (savingRef.current || isSaving) return;
+    savingRef.current = true;
 
     if (!businessDate || !movementType || !source || !paymentType || !amount) {
       alert("Please complete date, type, source, payment type, and amount.");
+      savingRef.current = false;
       return;
     }
 
@@ -1504,26 +1647,31 @@ export default function CashManagementPage() {
 
     if (amountValue <= 0) {
       alert("Amount must be greater than zero.");
+      savingRef.current = false;
       return;
     }
 
     if (isCashExpenseCashOut && !activeDrawer) {
       alert("Please open a drawer first before releasing a cash expense.");
+      savingRef.current = false;
       return;
     }
 
     if (isCashAdvanceCashOut && paymentType === "Cash" && !activeDrawer) {
       alert("Please open a drawer first before releasing a cash advance in cash.");
+      savingRef.current = false;
       return;
     }
 
     if (isCashAdvanceCashOut && !cashAdvanceEmployeeId) {
       alert("Please select employee for cash advance.");
+      savingRef.current = false;
       return;
     }
 
     if (isCashAdvanceCashOut && !selectedCashAdvanceEmployee) {
       alert("Selected employee is invalid. Please re-select employee.");
+      savingRef.current = false;
       return;
     }
 
@@ -1533,43 +1681,50 @@ export default function CashManagementPage() {
 
     if (isCashAdvanceCashOut && !targetPayrollPeriod) {
       alert(`No Draft/Reopened payroll period covers ${businessDate}. Create or reopen the correct cutoff first.`);
+      savingRef.current = false;
       return;
     }
 
-    if (isCashExpenseCashOut && !expenseCategory) {
+    if (isExpenseRelease && !expenseCategory) {
       alert("Please select expense category.");
+      savingRef.current = false;
       return;
     }
 
-    if (isCashExpenseCashOut && expenseSubcategoryOptions.length > 0 && !expenseSubcategory) {
+    if (isExpenseRelease && expenseSubcategoryOptions.length > 0 && !expenseSubcategory) {
       alert("Please select expense subcategory.");
+      savingRef.current = false;
       return;
     }
 
-    if (isCashExpenseCashOut && !expenseDepartment) {
+    if (isExpenseRelease && !expenseDepartment) {
       alert("Please select expense department / area.");
+      savingRef.current = false;
       return;
     }
 
-    if (isCashExpenseCashOut && !expenseDescription.trim()) {
+    if (isExpenseRelease && !expenseDescription.trim()) {
       alert("Please enter expense description.");
+      savingRef.current = false;
       return;
     }
 
     const autoFrom =
       paymentType === "Cash" && !fromPerson.trim()
         ? activeDrawer?.holder_name || ""
+        : isExpenseRelease && !fromPerson.trim()
+        ? paymentType
         : fromPerson.trim();
 
     const autoTo = isCashAdvanceCashOut
       ? cashAdvanceEmployeeName
-      : isCashExpenseCashOut
+      : isExpenseRelease
       ? expenseReleasedTo.trim()
       : paymentType === "Cash" && !toPerson.trim()
       ? activeDrawer?.holder_name || ""
       : toPerson.trim();
 
-    const autoEncoded = activeDrawer?.holder_name || encodedBy.trim() || "System";
+    const autoEncoded = activeDrawer?.holder_name || currentDrawerHolderName || encodedBy.trim() || "System";
 
     if (
       paymentType === "Cash" &&
@@ -1577,11 +1732,13 @@ export default function CashManagementPage() {
       !autoTo
     ) {
       alert("Please open a drawer or enter who received/holds the cash.");
+      savingRef.current = false;
       return;
     }
 
     if (paymentType === "Cash" && movementType === "Cash Out" && !autoFrom) {
       alert("Please open a drawer or enter who released the cash.");
+      savingRef.current = false;
       return;
     }
 
@@ -1591,6 +1748,7 @@ export default function CashManagementPage() {
       (!autoFrom || !toPerson.trim())
     ) {
       alert("Please enter remitted by and received by.");
+      savingRef.current = false;
       return;
     }
 
@@ -1600,7 +1758,7 @@ export default function CashManagementPage() {
       ? `Cash Advance - ${cashAdvanceEmployeeName}${
           cashAdvancePurpose.trim() ? ` - ${cashAdvancePurpose.trim()}` : ""
         }${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
-      : isCashExpenseCashOut
+      : isExpenseRelease
       ? `${expenseDescription.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
       : remarks.trim();
 
@@ -1642,13 +1800,35 @@ export default function CashManagementPage() {
           : null,
       };
 
+      const approvalTitle = `${source} - ${formatMoney(amountValue)}`;
+
+      try {
+        const duplicateApprovalExists = await hasDuplicateCashApprovalRequest({
+          requestType,
+          title: approvalTitle,
+          requestedBy: autoEncoded,
+        });
+
+        if (duplicateApprovalExists) {
+          setIsSaving(false);
+          savingRef.current = false;
+          alert("Possible duplicate approval request detected. This request was not submitted again.");
+          return;
+        }
+      } catch {
+        setIsSaving(false);
+        savingRef.current = false;
+        alert("Duplicate safety check failed. Request was not submitted.");
+        return;
+      }
+
       const { error: approvalError } = await supabase
         .from("approval_requests")
         .insert({
           request_type: requestType,
           module: "Cash Management",
           reference_id: activeDrawer?.id || null,
-          title: `${source} - ${formatMoney(amountValue)}`,
+          title: approvalTitle,
           description: `${movementType} request by ${autoEncoded}. From: ${autoFrom || "-"}. To: ${autoTo || "-"}. ${movementRemarks || ""}`,
           requested_by: autoEncoded,
           status: "PENDING",
@@ -1656,11 +1836,13 @@ export default function CashManagementPage() {
         });
 
       setIsSaving(false);
+      savingRef.current = false;
 
       if (approvalError) {
         console.log("CREATE CASH DRAWER APPROVAL ERROR:", approvalError.message);
         alert("Failed to send cash movement to Approval Center. Check approval_requests.request_payload column.");
-        return;
+        savingRef.current = false;
+      return;
       }
 
       await createAuditLog({
@@ -1677,6 +1859,32 @@ export default function CashManagementPage() {
       await getCashMovements();
       await getDrawers();
       alert("Cash movement sent to Manager Approval Center. No drawer deduction was made yet.");
+      savingRef.current = false;
+      return;
+    }
+
+    try {
+      const duplicateMovementExists = await hasDuplicateCashMovement({
+        businessDate,
+        movementType,
+        source,
+        paymentType,
+        amountValue,
+        autoFrom,
+        autoTo,
+        movementRemarks,
+      });
+
+      if (duplicateMovementExists) {
+        setIsSaving(false);
+        savingRef.current = false;
+        alert("Possible duplicate cash movement detected. This transaction was not saved again.");
+        return;
+      }
+    } catch {
+      setIsSaving(false);
+      savingRef.current = false;
+      alert("Duplicate safety check failed. Transaction was not saved.");
       return;
     }
 
@@ -1701,6 +1909,7 @@ export default function CashManagementPage() {
 
     if (movementError) {
       setIsSaving(false);
+      savingRef.current = false;
       console.log("SAVE CASH MOVEMENT ERROR:", movementError.message);
 
       await createAuditLog({
@@ -1724,6 +1933,7 @@ export default function CashManagementPage() {
       });
 
       alert("Failed to save cash movement.");
+      savingRef.current = false;
       return;
     }
 
@@ -1773,6 +1983,7 @@ export default function CashManagementPage() {
 
       if (expenseError) {
         setIsSaving(false);
+      savingRef.current = false;
         console.log("AUTO CREATE EXPENSE ERROR:", expenseError.message);
 
         await createAuditLog({
@@ -1790,7 +2001,8 @@ export default function CashManagementPage() {
 
         alert("Cash movement was saved, but expense entry failed. Check expenses table columns.");
         await getCashMovements();
-        return;
+        savingRef.current = false;
+      return;
       }
 
       createdExpenseData = expenseData;
@@ -1876,16 +2088,16 @@ export default function CashManagementPage() {
       module: "Cash Management",
       action: isCashAdvanceCashOut
         ? "Cash Advance Released"
-        : isCashExpenseCashOut
-        ? "Cash Expense Released"
+        : isExpenseRelease
+        ? "Expense Released"
         : "Cash Movement Created",
       description: isCashAdvanceCashOut
         ? `${cashAdvanceEmployeeName} cash advance released from drawer - ${formatMoney(amountValue)}`
-        : isCashExpenseCashOut
-        ? `Cash expense released: ${expenseDescription.trim()} - ${formatMoney(amountValue)}`
+        : isExpenseRelease
+        ? `Expense released via ${paymentType}: ${expenseDescription.trim()} - ${formatMoney(amountValue)}`
         : `${movementType} ${source} recorded - ${formatMoney(amountValue)}`,
       severity:
-        isCashAdvanceCashOut || isCashExpenseCashOut || movementType === "Cash Out" || movementType === "Adjustment"
+        isCashAdvanceCashOut || isExpenseRelease || movementType === "Cash Out" || movementType === "Adjustment"
           ? "warning"
           : "info",
       recordId: movementData.id,
@@ -1908,21 +2120,25 @@ export default function CashManagementPage() {
     });
 
     setIsSaving(false);
+      savingRef.current = false;
     resetForm();
     await getCashMovements();
     await getDrawers();
 
     if (isCashAdvanceCashOut) {
       alert(`Cash advance saved via ${paymentType} to Cash Movements, Expenses, and Payroll Balances.`);
+      savingRef.current = false;
       return;
     }
 
-    if (isCashExpenseCashOut) {
+    if (isExpenseRelease) {
       alert("Cash expense saved to Cash Drawer and Expenses.");
+      savingRef.current = false;
       return;
     }
 
     alert("Cash movement saved.");
+    savingRef.current = false;
   };
 
   /// FUNCTIONS - DELETE MOVEMENT
@@ -2155,6 +2371,19 @@ Continue?`
 
   /// EFFECTS
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    setCurrentEmployeeId(localStorage.getItem("opscore_current_employee_id") || "");
+    setCurrentEmployeeName(localStorage.getItem("opscore_current_employee_name") || "");
+    setCurrentRoleName(
+      localStorage.getItem("opscore_current_role_name") ||
+        localStorage.getItem("opscore_current_role") ||
+        localStorage.getItem("opscore_current_role_label") ||
+        ""
+    );
+  }, []);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem("opscore_authorized_drawer_holders");
       const parsed = stored ? JSON.parse(stored) : [];
@@ -2182,6 +2411,29 @@ Continue?`
       setDrawerHolder("");
     }
   }, [authorizedDrawerHolders, drawerHolder]);
+
+  useEffect(() => {
+    if (!showOpenDrawer) return;
+    if (canManageDrawerForOthers) return;
+    if (!currentDrawerHolderName) return;
+    if (!authorizedDrawerHolders.includes(currentDrawerHolderName)) return;
+
+    setDrawerHolder(currentDrawerHolderName);
+  }, [
+    showOpenDrawer,
+    canManageDrawerForOthers,
+    currentDrawerHolderName,
+    authorizedDrawerHolders,
+  ]);
+
+  useEffect(() => {
+    if (canManageDrawerForOthers) return;
+    if (!drawerHolder || !currentDrawerHolderName) return;
+
+    if (drawerHolder !== currentDrawerHolderName) {
+      setDrawerHolder(currentDrawerHolderName);
+    }
+  }, [canManageDrawerForOthers, drawerHolder, currentDrawerHolderName]);
 
   useEffect(() => {
     const currentDate = getToday();
@@ -2217,12 +2469,14 @@ Continue?`
           </div>
 
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowDrawerHolderSettings(true)}
-              className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold hover:border-sky-400 hover:text-sky-300"
-            >
-              Drawer Holder Settings
-            </button>
+            {canManageDrawerForOthers && (
+              <button
+                onClick={() => setShowDrawerHolderSettings(true)}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold hover:border-sky-400 hover:text-sky-300"
+              >
+                Drawer Holder Settings
+              </button>
+            )}
 
             {activeDrawer && (
               <button
@@ -2486,7 +2740,7 @@ Continue?`
               <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={3} placeholder="Remarks / reference / purpose" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
               <button onClick={saveMovement} disabled={isSaving} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
-                {isSaving ? "Saving..." : isCashAdvanceCashOut ? "Save Cash Advance" : isCashExpenseCashOut ? "Save Cash Expense" : "Save Cash Movement"}
+                {isSaving ? "Saving..." : isCashAdvanceCashOut ? "Save Cash Advance" : isExpenseRelease ? "Save Expense Release" : "Save Cash Movement"}
               </button>
             </div>
           </section>
@@ -2796,7 +3050,7 @@ Continue?`
               <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
                 <p className="text-sm font-bold text-sky-300">Authorized Cash Drawer Holders</p>
                 <p className="mt-1 text-xs leading-5 text-slate-300">
-                  Only selected names will appear when opening a drawer. This keeps cash handling controlled while still allowing any approved employee from any department.
+                  Only selected names will appear when opening a drawer. Admin/Finance may open drawers for others; normal cashiers can only open their own drawer. Current settings are browser-local until the finance_drawer_holders table is added.
                 </p>
               </div>
 
@@ -2871,9 +3125,20 @@ Continue?`
 
         {showOpenDrawer && (
           <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
-            <select value={drawerHolder} onChange={(e) => setDrawerHolder(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
+              {canManageDrawerForOthers
+                ? "Admin/Finance/Manager override is enabled. You may open a drawer for an authorized holder."
+                : "Cash drawer is locked to your own logged-in employee account."}
+            </div>
+
+            <select
+              value={drawerHolder}
+              onChange={(e) => setDrawerHolder(e.target.value)}
+              disabled={!canManageDrawerForOthers}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
               <option value="">Select authorized drawer holder</option>
-              {drawerHolderOptions.map((employee) => (
+              {allowedOpenDrawerHolderOptions.map((employee) => (
                 <option key={employee.id} value={getEmployeeFullName(employee)}>
                   {getEmployeeFullName(employee)}
                   {employee.department ? ` - ${employee.department}` : ""}
@@ -2883,7 +3148,13 @@ Continue?`
 
             {drawerHolderOptions.length === 0 && (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
-                No authorized drawer holders yet. Open Drawer Holder Settings and choose who is allowed to handle cash drawers.
+                No authorized drawer holders yet. Admin/Finance must open Drawer Holder Settings and choose who is allowed to handle cash drawers.
+              </div>
+            )}
+
+            {!canManageDrawerForOthers && currentDrawerHolderName && !authorizedDrawerHolders.includes(currentDrawerHolderName) && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
+                Your account is not authorized as a drawer holder. Ask Admin/Finance to authorize {currentDrawerHolderName}.
               </div>
             )}
 
@@ -2891,7 +3162,16 @@ Continue?`
 
             <textarea value={drawerRemarks} onChange={(e) => setDrawerRemarks(e.target.value)} rows={3} placeholder="Opening remarks" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
 
-            <button onClick={openDrawer} disabled={isSaving || drawerHolderOptions.length === 0} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+            <button
+              onClick={openDrawer}
+              disabled={
+                isSaving ||
+                allowedOpenDrawerHolderOptions.length === 0 ||
+                !drawerHolder ||
+                (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName)
+              }
+              className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
               {isSaving ? "Opening..." : "Open Drawer"}
             </button>
           </Modal>
