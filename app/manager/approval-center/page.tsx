@@ -209,6 +209,234 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
+  const calculateLeaveDays = (startDate: any, endDate: any, fallbackDays?: any) => {
+    const fallback = Number(fallbackDays || 0);
+    const start = String(startDate || "").slice(0, 10);
+    const end = String(endDate || startDate || "").slice(0, 10);
+
+    if (!start || !end) return fallback > 0 ? fallback : 1;
+
+    const startTime = new Date(`${start}T00:00:00`).getTime();
+    const endTime = new Date(`${end}T00:00:00`).getTime();
+
+    if (Number.isNaN(startTime) || Number.isNaN(endTime)) {
+      return fallback > 0 ? fallback : 1;
+    }
+
+    const days = Math.floor((endTime - startTime) / 86_400_000) + 1;
+    return Math.max(days, fallback > 0 ? fallback : 1);
+  };
+
+  const getLeaveCreditEmployeeNo = async (leaveData: any, payload: any) => {
+    const directEmployeeNo = String(
+      leaveData?.employee_no ||
+        payload?.employee_no ||
+        payload?.employee_number ||
+        ""
+    ).trim();
+
+    if (directEmployeeNo) return directEmployeeNo;
+
+    const employeeId = String(leaveData?.employee_id || payload?.employee_id || "").trim();
+
+    if (!employeeId) return "";
+
+    const { data, error } = await supabase
+      .from("employees")
+      .select("employee_no")
+      .eq("id", employeeId)
+      .maybeSingle();
+
+    if (error) {
+      console.log("LEAVE CREDIT EMPLOYEE LOOKUP ERROR:", error.message);
+      throw new Error(error.message);
+    }
+
+    return String(data?.employee_no || "").trim();
+  };
+
+  const getLeaveSettingForType = async (leaveType: string) => {
+    const { data, error } = await supabase
+      .from("leave_settings")
+      .select("*")
+      .eq("leave_type", leaveType)
+      .maybeSingle();
+
+    if (error) {
+      console.log("GET LEAVE SETTING FOR CREDIT ERROR:", error.message);
+      throw new Error(error.message);
+    }
+
+    return data || null;
+  };
+
+  const adjustLeaveCreditsForApproval = async (request: any, leaveData: any) => {
+    const payload = getPayload(request) || {};
+    const leaveType = String(leaveData?.leave_type || payload?.leave_type || "").trim();
+
+    if (!leaveType) return true;
+
+    const leaveSetting = await getLeaveSettingForType(leaveType);
+
+    if (!leaveSetting?.requires_credits) return true;
+
+    const employeeNo = await getLeaveCreditEmployeeNo(leaveData, payload);
+
+    if (!employeeNo) {
+      alert("Leave credit deduction failed. Employee number was not found.");
+      return false;
+    }
+
+    const leaveDays = calculateLeaveDays(
+      leaveData?.start_date || payload?.start_date,
+      leaveData?.end_date || payload?.end_date,
+      payload?.days || payload?.total_days,
+    );
+
+    const { data: creditRecord, error: creditError } = await supabase
+      .from("employee_leave_credits")
+      .select("*")
+      .eq("employee_no", employeeNo)
+      .eq("leave_type", leaveType)
+      .maybeSingle();
+
+    if (creditError) {
+      console.log("GET LEAVE CREDIT RECORD ERROR:", creditError.message);
+      alert(`Leave credit deduction failed. ${creditError.message}`);
+      return false;
+    }
+
+    if (!creditRecord) {
+      alert(`Cannot approve leave. No ${leaveType} credit record found for employee no. ${employeeNo}.`);
+      return false;
+    }
+
+    const currentUsed = Number(creditRecord.used_credits || 0);
+    const currentRemaining = Number(creditRecord.remaining_credits ?? creditRecord.credits ?? 0);
+
+    if (currentRemaining < leaveDays) {
+      alert(
+        `Cannot approve leave. Insufficient ${leaveType} credits. Needed: ${leaveDays}. Remaining: ${currentRemaining}.`
+      );
+      return false;
+    }
+
+    const newUsed = currentUsed + leaveDays;
+    const newRemaining = Math.max(currentRemaining - leaveDays, 0);
+
+    const { error: updateError } = await supabase
+      .from("employee_leave_credits")
+      .update({
+        used_credits: newUsed,
+        remaining_credits: newRemaining,
+      })
+      .eq("id", creditRecord.id);
+
+    if (updateError) {
+      console.log("DEDUCT LEAVE CREDIT ERROR:", updateError.message);
+      alert(`Leave approval failed before credit deduction. ${updateError.message}`);
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Deduct Leave Credits",
+      description: `${leaveDays} ${leaveType} credit(s) deducted for ${leaveData?.employee_name || payload?.employee_name || employeeNo}. Remaining: ${newRemaining}`,
+      severity: "warning",
+      recordId: String(creditRecord.id),
+      oldValue: creditRecord,
+      newValue: {
+        leaveRequestId: request.reference_id,
+        approvalRequestId: request.id,
+        employeeNo,
+        leaveType,
+        deductedDays: leaveDays,
+        used_credits: newUsed,
+        remaining_credits: newRemaining,
+      },
+    });
+
+    return true;
+  };
+
+  const restoreLeaveCreditsForCancellation = async (request: any, leaveData: any) => {
+    const payload = getPayload(request) || {};
+    const leaveType = String(leaveData?.leave_type || payload?.leave_type || "").trim();
+
+    if (!leaveType) return true;
+
+    const leaveSetting = await getLeaveSettingForType(leaveType);
+
+    if (!leaveSetting?.requires_credits) return true;
+
+    const employeeNo = await getLeaveCreditEmployeeNo(leaveData, payload);
+
+    if (!employeeNo) return true;
+
+    const leaveDays = calculateLeaveDays(
+      leaveData?.start_date || payload?.start_date,
+      leaveData?.end_date || payload?.end_date,
+      payload?.days || payload?.total_days,
+    );
+
+    const { data: creditRecord, error: creditError } = await supabase
+      .from("employee_leave_credits")
+      .select("*")
+      .eq("employee_no", employeeNo)
+      .eq("leave_type", leaveType)
+      .maybeSingle();
+
+    if (creditError) {
+      console.log("GET LEAVE CREDIT RESTORE ERROR:", creditError.message);
+      alert(`Leave cancellation credit restore failed. ${creditError.message}`);
+      return false;
+    }
+
+    if (!creditRecord) return true;
+
+    const currentUsed = Number(creditRecord.used_credits || 0);
+    const currentRemaining = Number(creditRecord.remaining_credits || 0);
+    const totalCredits = Number(creditRecord.credits || 0);
+    const newUsed = Math.max(currentUsed - leaveDays, 0);
+    const newRemaining = Math.min(currentRemaining + leaveDays, totalCredits);
+
+    const { error: updateError } = await supabase
+      .from("employee_leave_credits")
+      .update({
+        used_credits: newUsed,
+        remaining_credits: newRemaining,
+      })
+      .eq("id", creditRecord.id);
+
+    if (updateError) {
+      console.log("RESTORE LEAVE CREDIT ERROR:", updateError.message);
+      alert(`Leave cancellation failed before credit restore. ${updateError.message}`);
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Restore Leave Credits",
+      description: `${leaveDays} ${leaveType} credit(s) restored for ${leaveData?.employee_name || payload?.employee_name || employeeNo}. Remaining: ${newRemaining}`,
+      severity: "warning",
+      recordId: String(creditRecord.id),
+      oldValue: creditRecord,
+      newValue: {
+        leaveRequestId: request.reference_id,
+        approvalRequestId: request.id,
+        employeeNo,
+        leaveType,
+        restoredDays: leaveDays,
+        used_credits: newUsed,
+        remaining_credits: newRemaining,
+      },
+    });
+
+    return true;
+  };
+
 
   const formatDate = (value: any) => {
     if (!value) return "-";
@@ -238,32 +466,32 @@ export default function ApprovalCenterPage() {
 
   const getRequestTypeLabel = (type: string) => {
     const labels: any = {
-      EXPENSE_REQUEST: "💰 Expense Request",
-      CASH_DRAWER_OUT: "🏦 Cash Drawer Out",
-      CASH_EXPENSE_RELEASE: "🏦 Cash Expense Release",
-      CASH_ADVANCE_RELEASE: "👤 Cash Advance Release",
-      OWNER_WITHDRAWAL: "🏧 Owner Withdrawal",
-      BANK_DEPOSIT: "🏦 Bank Deposit",
-      REFUND_OUT: "↩️ Refund Out",
-      ADJUSTMENT_OUT: "⚖️ Adjustment Out",
-      PAYROLL_ADJUSTMENT: "🧾 Payroll Adjustment",
-      LEAVE_REQUEST: "🏖 Leave Request",
-      LEAVE_CANCELLATION: "↩️ Leave Cancellation",
+      EXPENSE_REQUEST: "Expense Request",
+      CASH_DRAWER_OUT: "Cash Drawer Out",
+      CASH_EXPENSE_RELEASE: "Cash Expense Release",
+      CASH_ADVANCE_RELEASE: "Cash Advance Release",
+      OWNER_WITHDRAWAL: "Owner Withdrawal",
+      BANK_DEPOSIT: "Bank Deposit",
+      REFUND_OUT: "Refund",
+      ADJUSTMENT_OUT: "Adjustment",
+      PAYROLL_ADJUSTMENT: "Payroll Adjustment",
+      LEAVE_REQUEST: "Leave Request",
+      LEAVE_CANCELLATION: "Leave Cancellation",
     };
 
     return labels[type] || type;
   };
 
   const getRequestTypeBadgeStyle = (type: string) => {
-    if (type === "EXPENSE_REQUEST") return "bg-blue-100 text-blue-700";
-    if (type === "PAYROLL_ADJUSTMENT") return "bg-indigo-100 text-indigo-700";
-    if (type === "LEAVE_REQUEST") return "bg-emerald-100 text-emerald-700";
-    if (type === "LEAVE_CANCELLATION") return "bg-orange-100 text-orange-700";
-    if (type === "CASH_ADVANCE_RELEASE") return "bg-purple-100 text-purple-700";
-    if (type === "OWNER_WITHDRAWAL") return "bg-red-100 text-red-700";
-    if (CASH_DRAWER_REQUEST_TYPES.includes(type)) return "bg-amber-100 text-amber-700";
+    if (type === "EXPENSE_REQUEST") return "border-blue-500/20 bg-blue-500/10 text-blue-300";
+    if (type === "PAYROLL_ADJUSTMENT") return "border-blue-500/20 bg-blue-500/10 text-blue-300";
+    if (type === "LEAVE_REQUEST") return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+    if (type === "LEAVE_CANCELLATION") return "border-slate-700 bg-slate-800 text-slate-300";
+    if (type === "CASH_ADVANCE_RELEASE") return "border-blue-500/20 bg-blue-500/10 text-blue-300";
+    if (type === "OWNER_WITHDRAWAL") return "border-red-500/20 bg-red-500/10 text-red-300";
+    if (CASH_DRAWER_REQUEST_TYPES.includes(type)) return "border-slate-700 bg-slate-800 text-slate-300";
 
-    return "bg-slate-100 text-slate-700";
+    return "border-slate-700 bg-slate-800 text-slate-300";
   };
 
   const getWorkflowKeyForRequest = (request: any) => {
@@ -624,6 +852,29 @@ export default function ApprovalCenterPage() {
       return false;
     }
 
+    const { data: leaveData, error: leaveFetchError } = await supabase
+      .from("leave_requests")
+      .select("*")
+      .eq("id", request.reference_id)
+      .maybeSingle();
+
+    if (leaveFetchError) {
+      console.log("FETCH LEAVE FOR CREDIT DEDUCTION ERROR:", leaveFetchError.message);
+      alert(`Approval saved failed before leave credit check. ${leaveFetchError.message}`);
+      return false;
+    }
+
+    if (!leaveData) {
+      alert("Approval failed. Linked leave request was not found.");
+      return false;
+    }
+
+    const creditAdjusted = await adjustLeaveCreditsForApproval(request, leaveData);
+
+    if (!creditAdjusted) {
+      return false;
+    }
+
     const { error } = await supabase
       .from("leave_requests")
       .update({
@@ -713,6 +964,26 @@ export default function ApprovalCenterPage() {
       payload?.reason ||
       request.description ||
       "Leave cancellation approved by manager.";
+
+    const { data: leaveData, error: leaveFetchError } = await supabase
+      .from("leave_requests")
+      .select("*")
+      .eq("id", request.reference_id)
+      .maybeSingle();
+
+    if (leaveFetchError) {
+      console.log("FETCH LEAVE FOR CREDIT RESTORE ERROR:", leaveFetchError.message);
+      alert(`Leave cancellation failed before credit restore check. ${leaveFetchError.message}`);
+      return false;
+    }
+
+    if (leaveData && String(leaveData.status || "") === "Approved") {
+      const creditsRestored = await restoreLeaveCreditsForCancellation(request, leaveData);
+
+      if (!creditsRestored) {
+        return false;
+      }
+    }
 
     const { error } = await supabase
       .from("leave_requests")
@@ -1076,408 +1347,348 @@ export default function ApprovalCenterPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="flex-1 p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">
-            Manager Approval Center
-          </h1>
-          <p className="text-sm text-slate-500">
-            Centralized approval hub. Only requests assigned to your approval role are shown.
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            Current User: {currentEmployeeName || currentEmployeeId || "Not detected"}
-          </p>
-        </div>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-6 xl:p-8">
+        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+              Workflow Control
+            </p>
+            <h1 className="mt-2 text-4xl font-black text-white">
+              Approval Center
+            </h1>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
+              Centralized approval workspace for leave, payroll, cash drawer,
+              expense, and operational requests. Only requests assigned to your
+              approval role are shown.
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Current user: {currentEmployeeName || currentEmployeeId || "Not detected"}
+            </p>
+          </div>
+        </section>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4 mb-6">
-          <div className="rounded-xl bg-white p-5 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500">Pending Requests</p>
-              <Clock className="h-5 w-5 text-amber-500" />
+        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <ApprovalKpiCard
+            icon={<Clock className="h-5 w-5" />}
+            title="Needs Action"
+            value={pendingRequests.length}
+            description="Pending requests assigned to you"
+            danger={pendingRequests.length > 0}
+          />
+          <ApprovalKpiCard
+            icon={<CheckCircle className="h-5 w-5" />}
+            title="Completed"
+            value={approvedRequests.length}
+            description="Approved requests in your queue"
+            success
+          />
+          <ApprovalKpiCard
+            icon={<XCircle className="h-5 w-5" />}
+            title="Declined"
+            value={rejectedRequests.length}
+            description="Rejected approval requests"
+            danger={rejectedRequests.length > 0}
+          />
+          <ApprovalKpiCard
+            icon={<FileText className="h-5 w-5" />}
+            title="All Requests"
+            value={visibleRequests.length}
+            description="Total visible approval workload"
+          />
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                Status
+              </label>
+              <select
+                value={activeTab}
+                onChange={(event) => {
+                  setActiveTab(event.target.value);
+                  setCategoryFilter("ALL");
+                }}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
+              >
+                <option value="PENDING">Pending</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
             </div>
-            <h2 className="mt-3 text-2xl font-bold">{pendingRequests.length}</h2>
+
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                Category
+              </label>
+              <select
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
+              >
+                {categoryItems.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.label} ({item.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                Current View
+              </p>
+              <p className="mt-1">
+                Showing <span className="font-black text-white">{filteredRequests.length}</span>{" "}
+                {activeTab.toLowerCase()} request(s) under{" "}
+                <span className="font-black text-white">{getCategoryLabel(categoryFilter)}</span>.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-white">Approval Queue</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Review assigned requests. Detailed payload, workflow assignment,
+                and audit history are available inside the review drawer.
+              </p>
+            </div>
+            <ApprovalStatusBadge status={activeTab} />
           </div>
 
-          <div className="rounded-xl bg-white p-5 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500">Approved</p>
-              <CheckCircle className="h-5 w-5 text-green-500" />
-            </div>
-            <h2 className="mt-3 text-2xl font-bold">{approvedRequests.length}</h2>
-          </div>
-
-          <div className="rounded-xl bg-white p-5 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500">Rejected</p>
-              <XCircle className="h-5 w-5 text-red-500" />
-            </div>
-            <h2 className="mt-3 text-2xl font-bold">{rejectedRequests.length}</h2>
-          </div>
-
-          <div className="rounded-xl bg-white p-5 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500">Total Requests</p>
-              <FileText className="h-5 w-5 text-blue-500" />
-            </div>
-            <h2 className="mt-3 text-2xl font-bold">{visibleRequests.length}</h2>
-          </div>
-        </div>
-
-        <div className="mb-4 flex flex-wrap gap-2">
-          {["PENDING", "APPROVED", "REJECTED"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => {
-                setActiveTab(tab);
-                setCategoryFilter("ALL");
-              }}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                activeTab === tab
-                  ? "bg-slate-900 text-white"
-                  : "bg-white text-slate-600 border"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-4 flex flex-wrap gap-2">
-          {categoryItems.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setCategoryFilter(item.key)}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                categoryFilter === item.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-slate-600 border"
-              }`}
-            >
-              {item.label} ({item.count})
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-4 rounded-xl border bg-white px-4 py-3 text-sm text-slate-600">
-          Showing <span className="font-bold text-slate-900">{filteredRequests.length}</span> {activeTab.toLowerCase()} request(s) under <span className="font-bold text-slate-900">{getCategoryLabel(categoryFilter)}</span>.
-        </div>
-
-        <div className="rounded-xl bg-white shadow-sm border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <th className="p-3 text-left">Date</th>
-                <th className="p-3 text-left">Type</th>
-                <th className="p-3 text-left">Module</th>
-                <th className="p-3 text-left">Category</th>
-                <th className="p-3 text-left">Title</th>
-                <th className="p-3 text-left">Requested By</th>
-                <th className="p-3 text-left">Approver Role</th>
-                <th className="p-3 text-left">Status</th>
-                <th className="p-3 text-left">Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredRequests.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="p-6 text-center text-slate-500">
-                    No approval requests assigned to you.
-                  </td>
-                </tr>
-              ) : (
-                filteredRequests.map((request) => (
-                  <tr key={request.id} className="border-t">
-                    <td className="p-3">
-                      {request.created_at
-                        ? new Date(request.created_at).toLocaleDateString()
-                        : "-"}
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${getRequestTypeBadgeStyle(
-                          request.request_type
-                        )}`}
-                      >
-                        {getRequestTypeLabel(request.request_type)}
-                      </span>
-                    </td>
-                    <td className="p-3">{request.module}</td>
-                    <td className="p-3">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                        {getCategoryLabel(getRequestCategory(request.request_type))}
-                      </span>
-                    </td>
-                    <td className="p-3 font-medium text-slate-800">
-                      {request.title}
-                    </td>
-                    <td className="p-3">{request.requested_by || "-"}</td>
-                    <td className="p-3">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                        {getApproverRoleForRequest(request)}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          request.status === "APPROVED"
-                            ? "bg-green-100 text-green-700"
-                            : request.status === "REJECTED"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-amber-100 text-amber-700"
-                        }`}
-                      >
-                        {request.status}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <button
-                        onClick={() => setSelectedRequest(request)}
-                        className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
-                      >
-                        Review
-                      </button>
-                    </td>
+          <div className="overflow-hidden rounded-xl border border-slate-800">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-sm">
+                <thead className="bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Request</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3">Requested By</th>
+                    <th className="px-4 py-3">Submitted</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+
+                <tbody>
+                  {filteredRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-14 text-center text-slate-500">
+                        No approval requests assigned to you.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRequests.map((request) => (
+                      <tr key={request.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                        <td className="px-4 py-4">
+                          <div className="space-y-2">
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getRequestTypeBadgeStyle(
+                                request.request_type
+                              )}`}
+                            >
+                              {getRequestTypeLabel(request.request_type)}
+                            </span>
+                            <div>
+                              <p className="font-black text-white">{request.title || "Untitled Request"}</p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {request.module || "No module"} • {getApproverRoleForRequest(request)}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300">
+                            {getCategoryLabel(getRequestCategory(request.request_type))}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-slate-300">
+                          {request.requested_by || "-"}
+                        </td>
+                        <td className="px-4 py-4 text-slate-400">
+                          {formatDateTime(request.created_at)}
+                        </td>
+                        <td className="px-4 py-4">
+                          <ApprovalStatusBadge status={request.status} />
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <button
+                            onClick={() => setSelectedRequest(request)}
+                            className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                          >
+                            Review
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
         {selectedRequest && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
-            <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-xl">
-              <div className="mb-6 flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">
-                    Review Request
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    {getRequestTypeLabel(selectedRequest.request_type)}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setSelectedRequest(null)}
-                  className="text-slate-500 hover:text-slate-800"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4 text-sm">
-                <div>
-                  <p className="text-slate-500">Title</p>
-                  <p className="font-semibold text-slate-800">
-                    {selectedRequest.title}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-slate-500">Module</p>
-                  <p>{selectedRequest.module}</p>
-                </div>
-
-                <div>
-                  <p className="text-slate-500">Requested By</p>
-                  <p>{selectedRequest.requested_by || "-"}</p>
-                </div>
-
-                <div>
-                  <p className="text-slate-500">Description</p>
-                  <p>{selectedRequest.description || "No description provided."}</p>
-                </div>
-
-                <div>
-                  <p className="text-slate-500">Reference ID</p>
-                  <p>{selectedRequest.reference_id || "-"}</p>
-                </div>
-
-                <div>
-                  <p className="text-slate-500">Requested At</p>
-                  <p>{formatDateTime(selectedRequest.created_at)}</p>
-                </div>
-
-                <div className="rounded-lg bg-blue-50 p-3">
-                  <p className="mb-2 font-semibold text-blue-800">
-                    Approval Assignment
-                  </p>
-                  <div className="space-y-1 text-xs text-blue-700">
-                    <p>Required Role: {getApproverRoleForRequest(selectedRequest)}</p>
-                    <p>Assigned Approvers: {getAssignedApproverLabel(selectedRequest)}</p>
-                    <p>
-                      Current User: {currentEmployeeName || currentEmployeeId || "Not detected"}
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
+            <aside className="flex h-full w-full max-w-2xl flex-col border-l border-slate-800 bg-slate-950 text-white shadow-2xl">
+              <div className="border-b border-slate-800 p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+                      Review Request
                     </p>
-                    <p>
-                      Access:{" "}
-                      {canCurrentUserApproveRequest(selectedRequest)
-                        ? "Allowed to approve/reject"
-                        : "View only - not assigned approver"}
-                    </p>
-                  </div>
-                </div>
-
-                {getPayload(selectedRequest) && (
-                  <div className="rounded-lg bg-slate-100 p-3">
-                    <p className="mb-2 font-semibold text-slate-700">
-                      Request Details
-                    </p>
-
-                    <div className="grid grid-cols-1 gap-2 text-xs text-slate-600">
-                      <p>
-                        <span className="font-semibold">Amount:</span>{" "}
-                        {formatMoney(getPayload(selectedRequest)?.amount)}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Business Date:</span>{" "}
-                        {getPayload(selectedRequest)?.business_date || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Movement:</span>{" "}
-                        {getPayload(selectedRequest)?.movement_type || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Source:</span>{" "}
-                        {getPayload(selectedRequest)?.source || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Payment:</span>{" "}
-                        {getPayload(selectedRequest)?.payment_type || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">From:</span>{" "}
-                        {getPayload(selectedRequest)?.from_person || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">To:</span>{" "}
-                        {getPayload(selectedRequest)?.to_person || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Encoded By:</span>{" "}
-                        {getPayload(selectedRequest)?.encoded_by || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Expense Category:</span>{" "}
-                        {getPayload(selectedRequest)?.expense_category || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Expense Area:</span>{" "}
-                        {getPayload(selectedRequest)?.expense_department || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Expense Description:</span>{" "}
-                        {getPayload(selectedRequest)?.expense_description || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Cash Advance Employee:</span>{" "}
-                        {getPayload(selectedRequest)?.cash_advance_employee_name || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Payroll Period:</span>{" "}
-                        {getPayload(selectedRequest)?.payroll_period_label || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Leave Employee:</span>{" "}
-                        {getPayload(selectedRequest)?.employee_name || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Leave Type:</span>{" "}
-                        {getPayload(selectedRequest)?.leave_type || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Leave Dates:</span>{" "}
-                        {getPayload(selectedRequest)?.start_date || "-"} to {getPayload(selectedRequest)?.end_date || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Total Days:</span>{" "}
-                        {getPayload(selectedRequest)?.days || getPayload(selectedRequest)?.total_days || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Remarks:</span>{" "}
-                        {getPayload(selectedRequest)?.remarks || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Cancellation Reason:</span>{" "}
-                        {getPayload(selectedRequest)?.cancellation_reason || "-"}
-                      </p>
+                    <h2 className="mt-2 text-3xl font-black text-white">
+                      {selectedRequest.title || "Untitled Request"}
+                    </h2>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-bold ${getRequestTypeBadgeStyle(
+                          selectedRequest.request_type
+                        )}`}
+                      >
+                        {getRequestTypeLabel(selectedRequest.request_type)}
+                      </span>
+                      <ApprovalStatusBadge status={selectedRequest.status} />
                     </div>
                   </div>
-                )}
-
-                <div className="rounded-lg bg-slate-100 p-3">
-                  <p className="mb-2 font-semibold text-slate-700">
-                    Approval History
-                  </p>
-
-                  <div className="space-y-1 text-xs text-slate-600">
-                    <p>Approved By: {selectedRequest.approved_by || "-"}</p>
-                    <p>Approved At: {formatDateTime(selectedRequest.approved_at)}</p>
-                    <p>Rejected By: {selectedRequest.rejected_by || "-"}</p>
-                    <p>Rejected At: {formatDateTime(selectedRequest.rejected_at)}</p>
-                    <p>
-                      Rejection Reason:{" "}
-                      {selectedRequest.rejection_reason || "-"}
-                    </p>
-                  </div>
+                  <button
+                    onClick={() => setSelectedRequest(null)}
+                    className="rounded-xl bg-slate-900 p-3 text-slate-400 hover:text-white"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
 
-              {selectedRequest.status === "PENDING" ? (
-                canCurrentUserApproveRequest(selectedRequest) ? (
-                  <div className="mt-8 flex gap-3">
-                    <button
-                      disabled={isProcessing}
-                      onClick={() => approveRequest(selectedRequest)}
-                      className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isProcessing ? "Processing..." : "Approve"}
-                    </button>
+              <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <ApprovalDetailCard label="Requested By" value={selectedRequest.requested_by || "-"} />
+                  <ApprovalDetailCard label="Category" value={getCategoryLabel(getRequestCategory(selectedRequest.request_type))} />
+                  <ApprovalDetailCard label="Module" value={selectedRequest.module || "-"} />
+                  <ApprovalDetailCard label="Submitted" value={formatDateTime(selectedRequest.created_at)} />
+                </section>
 
-                    <button
-                      disabled={isProcessing}
-                      onClick={() => {
-                        setRejectReason("");
-                        setShowRejectModal(true);
-                      }}
-                      className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isProcessing ? "Processing..." : "Reject"}
-                    </button>
+                <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                  <h3 className="text-lg font-black text-white">Request Details</h3>
+                  <p className="mt-3 rounded-xl bg-slate-950 p-4 text-sm leading-6 text-slate-300">
+                    {selectedRequest.description || "No description provided."}
+                  </p>
+
+                  {getPayload(selectedRequest) && (
+                    <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                      <ApprovalInfoRow label="Amount" value={formatMoney(getPayload(selectedRequest)?.amount)} />
+                      <ApprovalInfoRow label="Business Date" value={getPayload(selectedRequest)?.business_date || "-"} />
+                      <ApprovalInfoRow label="Movement" value={getPayload(selectedRequest)?.movement_type || "-"} />
+                      <ApprovalInfoRow label="Source" value={getPayload(selectedRequest)?.source || "-"} />
+                      <ApprovalInfoRow label="Payment" value={getPayload(selectedRequest)?.payment_type || "-"} />
+                      <ApprovalInfoRow label="From" value={getPayload(selectedRequest)?.from_person || "-"} />
+                      <ApprovalInfoRow label="To" value={getPayload(selectedRequest)?.to_person || "-"} />
+                      <ApprovalInfoRow label="Encoded By" value={getPayload(selectedRequest)?.encoded_by || "-"} />
+                      <ApprovalInfoRow label="Expense Category" value={getPayload(selectedRequest)?.expense_category || "-"} />
+                      <ApprovalInfoRow label="Expense Area" value={getPayload(selectedRequest)?.expense_department || "-"} />
+                      <ApprovalInfoRow label="Cash Advance Employee" value={getPayload(selectedRequest)?.cash_advance_employee_name || "-"} />
+                      <ApprovalInfoRow label="Payroll Period" value={getPayload(selectedRequest)?.payroll_period_label || "-"} />
+                      <ApprovalInfoRow label="Leave Employee" value={getPayload(selectedRequest)?.employee_name || "-"} />
+                      <ApprovalInfoRow label="Leave Type" value={getPayload(selectedRequest)?.leave_type || "-"} />
+                      <ApprovalInfoRow
+                        label="Leave Dates"
+                        value={`${getPayload(selectedRequest)?.start_date || "-"} to ${getPayload(selectedRequest)?.end_date || "-"}`}
+                      />
+                      <ApprovalInfoRow label="Total Days" value={getPayload(selectedRequest)?.days || getPayload(selectedRequest)?.total_days || "-"} />
+                      <ApprovalInfoRow label="Remarks" value={getPayload(selectedRequest)?.remarks || "-"} wide />
+                      <ApprovalInfoRow label="Cancellation Reason" value={getPayload(selectedRequest)?.cancellation_reason || "-"} wide />
+                    </div>
+                  )}
+                </section>
+
+                <section className="mb-5 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+                  <h3 className="text-lg font-black text-blue-200">Approval Assignment</h3>
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                    <ApprovalInfoRow label="Required Role" value={getApproverRoleForRequest(selectedRequest)} />
+                    <ApprovalInfoRow label="Assigned Approvers" value={getAssignedApproverLabel(selectedRequest)} />
+                    <ApprovalInfoRow label="Current User" value={currentEmployeeName || currentEmployeeId || "Not detected"} />
+                    <ApprovalInfoRow
+                      label="Access"
+                      value={
+                        canCurrentUserApproveRequest(selectedRequest)
+                          ? "Allowed to approve/reject"
+                          : "View only - not assigned approver"
+                      }
+                    />
                   </div>
+                </section>
+
+                <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                  <h3 className="text-lg font-black text-white">Audit Trail</h3>
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                    <ApprovalInfoRow label="Reference ID" value={selectedRequest.reference_id || "-"} />
+                    <ApprovalInfoRow label="Approved By" value={selectedRequest.approved_by || "-"} />
+                    <ApprovalInfoRow label="Approved At" value={formatDateTime(selectedRequest.approved_at)} />
+                    <ApprovalInfoRow label="Rejected By" value={selectedRequest.rejected_by || "-"} />
+                    <ApprovalInfoRow label="Rejected At" value={formatDateTime(selectedRequest.rejected_at)} />
+                    <ApprovalInfoRow label="Rejection Reason" value={selectedRequest.rejection_reason || "-"} wide />
+                  </div>
+                </section>
+
+                {selectedRequest.status === "PENDING" ? (
+                  canCurrentUserApproveRequest(selectedRequest) ? (
+                    <div className="sticky bottom-0 -mx-6 border-t border-slate-800 bg-slate-950/95 p-6 backdrop-blur">
+                      <div className="flex gap-3">
+                        <button
+                          disabled={isProcessing}
+                          onClick={() => approveRequest(selectedRequest)}
+                          className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-black text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isProcessing ? "Processing..." : "Approve Request"}
+                        </button>
+
+                        <button
+                          disabled={isProcessing}
+                          onClick={() => {
+                            setRejectReason("");
+                            setShowRejectModal(true);
+                          }}
+                          className="flex-1 rounded-xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isProcessing ? "Processing..." : "Reject"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+                      You can view this request, but only an assigned approver can approve or reject it.
+                    </div>
+                  )
                 ) : (
-                  <div className="mt-8 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
-                    You can view this request, but only an assigned approver can approve or reject it.
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+                    This request is already {selectedRequest.status}.
                   </div>
-                )
-              ) : (
-                <div className="mt-8 rounded-lg bg-slate-100 p-3 text-sm text-slate-600">
-                  This request is already {selectedRequest.status}.
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </aside>
           </div>
         )}
 
         {showRejectModal && selectedRequest && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
               <div className="mb-4">
-                <h3 className="text-lg font-bold text-slate-800">
-                  Reject Request
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Please enter the reason for rejecting this request.
+                <h3 className="text-lg font-black text-white">Reject Request</h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  Enter the reason for rejecting this request. This reason will be saved in the approval audit trail.
                 </p>
               </div>
 
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full resize-none rounded-lg border border-slate-300 p-3 text-sm text-slate-800 outline-none focus:border-red-500"
+                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200 outline-none focus:border-red-500"
                 rows={4}
                 placeholder="Example: Insufficient documentation, duplicate request, or budget exceeded..."
               />
@@ -1489,7 +1700,7 @@ export default function ApprovalCenterPage() {
                     setShowRejectModal(false);
                     setRejectReason("");
                   }}
-                  className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 rounded-xl border border-slate-700 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -1497,7 +1708,7 @@ export default function ApprovalCenterPage() {
                 <button
                   disabled={isProcessing}
                   onClick={() => rejectRequest(selectedRequest, rejectReason)}
-                  className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 rounded-xl bg-red-600 py-2 text-sm font-black text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isProcessing ? "Rejecting..." : "Confirm Reject"}
                 </button>
@@ -1506,6 +1717,74 @@ export default function ApprovalCenterPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function ApprovalKpiCard({
+  icon,
+  title,
+  value,
+  description,
+  success,
+  danger,
+}: any) {
+  const cardStyle = danger
+    ? "border-red-500/20 bg-slate-900"
+    : success
+      ? "border-emerald-500/20 bg-slate-900"
+      : "border-slate-800 bg-slate-900";
+
+  const iconStyle = danger
+    ? "bg-red-500/10 text-red-300"
+    : success
+      ? "bg-emerald-500/10 text-emerald-300"
+      : "bg-slate-950 text-slate-300";
+
+  return (
+    <div className={`rounded-2xl border p-5 ${cardStyle}`}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm text-slate-400">{title}</p>
+        <div className={`rounded-xl p-3 ${iconStyle}`}>{icon}</div>
+      </div>
+      <h2 className="text-3xl font-black text-white">{value}</h2>
+      <p className="mt-2 text-xs text-slate-500">{description}</p>
+    </div>
+  );
+}
+
+function ApprovalStatusBadge({ status }: { status: string }) {
+  const normalized = String(status || "").toUpperCase();
+  const style =
+    normalized === "APPROVED"
+      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+      : normalized === "REJECTED"
+        ? "border-red-500/20 bg-red-500/10 text-red-300"
+        : normalized === "PENDING"
+          ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+          : "border-slate-700 bg-slate-800 text-slate-300";
+
+  return (
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${style}`}>
+      {normalized || "UNKNOWN"}
+    </span>
+  );
+}
+
+function ApprovalDetailCard({ label, value }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <p className="text-sm text-slate-400">{label}</p>
+      <h3 className="mt-2 break-words text-lg font-black text-white">{value}</h3>
+    </div>
+  );
+}
+
+function ApprovalInfoRow({ label, value, wide }: any) {
+  return (
+    <div className={`rounded-xl bg-slate-950 px-4 py-3 ${wide ? "md:col-span-2" : ""}`}>
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-200">{value}</p>
     </div>
   );
 }

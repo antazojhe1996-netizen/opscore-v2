@@ -2,15 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  CheckCircle2,
-  ClipboardList,
   Eye,
-  FileText,
   RefreshCw,
   Search,
   ShieldCheck,
-  WalletCards,
   X,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -150,7 +145,7 @@ export default function EmployeeBalancesPage() {
     const normalized = normalizeLower(status || "Active");
 
     if (["active", "open"].includes(normalized))
-      return "bg-amber-500/10 text-amber-300";
+      return "bg-blue-500/10 text-blue-300";
     if (["paid", "closed", "settled"].includes(normalized))
       return "bg-emerald-500/10 text-emerald-300";
     if (["cancelled", "canceled", "void", "reversed"].includes(normalized))
@@ -162,9 +157,9 @@ export default function EmployeeBalancesPage() {
     const normalized = normalizeLower(type);
 
     if (normalized.includes("cash advance"))
-      return "bg-purple-500/10 text-purple-300";
+      return "bg-slate-800 text-slate-300";
     if (normalized.includes("restaurant") || normalized.includes("unpaid"))
-      return "bg-orange-500/10 text-orange-300";
+      return "bg-slate-800 text-slate-300";
     if (normalized.includes("payroll balance"))
       return "bg-blue-500/10 text-blue-300";
     if (normalized.includes("carry")) return "bg-red-500/10 text-red-300";
@@ -662,7 +657,7 @@ export default function EmployeeBalancesPage() {
         <main className="min-w-0 flex-1 overflow-x-hidden p-6 xl:p-8">
           <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
                 Payroll Control
               </p>
               <h1 className="mt-2 text-4xl font-black">
@@ -679,17 +674,17 @@ export default function EmployeeBalancesPage() {
             <button
               onClick={loadData}
               disabled={loading}
-              className="inline-flex w-fit items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+              className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
             >
               <RefreshCw size={18} />
               {loading ? "Refreshing..." : "Refresh Data"}
             </button>
           </section>
 
-          <section className="mb-6 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-5">
+          <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-lg font-black text-amber-300">
+                <h2 className="text-lg font-black text-blue-300">
                   Payroll Settlement Rule
                 </h2>
                 <p className="mt-1 text-sm text-slate-300">
@@ -699,7 +694,7 @@ export default function EmployeeBalancesPage() {
                   protect audit trail.
                 </p>
               </div>
-              <ShieldCheck className="shrink-0 text-amber-300" size={30} />
+              <ShieldCheck className="shrink-0 text-blue-300" size={30} />
             </div>
           </section>
 
@@ -709,8 +704,8 @@ export default function EmployeeBalancesPage() {
                 onClick={() => setLedgerTab("LIABILITIES")}
                 className={`rounded-2xl border p-5 text-left ${
                   ledgerTab === "LIABILITIES"
-                    ? "border-amber-400 bg-amber-400 text-slate-950"
-                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                    ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
+                    : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
@@ -729,8 +724,8 @@ export default function EmployeeBalancesPage() {
                 onClick={() => setLedgerTab("PAYROLL_BALANCES")}
                 className={`rounded-2xl border p-5 text-left ${
                   ledgerTab === "PAYROLL_BALANCES"
-                    ? "border-blue-400 bg-blue-400 text-slate-950"
-                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                    ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
+                    : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
@@ -801,7 +796,7 @@ export default function EmployeeBalancesPage() {
               <button
                 onClick={createManualLiability}
                 disabled={loading || !permissions?.can_create}
-                className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-bold text-blue-200 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save Liability
               </button>
@@ -821,86 +816,6 @@ export default function EmployeeBalancesPage() {
             )}
           </section>
 
-          <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
-            {ledgerTab === "LIABILITIES" ? (
-              <>
-                <KpiCard
-                  icon={<WalletCards size={22} />}
-                  title="Active Liabilities"
-                  value={activeEmployeeLiabilities.length}
-                  danger={activeEmployeeLiabilities.length > 0}
-                />
-                <KpiCard
-                  icon={<AlertTriangle size={22} />}
-                  title="Outstanding Liability"
-                  value={formatPeso(totalEmployeeLiabilitiesOutstanding)}
-                  danger={totalEmployeeLiabilitiesOutstanding > 0}
-                />
-                <KpiCard
-                  icon={<ClipboardList size={22} />}
-                  title="Cash Advance"
-                  value={formatPeso(cashAdvanceOutstanding)}
-                />
-                <KpiCard
-                  icon={<FileText size={22} />}
-                  title="Restaurant / Unpaid"
-                  value={formatPeso(restaurantOutstanding)}
-                />
-                <KpiCard
-                  icon={<CheckCircle2 size={22} />}
-                  title="Paid Through Payroll"
-                  value={formatPeso(totalEmployeeLiabilitiesPaid)}
-                  success
-                />
-                <KpiCard
-                  icon={<ShieldCheck size={22} />}
-                  title="Ledger Direction"
-                  value="Employee → Company"
-                />
-              </>
-            ) : (
-              <>
-                <KpiCard
-                  icon={<WalletCards size={22} />}
-                  title="Open Payroll Balances"
-                  value={activePayrollBalances.length}
-                  danger={activePayrollBalances.length > 0}
-                />
-                <KpiCard
-                  icon={<AlertTriangle size={22} />}
-                  title="Outstanding Salary"
-                  value={formatPeso(totalPayrollBalancesOutstanding)}
-                  danger={totalPayrollBalancesOutstanding > 0}
-                />
-                <KpiCard
-                  icon={<ClipboardList size={22} />}
-                  title="Salary Balance Paid"
-                  value={formatPeso(totalPayrollBalancesPaid)}
-                  success={totalPayrollBalancesPaid > 0}
-                />
-                <KpiCard
-                  icon={<FileText size={22} />}
-                  title="Payroll Balance Rows"
-                  value={payrollBalanceRecords.length}
-                />
-                <KpiCard
-                  icon={<CheckCircle2 size={22} />}
-                  title="Paid / Closed"
-                  value={
-                    enrichedBalances.filter(
-                      (item) => isPayrollBalanceItem(item) && ["paid", "closed", "settled"].includes(normalizeLower(item.status)),
-                    ).length
-                  }
-                  success
-                />
-                <KpiCard
-                  icon={<ShieldCheck size={22} />}
-                  title="Ledger Direction"
-                  value="Company → Employee"
-                />
-              </>
-            )}
-          </section>
           <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
               <div className="relative xl:col-span-2">
@@ -981,250 +896,199 @@ export default function EmployeeBalancesPage() {
             </div>
           </section>
 
-          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:col-span-2">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-black">{displayTitle}</h2>
-                  <p className="text-sm text-slate-400">
-                    {displayDescription}
-                  </p>
-                </div>
-                <ShieldCheck className="text-amber-400" size={24} />
+          <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-black">{displayTitle}</h2>
+                <p className="text-sm text-slate-400">
+                  {displayDescription}
+                </p>
               </div>
+              <ShieldCheck className="text-blue-300" size={24} />
+            </div>
 
-              <div className="max-h-[680px] overflow-auto rounded-xl border border-slate-800">
-                <table className="w-full min-w-[1500px] text-sm">
-                  <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">Employee</th>
-                      <th className="px-4 py-3">Category</th>
-                      <th className="px-4 py-3 text-right">Original</th>
-                      <th className="px-4 py-3 text-right">Paid</th>
-                      <th className="px-4 py-3 text-right">Remaining</th>
-                      <th className="px-4 py-3">Progress</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Settlement</th>
-                      <th className="px-4 py-3">Direction</th>
-                      <th className="px-4 py-3">Source</th>
-                      <th className="px-4 py-3">Created</th>
-                      <th className="px-4 py-3">Remarks</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayBalances.map((balance) => {
-                      const isActive =
-                        normalizeLower(balance.status || "Active") === "active";
-                      const category = getLiabilityCategory(balance);
-                      const payrollSettled = isPayrollSettled(balance);
-                      const paidAmount = getPaidAmount(balance);
-                      const progressPercent = getProgressPercent(balance);
+            <div className="overflow-hidden rounded-xl border border-slate-800">
+              <table className="w-full min-w-[980px] text-sm">
+                <thead className="bg-slate-950 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Employee</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3 text-right">Original</th>
+                    <th className="px-4 py-3 text-right">Remaining</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Last Activity</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayBalances.map((balance) => {
+                    const isActive =
+                      normalizeLower(balance.status || "Active") === "active";
+                    const category = getLiabilityCategory(balance);
 
-                      return (
-                        <tr
-                          key={balance.id}
-                          className="border-t border-slate-800 hover:bg-slate-800/40"
-                        >
-                          <td className="px-4 py-3">
-                            <p className="font-black text-white">
-                              {balance.employee_name || "Unknown Employee"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {balance.employee_id || "No employee ID"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${getTypeStyle(`${category} ${balance.balance_type}`)}`}
+                    return (
+                      <tr
+                        key={balance.id}
+                        className="border-t border-slate-800 hover:bg-slate-800/40"
+                      >
+                        <td className="px-4 py-4">
+                          <p className="font-black text-white">
+                            {balance.employee_name || "Unknown Employee"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {balance.employee_id || "No employee ID"}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${getTypeStyle(`${category} ${balance.balance_type}`)}`}
+                          >
+                            {category}
+                          </span>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {balance.balance_type || "Balance"}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4 text-right font-semibold text-slate-200">
+                          {formatPeso(balance.original_amount)}
+                        </td>
+
+                        <td className="px-4 py-4 text-right font-black text-blue-300">
+                          {formatPeso(balance.remaining_balance)}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(balance.status)}`}
+                          >
+                            {balance.status || "Active"}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4 text-slate-400">
+                          {formatDate(balance.updated_at || balance.created_at)}
+                        </td>
+
+                        <td className="px-4 py-4 text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                              onClick={() => setSelectedBalance(balance)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1 text-xs font-bold text-slate-200 hover:bg-slate-800"
                             >
-                              {category}
-                            </span>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {balance.balance_type || "Balance"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {formatPeso(balance.original_amount)}
-                          </td>
-                          <td className={paidAmount > 0 ? "px-4 py-3 text-right font-black text-emerald-300" : "px-4 py-3 text-right text-slate-500"}>
-                            {formatPeso(paidAmount)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-black text-amber-300">
-                            {formatPeso(balance.remaining_balance)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="min-w-[130px]">
-                              <div className="mb-1 flex items-center justify-between text-[11px]">
-                                <span className="text-slate-500">Paid</span>
-                                <span className={progressPercent > 0 ? "font-black text-emerald-300" : "font-bold text-slate-500"}>
-                                  {progressPercent.toFixed(1)}%
-                                </span>
-                              </div>
-                              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                                <div
-                                  className="h-full rounded-full bg-emerald-400"
-                                  style={{ width: `${progressPercent}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(balance.status)}`}
-                            >
-                              {balance.status || "Active"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={
-                                payrollSettled
-                                  ? "rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                                  : "rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300"
-                              }
-                            >
-                              {payrollSettled ? "Via Payroll" : "Manual Review"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={
-                                isPayrollBalanceItem(balance)
-                                  ? "rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                                  : "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300"
-                              }
-                            >
-                              {getLedgerDirectionLabel(balance)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p>{balance.source_module || "-"}</p>
-                            <p className="break-all text-xs text-slate-600">
-                              {balance.source_id || ""}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-slate-400">
-                            {formatDate(balance.created_at)}
-                          </td>
-                          <td className="max-w-[280px] px-4 py-3 text-slate-400">
-                            <p className="line-clamp-3">
-                              {balance.remarks || "-"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex flex-wrap justify-end gap-2">
+                              <Eye size={13} /> View
+                            </button>
+
+                            {isActive && permissions?.can_delete && (
                               <button
-                                onClick={() => setSelectedBalance(balance)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                                onClick={() => cancelBalance(balance)}
+                                className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300 hover:bg-red-500/20"
                               >
-                                <Eye size={13} /> View
+                                Cancel
                               </button>
-
-                              {isActive && permissions?.can_delete && (
-                                <button
-                                  onClick={() => cancelBalance(balance)}
-                                  className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-
-                    {displayBalances.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={13}
-                          className="px-4 py-14 text-center text-slate-500"
-                        >
-                          {ledgerTab === "PAYROLL_BALANCES" ? "No payroll balance records found." : "No employee liability records found."}
+                            )}
+                          </div>
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                    );
+                  })}
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-xl font-black">{ledgerTab === "PAYROLL_BALANCES" ? "Payroll Balance Summary" : "Employee Liability Summary"}</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Employees ranked by active outstanding balance in the selected ledger.
-              </p>
-
-              <div className="mt-5 max-h-[680px] space-y-3 overflow-auto pr-1">
-                {employeeSummary.slice(0, 50).map((employee) => (
-                  <button
-                    key={employee.employeeName}
-                    onClick={() =>
-                      setSelectedEmployeeName(employee.employeeName)
-                    }
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 p-4 text-left hover:bg-slate-800/70"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-black text-white">
-                          {employee.employeeName}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Active {employee.activeCount} • Closed{" "}
-                          {employee.paidCount} • Cancelled{" "}
-                          {employee.cancelledCount}
-                        </p>
-                        <p className="mt-1 text-xs text-emerald-300">
-                          Paid through payroll: {formatPeso(employee.paidTotal)}
-                        </p>
-                      </div>
-                      <p
-                        className={
-                          employee.outstanding > 0
-                            ? "font-black text-amber-300"
-                            : "font-black text-emerald-300"
-                        }
+                  {displayBalances.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-14 text-center text-slate-500"
                       >
-                        {formatPeso(employee.outstanding)}
-                      </p>
-                    </div>
-
-                    {employee.outstanding > 0 && (
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-                        <MiniAmount
-                          label="Cash Adv"
-                          value={employee.cashAdvance}
-                          formatPeso={formatPeso}
-                        />
-                        <MiniAmount
-                          label="Rest/Unpaid"
-                          value={employee.restaurant}
-                          formatPeso={formatPeso}
-                        />
-                        <MiniAmount
-                          label="Carry"
-                          value={employee.carryForward}
-                          formatPeso={formatPeso}
-                        />
-                        <MiniAmount
-                          label="Other"
-                          value={employee.payrollBalance + employee.other}
-                          formatPeso={formatPeso}
-                        />
-                      </div>
-                    )}
-                  </button>
-                ))}
-
-                {employeeSummary.length === 0 && (
-                  <div className="rounded-xl bg-slate-950 p-6 text-center text-sm text-slate-500">
-                    No employee summary available.
-                  </div>
-                )}
-              </div>
+                        {ledgerTab === "PAYROLL_BALANCES"
+                          ? "No payroll balance records found."
+                          : "No employee liability records found."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </section>
+
+          <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <h2 className="text-xl font-black">
+                  {ledgerTab === "PAYROLL_BALANCES"
+                    ? "Payroll Balance Summary"
+                    : "Employee Liability Summary"}
+                </h2>
+                <p className="text-sm text-slate-400">
+                  Employees ranked by active outstanding balance in the selected ledger.
+                </p>
+              </div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                Summary is filter-aware
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {employeeSummary.slice(0, 12).map((employee) => (
+                <button
+                  key={employee.employeeName}
+                  onClick={() => setSelectedEmployeeName(employee.employeeName)}
+                  className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-left hover:bg-slate-800/70"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-white">
+                        {employee.employeeName}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Active {employee.activeCount} • Closed {employee.paidCount}
+                        • Cancelled {employee.cancelledCount}
+                      </p>
+                    </div>
+                    <p
+                      className={
+                        employee.outstanding > 0
+                          ? "font-black text-blue-300"
+                          : "font-black text-emerald-300"
+                      }
+                    >
+                      {formatPeso(employee.outstanding)}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+                    <MiniAmount
+                      label="Cash Adv"
+                      value={employee.cashAdvance}
+                      formatPeso={formatPeso}
+                    />
+                    <MiniAmount
+                      label="Rest/Unpaid"
+                      value={employee.restaurant}
+                      formatPeso={formatPeso}
+                    />
+                    <MiniAmount
+                      label="Carry"
+                      value={employee.carryForward}
+                      formatPeso={formatPeso}
+                    />
+                    <MiniAmount
+                      label="Other"
+                      value={employee.payrollBalance + employee.other}
+                      formatPeso={formatPeso}
+                    />
+                  </div>
+                </button>
+              ))}
+
+              {employeeSummary.length === 0 && (
+                <div className="rounded-xl bg-slate-950 p-6 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-4">
+                  No employee summary available.
+                </div>
+              )}
+            </div>
+          </section>
+
         </main>
 
         {selectedBalance && (
@@ -1248,38 +1112,6 @@ export default function EmployeeBalancesPage() {
   );
 }
 
-function KpiCard({
-  icon,
-  title,
-  value,
-  success,
-  danger,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: any;
-  success?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-            ? "border-emerald-500/20 bg-emerald-500/10"
-            : "border-slate-800 bg-slate-900"
-      }`}
-    >
-      <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-xl bg-slate-950 p-3 text-amber-400">{icon}</div>
-        <p className="text-sm text-slate-400">{title}</p>
-      </div>
-      <h2 className="break-words text-2xl font-black text-white">{value}</h2>
-    </div>
-  );
-}
-
 function MiniAmount({ label, value, formatPeso }: any) {
   return (
     <div className="rounded-lg bg-slate-900 px-2 py-1">
@@ -1287,7 +1119,7 @@ function MiniAmount({ label, value, formatPeso }: any) {
       <p
         className={
           Number(value || 0) > 0
-            ? "font-black text-amber-300"
+            ? "font-black text-blue-300"
             : "font-bold text-slate-500"
         }
       >
@@ -1323,7 +1155,7 @@ function BalanceDrawer({
         <div className="border-b border-slate-800 p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
                 Ledger Details
               </p>
               <h2 className="mt-2 text-3xl font-black">
@@ -1343,7 +1175,7 @@ function BalanceDrawer({
                 <span
                   className={
                     payrollSettled
-                      ? "rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300"
+                      ? "rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300"
                       : "rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300"
                   }
                 >
@@ -1361,8 +1193,8 @@ function BalanceDrawer({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
-          <section className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-5">
-            <h3 className="text-lg font-black text-amber-300">
+          <section className="mb-5 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+            <h3 className="text-lg font-black text-blue-300">
               Settlement Rule
             </h3>
             <p className="mt-2 text-sm leading-6 text-slate-300">
@@ -1416,7 +1248,7 @@ function BalanceDrawer({
               </div>
               <div className="rounded-xl bg-slate-950 p-3">
                 <p>Remaining</p>
-                <p className="mt-1 font-black text-amber-300">{formatPeso(balance.remaining_balance)}</p>
+                <p className="mt-1 font-black text-blue-300">{formatPeso(balance.remaining_balance)}</p>
               </div>
             </div>
           </section>
@@ -1475,7 +1307,7 @@ function DetailCard({ label, value, highlight, success }: any) {
       <p className="text-sm text-slate-400">{label}</p>
       <h3
         className={`mt-2 break-words text-xl font-black ${
-          highlight ? "text-amber-300" : success ? "text-emerald-300" : "text-white"
+          highlight ? "text-blue-300" : success ? "text-emerald-300" : "text-white"
         }`}
       >
         {value}

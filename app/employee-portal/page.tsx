@@ -237,16 +237,16 @@ export default function EmployeePortalPage() {
   };
 
   const menuItems: { key: PortalTab; label: string; icon: string }[] = [
-    { key: "home", label: "Home", icon: "🏠" },
-    { key: "schedule", label: "My Schedule", icon: "📅" },
-    { key: "attendance", label: "Attendance", icon: "🕒" },
-    { key: "performance", label: "Performance", icon: "⭐" },
-    { key: "leave", label: "Leave", icon: "📝" },
-    { key: "payslip", label: "Payslips", icon: "💰" },
-    { key: "cashadvance", label: "Cash Advances", icon: "💵" },
-    { key: "announcements", label: "Announcements", icon: "📢" },
-    { key: "manager", label: "Manager Tools", icon: "🛡️" },
-    { key: "profile", label: "Profile", icon: "👤" },
+    { key: "home", label: "Home", icon: "HM" },
+    { key: "schedule", label: "My Schedule", icon: "SC" },
+    { key: "attendance", label: "Attendance", icon: "AT" },
+    { key: "performance", label: "Performance", icon: "PF" },
+    { key: "leave", label: "Leave", icon: "LV" },
+    { key: "payslip", label: "Payslips", icon: "PS" },
+    { key: "cashadvance", label: "Cash Advances", icon: "CA" },
+    { key: "announcements", label: "Announcements", icon: "AN" },
+    { key: "manager", label: "Manager Tools", icon: "MG" },
+    { key: "profile", label: "Profile", icon: "PR" },
   ];
 
   /// CALCULATIONS
@@ -1854,7 +1854,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
         }`}
       >
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-400">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-300">
             OPSCORE
           </p>
           <h2 className="mt-3 text-xl font-black">{employeeName}</h2>
@@ -1872,11 +1872,11 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 onClick={() => openTab(item.key)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
                   active
-                    ? "bg-amber-400 text-slate-950"
-                    : "bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? "border border-blue-500/30 bg-blue-500/10 text-blue-200"
+                    : "border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
                 }`}
               >
-                <span>{item.icon}</span>
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-950/70 text-[10px] font-black tracking-wider">{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             );
@@ -1896,14 +1896,14 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
           <div className="flex items-center justify-between gap-3">
             <button
               onClick={() => setMenuOpen(true)}
-              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-lg font-black text-amber-400"
+              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-lg font-black text-blue-300"
             >
               ☰
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-black uppercase tracking-[0.25em] text-amber-400">
-                OPSCORE Employee App
+              <p className="truncate text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+                OPSCORE Employee Portal
               </p>
               <h1 className="truncate text-lg font-black sm:text-2xl">
                 {portalMenuItems.find((item) => item.key === activeTab)?.label || "Home"}
@@ -1918,8 +1918,8 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
         {activeTab === "home" && (
           <div className="space-y-5">
-            <section className="rounded-3xl border border-amber-400/30 bg-amber-400/10 p-5 shadow-xl shadow-black/20">
-              <p className="text-sm font-bold text-amber-200">Quick Attendance</p>
+            <section className="rounded-3xl border border-blue-500/20 bg-blue-600/10 p-5 shadow-xl shadow-black/20">
+              <p className="text-sm font-bold text-blue-200">Quick Attendance</p>
               <h2 className="mt-2 text-3xl font-black">Time In / Time Out</h2>
               <p className="mt-1 text-sm text-slate-300">
                 Use this first when starting or ending your shift.
@@ -1929,7 +1929,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 <button
                   onClick={handleTimeIn}
                   disabled={loading || !!todayAttendance?.time_in || !currentUser}
-                  className="rounded-2xl bg-emerald-500 px-5 py-5 text-lg font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-2xl bg-emerald-500 px-5 py-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Time In
                 </button>
@@ -1941,7 +1941,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                     !todayAttendance?.time_in ||
                     !!todayAttendance?.time_out
                   }
-                  className="rounded-2xl bg-amber-400 px-5 py-5 text-lg font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Time Out
                 </button>
@@ -2002,7 +2002,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                       key={item.day}
                       className={`rounded-2xl border p-4 ${
                         isToday
-                          ? "border-amber-400/50 bg-amber-400/10"
+                          ? "border-blue-500/30 bg-blue-600/10"
                           : "border-slate-800 bg-slate-950"
                       }`}
                     >
@@ -2014,7 +2014,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                       </p>
                       <p
                         className={`mt-3 text-lg font-black ${
-                          item.shift === "OFF" ? "text-slate-500" : "text-amber-400"
+                          item.shift === "OFF" ? "text-slate-500" : "text-blue-300"
                         }`}
                       >
                         {item.shift}
@@ -2059,7 +2059,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                         {formatDate(entry.attendance_date)}
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-bold text-amber-400">
+                        <p className="font-bold text-blue-300">
                           {entry.scheduled_shift || "-"}
                         </p>
                         <p className="text-xs text-slate-500">
@@ -2068,7 +2068,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                       </td>
                       <td className="px-4 py-3">{formatTime(entry.time_in)}</td>
                       <td className="px-4 py-3">{formatTime(entry.time_out)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-orange-300">{entry.late_minutes || 0}m</td>
+                      <td className="px-4 py-3 text-right font-bold text-red-300">{entry.late_minutes || 0}m</td>
                       <td className="px-4 py-3 text-right font-bold text-red-300">{entry.undertime_minutes || 0}m</td>
                       <td className="px-4 py-3 text-right font-bold text-emerald-300">{entry.ot_minutes || 0}m</td>
                       <td className="px-4 py-3">
@@ -2102,7 +2102,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
               <div className="rounded-2xl border border-slate-800 bg-slate-950 px-6 py-5">
                 <p className="text-xs uppercase tracking-widest text-slate-500">Score</p>
-                <p className="text-4xl font-black text-amber-400">{attendanceScore}</p>
+                <p className="text-4xl font-black text-blue-300">{attendanceScore}</p>
                 <p className="text-sm font-bold text-slate-400">{attendanceScoreLabel}</p>
               </div>
             </div>
@@ -2131,7 +2131,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                   <button
                     onClick={() => setLeaveView("request")}
                     className={`rounded-xl px-4 py-2 ${
-                      leaveView === "request" ? "bg-amber-400 text-slate-950" : "text-slate-400"
+                      leaveView === "request" ? "bg-blue-600 text-white" : "text-slate-400"
                     }`}
                   >
                     Request
@@ -2139,7 +2139,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                   <button
                     onClick={() => setLeaveView("history")}
                     className={`rounded-xl px-4 py-2 ${
-                      leaveView === "history" ? "bg-amber-400 text-slate-950" : "text-slate-400"
+                      leaveView === "history" ? "bg-blue-600 text-white" : "text-slate-400"
                     }`}
                   >
                     History
@@ -2244,7 +2244,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                   </div>
 
                   <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm">
-                    Days: <span className="font-bold text-amber-400">{leaveDays}</span>
+                    Days: <span className="font-bold text-blue-300">{leaveDays}</span>
                   </div>
 
                   <textarea
@@ -2263,7 +2263,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                   <button
                     onClick={submitLeaveRequest}
                     disabled={loading || !currentUser}
-                    className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-xl bg-blue-600 px-5 py-4 font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Submit to Approval Center
                   </button>
@@ -2317,7 +2317,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                           )}
 
                           {pendingCancel && (
-                            <p className="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-bold text-amber-300">
+                            <p className="mt-2 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs font-bold text-blue-300">
                               Cancellation request pending in Approval Center.
                             </p>
                           )}
@@ -2400,7 +2400,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
                       <button
                         onClick={() => downloadPayslipPDF(payslip)}
-                        className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-300"
+                        className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500"
                       >
                         Download / Print PDF
                       </button>
@@ -2524,7 +2524,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
             </section>
 
             {canUseManagerTools && (
-              <section className="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
+              <section className="rounded-3xl border border-blue-500/20 bg-blue-600/10 p-5">
                 <h2 className="text-lg font-black">Post Announcement</h2>
                 <p className="mt-1 text-sm text-slate-300">
                   Managers can post mobile announcements directly from the portal.
@@ -2535,13 +2535,13 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                     value={announcementTitle}
                     onChange={(e) => setAnnouncementTitle(e.target.value)}
                     placeholder="Announcement title"
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-amber-400"
+                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-blue-400"
                   />
 
                   <select
                     value={announcementPriority}
                     onChange={(e) => setAnnouncementPriority(e.target.value)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-amber-400"
+                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-blue-400"
                   >
                     <option>Normal</option>
                     <option>Important</option>
@@ -2552,13 +2552,13 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                     value={announcementMessage}
                     onChange={(e) => setAnnouncementMessage(e.target.value)}
                     placeholder="Type announcement message..."
-                    className="min-h-32 rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-amber-400"
+                    className="min-h-32 rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-blue-400"
                   />
 
                   <button
                     onClick={submitAnnouncement}
                     disabled={loading}
-                    className="rounded-xl bg-amber-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-xl bg-blue-600 px-5 py-4 font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Post Announcement
                   </button>
@@ -2598,7 +2598,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
                           {requestType}
                         </p>
                         <p className="mt-1 font-black text-white">
@@ -2641,7 +2641,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                       <button
                         onClick={() => approveMobileApproval(request)}
                         disabled={actionLoadingId === request.id}
-                        className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-white hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Approve
                       </button>
@@ -2780,7 +2780,7 @@ function CancelLeaveModal({
           <button
             onClick={onSubmit}
             disabled={loading}
-            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-red-300 disabled:opacity-40"
+            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-white hover:bg-red-300 disabled:opacity-40"
           >
             Submit Request
           </button>
@@ -2859,7 +2859,7 @@ function RejectApprovalModal({
           <button
             onClick={onSubmit}
             disabled={loading}
-            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-red-300 disabled:opacity-40"
+            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-white hover:bg-red-300 disabled:opacity-40"
           >
             Reject Request
           </button>
@@ -2892,7 +2892,7 @@ function PortalPayslipModal({
       <section className="w-full max-w-3xl rounded-3xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
         <div className="flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-400">OPSCORE Payslip</p>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">OPSCORE Payslip</p>
             <h2 className="mt-2 text-2xl font-black">{getPayslipPeriodLabel(payslip)}</h2>
             <p className="mt-1 text-sm text-slate-400">Review your payroll summary before printing or saving as PDF.</p>
           </div>
@@ -2948,7 +2948,7 @@ function PortalPayslipModal({
 
         <button
           onClick={onDownload}
-          className="mt-5 w-full rounded-2xl bg-amber-400 px-5 py-4 text-sm font-black text-slate-950 hover:bg-amber-300"
+          className="mt-5 w-full rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white hover:bg-blue-500"
         >
           Download / Print PDF
         </button>
@@ -2987,7 +2987,7 @@ function TodayScheduleCard({
 
         <div className="text-left sm:text-right">
           <p className="text-sm text-slate-400">Shift Time</p>
-          <p className="text-lg font-black text-amber-400">
+          <p className="text-lg font-black text-blue-300">
             {formatTime(schedule?.scheduled_in)} - {formatTime(schedule?.scheduled_out)}
           </p>
         </div>
@@ -3024,9 +3024,9 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "released"
       ? "bg-emerald-500/10 text-emerald-400"
       : normalized === "pending" || normalized === "draft"
-      ? "bg-amber-500/10 text-amber-400"
+      ? "bg-blue-500/10 text-blue-300"
       : normalized === "late"
-      ? "bg-orange-500/10 text-orange-400"
+      ? "bg-red-500/10 text-red-300"
       : normalized === "undertime" ||
         normalized === "absent" ||
         normalized === "rejected" ||

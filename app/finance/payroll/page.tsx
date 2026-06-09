@@ -47,10 +47,13 @@ export default function PayrollSettingsPage() {
     allowed_leave_count: "0",
     excess_leave_counts_as: "Warning Only",
 
+    ot_enabled: "Yes",
     ot_requires_approval: "Yes",
     ot_multiplier: "1.25",
     early_time_in_counts_as_ot: "No",
     after_shift_counts_as_ot: "Yes",
+    ot_review_threshold_minutes: "60",
+    excessive_ot_threshold_minutes: "120",
 
     holiday_pay_enabled: "No",
     holiday_pay_mode: "Manual",
@@ -221,12 +224,28 @@ export default function PayrollSettingsPage() {
         "Detected OT must be approved before it enters payroll computation.",
       fields: [
         {
+          key: "ot_enabled",
+          label: "Overtime Pay Enabled",
+          type: "select",
+          options: ["Yes", "No"],
+        },
+        {
           key: "ot_requires_approval",
-          label: "OT Requires Approval",
+          label: "OT Requires Supervisor Review",
           type: "select",
           options: ["Yes", "No"],
         },
         { key: "ot_multiplier", label: "OT Multiplier", type: "number" },
+        {
+          key: "ot_review_threshold_minutes",
+          label: "OT Review Threshold Minutes",
+          type: "number",
+        },
+        {
+          key: "excessive_ot_threshold_minutes",
+          label: "Excessive OT Threshold Minutes",
+          type: "number",
+        },
         {
           key: "early_time_in_counts_as_ot",
           label: "Early Time-In Counts as OT",
@@ -674,10 +693,13 @@ export default function PayrollSettingsPage() {
             color="text-blue-400"
           />
           <SummaryCard
-            title="OT Approval"
-            value={settings.ot_requires_approval || "Yes"
+            title="OT Pay"
+            value={settings.ot_enabled || "Yes"}
+            description={
+              settings.ot_enabled === "No"
+                ? "Detected OT is audit-only."
+                : "Detected OT can enter payroll."
             }
-            description="OT must be approved first."
             color="text-amber-400"
           />
           <SummaryCard

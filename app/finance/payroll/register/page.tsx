@@ -202,6 +202,23 @@ export default function PayrollRegisterPage() {
     );
   };
 
+  const isLeaveDay = (entry: any) => {
+    const combined = `${entry.status || ""} ${entry.schedule || ""} ${
+      entry.shift || ""
+    } ${entry.scheduled_shift || ""} ${entry.shift_name || ""} ${
+      entry.leave_type || ""
+    } ${entry.remarks || ""}`.toLowerCase();
+
+    return (
+      combined.includes("leave") ||
+      combined.includes("vacation") ||
+      combined.includes("sick") ||
+      combined.includes("emergency") ||
+      combined.includes("maternity") ||
+      combined.includes("paternity")
+    );
+  };
+
   const isAbsent = (entry: any) => normalize(entry.status) === "absent";
   const hasActualTime = (entry: any) => Boolean(entry.time_in || entry.time_out);
 
@@ -276,10 +293,19 @@ export default function PayrollRegisterPage() {
       return [];
     }
 
-    const mapped = (data || []).map((holiday) => ({
-      ...holiday,
-      holiday_date: normalizeDate(holiday.holiday_date),
-    }));
+    const mapped = (data || []).map((holiday) => {
+      const resolvedDate =
+        holiday.holiday_date ||
+        holiday.date ||
+        holiday.holidayDate ||
+        holiday.business_date;
+
+      return {
+        ...holiday,
+        holiday_date: normalizeDate(resolvedDate),
+        date: normalizeDate(resolvedDate),
+      };
+    });
 
     setHolidays(mapped);
     return mapped;
@@ -733,16 +759,34 @@ ${error.message}`);
     return data || [];
   };
 
-  const getAttendanceSummary = async (employeeId: string) => {
+  const getAttendanceSummary = async (
+    employeeId: string,
+    activeSettings: Record<string, string> = settings
+  ) => {
     const rows = await getAttendanceRows(employeeId);
 
-    const workRows = rows.filter((row) => !isRestDay(row));
     const restRows = rows.filter((row) => isRestDay(row));
+    const scheduledRows = rows.filter((row) => !isRestDay(row));
+    const leaveRows = scheduledRows.filter((row) => isLeaveDay(row));
+    const workRows = scheduledRows.filter((row) => !isLeaveDay(row));
+
+    const leavePayEnabled =
+      isSettingEnabled(activeSettings, "leave_enabled") &&
+      isSettingEnabled(activeSettings, "leave_pay_enabled");
+
+    const workedDays = workRows.filter(
+      (row) => !isAbsent(row) && hasActualTime(row)
+    ).length;
+
+    const paidLeaveDays = leavePayEnabled ? leaveRows.length : 0;
 
     return {
-      scheduledDays: workRows.length,
+      scheduledDays: scheduledRows.length,
       restDays: restRows.length,
-      daysWorked: workRows.filter((row) => !isAbsent(row) && hasActualTime(row)).length,
+      leaveDays: leaveRows.length,
+      paidLeaveDays,
+      daysWorked: workedDays + paidLeaveDays,
+      actualWorkedDays: workedDays,
       lateMinutes: workRows.reduce((sum, row) => sum + Number(row.late_minutes || 0), 0),
       undertimeMinutes: workRows.reduce((sum, row) => sum + Number(row.undertime_minutes || 0), 0),
       absentDays: workRows.filter((row) => isAbsent(row) || !hasActualTime(row)).length,
@@ -794,6 +838,22 @@ ${error.message}`);
     const undertimeEnabled = activeSettings.undertime_deduction_enabled === "Yes";
     const absentEnabled = activeSettings.absent_deduction_enabled === "Yes";
     const holidayEnabled = activeSettings.holiday_pay_enabled === "Yes";
+
+    // OT settings guard.
+    // Some settings pages may save the switch under different keys depending on version.
+    // If the key is missing, default is ON to preserve old payroll behavior.
+    const otEnabled =
+      !["No", "Off", "Disabled", "False", "0"].includes(
+        String(
+          activeSettings.ot_enabled ??
+            activeSettings.overtime_enabled ??
+            activeSettings.ot_pay_enabled ??
+            activeSettings.overtime_pay_enabled ??
+            activeSettings.ot_payroll_enabled ??
+            "Yes"
+        )
+      );
+
     const otMultiplier = Number(activeSettings.ot_multiplier || 1.25);
 
     const rateType = base.rate_type || "Daily";
@@ -828,17 +888,60 @@ ${error.message}`);
     const absentDeduction =
       absentEnabled && rateType === "Monthly" ? absentDays * dailyRate : 0;
 
-    const otPay = otHours * hourlyRate * otMultiplier;
+    const otPay = otEnabled ? otHours * hourlyRate * otMultiplier : 0;
 
-    const holidayWorkedDates = (base.holiday_worked_dates || []).map(normalizeDate);
-
-    const matchedHolidays = activeHolidays.filter((holiday) =>
-      holidayWorkedDates.includes(normalizeDate(holiday.holiday_date))
+    const holidayWorkedDates = Array.from(
+      new Set((base.holiday_worked_dates || []).map(normalizeDate).filter(Boolean))
     );
 
-    const holidayPay = holidayEnabled
+    const matchedHolidays = activeHolidays.filter((holiday) => {
+      const holidayDate = normalizeDate(
+        holiday.holiday_date ||
+          holiday.date ||
+          holiday.holidayDate ||
+          holiday.business_date
+      );
+
+      return holidayDate && holidayWorkedDates.includes(holidayDate);
+    });
+
+    const holidayPayEnabled =
+      holidayEnabled ||
+      isSettingEnabled(activeSettings, "holiday_enabled") ||
+      isSettingEnabled(activeSettings, "holiday_pay") ||
+      isSettingEnabled(activeSettings, "auto_holiday_pay_enabled");
+
+    const getHolidayMultiplier = (holiday: any) => {
+      const rawType = normalize(
+        holiday.holiday_type ||
+          holiday.type ||
+          holiday.category ||
+          holiday.holiday_category
+      );
+
+      const savedMultiplier = Number(
+        holiday.multiplier ||
+          holiday.pay_multiplier ||
+          holiday.holiday_multiplier ||
+          0
+      );
+
+      if (savedMultiplier > 0) return savedMultiplier;
+
+      if (rawType.includes("special")) {
+        return Number(activeSettings.special_holiday_multiplier || 1.3);
+      }
+
+      if (rawType.includes("regular")) {
+        return Number(activeSettings.regular_holiday_multiplier || 2);
+      }
+
+      return 1;
+    };
+
+    const holidayPay = holidayPayEnabled
       ? matchedHolidays.reduce((sum, holiday) => {
-          const multiplier = Number(holiday.multiplier || 1);
+          const multiplier = getHolidayMultiplier(holiday);
           return sum + dailyRate * Math.max(multiplier - 1, 0);
         }, 0)
       : 0;
@@ -1037,7 +1140,7 @@ ${error.message}`);
 
     const generated = await Promise.all(
       employeesToGenerate.map(async (employee) => {
-        const attendance = await getAttendanceSummary(employee.id);
+        const attendance = await getAttendanceSummary(employee.id, latestSettings);
 
         const approvedPeriodAdjustments = adjustments.filter(
           (item) =>
@@ -1093,10 +1196,13 @@ ${error.message}`);
           absent_days: attendance.absentDays,
           ot_minutes: attendance.otMinutes,
           holiday_worked_dates: attendance.holidayWorkedDates,
+          remarks:
+            attendance.leaveDays > 0
+              ? `Approved leave day(s): ${attendance.leaveDays}. Paid leave day(s): ${attendance.paidLeaveDays}.`
+              : "",
           // CA / employee balances are intentionally not auto-deducted in full.
           // Payroll admin sets the partial amount in the Final Payroll Register.
           balance_deductions: 0,
-          remarks: "",
         };
 
         return computeRecord(base, employeeAdjustments, latestSettings, latestHolidays);
@@ -1504,6 +1610,9 @@ This will remove it from future payroll deductions but keep the audit trail.`
     const lateEnabled = activeSettings.late_deduction_enabled === "Yes";
     const undertimeEnabled = activeSettings.undertime_deduction_enabled === "Yes";
     const absentEnabled = activeSettings.absent_deduction_enabled === "Yes";
+    const leavePayEnabled =
+      isSettingEnabled(activeSettings, "leave_enabled") &&
+      isSettingEnabled(activeSettings, "leave_pay_enabled");
 
     const basicRate = Number(record.basic_rate || 0);
     const rateType = record.rate_type || "Daily";
@@ -1515,7 +1624,9 @@ This will remove it from future payroll deductions but keep the audit trail.`
 
     const attendanceLogs = (attendanceData || []).map((entry: any) => {
       const restDay = isRestDay(entry);
-      const absent = isAbsent(entry) || (!restDay && !hasActualTime(entry));
+      const leaveDay = isLeaveDay(entry);
+      const absent =
+        !leaveDay && (isAbsent(entry) || (!restDay && !hasActualTime(entry)));
       const lateMinutes = Number(entry.late_minutes || 0);
       const undertimeMinutes = Number(entry.undertime_minutes || 0);
       const otMinutes = Number(entry.ot_minutes || 0);
@@ -1535,7 +1646,14 @@ This will remove it from future payroll deductions but keep the audit trail.`
       const issueParts: string[] = [];
 
       if (restDay) issueParts.push("Rest Day / Off");
-      if (!restDay && absent) issueParts.push("Absent from scheduled work day");
+      if (leaveDay) {
+        issueParts.push(
+          leavePayEnabled
+            ? "Approved Leave / Paid"
+            : "Approved Leave / Unpaid"
+        );
+      }
+      if (!restDay && !leaveDay && absent) issueParts.push("Absent from scheduled work day");
       if (lateMinutes > 0) issueParts.push(`${lateMinutes} mins late`);
       if (undertimeMinutes > 0) issueParts.push(`${undertimeMinutes} mins undertime`);
       if (otMinutes > 0) issueParts.push(`${otMinutes} mins OT`);
@@ -1762,6 +1880,9 @@ Deductions: ${formatMoney(targetDeductions)}
 Net Pay: ${formatMoney(targetNet)}
 
 High Alerts: ${targetHighAlerts.length}
+
+Supervisor audit reminder:
+- Review OT, late, undertime, absent, leave pay, holiday pay, and high deductions before sending.
 
 This will:
 1. Create a permanent payroll snapshot
@@ -2060,11 +2181,52 @@ This will:
       });
     }
 
+    const otPayAmount = Number(record.ot_pay || 0);
+    const otMultiplierSetting = Number(settings.ot_multiplier || 0);
+    const otReviewThreshold = Number(settings.ot_review_threshold_minutes || 60);
+    const excessiveOtThreshold = Number(settings.excessive_ot_threshold_minutes || 120);
+
+    if (otMinutes > 0) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "OT Detected",
+        message: `${otMinutes} OT minutes detected. Supervisor should verify if this is valid before sending payroll.`,
+        severity: "Medium",
+      });
+    }
+
     if (otMinutes > 0 && settings.ot_requires_approval === "Yes") {
       alerts.push({
         employee: record.employee_name,
-        type: "OT Needs Approval",
-        message: `${otMinutes} OT minutes detected.`,
+        type: "OT Needs Supervisor Review",
+        message: `${otMinutes} OT minutes detected and OT review is enabled in Payroll Settings.`,
+        severity: "Medium",
+      });
+    }
+
+    if (otMinutes >= otReviewThreshold && otReviewThreshold > 0) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "OT Review Threshold",
+        message: `${otMinutes} OT minutes reached the review threshold of ${otReviewThreshold} minutes.`,
+        severity: "Medium",
+      });
+    }
+
+    if (otMinutes >= excessiveOtThreshold && excessiveOtThreshold > 0) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "Excessive OT",
+        message: `${otMinutes} OT minutes reached the high-risk threshold of ${excessiveOtThreshold} minutes.`,
+        severity: "High",
+      });
+    }
+
+    if (otMinutes > 0 && otPayAmount <= 0 && otMultiplierSetting <= 0) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "OT Not Paid",
+        message: `${otMinutes} OT minutes detected, but OT pay is currently disabled because OT multiplier is 0.`,
         severity: "Medium",
       });
     }

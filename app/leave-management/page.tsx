@@ -4,12 +4,13 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  Brain,
   CalendarDays,
   CheckCircle2,
   Download,
+  Eye,
   Search,
   UserRound,
+  X,
   XCircle,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -24,6 +25,7 @@ export default function LeaveManagementPage() {
   const [leaveSettings, setLeaveSettings] = useState<any[]>([]);
   const [leaveCredits, setLeaveCredits] = useState<any[]>([]);
   const [pendingCancellationLeaveIds, setPendingCancellationLeaveIds] = useState<string[]>([]);
+  const [selectedLeave, setSelectedLeave] = useState<any | null>(null);
 
   const [statusFilter, setStatusFilter] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
@@ -495,10 +497,11 @@ export default function LeaveManagementPage() {
   };
 
   const statusStyle = (status: string) => {
-    if (status === "Approved") return "bg-green-500/20 text-green-400 border-green-500/30";
-    if (status === "Rejected") return "bg-red-500/20 text-red-400 border-red-500/30";
-    if (status === "Cancelled") return "bg-slate-500/20 text-slate-300 border-slate-500/30";
-    return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+    if (status === "Approved") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
+    if (status === "Rejected") return "bg-red-500/10 text-red-300 border-red-500/20";
+    if (status === "Cancelled") return "bg-slate-700 text-slate-300 border-slate-600";
+    if (status === "Draft") return "bg-slate-700 text-slate-300 border-slate-600";
+    return "bg-amber-500/10 text-amber-300 border-amber-500/20";
   };
 
   const exportLeaveReport = () => {
@@ -619,61 +622,95 @@ export default function LeaveManagementPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-6 xl:p-8">
+        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Leave Management</h1>
-            <p className="mt-2 text-slate-400">
-              Submit leave requests, monitor approvals, track credits, and sync approved leaves with scheduling.
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+              HR Operations
+            </p>
+            <h1 className="mt-2 text-4xl font-black">Leave Management</h1>
+            <p className="mt-2 max-w-4xl text-sm text-slate-400">
+              Submit leave requests, monitor approval status, review leave credits, and track approved leave impact in one workspace.
             </p>
           </div>
 
           <button
             onClick={exportLeaveReport}
-            className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+            className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800"
           >
-            <Download size={16} /> Export Leave Report
+            <Download size={16} /> Export Report
           </button>
-        </div>
+        </section>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <KpiCard icon={<AlertTriangle size={22} />} title="Pending Requests" value={pendingCount} danger={pendingCount > 0} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Approved This Month" value={approvedThisMonth} success />
-          <KpiCard icon={<UserRound size={22} />} title="On Leave Today" value={employeesOnLeaveToday.length} danger={employeesOnLeaveToday.length > 0} />
-          <KpiCard icon={<CalendarDays size={22} />} title="Leave Days This Month" value={leaveDaysThisMonth} />
+          <KpiCard
+            icon={<AlertTriangle size={22} />}
+            title="Needs Approval"
+            value={pendingCount}
+            danger={pendingCount > 0}
+          />
+          <KpiCard
+            icon={<CheckCircle2 size={22} />}
+            title="Approved This Month"
+            value={approvedThisMonth}
+            success
+          />
+          <KpiCard
+            icon={<UserRound size={22} />}
+            title="On Leave Today"
+            value={employeesOnLeaveToday.length}
+            danger={employeesOnLeaveToday.length > 0}
+          />
+          <KpiCard
+            icon={<CalendarDays size={22} />}
+            title="Leave Days This Month"
+            value={leaveDaysThisMonth}
+          />
         </section>
 
-        <section className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
-          <h2 className="flex items-center gap-2 text-xl font-bold text-yellow-300">
-            <Brain size={22} /> AI Leave Notifications
-          </h2>
+        {aiNotifications.length > 0 && (
+          <section className="mb-6 rounded-2xl border border-amber-500/20 bg-slate-900 p-5">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 className="text-lg font-black text-white">Operational Alerts</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Review items that may need HR or manager attention.
+                </p>
+              </div>
+              <span className="w-fit rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
+                {aiNotifications.length} alert{aiNotifications.length > 1 ? "s" : ""}
+              </span>
+            </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {aiNotifications.length > 0 ? (
-              aiNotifications.map((note, index) => (
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {aiNotifications.map((note, index) => (
                 <div
                   key={index}
-                  className="rounded-xl border border-yellow-500/20 bg-slate-950/70 p-4 text-sm text-yellow-200"
+                  className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300"
                 >
-                  ⚠ {note}
+                  <span className="mr-2 text-amber-300">•</span>
+                  {note}
                 </div>
-              ))
-            ) : (
-              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
-                ✅ No leave alerts. Leave operations are currently healthy.
-              </div>
-            )}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
-            <h2 className="text-xl font-bold">Submit Leave Request</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Approved leave will automatically block scheduling.
-            </p>
+            <div className="mb-5 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <h2 className="text-xl font-black">Submit Leave Request</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Requests are routed to Manager Approval Center before they become official schedule blockers.
+                </p>
+              </div>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-bold text-blue-300">
+                Approval Required
+              </div>
+            </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="Employee">
                 <select
                   value={employeeNo}
@@ -740,11 +777,11 @@ export default function LeaveManagementPage() {
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <MiniStat title="Total Days" value={calculateDays()} />
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
+              <MiniStat title="Computed Leave Days" value={calculateDays()} />
               <button
                 onClick={submitLeave}
-                className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+                className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white hover:bg-blue-500"
               >
                 Submit Leave
               </button>
@@ -752,9 +789,9 @@ export default function LeaveManagementPage() {
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <h2 className="text-xl font-bold">Leave Credits Summary</h2>
+            <h2 className="text-xl font-black">Leave Credits</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Shows selected employee credits when available.
+              Credit balances appear after selecting an employee.
             </p>
 
             <div className="mt-5 space-y-3">
@@ -765,12 +802,12 @@ export default function LeaveManagementPage() {
                     className="rounded-xl border border-slate-800 bg-slate-950 p-4"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="font-bold">{credit.leave_type}</p>
+                      <p className="font-bold text-white">{credit.leave_type}</p>
                       <p
                         className={
                           Number(credit.remaining_credits || 0) <= 2
-                            ? "font-black text-red-400"
-                            : "font-black text-green-400"
+                            ? "font-black text-red-300"
+                            : "font-black text-emerald-300"
                         }
                       >
                         {credit.remaining_credits || 0} left
@@ -792,12 +829,12 @@ export default function LeaveManagementPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="text-xl font-bold">Leave Requests</h2>
+              <h2 className="text-xl font-black">Leave Requests</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Approval is handled in Manager Approval Center. This page is for submission, monitoring, and leave history.
+                Approval is handled in Manager Approval Center. Detailed notes are available in the review drawer.
               </p>
             </div>
 
@@ -807,7 +844,7 @@ export default function LeaveManagementPage() {
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search leave..."
+                  placeholder="Search employee, type, reason..."
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none"
                 />
               </div>
@@ -817,7 +854,7 @@ export default function LeaveManagementPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm outline-none"
               >
-                <option value="All">All</option>
+                <option value="All">All Status</option>
                 <option value="Pending">Pending</option>
                 <option value="Approved">Approved</option>
                 <option value="Rejected">Rejected</option>
@@ -827,16 +864,15 @@ export default function LeaveManagementPage() {
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[920px] text-sm">
               <thead className="bg-slate-950 text-left text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Leave Type</th>
                   <th className="px-4 py-3">Date Range</th>
                   <th className="px-4 py-3">Days</th>
-                  <th className="px-4 py-3">Reason</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Actions</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -846,16 +882,22 @@ export default function LeaveManagementPage() {
                     key={leave.id}
                     className="border-t border-slate-800 hover:bg-slate-800/40"
                   >
-                    <td className="px-4 py-3 font-bold">
-                      {getEmployeeName(leave.employee_id)}
-                    </td>
-                    <td className="px-4 py-3">{leave.leave_type}</td>
                     <td className="px-4 py-3">
+                      <p className="font-bold text-white">
+                        {getEmployeeName(leave.employee_id)}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Requested by {leave.requested_by || "-"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {leave.leave_type || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">
                       {leave.start_date} to {leave.end_date}
                     </td>
-                    <td className="px-4 py-3">{leave.days}</td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {leave.reason || "-"}
+                    <td className="px-4 py-3 font-bold text-white">
+                      {leave.days || leave.total_days || 0}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -863,55 +905,32 @@ export default function LeaveManagementPage() {
                           leave.status
                         )}`}
                       >
-                        {leave.status}
+                        {leave.status || "Pending"}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedLeave(leave)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                        >
+                          <Eye size={13} /> View
+                        </button>
 
-                    <td className="px-4 py-3">
-                      {leave.status === "Pending" && (
-                        <span className="rounded-lg bg-yellow-500/10 px-3 py-1 text-xs font-bold text-yellow-300">
-                          Awaiting Manager Approval
-                        </span>
-                      )}
-
-                      {leave.status === "Approved" && (
-                        <div className="flex flex-wrap gap-2">
-                          <span className="rounded-lg bg-green-500/10 px-3 py-1 text-xs font-bold text-green-300">
-                            Approved via Approval Center
-                          </span>
-
-                          {isLeaveCancellationPending(leave.id) ? (
-                            <span className="rounded-lg bg-orange-500/10 px-3 py-1 text-xs font-bold text-orange-300">
+                        {leave.status === "Approved" &&
+                          (isLeaveCancellationPending(leave.id) ? (
+                            <span className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300">
                               Cancellation Pending
                             </span>
                           ) : (
                             <button
                               onClick={() => requestLeaveCancellation(leave)}
-                              className="rounded-lg bg-orange-500/10 px-3 py-1 text-xs font-bold text-orange-300 hover:bg-orange-500/20"
+                              className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-500/20"
                             >
                               Request Cancellation
                             </button>
-                          )}
-                        </div>
-                      )}
-
-                      {leave.status === "Rejected" && (
-                        <span className="rounded-lg bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
-                          Rejected via Approval Center
-                        </span>
-                      )}
-
-                      {leave.status === "Cancelled" && (
-                        <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
-                          Leave Cancelled
-                        </span>
-                      )}
-
-                      {leave.status === "Draft" && (
-                        <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
-                          Approval request failed
-                        </span>
-                      )}
+                          ))}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -919,7 +938,7 @@ export default function LeaveManagementPage() {
                 {filteredLeaveRequests.length === 0 && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="px-4 py-12 text-center text-slate-500"
                     >
                       No leave requests found.
@@ -927,13 +946,25 @@ export default function LeaveManagementPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
-}
+                          </table>
+            </div>
+          </section>
+        </main>
+
+        {selectedLeave && (
+          <LeaveDetailsDrawer
+            leave={selectedLeave}
+            onClose={() => setSelectedLeave(null)}
+            getEmployeeName={getEmployeeName}
+            statusStyle={statusStyle}
+            isLeaveCancellationPending={isLeaveCancellationPending}
+            requestLeaveCancellation={requestLeaveCancellation}
+          />
+        )}
+      </div>
+    );
+  }
+
 
 function KpiCard({
   icon,
@@ -948,23 +979,25 @@ function KpiCard({
   success?: boolean;
   danger?: boolean;
 }) {
+  const cardStyle = danger
+    ? "border-red-500/20 bg-slate-900"
+    : success
+      ? "border-emerald-500/20 bg-slate-900"
+      : "border-slate-800 bg-slate-900";
+
+  const iconStyle = danger
+    ? "bg-red-500/10 text-red-300"
+    : success
+      ? "bg-emerald-500/10 text-emerald-300"
+      : "bg-slate-950 text-slate-300";
+
   return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-          ? "border-green-500/20 bg-green-500/10"
-          : "border-slate-800 bg-slate-900"
-      }`}
-    >
+    <div className={`rounded-2xl border p-5 ${cardStyle}`}>
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
-          {icon}
-        </div>
+        <div className={`rounded-xl p-3 ${iconStyle}`}>{icon}</div>
         <p className="text-sm text-slate-400">{title}</p>
       </div>
-      <h2 className="text-2xl font-bold">{value}</h2>
+      <h2 className="break-words text-2xl font-black text-white">{value}</h2>
     </div>
   );
 }
@@ -997,6 +1030,135 @@ function MiniStat({
     <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
       <p className="text-xs text-slate-500">{title}</p>
       <h3 className="mt-1 text-2xl font-black text-white">{value}</h3>
+    </div>
+  );
+}
+
+function LeaveDetailsDrawer({
+  leave,
+  onClose,
+  getEmployeeName,
+  statusStyle,
+  isLeaveCancellationPending,
+  requestLeaveCancellation,
+}: any) {
+  const days = Number(leave.days || leave.total_days || 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
+      <aside className="flex h-full w-full max-w-2xl flex-col border-l border-slate-800 bg-slate-950 text-white shadow-2xl">
+        <div className="border-b border-slate-800 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+                Leave Details
+              </p>
+              <h2 className="mt-2 text-3xl font-black">
+                {getEmployeeName(leave.employee_id)}
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300">
+                  {leave.leave_type || "Leave"}
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-bold ${statusStyle(
+                    leave.status
+                  )}`}
+                >
+                  {leave.status || "Pending"}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="rounded-xl bg-slate-900 p-3 text-slate-400 hover:text-white"
+            >
+              <X size={22} />
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <DetailCard label="Start Date" value={leave.start_date || "-"} />
+            <DetailCard label="End Date" value={leave.end_date || "-"} />
+            <DetailCard label="Total Days" value={days} highlight />
+          </section>
+
+          <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h3 className="text-lg font-black">Request Summary</h3>
+            <div className="mt-4 space-y-3 text-sm">
+              <InfoRow label="Employee" value={getEmployeeName(leave.employee_id)} />
+              <InfoRow label="Leave Type" value={leave.leave_type || "-"} />
+              <InfoRow label="Requested By" value={leave.requested_by || "-"} />
+              <InfoRow label="Requested At" value={leave.requested_at || leave.created_at || "-"} />
+            </div>
+          </section>
+
+          <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h3 className="text-lg font-black">Reason</h3>
+            <p className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-950 p-4 text-sm leading-6 text-slate-300">
+              {leave.reason || "No reason saved."}
+            </p>
+          </section>
+
+          <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h3 className="text-lg font-black">Approval Status</h3>
+            <div className="mt-4 space-y-3 text-sm">
+              <InfoRow label="Status" value={leave.status || "Pending"} />
+              <InfoRow label="Approved By" value={leave.approved_by || "-"} />
+              <InfoRow label="Approved At" value={leave.approved_at || "-"} />
+              <InfoRow label="Rejected By" value={leave.rejected_by || "-"} />
+              <InfoRow label="Rejected At" value={leave.rejected_at || "-"} />
+              <InfoRow label="Rejection Reason" value={leave.rejection_reason || "-"} />
+              <InfoRow label="Cancellation Reason" value={leave.cancellation_reason || "-"} />
+            </div>
+          </section>
+
+          {leave.status === "Approved" && (
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <h3 className="text-lg font-black">Available Action</h3>
+              {isLeaveCancellationPending(leave.id) ? (
+                <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-bold text-amber-300">
+                  Cancellation request is already pending in Approval Center.
+                </div>
+              ) : (
+                <button
+                  onClick={() => requestLeaveCancellation(leave)}
+                  className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 hover:bg-red-500/20"
+                >
+                  Request Leave Cancellation
+                </button>
+              )}
+            </section>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function DetailCard({ label, value, highlight }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <p className="text-sm text-slate-400">{label}</p>
+      <h3
+        className={`mt-2 break-words text-xl font-black ${
+          highlight ? "text-blue-300" : "text-white"
+        }`}
+      >
+        {value}
+      </h3>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: any) {
+  return (
+    <div className="grid grid-cols-[145px_1fr] gap-3 rounded-xl bg-slate-950 px-4 py-3">
+      <span className="text-slate-500">{label}</span>
+      <span className="break-all font-semibold text-slate-200">{value}</span>
     </div>
   );
 }

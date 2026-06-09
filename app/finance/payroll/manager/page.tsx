@@ -2084,8 +2084,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 }}
                 className={`rounded-2xl border p-4 text-left ${
                   activeTab === "queue"
-                    ? "border-yellow-400 bg-yellow-400 text-slate-950"
-                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+  ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
+  : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
@@ -2104,8 +2104,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 }}
                 className={`rounded-2xl border p-4 text-left ${
                   activeTab === "partial"
-                    ? "border-yellow-400 bg-yellow-400 text-slate-950"
-                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+  ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
+  : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
@@ -2124,8 +2124,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 }}
                 className={`rounded-2xl border p-4 text-left ${
                   activeTab === "history"
-                    ? "border-yellow-400 bg-yellow-400 text-slate-950"
-                    : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
+  ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
+  : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
                 }`}
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em]">
@@ -2186,13 +2186,13 @@ ${partialReleaseError?.message || partialReleaseError}`);
         </section>
 
         {selectedRecordIds.length > 0 && (
-          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 backdrop-blur">
+          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-blue-500/20 bg-slate-900/95 p-5 backdrop-blur">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-sm font-black text-yellow-300">
+                <p className="text-sm font-black text-blue-200">
                   {selectedRecordIds.length} payroll record(s) selected
                 </p>
-                <p className="mt-1 text-xs text-yellow-100/80">
+                <p className="mt-1 text-xs text-slate-400">
                   {activeTab === "history"
                     ? "Released records are read-only. Use reopen only when there is a verified payroll correction."
                     : `Release Amount: ${formatPeso(selectedNet)} • Carry Forward: ${formatPeso(selectedCarryForward)}`}
@@ -2211,7 +2211,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                   <button
                     onClick={reopenPayroll}
                     disabled={isProcessing}
-                    className="flex items-center gap-2 rounded-xl border border-yellow-500/40 px-5 py-2 text-sm font-black text-yellow-300 hover:bg-yellow-500/10 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-2 text-sm font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
                   >
                     <RotateCcw size={16} /> Reopen Selected
                   </button>
@@ -2219,7 +2219,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                   <button
                     onClick={() => releasePayroll("selected")}
                     disabled={isProcessing || pendingAdjustments.length > 0}
-                    className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
                   >
                     <Send size={16} /> Release Selected
                   </button>
@@ -2256,7 +2256,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                   selectedRecordIds.length === 0 ||
                   releaseBlocked
                 }
-                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
               >
                 <Send size={16} /> Release Selected
               </button>
@@ -2294,7 +2294,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                             String(record.id),
                           )}
                           onChange={() => toggleSelect(record.id)}
-                          className="h-4 w-4 accent-yellow-400"
+                          className="h-4 w-4 accent-blue-500"
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -2310,10 +2310,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
                       <td className="px-4 py-3 text-right text-red-400">
                         {formatPeso(getRecordDeduction(record))}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
                         {formatPeso(getRecordAmount(record))}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-blue-300">
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
                         {formatPeso(
                           record.paid_amount ||
                             record.amount_released ||
@@ -2377,7 +2377,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                     <tr
                       key={record.id}
                       className={`border-t border-slate-800 hover:bg-slate-800/40 ${
-                        getRecordAmount(record) < 0 ? "bg-red-500/10" : ""
+                        getRecordAmount(record) < 0 ? "bg-red-500/5" : ""
                       }`}
                     >
                       <td className="px-4 py-3">
@@ -2387,7 +2387,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                             String(record.id),
                           )}
                           onChange={() => toggleSelect(record.id)}
-                          className="h-4 w-4 accent-yellow-400"
+                          className="h-4 w-4 accent-blue-500"
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -2408,7 +2408,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                       >
                         {formatPeso(getRecordAmount(record))}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
                         {formatPeso(getOutstandingPayrollAmount(record))}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -2437,13 +2437,13 @@ ${partialReleaseError?.message || partialReleaseError}`);
                               [String(record.id)]: String(safeAmount),
                             }));
                           }}
-                          className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-right text-xs font-black text-emerald-300 outline-none"
+                          className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-right text-xs font-black text-slate-100 outline-none"
                         />
                         <p className="mt-1 text-right text-[10px] text-slate-500">
                           Max {formatPeso(getOutstandingPayrollAmount(record))}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
                         {formatPeso(getRemainingAfterRelease(record))}
                       </td>
                       <td className="px-4 py-3">
@@ -2452,11 +2452,11 @@ ${partialReleaseError?.message || partialReleaseError}`);
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-3">
                           {getAlreadyReleasedAmount(record) > 0 && (
-                            <div className="min-w-[170px] rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-right shadow-sm">
-                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">
+                            <div className="min-w-[170px] rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-right shadow-sm">
+                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
                                 Previous Release
                               </p>
-                              <p className="mt-1 text-sm font-black text-cyan-100">
+                              <p className="mt-1 text-sm font-black text-slate-100">
                                 {formatPeso(getAlreadyReleasedAmount(record))}
                               </p>
                               <p className="mt-1 text-[10px] font-semibold leading-4 text-slate-400">
@@ -2470,7 +2470,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                               <button
                                 onClick={() => returnPayrollToRegister(record)}
                                 disabled={isProcessing}
-                                className="rounded-lg border border-yellow-500/40 px-3 py-2 text-xs font-black text-yellow-300 hover:bg-yellow-500/10 disabled:opacity-50"
+                                className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 hover:bg-slate-800 disabled:opacity-50"
                               >
                                 Return
                               </button>
@@ -2478,7 +2478,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                             <button
                               onClick={() => releaseSinglePayroll(record)}
                               disabled={isProcessing || releaseBlocked}
-                              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
+                              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500 disabled:opacity-50"
                             >
                               Release
                             </button>
@@ -2507,22 +2507,38 @@ ${partialReleaseError?.message || partialReleaseError}`);
         </section>
 
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Active employee balances only. Payroll Balance rows are remaining
-            salary; Cash Advance rows are employee liabilities.
-          </p>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Active employee balances only. Remaining salary and employee liabilities are shown in one clean ledger.
+              </p>
+            </div>
 
-          <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-right">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                Active Balance Rows
+              </p>
+              <p className="mt-1 text-lg font-black text-slate-100">
+                {
+                  employeeBalances.filter(
+                    (item) => String(item.status || "Active") === "Active",
+                  ).length
+                }
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800 bg-slate-950/40">
+            <table className="w-full min-w-[1050px] text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-950 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Balance Type</th>
                   <th className="px-4 py-3 text-right">Original</th>
                   <th className="px-4 py-3 text-right">Remaining</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Remarks</th>
+                  <th className="px-4 py-3">Audit Remarks</th>
                 </tr>
               </thead>
 
@@ -2531,31 +2547,56 @@ ${partialReleaseError?.message || partialReleaseError}`);
                   .filter(
                     (item) => String(item.status || "Active") === "Active",
                   )
-                  .map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
-                    >
-                      <td className="px-4 py-3 font-bold">
-                        {item.employee_name || "Unknown Employee"}
-                      </td>
-                      <td className="px-4 py-3">
-                        {item.balance_type || "Balance"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {formatPeso(item.original_amount)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">
-                        {formatPeso(item.remaining_balance)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={item.status || "Active"} />
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {item.remarks || "-"}
-                      </td>
-                    </tr>
-                  ))}
+                  .map((item) => {
+                    const balanceType = String(item.balance_type || "Balance");
+                    const remaining = Number(item.remaining_balance || 0);
+                    const isPayrollBalance = balanceType
+                      .toLowerCase()
+                      .includes("payroll balance");
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className="border-t border-slate-800/80 hover:bg-slate-800/30"
+                      >
+                        <td className="px-4 py-3 align-top">
+                          <p className="font-bold text-slate-100">
+                            {item.employee_name || "Unknown Employee"}
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {item.employee_id ? `ID: ${item.employee_id}` : "No employee ID"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                              isPayrollBalance
+                                ? "border-blue-500/20 bg-blue-500/5 text-blue-300"
+                                : "border-slate-700 bg-slate-800/60 text-slate-300"
+                            }`}
+                          >
+                            {balanceType}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right align-top font-semibold text-slate-300">
+                          {formatPeso(item.original_amount)}
+                        </td>
+                        <td className="px-4 py-3 text-right align-top">
+                          <p className="font-black text-slate-100">
+                            {formatPeso(remaining)}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          <StatusBadge status={item.status || "Active"} />
+                        </td>
+                        <td className="max-w-[520px] px-4 py-3 align-top text-slate-400">
+                          <p className="line-clamp-2 leading-5">
+                            {item.remarks || "-"}
+                          </p>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                 {employeeBalances.filter(
                   (item) => String(item.status || "Active") === "Active",
@@ -2695,34 +2736,19 @@ function PayrollAuditModal({
   getReleaseDisplayStatus,
   onClose,
 }: any) {
-  const liabilityPaidTotal = getAuditCaAppliedAmount(record);
-  const releasedAmount =
+  const releasedAmount = Number(
     getAlreadyReleasedAmount(record) ||
-    record.paid_amount ||
-    record.amount_released ||
-    getReleaseBaseAmount(record);
+      record.paid_amount ||
+      record.amount_released ||
+      getReleaseBaseAmount(record) ||
+      0,
+  );
 
   // Single source of truth for audit remaining salary.
   // Do not read remaining_amount / remaining_payroll_balance directly here because
   // old regenerated or manually tested rows can keep stale values.
-  const remainingBalance = getOutstandingPayrollAmount(record);
-
-  const releaseType =
-    remainingBalance > 0
-      ? "Partial Release"
-      : Number(releasedAmount || 0) > 0
-        ? "Full Release"
-        : "No Release Recorded";
-
-  const timelineRows = [
-    [
-      "Generated",
-      record.snapshot_created_at || record.generated_at || record.created_at,
-    ],
-    ["Approved", record.approved_at || record.reviewed_at],
-    ["Released", record.released_at],
-    ["Reopened", record.reopened_at],
-  ].filter(([, value]) => value);
+  const remainingPayrollBalance = Number(getOutstandingPayrollAmount(record) || 0);
+  const liabilityPaidTotal = Number(getAuditCaAppliedAmount(record) || 0);
 
   const liabilityRows = balanceRows.map((item: any) => {
     const original = Number(item.original_amount || 0);
@@ -2752,106 +2778,156 @@ function PayrollAuditModal({
     0,
   );
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-6">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
-              Payroll Audit
-            </p>
-            <h2 className="mt-2 text-2xl font-black text-white">
-              {employeeName}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">{periodLabel}</p>
-          </div>
+  const lastTransaction = transactions[0] || null;
+  const releaseType =
+    remainingPayrollBalance > 0
+      ? "Partial Release"
+      : releasedAmount > 0
+        ? "Full Release"
+        : "No Release Recorded";
 
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-700 p-2 text-slate-300 hover:bg-slate-800"
-          >
-            <X size={20} />
-          </button>
+  const releaseStatus = getReleaseDisplayStatus(record);
+
+  const timelineRows = [
+    {
+      label: "Generated",
+      value: record.snapshot_created_at || record.generated_at || record.created_at,
+    },
+    { label: "Approved", value: record.approved_at || record.reviewed_at },
+    {
+      label: "Last Released",
+      value: lastTransaction?.released_at || lastTransaction?.created_at || record.released_at,
+    },
+    { label: "Reopened", value: record.reopened_at },
+  ].filter((item) => item.value);
+
+  const summaryCards = [
+    {
+      title: "Released Salary",
+      value: formatPeso(releasedAmount),
+      helper: "Actual amount released to employee",
+      tone: "success",
+    },
+    {
+      title: "CA / Loan Paid",
+      value: formatPeso(liabilityPaidTotal),
+      helper: "Applied from employee balance ledger",
+      tone: liabilityPaidTotal > 0 ? "warning" : "default",
+    },
+    {
+      title: "Remaining CA / Loan",
+      value: formatPeso(totalLiabilityRemaining),
+      helper: "Open employee liability balance",
+      tone: totalLiabilityRemaining > 0 ? "warning" : "success",
+    },
+    {
+      title: "Payroll Balance",
+      value: formatPeso(remainingPayrollBalance),
+      helper: "Unpaid salary after release",
+      tone: remainingPayrollBalance > 0 ? "danger" : "success",
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4">
+      <div className="max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
+        <div className="border-b border-slate-800 bg-slate-900/90 p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-300">
+                Payroll Release Audit
+              </p>
+              <h2 className="mt-2 truncate text-2xl font-black text-white sm:text-3xl">
+                {employeeName}
+              </h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
+                <span>{periodLabel}</span>
+                <span className="text-slate-600">•</span>
+                <StatusBadge status={releaseStatus} />
+                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-black text-slate-300">
+                  {releaseType}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="shrink-0 rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-300 hover:bg-slate-800"
+              title="Close audit modal"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        <div className="max-h-[calc(90vh-110px)] overflow-auto p-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <MiniStat
-              title="Release Type"
-              value={releaseType}
-              success={remainingBalance <= 0}
-              danger={remainingBalance > 0}
-            />
-            <MiniStat
-              title="Released Amount"
-              value={formatPeso(releasedAmount)}
-              success
-            />
-            <MiniStat
-              title="Liability Paid"
-              value={formatPeso(liabilityPaidTotal)}
-              danger={liabilityPaidTotal > 0}
-            />
-            <MiniStat
-              title="Remaining Salary"
-              value={formatPeso(remainingBalance)}
-              danger={remainingBalance > 0}
-            />
-          </div>
+        <div className="max-h-[calc(92vh-128px)] overflow-auto p-5 sm:p-6">
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {summaryCards.map((card) => (
+              <AuditSummaryCard key={card.title} {...card} />
+            ))}
+          </section>
 
-          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <h3 className="text-lg font-black">Payroll Snapshot</h3>
-              <div className="mt-4 space-y-2 text-sm">
-                <AuditLine
-                  label="Status"
-                  value={
-                    <StatusBadge status={getReleaseDisplayStatus(record)} />
-                  }
-                />
-                <AuditLine
-                  label="Department"
-                  value={record.department || "-"}
-                />
+          <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:col-span-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-black text-white">
+                    Executive Payroll Summary
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Frontend-only audit view. Figures below come from released payroll,
+                    release transactions, and employee balance ledger rows.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <AuditLine label="Department" value={record.department || "-"} />
                 <AuditLine label="Position" value={record.position || "-"} />
+                <AuditLine label="Gross Pay" value={formatPeso(getRecordGross(record))} />
                 <AuditLine
-                  label="Gross Pay"
-                  value={formatPeso(getRecordGross(record))}
-                />
-                <AuditLine
-                  label="Deductions"
+                  label="Total Deductions"
                   value={formatPeso(getRecordDeduction(record))}
                   danger
                 />
                 <AuditLine
-                  label="Computed Net"
+                  label="Computed Net Pay"
                   value={formatPeso(getRecordAmount(record))}
                   success
                 />
                 <AuditLine
-                  label="Released By"
-                  value={record.released_by || "-"}
+                  label="Released Salary"
+                  value={formatPeso(releasedAmount)}
+                  success
                 />
                 <AuditLine
-                  label="Released At"
-                  value={formatDateTime(record.released_at)}
+                  label="Released By"
+                  value={lastTransaction?.released_by || record.released_by || "-"}
+                />
+                <AuditLine
+                  label="Last Release Date"
+                  value={formatDateTime(
+                    lastTransaction?.released_at ||
+                      lastTransaction?.created_at ||
+                      record.released_at,
+                  )}
                 />
               </div>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <h3 className="text-lg font-black">Timeline</h3>
+              <h3 className="text-lg font-black text-white">Audit Timeline</h3>
               <div className="mt-4 space-y-3">
-                {timelineRows.map(([label, value]) => (
+                {timelineRows.map((item) => (
                   <div
-                    key={label}
+                    key={item.label}
                     className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
                   >
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                      {label}
+                      {item.label}
                     </p>
                     <p className="mt-1 font-bold text-slate-200">
-                      {formatDateTime(value)}
+                      {formatDateTime(item.value)}
                     </p>
                   </div>
                 ))}
@@ -2863,20 +2939,87 @@ function PayrollAuditModal({
                 )}
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="mt-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h3 className="text-lg font-black text-blue-200">
-                  Liability Settlement History
+                <h3 className="text-lg font-black text-white">
+                  Release Transaction History
                 </h3>
-                <p className="mt-1 text-sm text-blue-100/70">
-                  Computed from Employee Balance Ledger: Original minus
-                  Remaining. This shows which CA, loan, meal, or unpaid item has
-                  already been paid through payroll.
+                <p className="mt-1 text-sm text-slate-400">
+                  Every saved release transaction connected to this payroll record.
                 </p>
               </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-right">
+                <p className="text-xs uppercase tracking-[0.16em] text-emerald-200/70">
+                  Transactions
+                </p>
+                <p className="text-xl font-black text-emerald-300">
+                  {transactions.length}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[950px] text-sm">
+                <thead className="bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Released By</th>
+                    <th className="px-4 py-3 text-right">Net Pay</th>
+                    <th className="px-4 py-3 text-right">Released</th>
+                    <th className="px-4 py-3 text-right">Remaining Payroll</th>
+                    <th className="px-4 py-3">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((item: any) => (
+                    <tr key={item.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                      <td className="px-4 py-3 font-bold text-slate-200">
+                        {formatDateTime(item.released_at || item.created_at)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {item.released_by || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-300">
+                        {formatPeso(item.net_pay)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
+                        {formatPeso(item.release_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
+                        {formatPeso(item.remaining_balance)}
+                      </td>
+                      <td className="max-w-md px-4 py-3 text-slate-400">
+                        {item.remarks || "-"}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                        No release transaction row found. Showing payroll record audit only.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="mt-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-lg font-black text-blue-100">
+                  Employee Balance Ledger Audit
+                </h3>
+                <p className="mt-1 text-sm text-blue-100/70">
+                  Shows CA, salary loan, meal charge, carry-forward, and payroll balance rows linked to this employee or payroll record.
+                </p>
+              </div>
+
               <div className="grid grid-cols-3 gap-2 text-right text-xs">
                 <div className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2">
                   <p className="text-slate-500">Original</p>
@@ -2890,9 +3033,9 @@ function PayrollAuditModal({
                     {formatPeso(totalLiabilityPaid)}
                   </p>
                 </div>
-                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
-                  <p className="text-yellow-200/70">Remaining</p>
-                  <p className="font-black text-yellow-300">
+                <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 px-3 py-2">
+                  <p className="text-slate-400">Remaining</p>
+                  <p className="font-black text-amber-300">
                     {formatPeso(totalLiabilityRemaining)}
                   </p>
                 </div>
@@ -2900,10 +3043,10 @@ function PayrollAuditModal({
             </div>
 
             <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1000px] text-sm">
+              <table className="w-full min-w-[1050px] text-sm">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
-                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Balance Type</th>
                     <th className="px-4 py-3 text-right">Original</th>
                     <th className="px-4 py-3 text-right">Paid</th>
                     <th className="px-4 py-3 text-right">Remaining</th>
@@ -2914,17 +3057,17 @@ function PayrollAuditModal({
                 </thead>
                 <tbody>
                   {liabilityRows.map((item: any) => (
-                    <tr key={item.id} className="border-t border-slate-800">
-                      <td className="px-4 py-3 font-bold">
+                    <tr key={item.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                      <td className="px-4 py-3 font-bold text-white">
                         {item.balance_type || "Balance"}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right text-slate-300">
                         {formatPeso(item.original)}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
                         {formatPeso(item.paid)}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                      <td className="px-4 py-3 text-right font-black text-slate-100">
                         {formatPeso(item.remaining)}
                       </td>
                       <td className="px-4 py-3">
@@ -2943,7 +3086,7 @@ function PayrollAuditModal({
                       <td className="px-4 py-3">
                         <StatusBadge status={item.status || "-"} />
                       </td>
-                      <td className="px-4 py-3 text-slate-400">
+                      <td className="max-w-md px-4 py-3 text-slate-400">
                         {item.remarks || "-"}
                       </td>
                     </tr>
@@ -2951,135 +3094,48 @@ function PayrollAuditModal({
 
                   {liabilityRows.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-8 text-center text-slate-500"
-                      >
-                        No employee liability rows found for this employee.
+                      <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                        No employee balance ledger rows found for this employee.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h3 className="text-lg font-black">Release Transactions</h3>
-            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[900px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Released By</th>
-                    <th className="px-4 py-3 text-right">Net Pay</th>
-                    <th className="px-4 py-3 text-right">Released</th>
-                    <th className="px-4 py-3 text-right">Remaining</th>
-                    <th className="px-4 py-3">Remarks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((item: any) => (
-                    <tr key={item.id} className="border-t border-slate-800">
-                      <td className="px-4 py-3">
-                        {formatDateTime(item.created_at || item.released_at)}
-                      </td>
-                      <td className="px-4 py-3">{item.released_by || "-"}</td>
-                      <td className="px-4 py-3 text-right">
-                        {formatPeso(item.net_pay)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">
-                        {formatPeso(item.release_amount)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-yellow-300">
-                        {formatPeso(item.remaining_balance)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {item.remarks || "-"}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {transactions.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="px-4 py-8 text-center text-slate-500"
-                      >
-                        No release transaction row found. Showing payroll record
-                        audit only.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h3 className="text-lg font-black">Related Balance Records</h3>
-            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[850px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3 text-right">Original</th>
-                    <th className="px-4 py-3 text-right">Remaining</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Remarks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {balanceRows.map((item: any) => (
-                    <tr key={item.id} className="border-t border-slate-800">
-                      <td className="px-4 py-3">
-                        {item.balance_type || "Balance"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {formatPeso(item.original_amount)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">
-                        {formatPeso(item.remaining_balance)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={item.status || "-"} />
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {item.remarks || "-"}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {balanceRows.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-8 text-center text-slate-500"
-                      >
-                        No related balance rows found for this payroll record.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </section>
 
           {record.reopen_reason && (
-            <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
-              <h3 className="text-lg font-black text-red-300">
-                Reopen History
-              </h3>
-              <p className="mt-2 text-sm text-red-100">
-                {record.reopen_reason}
-              </p>
+            <section className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
+              <h3 className="text-lg font-black text-red-300">Reopen History</h3>
+              <p className="mt-2 text-sm text-red-100">{record.reopen_reason}</p>
               <p className="mt-1 text-xs text-red-200/80">
                 Reopened At: {formatDateTime(record.reopened_at)}
               </p>
-            </div>
+            </section>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function AuditSummaryCard({ title, value, helper, tone = "default" }: any) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+      : tone === "warning"
+        ? "border-amber-500/15 bg-amber-500/5 text-amber-300"
+        : tone === "danger"
+          ? "border-red-500/20 bg-red-500/10 text-red-300"
+          : "border-slate-800 bg-slate-900 text-white";
+
+  return (
+    <div className={`rounded-2xl border p-5 ${toneClass}`}>
+      <p className="text-xs font-black uppercase tracking-[0.18em] opacity-75">
+        {title}
+      </p>
+      <h3 className="mt-3 text-2xl font-black">{value}</h3>
+      <p className="mt-2 text-xs opacity-75">{helper}</p>
     </div>
   );
 }
@@ -3133,23 +3189,25 @@ function KpiCard({
   success?: boolean;
   danger?: boolean;
 }) {
+  const cardStyle = danger
+    ? "border-red-500/20 bg-slate-900"
+    : success
+      ? "border-emerald-500/20 bg-slate-900"
+      : "border-slate-800 bg-slate-900";
+
+  const iconStyle = danger
+    ? "bg-red-500/10 text-red-300"
+    : success
+      ? "bg-emerald-500/10 text-emerald-300"
+      : "bg-slate-800 text-slate-300";
+
   return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-            ? "border-green-500/20 bg-green-500/10"
-            : "border-slate-800 bg-slate-900"
-      }`}
-    >
+    <div className={`rounded-2xl border p-5 ${cardStyle}`}>
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
-          {icon}
-        </div>
+        <div className={`rounded-full p-3 ${iconStyle}`}>{icon}</div>
         <p className="text-sm text-slate-400">{title}</p>
       </div>
-      <h2 className="text-2xl font-bold">{value}</h2>
+      <h2 className="text-2xl font-bold text-white">{value}</h2>
     </div>
   );
 }
@@ -3173,22 +3231,18 @@ function StatusBadge({ status }: { status: string }) {
   const normalized = String(status || "");
 
   const style =
-    normalized === "Active"
-      ? "bg-yellow-500/10 text-yellow-400"
-      : normalized === "Closed"
-        ? "bg-green-500/10 text-green-400"
-        : normalized === "Released" || normalized === "Paid"
-          ? "bg-blue-500/10 text-blue-400"
-          : normalized === "Approved" || normalized === "For Approval"
-            ? "bg-green-500/10 text-green-400"
-            : normalized === "Rejected"
-              ? "bg-red-500/10 text-red-400"
-              : normalized === "Partially Released"
-                ? "bg-yellow-500/10 text-yellow-400"
-                : "bg-yellow-500/10 text-yellow-400";
+    normalized === "Released" || normalized === "Paid" || normalized === "Closed"
+      ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300"
+      : normalized === "Rejected" || normalized === "Cancelled" || normalized === "Canceled"
+        ? "border-red-500/20 bg-red-500/5 text-red-300"
+        : normalized === "Partially Released"
+          ? "border-amber-500/20 bg-amber-500/5 text-amber-300"
+          : normalized === "Approved" || normalized === "For Approval" || normalized === "Active"
+            ? "border-blue-500/20 bg-blue-500/5 text-blue-300"
+            : "border-slate-700 bg-slate-800/60 text-slate-300";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ${style}`}>
+    <span className={`rounded-full border px-3 py-1 text-xs font-bold ${style}`}>
       {normalized || "Pending"}
     </span>
   );
