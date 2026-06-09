@@ -26,15 +26,21 @@ export default function PayrollManagerPage() {
   const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
   const [payrollAdjustments, setPayrollAdjustments] = useState<any[]>([]);
   const [employeeBalances, setEmployeeBalances] = useState<any[]>([]);
-  const [payrollReleaseTransactions, setPayrollReleaseTransactions] = useState<any[]>([]);
+  const [payrollReleaseTransactions, setPayrollReleaseTransactions] = useState<
+    any[]
+  >([]);
   const [activeAuditRecord, setActiveAuditRecord] = useState<any | null>(null);
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [periodFilter, setPeriodFilter] = useState("All");
   const [isProcessing, setIsProcessing] = useState(false);
   const processingRef = useRef(false);
-  const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<"queue" | "partial" | "history">("queue");
+  const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>(
+    {},
+  );
+  const [activeTab, setActiveTab] = useState<"queue" | "partial" | "history">(
+    "queue",
+  );
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [hasPageAccess, setHasPageAccess] = useState(false);
   const [accessMessage, setAccessMessage] = useState("");
@@ -48,8 +54,19 @@ export default function PayrollManagerPage() {
 
   const normalizeStatus = (value: any) => String(value || "").trim();
 
+  const getCurrentCompanyId = () =>
+    localStorage.getItem("opscore_current_company_id") ||
+    localStorage.getItem("company_id") ||
+    "";
+
+  const getRecordCompanyId = (record: any) =>
+    record?.company_id || record?.companyId || getCurrentCompanyId() || "";
+
   const getActualPayrollRecordId = (record: any) =>
-    record.__payrollRecordId || record.payroll_record_id || record.source_id || record.id;
+    record.__payrollRecordId ||
+    record.payroll_record_id ||
+    record.source_id ||
+    record.id;
 
   const getLinkedPayrollBalanceId = (record: any) =>
     record.__payrollBalanceId || null;
@@ -60,7 +77,9 @@ export default function PayrollManagerPage() {
   const isActivePayrollBalanceRow = (balance: any) =>
     String(balance.status || "Active") === "Active" &&
     Number(balance.remaining_balance || 0) > 0 &&
-    String(balance.balance_type || "").toLowerCase().includes("payroll balance");
+    String(balance.balance_type || "")
+      .toLowerCase()
+      .includes("payroll balance");
 
   const getRowsFromTables = async (tableNames: string[]) => {
     for (const table of tableNames) {
@@ -77,7 +96,7 @@ export default function PayrollManagerPage() {
     const employee = employees.find(
       (emp) =>
         String(emp.id) === String(record.employee_id) ||
-        String(emp.employee_no) === String(record.employee_no)
+        String(emp.employee_no) === String(record.employee_no),
     );
 
     if (!employee) return "Unknown Employee";
@@ -89,7 +108,13 @@ export default function PayrollManagerPage() {
       return Number(record.remaining_balance || record.net_pay || 0);
     }
 
-    return Number(record.net_pay || record.net_amount || record.total_pay || record.amount || 0);
+    return Number(
+      record.net_pay ||
+        record.net_amount ||
+        record.total_pay ||
+        record.amount ||
+        0,
+    );
   };
 
   const getRecordGross = (record: any) => {
@@ -97,13 +122,20 @@ export default function PayrollManagerPage() {
       return Number(record.original_amount || record.gross_pay || 0);
     }
 
-    return Number(record.gross_pay || record.gross_amount || record.total_gross || 0);
+    return Number(
+      record.gross_pay || record.gross_amount || record.total_gross || 0,
+    );
   };
 
   const getRecordDeduction = (record: any) => {
     if (isPartialSalaryBalanceRecord(record)) return 0;
 
-    return Number(record.total_deductions || record.deductions || record.total_deduction || 0);
+    return Number(
+      record.total_deductions ||
+        record.deductions ||
+        record.total_deduction ||
+        0,
+    );
   };
 
   const getAlreadyReleasedAmount = (record: any) => {
@@ -115,7 +147,10 @@ export default function PayrollManagerPage() {
   };
 
   const hasNumericValue = (value: any) =>
-    value !== null && value !== undefined && value !== "" && !Number.isNaN(Number(value));
+    value !== null &&
+    value !== undefined &&
+    value !== "" &&
+    !Number.isNaN(Number(value));
 
   const getReleaseBaseAmount = (record: any) => {
     if (isPartialSalaryBalanceRecord(record)) {
@@ -131,7 +166,7 @@ export default function PayrollManagerPage() {
         record.release_amount ??
         record.total_pay ??
         record.amount ??
-        0
+        0,
     );
 
     return Math.max(base, 0);
@@ -149,27 +184,34 @@ export default function PayrollManagerPage() {
     const remainingAmount = hasNumericValue(record.remaining_amount)
       ? Number(record.remaining_amount)
       : null;
-    const remainingPayrollBalance = hasNumericValue(record.remaining_payroll_balance)
+    const remainingPayrollBalance = hasNumericValue(
+      record.remaining_payroll_balance,
+    )
       ? Number(record.remaining_payroll_balance)
       : null;
 
     // Fresh records from Payroll Register may still have legacy/stale remaining_amount
     // from earlier Generate runs. Before any Manager release happens, the true due
     // amount is the final computed net pay from Register, not remaining_amount.
-    if (paidAmount <= 0 && ["Pending", "For Approval", "Approved"].includes(releaseStatus || status)) {
+    if (
+      paidAmount <= 0 &&
+      ["Pending", "For Approval", "Approved"].includes(releaseStatus || status)
+    ) {
       return baseAmount;
     }
 
     if (paidAmount > 0) {
       if (remainingAmount !== null) return Math.max(remainingAmount, 0);
-      if (remainingPayrollBalance !== null) return Math.max(remainingPayrollBalance, 0);
+      if (remainingPayrollBalance !== null)
+        return Math.max(remainingPayrollBalance, 0);
       return Math.max(baseAmount - paidAmount, 0);
     }
 
     if (releaseStatus === "Released" || status === "Paid") return 0;
 
     if (remainingAmount !== null && remainingAmount > 0) return remainingAmount;
-    if (remainingPayrollBalance !== null && remainingPayrollBalance > 0) return remainingPayrollBalance;
+    if (remainingPayrollBalance !== null && remainingPayrollBalance > 0)
+      return remainingPayrollBalance;
 
     return baseAmount;
   };
@@ -184,7 +226,13 @@ export default function PayrollManagerPage() {
 
     if (outstanding > 0 && paidAmount > 0) return "Partially Released";
     if (outstanding > 0) return releaseStatus || status || "Pending";
-    if (paidAmount > 0 || releaseStatus === "Released" || status === "Released" || status === "Paid") return "Released";
+    if (
+      paidAmount > 0 ||
+      releaseStatus === "Released" ||
+      status === "Released" ||
+      status === "Paid"
+    )
+      return "Released";
 
     return releaseStatus || status || "Pending";
   };
@@ -199,7 +247,10 @@ export default function PayrollManagerPage() {
   };
 
   const getRemainingAfterRelease = (record: any) =>
-    Math.max(getOutstandingPayrollAmount(record) - getReleaseDraftAmount(record), 0);
+    Math.max(
+      getOutstandingPayrollAmount(record) - getReleaseDraftAmount(record),
+      0,
+    );
 
   const getCarryForwardAmount = (record: any) =>
     Math.max(Math.abs(Math.min(getRecordAmount(record), 0)), 0);
@@ -216,29 +267,118 @@ export default function PayrollManagerPage() {
     return String(value).slice(0, 19).replace("T", " ");
   };
 
-  const getReleaseTransactionsForRecord = (record: any) =>
-    payrollReleaseTransactions
-      .filter((item) => String(item.payroll_record_id) === String(record.id))
+  const getReleaseTransactionsForRecord = (record: any) => {
+    const actualRecordId = getActualPayrollRecordId(record);
+
+    return payrollReleaseTransactions
+      .filter(
+        (item) =>
+          String(item.payroll_record_id) === String(actualRecordId) ||
+          String(item.payroll_record_id) === String(record.id),
+      )
       .sort((a, b) =>
         String(b.created_at || b.released_at || "").localeCompare(
-          String(a.created_at || a.released_at || "")
-        )
+          String(a.created_at || a.released_at || ""),
+        ),
       );
+  };
 
-  const getAuditBalanceRowsForRecord = (record: any) =>
-    employeeBalances.filter(
-      (item) =>
-        String(item.source_id || "") === String(record.id) ||
-        String(item.remarks || "").includes(String(record.id))
+  const getReleaseCountForRecord = (record: any) => {
+    const transactions = getReleaseTransactionsForRecord(record);
+
+    if (transactions.length > 0) return transactions.length;
+
+    return getAlreadyReleasedAmount(record) > 0 ? 1 : 0;
+  };
+
+  const getLastReleaseDateForRecord = (record: any) => {
+    const transactions = getReleaseTransactionsForRecord(record);
+    const latestTransaction = transactions[0];
+
+    return (
+      latestTransaction?.released_at ||
+      latestTransaction?.created_at ||
+      record.released_at ||
+      record.updated_at ||
+      null
     );
+  };
+
+  const getReleaseHistoryHint = (record: any) => {
+    const count = getReleaseCountForRecord(record);
+    const lastReleaseDate = getLastReleaseDateForRecord(record);
+
+    if (count <= 0) return "No previous release";
+
+    const label = count === 1 ? "1 release" : `${count} releases`;
+    const dateLabel = lastReleaseDate
+      ? ` • ${formatDateTime(lastReleaseDate)}`
+      : "";
+
+    return `${label}${dateLabel}`;
+  };
+
+  const getAuditBalanceRowsForRecord = (record: any) => {
+    const actualRecordId = getActualPayrollRecordId(record);
+    const employeeId = record.employee_id ? String(record.employee_id) : "";
+    const employeeName = getEmployeeName(record);
+
+    return employeeBalances
+      .filter((item) => {
+        const status = String(item.status || "").toLowerCase();
+        const sameEmployeeById =
+          employeeId && String(item.employee_id || "") === employeeId;
+        const sameEmployeeByName =
+          employeeName && String(item.employee_name || "") === employeeName;
+        const directlyLinked =
+          String(item.source_id || "") === String(actualRecordId) ||
+          String(item.remarks || "").includes(String(actualRecordId));
+
+        if (status === "cancelled" || status === "canceled")
+          return directlyLinked;
+
+        return sameEmployeeById || sameEmployeeByName || directlyLinked;
+      })
+      .sort((a, b) => {
+        const paidA = Math.max(
+          Number(a.original_amount || 0) - Number(a.remaining_balance || 0),
+          0,
+        );
+        const paidB = Math.max(
+          Number(b.original_amount || 0) - Number(b.remaining_balance || 0),
+          0,
+        );
+
+        if (paidB !== paidA) return paidB - paidA;
+
+        return String(b.created_at || "").localeCompare(
+          String(a.created_at || ""),
+        );
+      });
+  };
 
   const getAuditCaAppliedAmount = (record: any) => {
+    const ledgerPaidTotal = getAuditBalanceRowsForRecord(record).reduce(
+      (sum, item) =>
+        sum +
+        Math.max(
+          Number(item.original_amount || 0) -
+            Number(item.remaining_balance || 0),
+          0,
+        ),
+      0,
+    );
+
+    if (ledgerPaidTotal > 0) return ledgerPaidTotal;
+
     const transactionsTotal = getReleaseTransactionsForRecord(record).reduce(
       (sum, item) => {
-        const match = String(item.remarks || "").match(/CA deduction applied:\s*₱?([\d,]+(?:\.\d+)?)/i);
+        const match = String(item.remarks || "").match(
+          /CA deduction applied:\s*₱?([\d,]+(?:\.\d+)?)/i,
+        );
         return sum + (match ? Number(match[1].replaceAll(",", "")) : 0);
       },
-      0
+      0,
     );
 
     if (transactionsTotal > 0) return transactionsTotal;
@@ -248,7 +388,9 @@ export default function PayrollManagerPage() {
 
   /// DATA LOADERS
   const loadData = async () => {
-    const { data: employeesData } = await supabase.from("employees").select("*");
+    const { data: employeesData } = await supabase
+      .from("employees")
+      .select("*");
 
     const records = await getRowsFromTables([
       "payroll_records",
@@ -263,9 +405,7 @@ export default function PayrollManagerPage() {
       "cash_advances",
     ]);
 
-    const balances = await getRowsFromTables([
-      "employee_balances",
-    ]);
+    const balances = await getRowsFromTables(["employee_balances"]);
 
     const releaseTransactions = await getRowsFromTables([
       "payroll_release_transactions",
@@ -286,12 +426,13 @@ export default function PayrollManagerPage() {
     const periodLabel = getPeriodLabel(firstRecord);
     const totalNetPay = recordsToRelease.reduce(
       (sum, record) => sum + getReleaseDraftAmount(record),
-      0
+      0,
     );
 
     const today = new Date().toISOString().slice(0, 10);
     const periodId = firstRecord?.period_id || "NO_PERIOD";
     const payload = {
+      company_id: getRecordCompanyId(firstRecord),
       expense_date: today,
       category: "Payroll",
       subcategory: "Payroll Release",
@@ -311,7 +452,10 @@ export default function PayrollManagerPage() {
       .maybeSingle();
 
     const { error } = existingExpense?.id
-      ? await supabase.from("expenses").update(payload).eq("id", existingExpense.id)
+      ? await supabase
+          .from("expenses")
+          .update(payload)
+          .eq("id", existingExpense.id)
       : await supabase.from("expenses").insert(payload);
 
     if (error) {
@@ -325,14 +469,18 @@ export default function PayrollManagerPage() {
         recordId: periodId,
         newValue: { payload, error: error.message },
       });
-      alert("Payroll released, but payroll expense entry failed. Check expenses table columns.");
+      alert(
+        "Payroll released, but payroll expense entry failed. Check expenses table columns.",
+      );
       return;
     }
 
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Payroll",
-      action: existingExpense?.id ? "Update Payroll Expense" : "Create Payroll Expense",
+      action: existingExpense?.id
+        ? "Update Payroll Expense"
+        : "Create Payroll Expense",
       description: `${existingExpense?.id ? "Updated" : "Created"} payroll release expense for ${periodLabel}: ${formatPeso(totalNetPay)}`,
       severity: "info",
       recordId: existingExpense?.id || periodId,
@@ -342,12 +490,14 @@ export default function PayrollManagerPage() {
 
   const createCarryForwardBalances = async (recordsToRelease: any[]) => {
     const negativeRecords = recordsToRelease.filter(
-      (record) => getCarryForwardAmount(record) > 0
+      (record) => getCarryForwardAmount(record) > 0,
     );
 
     if (negativeRecords.length === 0) return;
 
-    const sourceIds = negativeRecords.map((record) => getActualPayrollRecordId(record)).filter(Boolean);
+    const sourceIds = negativeRecords
+      .map((record) => getActualPayrollRecordId(record))
+      .filter(Boolean);
 
     const { data: existingBalances, error: existingError } = await supabase
       .from("employee_balances")
@@ -370,12 +520,13 @@ export default function PayrollManagerPage() {
     }
 
     const existingSourceIds = new Set(
-      (existingBalances || []).map((item) => String(item.source_id))
+      (existingBalances || []).map((item) => String(item.source_id)),
     );
 
     const balanceRows = negativeRecords
       .filter((record) => !existingSourceIds.has(String(record.id)))
       .map((record) => ({
+        company_id: getRecordCompanyId(record),
         employee_id: record.employee_id || null,
         employee_name: getEmployeeName(record),
         balance_type: "Employee Balance Carry Forward",
@@ -390,7 +541,9 @@ export default function PayrollManagerPage() {
 
     if (balanceRows.length === 0) return;
 
-    const { error } = await supabase.from("employee_balances").insert(balanceRows);
+    const { error } = await supabase
+      .from("employee_balances")
+      .insert(balanceRows);
 
     if (error) {
       console.log("CREATE CARRY FORWARD BALANCE ERROR:", error.message);
@@ -403,7 +556,7 @@ export default function PayrollManagerPage() {
         newValue: { error: error.message, balanceRows },
       });
       alert(
-        "Payroll was released, but carry-forward balance failed to save. Check employee_balances table columns."
+        "Payroll was released, but carry-forward balance failed to save. Check employee_balances table columns.",
       );
       return;
     }
@@ -418,17 +571,20 @@ export default function PayrollManagerPage() {
     });
   };
 
-
   const createOrUpdatePayrollBalance = async (
     record: any,
-    remainingBalance: number
+    remainingBalance: number,
   ) => {
     const employeeName = getEmployeeName(record);
     const sourceId = getActualPayrollRecordId(record);
     const linkedPayrollBalanceId = getLinkedPayrollBalanceId(record);
 
     const existingQuery = linkedPayrollBalanceId
-      ? supabase.from("employee_balances").select("*").eq("id", linkedPayrollBalanceId).maybeSingle()
+      ? supabase
+          .from("employee_balances")
+          .select("*")
+          .eq("id", linkedPayrollBalanceId)
+          .maybeSingle()
       : supabase
           .from("employee_balances")
           .select("*")
@@ -450,7 +606,8 @@ export default function PayrollManagerPage() {
           .update({
             remaining_balance: 0,
             status: "Paid",
-            remarks: `${existingBalance.remarks || ""} Fully paid from Payroll Manager on ${new Date().toISOString()}.`.trim(),
+            remarks:
+              `${existingBalance.remarks || ""} Fully paid from Payroll Manager on ${new Date().toISOString()}.`.trim(),
           })
           .eq("id", existingBalance.id);
 
@@ -461,10 +618,18 @@ export default function PayrollManagerPage() {
     }
 
     const payload = {
+      company_id: getRecordCompanyId(record),
       employee_id: record.employee_id || null,
       employee_name: employeeName,
       balance_type: "Payroll Balance",
-      original_amount: Number(existingBalance?.original_amount || record.original_amount || record.net_pay || record.release_amount || getRecordAmount(record) || 0),
+      original_amount: Number(
+        existingBalance?.original_amount ||
+          record.original_amount ||
+          record.net_pay ||
+          record.release_amount ||
+          getRecordAmount(record) ||
+          0,
+      ),
       remaining_balance: remainingBalance,
       status: "Active",
       source_module: "Payroll Manager",
@@ -474,7 +639,10 @@ export default function PayrollManagerPage() {
     };
 
     const { error } = existingBalance?.id
-      ? await supabase.from("employee_balances").update(payload).eq("id", existingBalance.id)
+      ? await supabase
+          .from("employee_balances")
+          .update(payload)
+          .eq("id", existingBalance.id)
       : await supabase.from("employee_balances").insert(payload);
 
     if (error) throw new Error(error.message);
@@ -488,8 +656,8 @@ export default function PayrollManagerPage() {
           record.cash_advance_deduction ??
           record.ca_deduction ??
           record.balance_deductions ??
-          0
-      )
+          0,
+      ),
     );
 
   const getDeductionAppliedMarker = (record: any) =>
@@ -604,14 +772,14 @@ export default function PayrollManagerPage() {
       const balances = await loadDeductibleEmployeeBalances(record);
       const availableBalance = balances.reduce(
         (sum, balance) => sum + Number(balance.remaining_balance || 0),
-        0
+        0,
       );
 
       if (availableBalance < deductionNeeded) {
         throw new Error(
           `${getEmployeeName(record)} has insufficient active CA balance. Needed: ${formatPeso(
-            deductionNeeded
-          )}. Available: ${formatPeso(availableBalance)}.`
+            deductionNeeded,
+          )}. Available: ${formatPeso(availableBalance)}.`,
         );
       }
 
@@ -627,7 +795,7 @@ export default function PayrollManagerPage() {
 
   const applyCashAdvanceDeductions = async (
     recordsToRelease: any[],
-    caPreviews: Record<string, any>
+    caPreviews: Record<string, any>,
   ) => {
     const appliedMap: Record<string, number> = {};
 
@@ -641,7 +809,8 @@ export default function PayrollManagerPage() {
       }
 
       const employeeName = getEmployeeName(record);
-      const balances = preview?.balances || (await loadDeductibleEmployeeBalances(record));
+      const balances =
+        preview?.balances || (await loadDeductibleEmployeeBalances(record));
 
       for (const balance of balances) {
         if (remainingDeduction <= 0) break;
@@ -652,9 +821,10 @@ export default function PayrollManagerPage() {
         const newStatus = newRemainingBalance <= 0 ? "Paid" : "Active";
 
         const marker = getDeductionAppliedMarker(record);
-        const updatedRemarks = `${balance.remarks || ""} | Payroll deduction applied from Manager: ${formatPeso(
-          appliedAmount
-        )}. Remaining: ${formatPeso(newRemainingBalance)}. ${marker}.`.trim();
+        const updatedRemarks =
+          `${balance.remarks || ""} | Payroll deduction applied from Manager: ${formatPeso(
+            appliedAmount,
+          )}. Remaining: ${formatPeso(newRemainingBalance)}. ${marker}.`.trim();
 
         // Keep the update payload limited to columns that are confirmed in your
         // employee_balances table screenshots. Extra columns here can silently
@@ -678,9 +848,9 @@ export default function PayrollManagerPage() {
           module: "Payroll",
           action: "Apply CA Deduction From Manager",
           description: `${employeeName} CA deduction ${formatPeso(
-            appliedAmount
+            appliedAmount,
           )} applied from Payroll Manager. Remaining CA: ${formatPeso(
-            newRemainingBalance
+            newRemainingBalance,
           )}`,
           severity: "warning",
           recordId: balance.id,
@@ -703,8 +873,8 @@ export default function PayrollManagerPage() {
       if (remainingDeduction > 0) {
         throw new Error(
           `${employeeName} CA deduction was not fully applied. Unapplied amount: ${formatPeso(
-            remainingDeduction
-          )}.`
+            remainingDeduction,
+          )}.`,
         );
       }
     }
@@ -740,7 +910,7 @@ export default function PayrollManagerPage() {
   const savePayrollReleaseTransactions = async (
     recordsToRelease: any[],
     releasedBy: string,
-    caAppliedMap: Record<string, number> = {}
+    caAppliedMap: Record<string, number> = {},
   ) => {
     const transactionRows = recordsToRelease.map((record) => {
       const releaseAmount = getReleaseDraftAmount(record);
@@ -751,7 +921,16 @@ export default function PayrollManagerPage() {
           ? ` CA deduction applied: ${formatPeso(caApplied)}. ${getDeductionAppliedMarker(record)}.`
           : "";
 
+      const companyId = getRecordCompanyId(record);
+
+      if (!companyId) {
+        throw new Error(
+          "No company selected. Please login again before releasing payroll.",
+        );
+      }
+
       return {
+        company_id: companyId,
         payroll_record_id: getActualPayrollRecordId(record),
         payroll_period_id: record.period_id || null,
         employee_id: record.employee_id || null,
@@ -761,6 +940,7 @@ export default function PayrollManagerPage() {
         remaining_balance: remainingBalance,
         release_batch: getPeriodLabel(record),
         released_by: releasedBy,
+        released_at: new Date().toISOString(),
         remarks:
           remainingBalance > 0
             ? `Partial salary release. Remaining balance: ${formatPeso(remainingBalance)}.${caMarker}`
@@ -768,10 +948,13 @@ export default function PayrollManagerPage() {
       };
     });
 
-    const duplicateReleaseExists = await hasRecentPayrollReleaseDuplicate(transactionRows);
+    const duplicateReleaseExists =
+      await hasRecentPayrollReleaseDuplicate(transactionRows);
 
     if (duplicateReleaseExists) {
-      throw new Error("Possible duplicate payroll release detected. Transaction was not saved again.");
+      throw new Error(
+        "Possible duplicate payroll release detected. Transaction was not saved again.",
+      );
     }
 
     const { error } = await supabase
@@ -794,41 +977,43 @@ export default function PayrollManagerPage() {
 
     if (pendingAdjustments.length > 0) {
       alert(
-        `${pendingAdjustments.length} payroll adjustment(s) are still pending in Payroll Register. Approve/reject them in Register first, then regenerate payroll.`
+        `${pendingAdjustments.length} payroll adjustment(s) are still pending in Payroll Register. Approve/reject them in Register first, then regenerate payroll.`,
       );
       return;
     }
 
-    const negativeRecords = targetRecords.filter((record) => getRecordAmount(record) < 0);
+    const negativeRecords = targetRecords.filter(
+      (record) => getRecordAmount(record) < 0,
+    );
 
     const totalGross = targetRecords.reduce(
       (sum, record) => sum + getRecordGross(record),
-      0
+      0,
     );
 
     const totalDeductions = targetRecords.reduce(
       (sum, record) => sum + getRecordDeduction(record),
-      0
+      0,
     );
 
     const totalOutstanding = targetRecords.reduce(
       (sum, record) => sum + getOutstandingPayrollAmount(record),
-      0
+      0,
     );
 
     const totalReleaseNow = targetRecords.reduce(
       (sum, record) => sum + getReleaseDraftAmount(record),
-      0
+      0,
     );
 
     const totalRemainingSalaryBalance = targetRecords.reduce(
       (sum, record) => sum + getRemainingAfterRelease(record),
-      0
+      0,
     );
 
     const totalCarryForward = targetRecords.reduce(
       (sum, record) => sum + getCarryForwardAmount(record),
-      0
+      0,
     );
 
     const confirmed = confirm(
@@ -845,7 +1030,7 @@ Carry Forward: ${formatPeso(totalCarryForward)}
 
 Employees with carry forward: ${negativeRecords.length}
 
-This will record the actual released amount only. Any unpaid salary balance will remain outstanding.`
+This will record the actual released amount only. Any unpaid salary balance will remain outstanding.`,
     );
 
     if (!confirmed) return;
@@ -856,9 +1041,11 @@ This will record the actual released amount only. Any unpaid salary balance will
     processingRef.current = true;
     setIsProcessing(true);
 
-    const targetIds = targetRecords.map((record) => getActualPayrollRecordId(record));
+    const targetIds = targetRecords.map((record) =>
+      getActualPayrollRecordId(record),
+    );
     const periodIds = Array.from(
-      new Set(targetRecords.map((record) => record.period_id).filter(Boolean))
+      new Set(targetRecords.map((record) => record.period_id).filter(Boolean)),
     );
 
     let caPreviews: Record<string, any> = {};
@@ -910,10 +1097,12 @@ ${validationError?.message || validationError}`);
             released_by: releasedBy.trim(),
           })
           .eq("id", getActualPayrollRecordId(record));
-      })
+      }),
     );
 
-    const failedStatusUpdate = statusResults.find((result: any) => result.error);
+    const failedStatusUpdate = statusResults.find(
+      (result: any) => result.error,
+    );
 
     if (failedStatusUpdate?.error) {
       setIsProcessing(false);
@@ -936,16 +1125,22 @@ ${failedStatusUpdate.error.message}`);
     }
 
     try {
-      caAppliedMap = await applyCashAdvanceDeductions(targetRecords, caPreviews);
+      caAppliedMap = await applyCashAdvanceDeductions(
+        targetRecords,
+        caPreviews,
+      );
       await savePayrollReleaseTransactions(
         targetRecords,
         releasedBy.trim(),
-        caAppliedMap
+        caAppliedMap,
       );
       await Promise.all(
         targetRecords.map((record) =>
-          createOrUpdatePayrollBalance(record, getRemainingAfterRelease(record))
-        )
+          createOrUpdatePayrollBalance(
+            record,
+            getRemainingAfterRelease(record),
+          ),
+        ),
       );
     } catch (partialReleaseError: any) {
       setIsProcessing(false);
@@ -970,7 +1165,9 @@ ${partialReleaseError?.message || partialReleaseError}`);
     await createCarryForwardBalances(targetRecords);
 
     for (const periodId of periodIds) {
-      const periodRecords = targetRecords.filter((record) => record.period_id === periodId);
+      const periodRecords = targetRecords.filter(
+        (record) => record.period_id === periodId,
+      );
 
       await createPayrollExpense(periodRecords);
 
@@ -978,15 +1175,13 @@ ${partialReleaseError?.message || partialReleaseError}`);
         (record) =>
           record.period_id === periodId &&
           !targetIds.includes(record.id) &&
-          (
-            getOutstandingPayrollAmount(record) > 0 ||
-            getCarryForwardAmount(record) > 0
-          )
+          (getOutstandingPayrollAmount(record) > 0 ||
+            getCarryForwardAmount(record) > 0),
       );
 
       const periodHasRemainingSalaryBalance = targetRecords.some(
         (record) =>
-          record.period_id === periodId && getRemainingAfterRelease(record) > 0
+          record.period_id === periodId && getRemainingAfterRelease(record) > 0,
       );
 
       await supabase
@@ -1002,7 +1197,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
     }
 
     setIsProcessing(false);
-      processingRef.current = false;
+    processingRef.current = false;
     setSelectedRecordIds([]);
     await loadData();
 
@@ -1030,20 +1225,18 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const releasePayroll = async (mode: "selected" | "all") => {
     const sourceRows =
-      activeTab === "partial"
-        ? partialReleasePayroll
-        : releaseQueuePayroll;
+      activeTab === "partial" ? partialReleasePayroll : releaseQueuePayroll;
 
     const targetRecords =
       mode === "all"
         ? sourceRows
         : sourceRows.filter((record) =>
-            selectedRecordIds.includes(String(record.id))
+            selectedRecordIds.includes(String(record.id)),
           );
 
     await releasePayrollRecords(
       targetRecords,
-      mode === "all" ? "Release All" : "Release Selected"
+      mode === "all" ? "Release All" : "Release Selected",
     );
   };
 
@@ -1062,13 +1255,15 @@ ${partialReleaseError?.message || partialReleaseError}`);
       getAlreadyReleasedAmount(record) > 0;
 
     if (alreadyReleased) {
-      alert("Released payroll cannot be returned to Register. Use next cutoff dispute/correction instead.");
+      alert(
+        "Released payroll cannot be returned to Register. Use next cutoff dispute/correction instead.",
+      );
       return;
     }
 
     const reason = prompt(
       `Return ${getEmployeeName(record)} to Payroll Register?\n\nReason is required:`,
-      "Payroll correction needed"
+      "Payroll correction needed",
     );
 
     if (!reason || !reason.trim()) {
@@ -1077,7 +1272,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
     }
 
     const confirmed = confirm(
-      `Return to Payroll Register?\n\nEmployee: ${getEmployeeName(record)}\nPeriod: ${getPeriodLabel(record)}\nReason: ${reason.trim()}\n\nThis will remove the record from Manager queue and make it editable again in Payroll Register.`
+      `Return to Payroll Register?\n\nEmployee: ${getEmployeeName(record)}\nPeriod: ${getPeriodLabel(record)}\nReason: ${reason.trim()}\n\nThis will remove the record from Manager queue and make it editable again in Payroll Register.`,
     );
 
     if (!confirmed) return;
@@ -1104,7 +1299,11 @@ ${partialReleaseError?.message || partialReleaseError}`);
         description: `Failed to return payroll record to Register: ${error.message}`,
         severity: "critical",
         recordId: record.id,
-        newValue: { error: error.message, recordId: record.id, reason: reason.trim() },
+        newValue: {
+          error: error.message,
+          recordId: record.id,
+          reason: reason.trim(),
+        },
       });
       alert(`Failed to return payroll to Register.\n\n${error.message}`);
       return;
@@ -1137,7 +1336,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
     });
 
     setIsProcessing(false);
-      processingRef.current = false;
+    processingRef.current = false;
     setSelectedRecordIds([]);
     await loadData();
 
@@ -1146,7 +1345,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const reopenPayroll = async () => {
     const targetRecords = releasedPayroll.filter((record) =>
-      selectedRecordIds.includes(String(record.id))
+      selectedRecordIds.includes(String(record.id)),
     );
 
     if (targetRecords.length === 0) {
@@ -1161,16 +1360,18 @@ ${partialReleaseError?.message || partialReleaseError}`);
     }
 
     const confirmed = confirm(
-      `Reopen ${targetRecords.length} released payroll record(s)?`
+      `Reopen ${targetRecords.length} released payroll record(s)?`,
     );
 
     if (!confirmed) return;
 
     setIsProcessing(true);
 
-    const targetIds = targetRecords.map((record) => getActualPayrollRecordId(record));
+    const targetIds = targetRecords.map((record) =>
+      getActualPayrollRecordId(record),
+    );
     const periodIds = Array.from(
-      new Set(targetRecords.map((record) => record.period_id).filter(Boolean))
+      new Set(targetRecords.map((record) => record.period_id).filter(Boolean)),
     );
 
     const { error } = await supabase
@@ -1191,7 +1392,11 @@ ${partialReleaseError?.message || partialReleaseError}`);
         action: "Reopen Payroll Failed",
         description: `Failed to reopen released payroll: ${error.message}`,
         severity: "critical",
-        newValue: { error: error.message, targetCount: targetRecords.length, targetIds },
+        newValue: {
+          error: error.message,
+          targetCount: targetRecords.length,
+          targetIds,
+        },
       });
       alert("Failed to reopen payroll.");
       return console.log("REOPEN PAYROLL ERROR:", error.message);
@@ -1221,7 +1426,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
       .in("source_id", targetIds);
 
     setIsProcessing(false);
-      processingRef.current = false;
+    processingRef.current = false;
     setSelectedRecordIds([]);
     await loadData();
 
@@ -1294,79 +1499,100 @@ ${partialReleaseError?.message || partialReleaseError}`);
     const status = normalizeStatus(record.status);
     const releaseStatus = normalizeStatus(record.release_status);
 
-    return status === "Released" || status === "Paid" || releaseStatus === "Released" || releaseStatus === "Paid";
+    return (
+      status === "Released" ||
+      status === "Paid" ||
+      releaseStatus === "Released" ||
+      releaseStatus === "Paid"
+    );
   });
 
   const pendingAdjustments = payrollAdjustments.filter(
-    (item) => normalizeStatus(item.status || "Pending") === "Pending"
+    (item) => normalizeStatus(item.status || "Pending") === "Pending",
   );
 
   const approvedAdjustments = payrollAdjustments.filter(
-    (item) => normalizeStatus(item.status) === "Approved"
+    (item) => normalizeStatus(item.status) === "Approved",
   );
 
   const rejectedAdjustments = payrollAdjustments.filter(
-    (item) => normalizeStatus(item.status) === "Rejected"
+    (item) => normalizeStatus(item.status) === "Rejected",
   );
 
   const payrollRecordById = new Map(
-    payrollRecords.map((record) => [String(record.id), record])
+    payrollRecords.map((record) => [String(record.id), record]),
   );
 
-  const activePayrollBalanceRows = employeeBalances.filter(isActivePayrollBalanceRow);
+  const activePayrollBalanceRows = employeeBalances.filter(
+    isActivePayrollBalanceRow,
+  );
 
-  const partialSalaryBalanceReleaseRows = activePayrollBalanceRows.map((balance) => {
-    const linkedRecord = payrollRecordById.get(String(balance.source_id || ""));
-    const previousReleasedAmount = Number(linkedRecord?.paid_amount || linkedRecord?.amount_released || 0);
-    const periodLabel =
-      linkedRecord?.period_label ||
-      linkedRecord?.payroll_period ||
-      linkedRecord?.period_name ||
-      balance.period_label ||
-      "Payroll Balance";
+  const partialSalaryBalanceReleaseRows = activePayrollBalanceRows.map(
+    (balance) => {
+      const linkedRecord = payrollRecordById.get(
+        String(balance.source_id || ""),
+      );
+      const previousReleasedAmount = Number(
+        linkedRecord?.paid_amount || linkedRecord?.amount_released || 0,
+      );
+      const periodLabel =
+        linkedRecord?.period_label ||
+        linkedRecord?.payroll_period ||
+        linkedRecord?.period_name ||
+        balance.period_label ||
+        "Payroll Balance";
 
-    return {
-      ...(linkedRecord || {}),
-      id: `PAYROLL_BALANCE:${balance.id}`,
-      __recordType: "PARTIAL_SALARY_BALANCE",
-      __payrollBalanceId: balance.id,
-      __payrollRecordId: balance.source_id || linkedRecord?.id || balance.id,
-      __periodLabel: periodLabel,
-      employee_id: balance.employee_id || linkedRecord?.employee_id || null,
-      employee_name: balance.employee_name || linkedRecord?.employee_name || "Unknown Employee",
-      department: linkedRecord?.department || balance.department || "",
-      position: linkedRecord?.position || balance.position || "",
-      period_id: balance.period_id || linkedRecord?.period_id || null,
-      period_label: periodLabel,
-      payroll_period: periodLabel,
-      original_amount: Number(balance.original_amount || 0),
-      remaining_balance: Number(balance.remaining_balance || 0),
-      net_pay: Number(balance.remaining_balance || 0),
-      gross_pay: Number(balance.original_amount || 0),
-      total_deductions: 0,
-      balance_deduction: 0,
-      cash_advance_deduction: 0,
-      ca_deduction: 0,
-      balance_deductions: 0,
-      paid_amount: previousReleasedAmount,
-      previous_released_amount: previousReleasedAmount,
-      release_status: "Partially Released",
-      status: "Partially Released",
-    };
-  });
+      return {
+        ...(linkedRecord || {}),
+        id: `PAYROLL_BALANCE:${balance.id}`,
+        __recordType: "PARTIAL_SALARY_BALANCE",
+        __payrollBalanceId: balance.id,
+        __payrollRecordId: balance.source_id || linkedRecord?.id || balance.id,
+        __periodLabel: periodLabel,
+        employee_id: balance.employee_id || linkedRecord?.employee_id || null,
+        employee_name:
+          balance.employee_name ||
+          linkedRecord?.employee_name ||
+          "Unknown Employee",
+        department: linkedRecord?.department || balance.department || "",
+        position: linkedRecord?.position || balance.position || "",
+        period_id: balance.period_id || linkedRecord?.period_id || null,
+        period_label: periodLabel,
+        payroll_period: periodLabel,
+        original_amount: Number(balance.original_amount || 0),
+        remaining_balance: Number(balance.remaining_balance || 0),
+        net_pay: Number(balance.remaining_balance || 0),
+        gross_pay: Number(balance.original_amount || 0),
+        total_deductions: 0,
+        balance_deduction: 0,
+        cash_advance_deduction: 0,
+        ca_deduction: 0,
+        balance_deductions: 0,
+        paid_amount: previousReleasedAmount,
+        previous_released_amount: previousReleasedAmount,
+        release_status: "Partially Released",
+        status: "Partially Released",
+      };
+    },
+  );
 
   const periodOptions = Array.from(
     new Set(
-      [...approvedPayroll, ...partialSalaryBalanceReleaseRows, ...releasedPayroll]
+      [
+        ...approvedPayroll,
+        ...partialSalaryBalanceReleaseRows,
+        ...releasedPayroll,
+      ]
         .map((record) => getPeriodLabel(record))
-        .filter(Boolean)
-    )
+        .filter(Boolean),
+    ),
   );
 
   const filteredApprovedPayroll = approvedPayroll.filter((record) => {
-    const text = `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    const text =
+      `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
     const periodMatch =
       periodFilter === "All" || getPeriodLabel(record) === periodFilter;
@@ -1374,61 +1600,68 @@ ${partialReleaseError?.message || partialReleaseError}`);
     return text && periodMatch;
   });
 
-  const filteredPartialSalaryBalanceRows = partialSalaryBalanceReleaseRows.filter((record) => {
-    const text = `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+  const filteredPartialSalaryBalanceRows =
+    partialSalaryBalanceReleaseRows.filter((record) => {
+      const text =
+        `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
 
-    const periodMatch =
-      periodFilter === "All" || getPeriodLabel(record) === periodFilter;
+      const periodMatch =
+        periodFilter === "All" || getPeriodLabel(record) === periodFilter;
 
-    return text && periodMatch;
-  });
+      return text && periodMatch;
+    });
 
   const negativePayroll = filteredApprovedPayroll.filter(
-    (record) => getRecordAmount(record) < 0
+    (record) => getRecordAmount(record) < 0,
   );
 
   const readyForRelease = filteredApprovedPayroll;
 
-  const releasePipelineRows = [...filteredApprovedPayroll, ...filteredPartialSalaryBalanceRows];
+  const releasePipelineRows = [
+    ...filteredApprovedPayroll,
+    ...filteredPartialSalaryBalanceRows,
+  ];
 
   const totalPendingNet = releasePipelineRows.reduce(
     (sum, record) => sum + getReleaseAmount(record),
-    0
+    0,
   );
 
   const totalCarryForward = releasePipelineRows.reduce(
     (sum, record) => sum + getCarryForwardAmount(record),
-    0
+    0,
   );
 
   const totalPendingGross = releasePipelineRows.reduce(
     (sum, record) => sum + getRecordGross(record),
-    0
+    0,
   );
 
   const totalPendingDeductions = releasePipelineRows.reduce(
     (sum, record) => sum + getRecordDeduction(record),
-    0
+    0,
   );
 
-  const selectedRecords = [...filteredApprovedPayroll, ...filteredPartialSalaryBalanceRows, ...releasedPayroll].filter(
-    (record) => selectedRecordIds.includes(String(record.id))
-  );
+  const selectedRecords = [
+    ...filteredApprovedPayroll,
+    ...filteredPartialSalaryBalanceRows,
+    ...releasedPayroll,
+  ].filter((record) => selectedRecordIds.includes(String(record.id)));
 
   const selectedNet = selectedRecords.reduce(
     (sum, record) => sum + getReleaseAmount(record),
-    0
+    0,
   );
 
   const selectedCarryForward = selectedRecords.reduce(
     (sum, record) => sum + getCarryForwardAmount(record),
-    0
+    0,
   );
 
   const selectedNegative = selectedRecords.filter(
-    (record) => getRecordAmount(record) < 0
+    (record) => getRecordAmount(record) < 0,
   );
 
   const filteredAdjustments = payrollAdjustments.filter((item) => {
@@ -1440,9 +1673,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const totalApprovedAdjustmentAmount = approvedAdjustments.reduce(
     (sum, item) => sum + Number(item.amount || 0),
-    0
+    0,
   );
-
 
   /// CALCULATIONS - PAYROLL SUMMARY / COMPARISON
   const getRecordOtPay = (record: any) =>
@@ -1452,7 +1684,13 @@ ${partialReleaseError?.message || partialReleaseError}`);
     Number(record.holiday_pay || record.holiday_amount || 0);
 
   const getRecordAllowance = (record: any) =>
-    Number(record.allowance || record.allowances || record.bonus || record.incentive || 0);
+    Number(
+      record.allowance ||
+        record.allowances ||
+        record.bonus ||
+        record.incentive ||
+        0,
+    );
 
   const getRecordLateDeduction = (record: any) =>
     Number(record.late_deduction || record.late_amount || 0);
@@ -1463,8 +1701,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
   const getRecordBalanceDeduction = (record: any) =>
     Number(record.balance_deduction || record.cash_advance_deduction || 0);
 
-  const getRecordBasicPay = (record: any) =>
-    Number(record.basic_pay || 0);
+  const getRecordBasicPay = (record: any) => Number(record.basic_pay || 0);
 
   const getPeriodSortDate = (records: any[]) => {
     const dates = records
@@ -1474,8 +1711,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
             record.snapshot_created_at ||
             record.created_at ||
             record.updated_at ||
-            ""
-        ).slice(0, 10)
+            "",
+        ).slice(0, 10),
       )
       .filter(Boolean)
       .sort();
@@ -1485,39 +1722,52 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const summarizePayrollPeriod = (periodLabel: string, rows: any[]) => {
     const gross = rows.reduce((sum, record) => sum + getRecordGross(record), 0);
-    const deductions = rows.reduce((sum, record) => sum + getRecordDeduction(record), 0);
-    const release = rows.reduce((sum, record) => sum + getReleaseAmount(record), 0);
+    const deductions = rows.reduce(
+      (sum, record) => sum + getRecordDeduction(record),
+      0,
+    );
+    const release = rows.reduce(
+      (sum, record) => sum + getReleaseAmount(record),
+      0,
+    );
     const carryForward = rows.reduce(
       (sum, record) => sum + getCarryForwardAmount(record),
-      0
+      0,
     );
     const ot = rows.reduce((sum, record) => sum + getRecordOtPay(record), 0);
     const holiday = rows.reduce(
       (sum, record) => sum + getRecordHolidayPay(record),
-      0
+      0,
     );
     const allowance = rows.reduce(
       (sum, record) => sum + getRecordAllowance(record),
-      0
+      0,
     );
     const late = rows.reduce(
       (sum, record) => sum + getRecordLateDeduction(record),
-      0
+      0,
     );
     const undertime = rows.reduce(
       (sum, record) => sum + getRecordUndertimeDeduction(record),
-      0
+      0,
     );
     const balanceDeduction = rows.reduce(
       (sum, record) => sum + getRecordBalanceDeduction(record),
-      0
+      0,
     );
-    const basicPay = rows.reduce((sum, record) => sum + getRecordBasicPay(record), 0);
+    const basicPay = rows.reduce(
+      (sum, record) => sum + getRecordBasicPay(record),
+      0,
+    );
 
     return {
       periodLabel,
       rows,
-      employees: new Set(rows.map((record) => String(record.employee_id || record.employee_no || record.id))).size,
+      employees: new Set(
+        rows.map((record) =>
+          String(record.employee_id || record.employee_no || record.id),
+        ),
+      ).size,
       gross,
       deductions,
       release,
@@ -1541,7 +1791,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
       acc[label].push(record);
 
       return acc;
-    }, {})
+    }, {}),
   )
     .map((rows: any[]) => summarizePayrollPeriod(getPeriodLabel(rows[0]), rows))
     .sort((a, b) => b.sortDate.localeCompare(a.sortDate));
@@ -1553,7 +1803,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const previousPayrollSummary =
     payrollPeriodSummaries.find(
-      (item) => item.periodLabel !== currentPayrollSummary.periodLabel
+      (item) => item.periodLabel !== currentPayrollSummary.periodLabel,
     ) || summarizePayrollPeriod("No previous payroll", []);
 
   const payrollDifference =
@@ -1561,22 +1811,25 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const payrollDifferencePercent =
     previousPayrollSummary.release > 0
-      ? Math.round((payrollDifference / previousPayrollSummary.release) * 1000) / 10
+      ? Math.round(
+          (payrollDifference / previousPayrollSummary.release) * 1000,
+        ) / 10
       : currentPayrollSummary.release > 0
-      ? 100
-      : 0;
+        ? 100
+        : 0;
 
   const payrollComparisonStatus =
     payrollDifference > 0
       ? `Increased by ${formatPeso(payrollDifference)} (${payrollDifferencePercent}%)`
       : payrollDifference < 0
-      ? `Decreased by ${formatPeso(Math.abs(payrollDifference))} (${Math.abs(payrollDifferencePercent)}%)`
-      : "No change";
+        ? `Decreased by ${formatPeso(Math.abs(payrollDifference))} (${Math.abs(payrollDifferencePercent)}%)`
+        : "No change";
 
   const payrollIncreaseDrivers = [
     {
       label: "Basic Pay",
-      difference: currentPayrollSummary.basicPay - previousPayrollSummary.basicPay,
+      difference:
+        currentPayrollSummary.basicPay - previousPayrollSummary.basicPay,
     },
     {
       label: "OT Pay",
@@ -1584,16 +1837,19 @@ ${partialReleaseError?.message || partialReleaseError}`);
     },
     {
       label: "Holiday Pay",
-      difference: currentPayrollSummary.holiday - previousPayrollSummary.holiday,
+      difference:
+        currentPayrollSummary.holiday - previousPayrollSummary.holiday,
     },
     {
       label: "Allowances / Bonus",
-      difference: currentPayrollSummary.allowance - previousPayrollSummary.allowance,
+      difference:
+        currentPayrollSummary.allowance - previousPayrollSummary.allowance,
     },
     {
       label: "Cash Advance / Balances",
       difference:
-        currentPayrollSummary.balanceDeduction - previousPayrollSummary.balanceDeduction,
+        currentPayrollSummary.balanceDeduction -
+        previousPayrollSummary.balanceDeduction,
     },
   ]
     .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))
@@ -1601,10 +1857,14 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const aiAlerts = [
     ...(pendingAdjustments.length > 0
-      ? [`${pendingAdjustments.length} pending adjustment(s) still need Register approval before release.`]
+      ? [
+          `${pendingAdjustments.length} pending adjustment(s) still need Register approval before release.`,
+        ]
       : []),
     ...(negativePayroll.length > 0
-      ? [`${negativePayroll.length} employee(s) have negative net pay. They will release as ₱0 with carry-forward balance.`]
+      ? [
+          `${negativePayroll.length} employee(s) have negative net pay. They will release as ₱0 with carry-forward balance.`,
+        ]
       : []),
     ...(readyForRelease.length > 0
       ? [`${readyForRelease.length} payroll record(s) ready for release.`]
@@ -1617,9 +1877,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
   const releaseBlocked = pendingAdjustments.length > 0;
 
   const filteredReleasedPayroll = releasedPayroll.filter((record) => {
-    const text = `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    const text =
+      `${getEmployeeName(record)} ${record.department} ${record.position} ${getPeriodLabel(record)}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
     const periodMatch =
       periodFilter === "All" || getPeriodLabel(record) === periodFilter;
@@ -1630,10 +1891,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
   const releaseQueuePayroll = filteredApprovedPayroll.filter(
     (record) =>
       getAlreadyReleasedAmount(record) <= 0 &&
-      (
-        getOutstandingPayrollAmount(record) > 0 ||
-        getCarryForwardAmount(record) > 0
-      )
+      (getOutstandingPayrollAmount(record) > 0 ||
+        getCarryForwardAmount(record) > 0),
   );
 
   const partialReleasePayroll = filteredPartialSalaryBalanceRows;
@@ -1646,29 +1905,41 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
   const totalReleasedHistory = filteredReleasedPayroll.reduce(
     (sum, record) =>
-      sum + Number(record.paid_amount || record.amount_released || getReleaseBaseAmount(record) || 0),
-    0
+      sum +
+      Number(
+        record.paid_amount ||
+          record.amount_released ||
+          getReleaseBaseAmount(record) ||
+          0,
+      ),
+    0,
   );
 
   const toggleSelect = (id: any) => {
     const key = String(id);
     setSelectedRecordIds((prev) =>
-      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
     );
   };
 
   const selectAllReady = () => {
     if (activeTab === "history") {
-      setSelectedRecordIds(filteredReleasedPayroll.map((record) => String(record.id)));
+      setSelectedRecordIds(
+        filteredReleasedPayroll.map((record) => String(record.id)),
+      );
       return;
     }
 
     if (activeTab === "partial") {
-      setSelectedRecordIds(partialReleasePayroll.map((record) => String(record.id)));
+      setSelectedRecordIds(
+        partialReleasePayroll.map((record) => String(record.id)),
+      );
       return;
     }
 
-    setSelectedRecordIds(releaseQueuePayroll.map((record) => String(record.id)));
+    setSelectedRecordIds(
+      releaseQueuePayroll.map((record) => String(record.id)),
+    );
   };
 
   const clearSelection = () => {
@@ -1701,9 +1972,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
             <h1 className="mt-4 text-2xl font-black text-red-200">
               Access Denied
             </h1>
-            <p className="mt-2 text-sm text-red-100/80">
-              {accessMessage}
-            </p>
+            <p className="mt-2 text-sm text-red-100/80">{accessMessage}</p>
           </div>
         </main>
       </div>
@@ -1719,7 +1988,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
           <div>
             <h1 className="text-3xl font-bold">Payroll Manager</h1>
             <p className="mt-2 text-slate-400">
-              Release approved payroll only. Released records stay in history and cannot be released again.
+              Release approved payroll only. Released records stay in history
+              and cannot be released again.
             </p>
           </div>
 
@@ -1730,7 +2000,9 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 : "border-green-500/30 bg-green-500/10 text-green-300"
             }`}
           >
-            <p className="text-xs uppercase tracking-[0.18em]">Release Status</p>
+            <p className="text-xs uppercase tracking-[0.18em]">
+              Release Status
+            </p>
             <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
               {releaseBlocked ? (
                 <>
@@ -1746,12 +2018,41 @@ ${partialReleaseError?.message || partialReleaseError}`);
         </div>
 
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
-          <KpiCard icon={<Users size={22} />} title="Release Queue" value={releaseQueuePayroll.length} danger={releaseQueuePayroll.length > 0} />
-          <KpiCard icon={<RotateCcw size={22} />} title="Partial Releases" value={partialReleasePayroll.length} danger={partialReleasePayroll.length > 0} />
-          <KpiCard icon={<DollarSign size={22} />} title="Outstanding Payroll" value={formatPeso(totalPendingNet)} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Released History" value={filteredReleasedPayroll.length} success />
-          <KpiCard icon={<DollarSign size={22} />} title="Released Total" value={formatPeso(totalReleasedHistory)} success />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Pending Register Approval" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
+          <KpiCard
+            icon={<Users size={22} />}
+            title="Release Queue"
+            value={releaseQueuePayroll.length}
+            danger={releaseQueuePayroll.length > 0}
+          />
+          <KpiCard
+            icon={<RotateCcw size={22} />}
+            title="Partial Releases"
+            value={partialReleasePayroll.length}
+            danger={partialReleasePayroll.length > 0}
+          />
+          <KpiCard
+            icon={<DollarSign size={22} />}
+            title="Outstanding Payroll"
+            value={formatPeso(totalPendingNet)}
+          />
+          <KpiCard
+            icon={<CheckCircle2 size={22} />}
+            title="Released History"
+            value={filteredReleasedPayroll.length}
+            success
+          />
+          <KpiCard
+            icon={<DollarSign size={22} />}
+            title="Released Total"
+            value={formatPeso(totalReleasedHistory)}
+            success
+          />
+          <KpiCard
+            icon={<AlertTriangle size={22} />}
+            title="Pending Register Approval"
+            value={pendingAdjustments.length}
+            danger={pendingAdjustments.length > 0}
+          />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -1760,7 +2061,9 @@ ${partialReleaseError?.message || partialReleaseError}`);
               <div>
                 <h2 className="text-xl font-bold">Payroll Manager Tabs</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Release Queue is for new approved payroll. Partial Releases are unpaid salary balances. Released History is read-only audit view.
+                  Release Queue is for new approved payroll. Partial Releases
+                  are unpaid salary balances. Released History is read-only
+                  audit view.
                 </p>
               </div>
 
@@ -1785,9 +2088,13 @@ ${partialReleaseError?.message || partialReleaseError}`);
                     : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
                 }`}
               >
-                <p className="text-xs font-black uppercase tracking-[0.18em]">Tab 1</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em]">
+                  Tab 1
+                </p>
                 <h3 className="mt-1 text-lg font-black">Release Queue</h3>
-                <p className="mt-1 text-sm opacity-80">{releaseQueuePayroll.length} waiting</p>
+                <p className="mt-1 text-sm opacity-80">
+                  {releaseQueuePayroll.length} waiting
+                </p>
               </button>
 
               <button
@@ -1801,9 +2108,13 @@ ${partialReleaseError?.message || partialReleaseError}`);
                     : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
                 }`}
               >
-                <p className="text-xs font-black uppercase tracking-[0.18em]">Tab 2</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em]">
+                  Tab 2
+                </p>
                 <h3 className="mt-1 text-lg font-black">Partial Releases</h3>
-                <p className="mt-1 text-sm opacity-80">{partialReleasePayroll.length} remaining</p>
+                <p className="mt-1 text-sm opacity-80">
+                  {partialReleasePayroll.length} remaining
+                </p>
               </button>
 
               <button
@@ -1817,19 +2128,25 @@ ${partialReleaseError?.message || partialReleaseError}`);
                     : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800"
                 }`}
               >
-                <p className="text-xs font-black uppercase tracking-[0.18em]">Tab 3</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em]">
+                  Tab 3
+                </p>
                 <h3 className="mt-1 text-lg font-black">Released History</h3>
-                <p className="mt-1 text-sm opacity-80">{filteredReleasedPayroll.length} released</p>
+                <p className="mt-1 text-sm opacity-80">
+                  {filteredReleasedPayroll.length} released
+                </p>
               </button>
             </div>
 
             {pendingAdjustments.length > 0 && (
               <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
                 <p className="font-black text-red-300">
-                  Release blocked: pending approvals must be handled in Payroll Register.
+                  Release blocked: pending approvals must be handled in Payroll
+                  Register.
                 </p>
                 <p className="mt-1 text-sm text-red-200">
-                  Approve/reject CA, deductions, or adjustments in Register, then generate payroll again before release.
+                  Approve/reject CA, deductions, or adjustments in Register,
+                  then generate payroll again before release.
                 </p>
               </div>
             )}
@@ -1840,7 +2157,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
             <div className="mt-5 space-y-3">
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
+                <Search
+                  size={16}
+                  className="absolute left-3 top-3 text-slate-500"
+                />
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1916,22 +2236,26 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 {activeTab === "queue"
                   ? "Payroll Release Queue"
                   : activeTab === "partial"
-                  ? "Partial Releases"
-                  : "Released History"}
+                    ? "Partial Releases"
+                    : "Released History"}
               </h2>
               <p className="mt-1 text-sm text-slate-400">
                 {activeTab === "queue"
                   ? "New approved payroll records waiting for first release."
                   : activeTab === "partial"
-                  ? "Employees with remaining salary balance after partial release."
-                  : "Read-only released payroll history. Select records only when reopening is required."}
+                    ? "Employees with remaining salary balance after partial release."
+                    : "Read-only released payroll history. Select records only when reopening is required."}
               </p>
             </div>
 
             {activeTab !== "history" && (
               <button
                 onClick={() => releasePayroll("selected")}
-                disabled={isProcessing || selectedRecordIds.length === 0 || releaseBlocked}
+                disabled={
+                  isProcessing ||
+                  selectedRecordIds.length === 0 ||
+                  releaseBlocked
+                }
                 className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
               >
                 <Send size={16} /> Release Selected
@@ -1959,11 +2283,16 @@ ${partialReleaseError?.message || partialReleaseError}`);
                 </thead>
                 <tbody>
                   {filteredReleasedPayroll.map((record) => (
-                    <tr key={record.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                    <tr
+                      key={record.id}
+                      className="border-t border-slate-800 hover:bg-slate-800/40"
+                    >
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
-                          checked={selectedRecordIds.includes(String(record.id))}
+                          checked={selectedRecordIds.includes(
+                            String(record.id),
+                          )}
                           onChange={() => toggleSelect(record.id)}
                           className="h-4 w-4 accent-yellow-400"
                         />
@@ -1975,17 +2304,33 @@ ${partialReleaseError?.message || partialReleaseError}`);
                         </p>
                       </td>
                       <td className="px-4 py-3">{getPeriodLabel(record)}</td>
-                      <td className="px-4 py-3 text-right">{formatPeso(getRecordGross(record))}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatPeso(getRecordDeduction(record))}</td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatPeso(getRecordAmount(record))}</td>
+                      <td className="px-4 py-3 text-right">
+                        {formatPeso(getRecordGross(record))}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {formatPeso(getRecordDeduction(record))}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                        {formatPeso(getRecordAmount(record))}
+                      </td>
                       <td className="px-4 py-3 text-right font-black text-blue-300">
-                        {formatPeso(record.paid_amount || record.amount_released || getReleaseBaseAmount(record))}
+                        {formatPeso(
+                          record.paid_amount ||
+                            record.amount_released ||
+                            getReleaseBaseAmount(record),
+                        )}
                       </td>
                       <td className="px-4 py-3">{record.released_by || "-"}</td>
                       <td className="px-4 py-3 text-slate-300">
-                        {record.released_at ? String(record.released_at).slice(0, 19).replace("T", " ") : "-"}
+                        {record.released_at
+                          ? String(record.released_at)
+                              .slice(0, 19)
+                              .replace("T", " ")
+                          : "-"}
                       </td>
-                      <td className="px-4 py-3"><StatusBadge status={getReleaseDisplayStatus(record)} /></td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={getReleaseDisplayStatus(record)} />
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => setActiveAuditRecord(record)}
@@ -1999,7 +2344,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
                   {filteredReleasedPayroll.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="px-4 py-12 text-center text-slate-500">
+                      <td
+                        colSpan={11}
+                        className="px-4 py-12 text-center text-slate-500"
+                      >
                         No released payroll history found.
                       </td>
                     </tr>
@@ -2016,7 +2364,6 @@ ${partialReleaseError?.message || partialReleaseError}`);
                     <th className="px-4 py-3 text-right">Gross</th>
                     <th className="px-4 py-3 text-right">Deductions</th>
                     <th className="px-4 py-3 text-right">Computed Net</th>
-                    <th className="px-4 py-3 text-right">Released</th>
                     <th className="px-4 py-3 text-right">Outstanding</th>
                     <th className="px-4 py-3 text-right">Release Now</th>
                     <th className="px-4 py-3 text-right">Remaining</th>
@@ -2036,7 +2383,9 @@ ${partialReleaseError?.message || partialReleaseError}`);
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
-                          checked={selectedRecordIds.includes(String(record.id))}
+                          checked={selectedRecordIds.includes(
+                            String(record.id),
+                          )}
                           onChange={() => toggleSelect(record.id)}
                           className="h-4 w-4 accent-yellow-400"
                         />
@@ -2048,23 +2397,40 @@ ${partialReleaseError?.message || partialReleaseError}`);
                         </p>
                       </td>
                       <td className="px-4 py-3">{getPeriodLabel(record)}</td>
-                      <td className="px-4 py-3 text-right">{formatPeso(getRecordGross(record))}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatPeso(getRecordDeduction(record))}</td>
-                      <td className={`px-4 py-3 text-right font-black ${getRecordAmount(record) < 0 ? "text-red-400" : "text-emerald-400"}`}>
+                      <td className="px-4 py-3 text-right">
+                        {formatPeso(getRecordGross(record))}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {formatPeso(getRecordDeduction(record))}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-black ${getRecordAmount(record) < 0 ? "text-red-400" : "text-emerald-400"}`}
+                      >
                         {formatPeso(getRecordAmount(record))}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-blue-300">{formatPeso(getAlreadyReleasedAmount(record))}</td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatPeso(getOutstandingPayrollAmount(record))}</td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                        {formatPeso(getOutstandingPayrollAmount(record))}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <input
                           type="number"
                           min="0"
                           max={getOutstandingPayrollAmount(record)}
-                          value={releaseDrafts[String(record.id)] ?? String(getOutstandingPayrollAmount(record))}
+                          value={
+                            releaseDrafts[String(record.id)] ??
+                            String(getOutstandingPayrollAmount(record))
+                          }
                           onChange={(event) => {
-                            const maxAmount = getOutstandingPayrollAmount(record);
-                            const requestedAmount = Math.max(0, Number(event.target.value || 0));
-                            const safeAmount = Math.min(requestedAmount, maxAmount);
+                            const maxAmount =
+                              getOutstandingPayrollAmount(record);
+                            const requestedAmount = Math.max(
+                              0,
+                              Number(event.target.value || 0),
+                            );
+                            const safeAmount = Math.min(
+                              requestedAmount,
+                              maxAmount,
+                            );
 
                             setReleaseDrafts((prev) => ({
                               ...prev,
@@ -2077,26 +2443,46 @@ ${partialReleaseError?.message || partialReleaseError}`);
                           Max {formatPeso(getOutstandingPayrollAmount(record))}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">{formatPeso(getRemainingAfterRelease(record))}</td>
-                      <td className="px-4 py-3"><StatusBadge status={getReleaseDisplayStatus(record)} /></td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                        {formatPeso(getRemainingAfterRelease(record))}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={getReleaseDisplayStatus(record)} />
+                      </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-2">
-                          {!isPartialSalaryBalanceRecord(record) && (
-                            <button
-                              onClick={() => returnPayrollToRegister(record)}
-                              disabled={isProcessing}
-                              className="rounded-lg border border-yellow-500/40 px-3 py-2 text-xs font-black text-yellow-300 hover:bg-yellow-500/10 disabled:opacity-50"
-                            >
-                              Return
-                            </button>
+                        <div className="flex items-center justify-end gap-3">
+                          {getAlreadyReleasedAmount(record) > 0 && (
+                            <div className="min-w-[170px] rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-right shadow-sm">
+                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">
+                                Previous Release
+                              </p>
+                              <p className="mt-1 text-sm font-black text-cyan-100">
+                                {formatPeso(getAlreadyReleasedAmount(record))}
+                              </p>
+                              <p className="mt-1 text-[10px] font-semibold leading-4 text-slate-400">
+                                {getReleaseHistoryHint(record)}
+                              </p>
+                            </div>
                           )}
-                          <button
-                            onClick={() => releaseSinglePayroll(record)}
-                            disabled={isProcessing || releaseBlocked}
-                            className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
-                          >
-                            Release
-                          </button>
+
+                          <div className="flex flex-col items-end gap-2">
+                            {!isPartialSalaryBalanceRecord(record) && (
+                              <button
+                                onClick={() => returnPayrollToRegister(record)}
+                                disabled={isProcessing}
+                                className="rounded-lg border border-yellow-500/40 px-3 py-2 text-xs font-black text-yellow-300 hover:bg-yellow-500/10 disabled:opacity-50"
+                              >
+                                Return
+                              </button>
+                            )}
+                            <button
+                              onClick={() => releaseSinglePayroll(record)}
+                              disabled={isProcessing || releaseBlocked}
+                              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50"
+                            >
+                              Release
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -2104,7 +2490,10 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
                   {visibleReleaseRows.length === 0 && (
                     <tr>
-                      <td colSpan={12} className="px-4 py-12 text-center text-slate-500">
+                      <td
+                        colSpan={11}
+                        className="px-4 py-12 text-center text-slate-500"
+                      >
                         {activeTab === "queue"
                           ? "No new approved payroll records waiting for release."
                           : "No partially released payroll records with remaining balance."}
@@ -2120,7 +2509,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Active employee balances only. Payroll Balance rows are remaining salary; Cash Advance rows are employee liabilities.
+            Active employee balances only. Payroll Balance rows are remaining
+            salary; Cash Advance rows are employee liabilities.
           </p>
 
           <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800">
@@ -2138,21 +2528,43 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
               <tbody>
                 {employeeBalances
-                  .filter((item) => String(item.status || "Active") === "Active")
+                  .filter(
+                    (item) => String(item.status || "Active") === "Active",
+                  )
                   .map((item) => (
-                    <tr key={item.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                      <td className="px-4 py-3 font-bold">{item.employee_name || "Unknown Employee"}</td>
-                      <td className="px-4 py-3">{item.balance_type || "Balance"}</td>
-                      <td className="px-4 py-3 text-right">{formatPeso(item.original_amount)}</td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">{formatPeso(item.remaining_balance)}</td>
-                      <td className="px-4 py-3"><StatusBadge status={item.status || "Active"} /></td>
-                      <td className="px-4 py-3 text-slate-400">{item.remarks || "-"}</td>
+                    <tr
+                      key={item.id}
+                      className="border-t border-slate-800 hover:bg-slate-800/40"
+                    >
+                      <td className="px-4 py-3 font-bold">
+                        {item.employee_name || "Unknown Employee"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.balance_type || "Balance"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatPeso(item.original_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                        {formatPeso(item.remaining_balance)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={item.status || "Active"} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {item.remarks || "-"}
+                      </td>
                     </tr>
                   ))}
 
-                {employeeBalances.filter((item) => String(item.status || "Active") === "Active").length === 0 && (
+                {employeeBalances.filter(
+                  (item) => String(item.status || "Active") === "Active",
+                ).length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                    <td
+                      colSpan={6}
+                      className="px-4 py-10 text-center text-slate-500"
+                    >
                       No active employee balances.
                     </td>
                   </tr>
@@ -2169,10 +2581,21 @@ ${partialReleaseError?.message || partialReleaseError}`);
           </p>
 
           <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <MiniStat title="Pending" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
-            <MiniStat title="Approved" value={approvedAdjustments.length} success />
+            <MiniStat
+              title="Pending"
+              value={pendingAdjustments.length}
+              danger={pendingAdjustments.length > 0}
+            />
+            <MiniStat
+              title="Approved"
+              value={approvedAdjustments.length}
+              success
+            />
             <MiniStat title="Rejected" value={rejectedAdjustments.length} />
-            <MiniStat title="Approved Amount" value={formatPeso(totalApprovedAdjustmentAmount)} />
+            <MiniStat
+              title="Approved Amount"
+              value={formatPeso(totalApprovedAdjustmentAmount)}
+            />
           </div>
 
           <div className="mt-5 overflow-x-auto rounded-xl border border-slate-800">
@@ -2189,18 +2612,37 @@ ${partialReleaseError?.message || partialReleaseError}`);
 
               <tbody>
                 {filteredAdjustments.map((item) => (
-                  <tr key={item.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                    <td className="px-4 py-3 font-bold">{item.employee_name || getEmployeeName(item)}</td>
-                    <td className="px-4 py-3">{item.adjustment_type || item.type || item.category || "Adjustment"}</td>
-                    <td className="px-4 py-3 text-slate-300">{item.description || item.remarks || "-"}</td>
-                    <td className="px-4 py-3 text-right font-bold">{formatPeso(item.amount || 0)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={item.status || "Pending"} /></td>
+                  <tr
+                    key={item.id}
+                    className="border-t border-slate-800 hover:bg-slate-800/40"
+                  >
+                    <td className="px-4 py-3 font-bold">
+                      {item.employee_name || getEmployeeName(item)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {item.adjustment_type ||
+                        item.type ||
+                        item.category ||
+                        "Adjustment"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {item.description || item.remarks || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold">
+                      {formatPeso(item.amount || 0)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={item.status || "Pending"} />
+                    </td>
                   </tr>
                 ))}
 
                 {filteredAdjustments.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                    <td
+                      colSpan={5}
+                      className="px-4 py-12 text-center text-slate-500"
+                    >
                       No payroll adjustments found.
                     </td>
                   </tr>
@@ -2253,7 +2695,7 @@ function PayrollAuditModal({
   getReleaseDisplayStatus,
   onClose,
 }: any) {
-  const caApplied = getAuditCaAppliedAmount(record);
+  const liabilityPaidTotal = getAuditCaAppliedAmount(record);
   const releasedAmount =
     getAlreadyReleasedAmount(record) ||
     record.paid_amount ||
@@ -2269,15 +2711,46 @@ function PayrollAuditModal({
     remainingBalance > 0
       ? "Partial Release"
       : Number(releasedAmount || 0) > 0
-      ? "Full Release"
-      : "No Release Recorded";
+        ? "Full Release"
+        : "No Release Recorded";
 
   const timelineRows = [
-    ["Generated", record.snapshot_created_at || record.generated_at || record.created_at],
+    [
+      "Generated",
+      record.snapshot_created_at || record.generated_at || record.created_at,
+    ],
     ["Approved", record.approved_at || record.reviewed_at],
     ["Released", record.released_at],
     ["Reopened", record.reopened_at],
   ].filter(([, value]) => value);
+
+  const liabilityRows = balanceRows.map((item: any) => {
+    const original = Number(item.original_amount || 0);
+    const remaining = Number(item.remaining_balance || 0);
+    const paid = Math.max(original - remaining, 0);
+    const progress = original > 0 ? Math.min((paid / original) * 100, 100) : 0;
+
+    return {
+      ...item,
+      original,
+      paid,
+      remaining,
+      progress,
+    };
+  });
+
+  const totalLiabilityOriginal = liabilityRows.reduce(
+    (sum: number, item: any) => sum + Number(item.original || 0),
+    0,
+  );
+  const totalLiabilityPaid = liabilityRows.reduce(
+    (sum: number, item: any) => sum + Number(item.paid || 0),
+    0,
+  );
+  const totalLiabilityRemaining = liabilityRows.reduce(
+    (sum: number, item: any) => sum + Number(item.remaining || 0),
+    0,
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -2287,7 +2760,9 @@ function PayrollAuditModal({
             <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
               Payroll Audit
             </p>
-            <h2 className="mt-2 text-2xl font-black text-white">{employeeName}</h2>
+            <h2 className="mt-2 text-2xl font-black text-white">
+              {employeeName}
+            </h2>
             <p className="mt-1 text-sm text-slate-400">{periodLabel}</p>
           </div>
 
@@ -2301,24 +2776,66 @@ function PayrollAuditModal({
 
         <div className="max-h-[calc(90vh-110px)] overflow-auto p-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <MiniStat title="Release Type" value={releaseType} success={remainingBalance <= 0} danger={remainingBalance > 0} />
-            <MiniStat title="Released Amount" value={formatPeso(releasedAmount)} success />
-            <MiniStat title="CA Applied" value={formatPeso(caApplied)} danger={caApplied > 0} />
-            <MiniStat title="Remaining Salary" value={formatPeso(remainingBalance)} danger={remainingBalance > 0} />
+            <MiniStat
+              title="Release Type"
+              value={releaseType}
+              success={remainingBalance <= 0}
+              danger={remainingBalance > 0}
+            />
+            <MiniStat
+              title="Released Amount"
+              value={formatPeso(releasedAmount)}
+              success
+            />
+            <MiniStat
+              title="Liability Paid"
+              value={formatPeso(liabilityPaidTotal)}
+              danger={liabilityPaidTotal > 0}
+            />
+            <MiniStat
+              title="Remaining Salary"
+              value={formatPeso(remainingBalance)}
+              danger={remainingBalance > 0}
+            />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
               <h3 className="text-lg font-black">Payroll Snapshot</h3>
               <div className="mt-4 space-y-2 text-sm">
-                <AuditLine label="Status" value={<StatusBadge status={getReleaseDisplayStatus(record)} />} />
-                <AuditLine label="Department" value={record.department || "-"} />
+                <AuditLine
+                  label="Status"
+                  value={
+                    <StatusBadge status={getReleaseDisplayStatus(record)} />
+                  }
+                />
+                <AuditLine
+                  label="Department"
+                  value={record.department || "-"}
+                />
                 <AuditLine label="Position" value={record.position || "-"} />
-                <AuditLine label="Gross Pay" value={formatPeso(getRecordGross(record))} />
-                <AuditLine label="Deductions" value={formatPeso(getRecordDeduction(record))} danger />
-                <AuditLine label="Computed Net" value={formatPeso(getRecordAmount(record))} success />
-                <AuditLine label="Released By" value={record.released_by || "-"} />
-                <AuditLine label="Released At" value={formatDateTime(record.released_at)} />
+                <AuditLine
+                  label="Gross Pay"
+                  value={formatPeso(getRecordGross(record))}
+                />
+                <AuditLine
+                  label="Deductions"
+                  value={formatPeso(getRecordDeduction(record))}
+                  danger
+                />
+                <AuditLine
+                  label="Computed Net"
+                  value={formatPeso(getRecordAmount(record))}
+                  success
+                />
+                <AuditLine
+                  label="Released By"
+                  value={record.released_by || "-"}
+                />
+                <AuditLine
+                  label="Released At"
+                  value={formatDateTime(record.released_at)}
+                />
               </div>
             </div>
 
@@ -2326,9 +2843,16 @@ function PayrollAuditModal({
               <h3 className="text-lg font-black">Timeline</h3>
               <div className="mt-4 space-y-3">
                 {timelineRows.map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
-                    <p className="mt-1 font-bold text-slate-200">{formatDateTime(value)}</p>
+                  <div
+                    key={label}
+                    className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                  >
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                      {label}
+                    </p>
+                    <p className="mt-1 font-bold text-slate-200">
+                      {formatDateTime(value)}
+                    </p>
                   </div>
                 ))}
 
@@ -2338,6 +2862,105 @@ function PayrollAuditModal({
                   </p>
                 )}
               </div>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-lg font-black text-blue-200">
+                  Liability Settlement History
+                </h3>
+                <p className="mt-1 text-sm text-blue-100/70">
+                  Computed from Employee Balance Ledger: Original minus
+                  Remaining. This shows which CA, loan, meal, or unpaid item has
+                  already been paid through payroll.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-right text-xs">
+                <div className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2">
+                  <p className="text-slate-500">Original</p>
+                  <p className="font-black text-white">
+                    {formatPeso(totalLiabilityOriginal)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
+                  <p className="text-emerald-200/70">Paid</p>
+                  <p className="font-black text-emerald-300">
+                    {formatPeso(totalLiabilityPaid)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
+                  <p className="text-yellow-200/70">Remaining</p>
+                  <p className="font-black text-yellow-300">
+                    {formatPeso(totalLiabilityRemaining)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1000px] text-sm">
+                <thead className="bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3 text-right">Original</th>
+                    <th className="px-4 py-3 text-right">Paid</th>
+                    <th className="px-4 py-3 text-right">Remaining</th>
+                    <th className="px-4 py-3">Progress</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liabilityRows.map((item: any) => (
+                    <tr key={item.id} className="border-t border-slate-800">
+                      <td className="px-4 py-3 font-bold">
+                        {item.balance_type || "Balance"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatPeso(item.original)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                        {formatPeso(item.paid)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                        {formatPeso(item.remaining)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex min-w-[180px] items-center gap-3">
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
+                            <div
+                              className="h-full rounded-full bg-emerald-400"
+                              style={{ width: `${Math.round(item.progress)}%` }}
+                            />
+                          </div>
+                          <span className="w-12 text-right text-xs font-black text-emerald-300">
+                            {item.progress.toFixed(1)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={item.status || "-"} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {item.remarks || "-"}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {liabilityRows.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-slate-500"
+                      >
+                        No employee liability rows found for this employee.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -2358,19 +2981,33 @@ function PayrollAuditModal({
                 <tbody>
                   {transactions.map((item: any) => (
                     <tr key={item.id} className="border-t border-slate-800">
-                      <td className="px-4 py-3">{formatDateTime(item.created_at || item.released_at)}</td>
+                      <td className="px-4 py-3">
+                        {formatDateTime(item.created_at || item.released_at)}
+                      </td>
                       <td className="px-4 py-3">{item.released_by || "-"}</td>
-                      <td className="px-4 py-3 text-right">{formatPeso(item.net_pay)}</td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatPeso(item.release_amount)}</td>
-                      <td className="px-4 py-3 text-right text-yellow-300">{formatPeso(item.remaining_balance)}</td>
-                      <td className="px-4 py-3 text-slate-400">{item.remarks || "-"}</td>
+                      <td className="px-4 py-3 text-right">
+                        {formatPeso(item.net_pay)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                        {formatPeso(item.release_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-yellow-300">
+                        {formatPeso(item.remaining_balance)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {item.remarks || "-"}
+                      </td>
                     </tr>
                   ))}
 
                   {transactions.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                        No release transaction row found. Showing payroll record audit only.
+                      <td
+                        colSpan={6}
+                        className="px-4 py-8 text-center text-slate-500"
+                      >
+                        No release transaction row found. Showing payroll record
+                        audit only.
                       </td>
                     </tr>
                   )}
@@ -2395,17 +3032,30 @@ function PayrollAuditModal({
                 <tbody>
                   {balanceRows.map((item: any) => (
                     <tr key={item.id} className="border-t border-slate-800">
-                      <td className="px-4 py-3">{item.balance_type || "Balance"}</td>
-                      <td className="px-4 py-3 text-right">{formatPeso(item.original_amount)}</td>
-                      <td className="px-4 py-3 text-right font-black text-yellow-300">{formatPeso(item.remaining_balance)}</td>
-                      <td className="px-4 py-3"><StatusBadge status={item.status || "-"} /></td>
-                      <td className="px-4 py-3 text-slate-400">{item.remarks || "-"}</td>
+                      <td className="px-4 py-3">
+                        {item.balance_type || "Balance"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatPeso(item.original_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-yellow-300">
+                        {formatPeso(item.remaining_balance)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={item.status || "-"} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {item.remarks || "-"}
+                      </td>
                     </tr>
                   ))}
 
                   {balanceRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                      <td
+                        colSpan={5}
+                        className="px-4 py-8 text-center text-slate-500"
+                      >
                         No related balance rows found for this payroll record.
                       </td>
                     </tr>
@@ -2417,8 +3067,12 @@ function PayrollAuditModal({
 
           {record.reopen_reason && (
             <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
-              <h3 className="text-lg font-black text-red-300">Reopen History</h3>
-              <p className="mt-2 text-sm text-red-100">{record.reopen_reason}</p>
+              <h3 className="text-lg font-black text-red-300">
+                Reopen History
+              </h3>
+              <p className="mt-2 text-sm text-red-100">
+                {record.reopen_reason}
+              </p>
               <p className="mt-1 text-xs text-red-200/80">
                 Reopened At: {formatDateTime(record.reopened_at)}
               </p>
@@ -2485,12 +3139,14 @@ function KpiCard({
         danger
           ? "border-red-500/20 bg-red-500/10"
           : success
-          ? "border-green-500/20 bg-green-500/10"
-          : "border-slate-800 bg-slate-900"
+            ? "border-green-500/20 bg-green-500/10"
+            : "border-slate-800 bg-slate-900"
       }`}
     >
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">{icon}</div>
+        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+          {icon}
+        </div>
         <p className="text-sm text-slate-400">{title}</p>
       </div>
       <h2 className="text-2xl font-bold">{value}</h2>
@@ -2520,16 +3176,16 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "Active"
       ? "bg-yellow-500/10 text-yellow-400"
       : normalized === "Closed"
-      ? "bg-green-500/10 text-green-400"
-      : normalized === "Released" || normalized === "Paid"
-      ? "bg-blue-500/10 text-blue-400"
-      : normalized === "Approved" || normalized === "For Approval"
-      ? "bg-green-500/10 text-green-400"
-      : normalized === "Rejected"
-      ? "bg-red-500/10 text-red-400"
-      : normalized === "Partially Released"
-      ? "bg-yellow-500/10 text-yellow-400"
-      : "bg-yellow-500/10 text-yellow-400";
+        ? "bg-green-500/10 text-green-400"
+        : normalized === "Released" || normalized === "Paid"
+          ? "bg-blue-500/10 text-blue-400"
+          : normalized === "Approved" || normalized === "For Approval"
+            ? "bg-green-500/10 text-green-400"
+            : normalized === "Rejected"
+              ? "bg-red-500/10 text-red-400"
+              : normalized === "Partially Released"
+                ? "bg-yellow-500/10 text-yellow-400"
+                : "bg-yellow-500/10 text-yellow-400";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ${style}`}>

@@ -37,7 +37,7 @@ export default function PayrollRegisterPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
-  const [adjustmentType, setAdjustmentType] = useState("Employee Meal Charge");
+  const [adjustmentType, setAdjustmentType] = useState("Other Deduction");
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentRemarks, setAdjustmentRemarks] = useState("");
 
@@ -54,9 +54,6 @@ export default function PayrollRegisterPage() {
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
 
   const deductionTypes = [
-    "Employee Meal Charge",
-    "Cash Advance",
-    "Salary Loan",
     "Other Deduction",
   ];
 
@@ -75,6 +72,23 @@ export default function PayrollRegisterPage() {
     })}`;
 
   const normalize = (value: any) => String(value || "").trim().toLowerCase();
+
+  const getCurrentCompanyId = () => {
+    if (typeof window === "undefined") return selectedPeriod?.company_id || null;
+
+    const storedCompanyId =
+      localStorage.getItem("opscore_current_company_id") ||
+      localStorage.getItem("opscore_company_id") ||
+      localStorage.getItem("company_id");
+
+    const cleanedCompanyId = String(storedCompanyId || "").trim();
+
+    if (cleanedCompanyId && cleanedCompanyId !== "null" && cleanedCompanyId !== "undefined") {
+      return cleanedCompanyId;
+    }
+
+    return selectedPeriod?.company_id || null;
+  };
 
   const normalizeDate = (value: any) => {
     if (!value) return "";
@@ -920,6 +934,13 @@ ${error.message}`);
       return;
     }
 
+    const currentCompanyId = getCurrentCompanyId();
+
+    if (!currentCompanyId) {
+      alert("No company selected. Please login again before generating payroll.");
+      return;
+    }
+
     const confirmGenerate = confirm(
       "Generate payroll using approved adjustments only? Draft / editable records for this period will be refreshed. Released or partially released payroll records will be preserved."
     );
@@ -1042,6 +1063,7 @@ ${error.message}`);
         ];
 
         const base = {
+          company_id: currentCompanyId,
           period_id: selectedPeriodId,
           employee_id: employee.id,
           employee_no: employee.employee_no,
@@ -1183,7 +1205,7 @@ ${error.message}`);
       }
 
       setSelectedEmployeeId("");
-      setAdjustmentType("Employee Meal Charge");
+      setAdjustmentType("Other Deduction");
       setAdjustmentAmount("");
       setAdjustmentRemarks("");
 
@@ -1603,9 +1625,17 @@ This will remove it from future payroll deductions but keep the audit trail.`
   ) => {
     if (!selectedPeriodId || targetRecords.length === 0) return true;
 
+    const currentCompanyId = getCurrentCompanyId();
+
+    if (!currentCompanyId) {
+      alert("No company selected. Please login again before creating payroll snapshot.");
+      return false;
+    }
+
     const now = new Date().toISOString();
 
     const snapshotRows = targetRecords.map((record) => ({
+      company_id: record.company_id || currentCompanyId,
       payroll_record_id: record.id,
       payroll_period_id: selectedPeriodId,
       period_id: selectedPeriodId,
@@ -2380,9 +2410,9 @@ This will:
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Manual Adjustments / Cash Advance</h2>
+                <h2 className="text-xl font-bold">Payroll Adjustments</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Approve CA/deductions here before generating payroll.
+                  Earnings and non-liability adjustments only. Cash Advance, employee meals, salary loans, and restaurant unpaid balances should be created in Employee Balances, then deducted through payroll.
                 </p>
               </div>
 
@@ -2420,7 +2450,7 @@ This will:
                 disabled={!canEditPayroll}
                 className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
               >
-                {[...deductionTypes, ...earningTypes].map((type) => (
+                {[...earningTypes, ...deductionTypes].map((type) => (
                   <option key={type}>{type}</option>
                 ))}
               </select>
@@ -2520,7 +2550,7 @@ This will:
             <div>
               <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Active balances will be deducted automatically when payroll is generated. Delete here only if the payroll deduction link is wrong.
+Active balances are deducted through payroll only. Cancel here only when the balance link or amount is wrong; no hard delete is performed.
               </p>
             </div>
 
@@ -2568,7 +2598,7 @@ This will:
                         disabled={!canEditPayroll || isSaving}
                         className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50"
                       >
-                        Delete
+                        Cancel
                       </button>
                     </td>
                   </tr>
