@@ -139,11 +139,33 @@ export default function ForecastingPage() {
     return baseHC + peakHC + eventHC;
   };
 
+  const getScheduleDateValue = (schedule: any) =>
+    String(
+      schedule?.day ||
+        schedule?.date ||
+        schedule?.schedule_date ||
+        schedule?.business_date ||
+        schedule?.created_at ||
+        ""
+    ).slice(0, 10);
+
+  const isWorkingScheduleShift = (shift: any) => {
+    const normalized = String(shift || "").trim().toUpperCase();
+
+    // Missing row/value is not scheduled.
+    // OFF and RD are valid rest days, not working manpower.
+    // LEAVE is also not counted as scheduled HC.
+    return Boolean(normalized) &&
+      normalized !== "OFF" &&
+      normalized !== "RD" &&
+      normalized !== "LEAVE";
+  };
+
   const getScheduledHC = (date: string) => {
     return schedules.filter(
       (schedule) =>
-        String(schedule.day) === String(date) &&
-        String(schedule.shift).toUpperCase() !== "OFF"
+        getScheduleDateValue(schedule) === String(date) &&
+        isWorkingScheduleShift(schedule.shift)
     ).length;
   };
 
@@ -396,6 +418,9 @@ export default function ForecastingPage() {
             <th className="py-3 pr-4">Room Occupancy</th>
             <th className="py-3 pr-4">Rooms Sold</th>
             <th className="py-3 pr-4">Available Rooms</th>
+            <th className="py-3 pr-4">Required HC</th>
+            <th className="py-3 pr-4">Scheduled HC</th>
+            <th className="py-3 pr-4">Gap</th>
             <th className="w-[220px] py-3 pr-6">Event</th>
             <th className="w-[90px] py-3 pr-6">Pax</th>
             <th className="py-3 pr-4">Demand</th>
@@ -413,6 +438,11 @@ export default function ForecastingPage() {
             <td className="py-3 pr-4 font-semibold">{day.occupancy}%</td>
             <td className="py-3 pr-4">{day.rooms_sold}</td>
             <td className="py-3 pr-4">{day.available_rooms}</td>
+            <td className="py-3 pr-4">{day.required_hc}</td>
+            <td className="py-3 pr-4">{day.scheduled_hc}</td>
+            <td className={day.gap < 0 ? "py-3 pr-4 font-black text-red-400" : day.gap > 0 ? "py-3 pr-4 font-black text-yellow-400" : "py-3 pr-4 font-black text-green-400"}>
+              {day.gap > 0 ? `+${day.gap}` : day.gap}
+            </td>
 
             <td className="w-[220px] py-3 pr-6 text-slate-300">
           {day.event_name || "-"}
@@ -446,7 +476,7 @@ export default function ForecastingPage() {
 
               {filteredData.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500">
+                  <td colSpan={11} className="py-8 text-center text-slate-500">
                     No forecast data found.
                   </td>
                 </tr>

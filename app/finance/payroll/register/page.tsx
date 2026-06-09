@@ -534,15 +534,25 @@ ${error.message}`);
       return;
     }
 
+    const currentCompanyId = getCurrentCompanyId();
+
+    if (!currentCompanyId) {
+      alert("No company selected. Please login again before creating payroll period.");
+      return;
+    }
+
     setIsSaving(true);
 
     const { data, error } = await supabase
       .from("payroll_periods")
       .insert({
+        company_id: currentCompanyId,
         period_name: periodName.trim(),
         start_date: startDate,
         end_date: endDate,
         status: "Draft",
+        attendance_locked: false,
+        needs_regeneration: false,
       })
       .select()
       .single();
@@ -550,8 +560,9 @@ ${error.message}`);
     setIsSaving(false);
 
     if (error) {
-      alert("Failed to create period.");
-      return console.log("CREATE PERIOD ERROR:", error.message);
+      console.log("CREATE PERIOD ERROR:", error);
+      alert(`Failed to create period.\n\n${error.message}`);
+      return;
     }
 
     await createAuditLog({

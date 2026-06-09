@@ -46,9 +46,19 @@ type AttendanceEntry = {
     | null;
 };
 
+type BiometricMapping = {
+  id?: string;
+  employee_id: string;
+  biometric_employee_no?: string | null;
+  biometric_name?: string | null;
+  created_at?: string;
+};
+
+
 type ImportPreviewRow = {
   employee_name: string;
   employee_id?: string;
+  biometric_employee_no?: string;
   attendance_date: string;
   time_in: string | null;
   time_out: string | null;
@@ -103,6 +113,7 @@ const parseFriendlyTimeInput = (value: any) => {
 export default function AttendancePage() {
   /// STATES
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [biometricMappings, setBiometricMappings] = useState<BiometricMapping[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [shiftTemplates, setShiftTemplates] = useState<any[]>([]);
   const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
@@ -255,19 +266,81 @@ export default function AttendancePage() {
     return endMin - startMin;
   };
 
+  const normalizeEmployeeNo = (value: any) => {
+    const clean = String(value || "").trim().toLowerCase();
+    if (!clean) return "";
+
+    // Common biometric exports use 1, 2, 3 while payroll master uses 001, 002, 003.
+    // Keep the original value for exact matching, but also support numeric padded matching.
+    const numericOnly = clean.replace(/\D/g, "");
+    if (numericOnly && /^\d+$/.test(numericOnly)) {
+      return String(Number(numericOnly));
+    }
+
+    return clean;
+  };
+
+  const employeeNoVariants = (value: any) => {
+    const clean = String(value || "").trim();
+    const normalized = normalizeEmployeeNo(clean);
+
+    const variants = new Set<string>();
+    if (clean) variants.add(clean.toLowerCase());
+    if (normalized) variants.add(normalized);
+
+    const numericOnly = clean.replace(/\D/g, "");
+    if (numericOnly) {
+      variants.add(String(Number(numericOnly)));
+      variants.add(numericOnly.padStart(3, "0").toLowerCase());
+      variants.add(numericOnly.padStart(4, "0").toLowerCase());
+    }
+
+    return Array.from(variants).filter(Boolean);
+  };
+
+  const getEmployeeById = (employeeId?: string | null) =>
+    employees.find((emp) => String(emp.id) === String(employeeId));
+
+  const findEmployeeByBiometricMapping = (employeeNo: string, name: string) => {
+    const noVariants = employeeNoVariants(employeeNo);
+    const cleanName = normalizeName(name);
+
+    const mapping = biometricMappings.find((item) => {
+      const mappingNoVariants = employeeNoVariants(item.biometric_employee_no || "");
+      const noMatch =
+        noVariants.length > 0 &&
+        mappingNoVariants.some((value) => noVariants.includes(value));
+
+      const mappingName = normalizeName(item.biometric_name || "");
+      const nameMatch =
+        !!cleanName &&
+        !!mappingName &&
+        (mappingName === cleanName ||
+          mappingName.includes(cleanName) ||
+          cleanName.includes(mappingName));
+
+      return noMatch || nameMatch;
+    });
+
+    return mapping ? getEmployeeById(mapping.employee_id) || null : null;
+  };
+
   const findEmployeeByEmployeeNoOrName = (employeeNo: string, name: string) => {
+    const mappedEmployee = findEmployeeByBiometricMapping(employeeNo, name);
+    if (mappedEmployee) return mappedEmployee;
+
     const cleanEmployeeNo = String(employeeNo || "")
       .trim()
       .toLowerCase();
     const cleanName = normalizeName(name);
 
-    if (cleanEmployeeNo) {
-      const idMatch = employees.find(
-        (emp) =>
-          String(emp.employee_no || "")
-            .trim()
-            .toLowerCase() === cleanEmployeeNo,
-      );
+    const incomingNoVariants = employeeNoVariants(cleanEmployeeNo);
+
+    if (incomingNoVariants.length > 0) {
+      const idMatch = employees.find((emp) => {
+        const empVariants = employeeNoVariants(emp.employee_no || "");
+        return empVariants.some((value) => incomingNoVariants.includes(value));
+      });
 
       if (idMatch) return idMatch;
     }
@@ -779,6 +852,21 @@ export default function AttendancePage() {
     setEmployees(active);
   };
 
+  const getBiometricMappings = async () => {
+    const { data, error } = await supabase
+      .from("biometric_mappings")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("GET BIOMETRIC MAPPINGS ERROR:", error.message);
+      setBiometricMappings([]);
+      return;
+    }
+
+    setBiometricMappings(data || []);
+  };
+
   const getSchedules = async () => {
     const { data } = await supabase
       .from("schedules")
@@ -1038,6 +1126,114 @@ export default function AttendancePage() {
     });
   };
 
+  const saveBiometricMapping = async ({
+    employeeId,
+    biometricEmployeeNo,
+    biometricName,
+  }: {
+    employeeId: string;
+    biometricEmployeeNo?: string;
+    biometricName?: string;
+  }) => {
+    const cleanEmployeeNo = String(biometricEmployeeNo || "").trim();
+    const cleanName = String(biometricName || "").trim();
+
+    if (!employeeId || (!cleanEmployeeNo && !cleanName)) return;
+
+    const payload = {
+      employee_id: employeeId,
+      biometric_employee_no: cleanEmployeeNo || null,
+      biometric_name: cleanName || null,
+    };
+
+    const { data, error } = await supabase
+      .from("biometric_mappings")
+      .upsert(payload, {
+        onConflict: "employee_id,biometric_employee_no,biometric_name",
+      })
+      .select();
+
+    if (error) {
+      console.log("SAVE BIOMETRIC MAPPING ERROR:", error.message);
+      alert(
+        "Unable to save biometric mapping. Make sure biometric_mappings table and unique constraint exist.",
+      );
+      return;
+    }
+
+    setBiometricMappings((prev) => {
+      const merged = [...prev];
+
+      (data || []).forEach((item) => {
+        const existingIndex = merged.findIndex(
+          (current) =>
+            String(current.employee_id) === String(item.employee_id) &&
+            String(current.biometric_employee_no || "") ===
+              String(item.biometric_employee_no || "") &&
+            normalizeName(current.biometric_name || "") ===
+              normalizeName(item.biometric_name || ""),
+        );
+
+        if (existingIndex >= 0) {
+          merged[existingIndex] = item;
+        } else {
+          merged.unshift(item);
+        }
+      });
+
+      return merged;
+    });
+  };
+
+  const applyManualBiometricMatch = async (
+    rowIndex: number,
+    employeeId: string,
+  ) => {
+    const selectedEmployee = employees.find(
+      (emp) => String(emp.id) === String(employeeId),
+    );
+
+    if (!selectedEmployee) return;
+
+    const targetRow = importPreview[rowIndex];
+    if (!targetRow) return;
+
+    await saveBiometricMapping({
+      employeeId,
+      biometricEmployeeNo: targetRow.biometric_employee_no,
+      biometricName: targetRow.employee_name,
+    });
+
+    const selectedName = `${selectedEmployee.first_name} ${selectedEmployee.last_name}`.trim();
+    const biometricNo = String(targetRow.biometric_employee_no || "").trim();
+    const biometricName = normalizeName(targetRow.employee_name || "");
+
+    setImportPreview((prev) =>
+      prev.map((row, index) => {
+        const sameBiometricNo =
+          !!biometricNo &&
+          String(row.biometric_employee_no || "").trim() === biometricNo;
+
+        const sameBiometricName =
+          !!biometricName &&
+          normalizeName(row.employee_name || "") === biometricName;
+
+        if (index === rowIndex || sameBiometricNo || sameBiometricName) {
+          return {
+            ...row,
+            employee_id: selectedEmployee.id,
+            matched_employee_name: selectedName,
+            matched_employee_no: selectedEmployee.employee_no || "",
+            matched: true,
+            remarks: "Matched by manual biometric mapping",
+          };
+        }
+
+        return row;
+      }),
+    );
+  };
+
   const previewBiometrics = async (file: File) => {
     if (attendanceLocked) {
       alert(
@@ -1142,6 +1338,7 @@ export default function AttendancePage() {
 
           previewRows.push({
             employee_name: employeeName,
+            biometric_employee_no: employeeNo,
             employee_id: employee?.id,
             matched_employee_name: employee
               ? `${employee.first_name} ${employee.last_name}`
@@ -1555,6 +1752,7 @@ export default function AttendancePage() {
   /// EFFECTS
   useEffect(() => {
     getEmployees();
+    getBiometricMappings();
     getShiftTemplates();
     getSettings();
     getPayrollPeriods();
@@ -2054,6 +2252,7 @@ export default function AttendancePage() {
                 <table className="w-full min-w-[1100px] text-sm">
                   <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                     <tr>
+                      <th className="px-4 py-3 align-middle">Biometric ID</th>
                       <th className="px-4 py-3 align-middle">Excel Name</th>
                       <th className="px-4 py-3 align-middle">
                         Matched Employee
@@ -2073,11 +2272,31 @@ export default function AttendancePage() {
                   <tbody>
                     {importPreview.map((row, index) => (
                       <tr key={index} className="border-t border-slate-800">
+                        <td className="px-4 py-3 align-middle font-bold text-amber-300">
+                          {row.biometric_employee_no || "-"}
+                        </td>
                         <td className="px-4 py-3 align-middle font-bold">
-                          {row.employee_name}
+                          {row.employee_name || "-"}
                         </td>
                         <td className="px-4 py-3 font-bold text-emerald-300">
-                          {row.matched_employee_name || "-"}
+                          {row.matched ? (
+                            row.matched_employee_name || "-"
+                          ) : (
+                            <select
+                              value=""
+                              onChange={(e) =>
+                                applyManualBiometricMatch(index, e.target.value)
+                              }
+                              className="w-56 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                            >
+                              <option value="">Select employee...</option>
+                              {employees.map((emp) => (
+                                <option key={emp.id} value={emp.id}>
+                                  {emp.employee_no || "-"} • {emp.first_name} {emp.last_name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </td>
                         <td className="px-4 py-3 align-middle">
                           {row.matched_employee_no || "-"}

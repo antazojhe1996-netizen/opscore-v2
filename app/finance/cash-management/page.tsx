@@ -366,7 +366,7 @@ export default function CashManagementPage() {
 
   const activePayrollLabel = activePayrollPeriod
     ? `${activePayrollPeriod.period_name || "Payroll Period"} (${activePayrollPeriod.start_date} to ${activePayrollPeriod.end_date})`
-    : `No Draft/Reopened payroll period covers ${businessDate || "selected date"}`;
+    : `No usable payroll period covers ${businessDate || "selected date"}`;
 
   const cashApprovalRequests = useMemo(() => {
     return approvalRequests
@@ -743,11 +743,19 @@ export default function CashManagementPage() {
     setEmployees(cleanEmployees);
   };
 
+  const payrollPeriodUsableStatuses = [
+    "Draft",
+    "Reopened",
+    "Partially Approved",
+    "Partially Released",
+    "Released",
+  ];
+
   const getPayrollPeriods = async () => {
     const { data, error } = await supabase
       .from("payroll_periods")
       .select("*")
-      .in("status", ["Draft", "Reopened"])
+      .in("status", payrollPeriodUsableStatuses)
       .order("start_date", { ascending: true });
 
     if (error) {
@@ -765,7 +773,7 @@ export default function CashManagementPage() {
       .select("*")
       .lte("start_date", dateValue)
       .gte("end_date", dateValue)
-      .in("status", ["Draft", "Reopened"])
+      .in("status", payrollPeriodUsableStatuses)
       .order("start_date", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -1770,7 +1778,7 @@ export default function CashManagementPage() {
       : null;
 
     if (isCashAdvanceCashOut && !targetPayrollPeriod) {
-      alert(`No Draft/Reopened payroll period covers ${businessDate}. Create or reopen the correct cutoff first.`);
+      alert(`No usable payroll period covers ${businessDate}. Create, reopen, partially release, or release the correct cutoff first.`);
       savingRef.current = false;
       return;
     }
@@ -2841,12 +2849,12 @@ export default function CashManagementPage() {
                         }`}>
                           {activePayrollPeriod
                             ? "✓ Auto Linked by Selected Date"
-                            : "⚠ No Payroll Period for Selected Date"}
+                            : "⚠ No Usable Payroll Period for Selected Date"}
                         </p>
                         <p className="mt-1 text-xs leading-5 text-slate-300">
                           {activePayrollPeriod
                             ? activePayrollLabel
-                            : "Create or reopen the cutoff that covers the selected date. No manual cutoff selection needed here."}
+                            : "Create, reopen, partially approve/release, or release the cutoff that covers the selected date. No manual cutoff selection needed here."}
                         </p>
                       </div>
 

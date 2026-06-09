@@ -25,17 +25,6 @@ export default function WorkforcePage() {
   /// DATA
   const todayKey = new Date().toISOString().slice(0, 10);
 
-  const fallbackRequiredHC: Record<string, number> = {
-    "Front Desk": 4,
-    Housekeeping: 12,
-    Maintenance: 2,
-    Cashier: 3,
-    Waitress: 4,
-    Kitchen: 5,
-    Restaurant: 8,
-    Management: 1,
-  };
-
   const getEmployeeName = (emp: any) =>
     `${emp.first_name || ""} ${emp.last_name || ""}`.trim() ||
     emp.name ||
@@ -121,11 +110,13 @@ export default function WorkforcePage() {
     return getColorClasses(shift?.color);
   };
 
-  const isUnscheduledShift = (shiftName?: string | null) =>
-    !shiftName || String(shiftName).toUpperCase() === "OFF";
+const isUnscheduledShift = (shiftName?: string | null) =>
+  !shiftName;
 
-  const isRestDayShift = (shiftName?: string | null) =>
-    String(shiftName || "").toUpperCase() === "RD";
+const isRestDayShift = (shiftName?: string | null) => {
+  const shift = String(shiftName || "").toUpperCase();
+  return shift === "RD" || shift === "OFF";
+};
 
   const isLeaveShift = (shiftName?: string | null) =>
     String(shiftName || "").toLowerCase() === "leave";
@@ -203,21 +194,22 @@ export default function WorkforcePage() {
       occupancyData.find((row) => String(row.business_date) === todayKey) ||
       occupancyData[occupancyData.length - 1];
 
-    if (!hcRules || !latestOccupancy) return fallbackRequiredHC;
+    // ENTERPRISE SOURCE OF TRUTH:
+    // Workforce required HC must come from HC Rules Settings only.
+    // Do not merge hardcoded fallback departments such as Restaurant/Management/Maintenance.
+    // If rules or occupancy are missing, return empty requirements instead of fake shortages.
+    if (!hcRules || !latestOccupancy) return {};
 
     const roomsSold = Number(latestOccupancy.rooms_sold || 0);
 
-    const occupancyRule = hcRules.occupancyRules?.find((rule: any) => {
+    const occupancyRule = hcRules?.occupancyRules?.find((rule: any) => {
       return (
         roomsSold >= Number(rule.min || 0) &&
         roomsSold <= Number(rule.max || 999999)
       );
     });
 
-    return {
-      ...fallbackRequiredHC,
-      ...(occupancyRule?.rules || {}),
-    };
+    return occupancyRule?.rules || {};
   };
 
   const departmentHasPublishedSchedule = (department: string) => {
@@ -292,12 +284,7 @@ export default function WorkforcePage() {
     );
   });
 
-  const departments = Array.from(
-    new Set([
-      ...Object.keys(requiredHC),
-      ...activeEmployees.map((emp) => emp.department || "Unassigned"),
-    ])
-  ).filter(Boolean);
+  const departments = Object.keys(requiredHC).filter(Boolean);
 
   const departmentSummary = departments.map((department) => {
     const departmentEmployees = activeEmployees.filter(

@@ -80,6 +80,10 @@ export default function SchedulingPage() {
   const todayColumnRef = useRef<HTMLDivElement | null>(null);
   const scheduleFileRef = useRef<HTMLInputElement | null>(null);
 
+  // Internal marker only. This is used when no schedule row exists in the database.
+  // OFF and RD are valid assigned rest-day statuses.
+  const UNSCHEDULED_SHIFT = "__UNSCHEDULED__";
+
   /// DATA
   const defaultShifts: ShiftTemplate[] = [
     { id: 1, shift_name: "AM Shift", start_time: "07:00", end_time: "16:00", color: "yellow" },
@@ -101,7 +105,8 @@ export default function SchedulingPage() {
   const normalizeShiftName = (value: string) => {
     const clean = String(value || "").trim().toLowerCase();
 
-    if (!clean || clean === "off") return "OFF";
+    if (!clean) return UNSCHEDULED_SHIFT;
+    if (clean === "off") return "OFF";
     if (clean === "rd" || clean === "rest day" || clean === "day off") return "RD";
     if (clean === "am" || clean.includes("am")) return "AM Shift";
     if (clean === "pm" || clean.includes("pm")) return "PM Shift";
@@ -573,11 +578,11 @@ export default function SchedulingPage() {
         String(schedule.day) === String(day)
     );
 
-    return found?.shift || "OFF";
+    return found?.shift || UNSCHEDULED_SHIFT;
   };
 
-  const isUnscheduledShift = (shiftName: string) => shiftName === "OFF";
-  const isRestDayShift = (shiftName: string) => shiftName === "RD";
+  const isUnscheduledShift = (shiftName: string) => shiftName === UNSCHEDULED_SHIFT;
+  const isRestDayShift = (shiftName: string) => shiftName === "RD" || shiftName === "OFF";
   const isWorkingShift = (shiftName: string) =>
     !isUnscheduledShift(shiftName) && !isRestDayShift(shiftName);
 
@@ -667,7 +672,7 @@ export default function SchedulingPage() {
 
     const employee = employees.find((emp) => String(emp.id) === String(employeeId));
 
-    if (employee && isEmployeeOnLeave(employee, day) && shift !== "OFF") {
+    if (employee && isEmployeeOnLeave(employee, day) && shift !== "OFF" && shift !== "RD") {
       alert("This employee has an approved leave on this date.");
       await createAuditLog(
         "UPDATE_SCHEDULE_BLOCKED",
@@ -800,13 +805,15 @@ export default function SchedulingPage() {
         const employee = findEmployeeForImport(employeeNo, excelName);
 
         const validShift =
-          shift === "OFF" ||
-          shift === "RD" ||
-          shifts.some((item) => item.shift_name === shift);
+          shift !== UNSCHEDULED_SHIFT &&
+          (shift === "OFF" ||
+            shift === "RD" ||
+            shifts.some((item) => item.shift_name === shift));
 
         const blockedByLeave =
           !!employee &&
           !!day &&
+          shift !== UNSCHEDULED_SHIFT &&
           shift !== "OFF" &&
           shift !== "RD" &&
           hasApprovedLeaveOnDate(employee, day);
@@ -814,6 +821,7 @@ export default function SchedulingPage() {
         let remarks = "Ready";
         if (!employee) remarks = "Employee not found";
         else if (!day) remarks = "Missing date";
+        else if (shift === UNSCHEDULED_SHIFT) remarks = "Missing shift";
         else if (!validShift) remarks = "Shift not found";
         else if (blockedByLeave) remarks = "Blocked: approved leave on this date";
 
@@ -1354,7 +1362,7 @@ export default function SchedulingPage() {
         <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
           <KpiCard icon={<Users size={22} />} title="Visible Staff" value={filteredEmployees.length} />
           <KpiCard icon={<CheckCircle2 size={22} />} title="Working Cells" value={workingCells} success />
-          <KpiCard icon={<CalendarDays size={22} />} title="Rest Day" value={restDayCells} />
+          <KpiCard icon={<CalendarDays size={22} />} title="Rest / OFF" value={restDayCells} />
           <KpiCard icon={<AlertTriangle size={22} />} title="Understaffed" value={understaffedDays} danger={understaffedDays > 0} />
           <KpiCard icon={<Users size={22} />} title="Overstaffed" value={overstaffedDays} />
           <KpiCard icon={<AlertTriangle size={22} />} title="Unscheduled" value={unscheduledCells} danger={unscheduledCells > 0} />
@@ -1369,7 +1377,7 @@ export default function SchedulingPage() {
                   Scheduling Issues: Unscheduled Employees
                 </h2>
                 <p className="mt-1 text-sm text-red-100/80">
-                  OFF means no schedule assigned. RD is treated as a valid rest day and is not included in this warning.
+                  Blank / missing schedule means no schedule assigned. OFF and RD are valid rest-day statuses and are not included in this warning.
                 </p>
               </div>
 
@@ -1404,7 +1412,7 @@ export default function SchedulingPage() {
                       <td className="px-4 py-3 font-bold">{row.day.key}</td>
                       <td className="px-4 py-3">
                         <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-black text-red-300">
-                          OFF / No Schedule Assigned
+                          Missing Schedule Row
                         </span>
                       </td>
                     </tr>
@@ -1709,6 +1717,7 @@ export default function SchedulingPage() {
 
             {visibleDays.map((day) => {
               const currentShift = getShift(employee.id, day.key);
+              const selectShiftValue = currentShift === UNSCHEDULED_SHIFT ? "OFF" : currentShift;
               const onLeave = isEmployeeOnLeave(employee, day.key);
 
               return (
@@ -1726,14 +1735,14 @@ export default function SchedulingPage() {
                   ) : (
                     <div className="space-y-1">
                       <select
-                        value={currentShift}
+                        value={selectShiftValue}
                         disabled={!!publishedSchedule}
                         onChange={(e) =>
                           updateSchedule(employee.id, day.key, e.target.value)
                         }
                         className={`block rounded-xl border px-2 py-2 text-center text-xs font-black outline-none disabled:cursor-not-allowed disabled:opacity-70 ${
                           viewMode === "weekly" ? "w-full" : "w-[88px]"
-                        } ${getShiftColorClass(currentShift)}`}
+                        } ${getShiftColorClass(selectShiftValue)}`}
                       >
                         {shifts.map((shift) => (
                           <option
@@ -1754,9 +1763,15 @@ export default function SchedulingPage() {
                         )}
                       </select>
 
-                      {currentShift === "OFF" && (
+                      {currentShift === UNSCHEDULED_SHIFT && (
                         <p className="text-center text-[10px] font-bold text-red-300">
                           Unscheduled
+                        </p>
+                      )}
+
+                      {currentShift === "OFF" && (
+                        <p className="text-center text-[10px] font-bold text-slate-400">
+                          OFF / Rest day
                         </p>
                       )}
 
