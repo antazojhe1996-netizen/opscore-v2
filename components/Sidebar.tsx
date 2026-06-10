@@ -301,6 +301,16 @@ export default function Sidebar() {
   const currentPath = normalizePath(pathname || "/");
   const isExactActive = (href: string) => normalizePath(href) === currentPath;
 
+  const isChildActive = (href: string) => {
+    const normalizedHref = normalizePath(href);
+    return currentPath === normalizedHref || currentPath.startsWith(`${normalizedHref}/`);
+  };
+
+  const isSectionActive = (section: any) => {
+    if (section.href) return isExactActive(section.href);
+    return section.items?.some((item: any) => isChildActive(item.href));
+  };
+
   const employeeName = currentEmployee
     ? `${currentEmployee.first_name || ""} ${currentEmployee.last_name || ""}`.trim()
     : fallbackEmployeeName;
@@ -350,16 +360,16 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-0 z-[9999] h-screen w-56 shrink-0 border-r border-slate-800 bg-slate-950 px-3 py-4 text-white">
-      <div className="mb-3 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-3 shadow-lg shadow-black/20">
-        <p className="truncate text-base font-black text-amber-400">● OPSCORE</p>
+    <aside className="hidden h-screen w-64 shrink-0 overflow-hidden border-r border-slate-800 bg-slate-950/95 px-4 py-4 text-white lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">
+      <div className="mb-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-4 shadow-lg shadow-black/20">
+        <p className="truncate text-base font-black text-blue-300">● OPSCORE</p>
         <p className="mt-0.5 truncate text-[11px] text-slate-500">
           Hotel Operations
         </p>
       </div>
 
-      <div className="mb-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-3 py-3">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">
+      <div className="mb-3 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
           Logged in as
         </p>
         <p className="mt-1 truncate text-sm font-black text-white">{employeeName}</p>
@@ -373,8 +383,8 @@ export default function Sidebar() {
           title="My Portal"
           className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
             portalActive
-              ? "bg-amber-400 text-slate-950"
-              : "border border-slate-700 bg-slate-950 text-amber-300 hover:bg-slate-900"
+              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
+              : "border border-slate-700 bg-slate-950 text-blue-300 hover:bg-slate-900"
           }`}
         >
           <User size={14} />
@@ -388,7 +398,7 @@ export default function Sidebar() {
           Loading access...
         </div>
       ) : (
-        <nav className="space-y-1.5">
+        <nav className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
           {visibleSections.map((section: any) => {
             const Icon = section.icon;
 
@@ -402,7 +412,7 @@ export default function Sidebar() {
                   title={section.title}
                   className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
                     active
-                      ? "bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/10"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
                       : "text-slate-400 hover:bg-slate-900 hover:text-white"
                   }`}
                 >
@@ -412,12 +422,18 @@ export default function Sidebar() {
               );
             }
 
+            const sectionActive = isSectionActive(section);
+
             return (
               <div key={section.title} className="group relative">
                 <button
                   type="button"
                   title={section.title}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-400 transition hover:bg-slate-900 hover:text-white"
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${
+                    sectionActive
+                      ? "bg-slate-900 text-blue-200 ring-1 ring-blue-500/20"
+                      : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  }`}
                 >
                   <Icon size={16} />
                   <span className="min-w-0 flex-1 truncate">{section.title}</span>
@@ -434,7 +450,7 @@ export default function Sidebar() {
                 <div className="pointer-events-none absolute left-full top-0 h-full w-3" />
                 <div className="invisible absolute left-full top-0 z-[99999] ml-2 max-h-[82vh] w-72 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-2.5 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
                   <div className="mb-2 border-b border-slate-800 px-3 pb-2.5">
-                    <p className="text-sm font-black text-amber-400">{section.title}</p>
+                    <p className="text-sm font-black text-blue-300">{section.title}</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
                       Select module
                     </p>
@@ -452,7 +468,7 @@ export default function Sidebar() {
                           title={item.label}
                           className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs transition ${
                             itemActive
-                              ? "bg-amber-400 font-black text-slate-950 shadow-lg shadow-amber-400/10"
+                              ? "bg-blue-600 font-black text-white shadow-lg shadow-blue-600/10"
                               : "text-slate-400 hover:bg-slate-900 hover:text-white"
                           }`}
                         >
@@ -486,7 +502,7 @@ export default function Sidebar() {
 
       <button
         onClick={logout}
-        className="mt-4 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20"
+        className="mt-4 w-full shrink-0 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20"
       >
         Logout
       </button>
