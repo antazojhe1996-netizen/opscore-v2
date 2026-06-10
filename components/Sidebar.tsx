@@ -14,6 +14,8 @@ import {
   FileText,
   Hotel,
   KeyRound,
+  Menu,
+  X,
   LayoutDashboard,
   Receipt,
   Settings,
@@ -140,6 +142,7 @@ export default function Sidebar() {
   const [currentRoleName, setCurrentRoleName] = useState("Employee");
   const [fallbackEmployeeName, setFallbackEmployeeName] = useState("No user loaded");
   const [openSection, setOpenSection] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -365,16 +368,14 @@ export default function Sidebar() {
     }
   }, [mounted, pathname, loadingAccess]);
 
-  if (!mounted) {
-    return null;
-  }
-
-  return (
-<aside className="hidden h-screen w-64 shrink-0 overflow-hidden border-r border-slate-800 bg-slate-950/95 px-4 py-4 text-white lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">      
-<div className="shrink-0 px-4 pb-3 pt-4">
+  const renderSidebarContent = (isMobile = false) => (
+    <>
+      <div className="shrink-0 px-3 pb-3 pt-3">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-4 shadow-lg shadow-black/20">
           <p className="truncate text-base font-black text-blue-300">● OPSCORE</p>
-          <p className="mt-0.5 truncate text-[11px] text-slate-500">Hotel Operations</p>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500">
+            Hotel Operations
+          </p>
         </div>
 
         <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
@@ -390,6 +391,7 @@ export default function Sidebar() {
           <Link
             href="/employee-portal"
             title="My Portal"
+            onClick={() => isMobile && setMobileOpen(false)}
             className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
               portalActive
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
@@ -404,11 +406,11 @@ export default function Sidebar() {
       </div>
 
       {loadingAccess ? (
-        <div className="mx-4 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-400">
+        <div className="mx-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-400">
           Loading access...
         </div>
       ) : (
-        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-4 pb-3">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
           {visibleSections.map((section: any) => {
             const Icon = section.icon;
 
@@ -420,6 +422,7 @@ export default function Sidebar() {
                   key={section.title}
                   href={section.href}
                   title={section.title}
+                  onClick={() => isMobile && setMobileOpen(false)}
                   className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
                     active
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
@@ -473,6 +476,7 @@ export default function Sidebar() {
                           key={`${section.title}-${item.href}-${item.label}`}
                           href={item.href}
                           title={item.label}
+                          onClick={() => isMobile && setMobileOpen(false)}
                           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[11px] transition ${
                             itemActive
                               ? "bg-blue-600 font-black text-white shadow-lg shadow-blue-600/10"
@@ -505,7 +509,7 @@ export default function Sidebar() {
         </nav>
       )}
 
-      <div className="shrink-0 px-4 pb-4 pt-3">
+      <div className="shrink-0 px-3 pb-4 pt-3">
         <button
           onClick={logout}
           className="w-full rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20"
@@ -513,6 +517,57 @@ export default function Sidebar() {
           Logout
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  if (!mounted) {
+    return null;
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-4 top-4 z-[9998] flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/95 px-4 py-3 text-xs font-black text-blue-200 shadow-2xl shadow-black/40 backdrop-blur lg:hidden"
+      >
+        <Menu size={18} />
+        <span>OPSCORE</span>
+      </button>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-[9999] lg:hidden">
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            onClick={() => setMobileOpen(false)}
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          />
+
+          <aside className="relative flex h-full w-[86vw] max-w-[340px] flex-col overflow-hidden border-r border-slate-800 bg-slate-950 text-white shadow-2xl shadow-black">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3">
+              <div>
+                <p className="text-sm font-black text-blue-300">OPSCORE</p>
+                <p className="text-[11px] text-slate-500">Navigation</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-300"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {renderSidebarContent(true)}
+          </aside>
+        </div>
+      )}
+
+      <aside className="hidden h-screen w-64 shrink-0 overflow-hidden border-r border-slate-800 bg-slate-950/95 text-white lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">
+        {renderSidebarContent(false)}
+      </aside>
+    </>
   );
 }
