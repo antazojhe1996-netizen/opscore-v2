@@ -1493,89 +1493,260 @@ export default function ExecutiveDashboardPage() {
     customToDate,
   ]);
 
+
+
+  const currentHour = new Date().getHours();
+  const executiveGreeting =
+    currentHour < 12 ? "Good Morning" : currentHour < 18 ? "Good Afternoon" : "Good Evening";
+  const ownerDisplayName = "Annabelle";
+  const operationMood =
+    businessStatus === "Stable"
+      ? "Vincent Resort is operating normally today."
+      : businessStatus === "Watchlist"
+        ? "Vincent Resort is stable, with a few items needing review."
+        : "Vincent Resort needs management attention today.";
+  const revenueMood = collectedOperatingRevenue > 0 ? "Revenue is active" : "Revenue data is pending";
+  const cashMood = cashAvailable > 0 ? "cash position is visible" : "cash position needs drawer update";
+  const payrollMood =
+    payrollStatus === "Healthy"
+      ? "payroll is within normal range"
+      : payrollStatus === "Watch"
+        ? "payroll needs monitoring"
+        : "payroll exposure is high";
+  const ownerAction = recommendations[0] || "Review cash position daily before approving expenses.";
+
+  const todayArrivals = activeHotelRowsInRange.filter(
+    (row) => String(row.check_in || row.arrival_date || row.date || "").slice(0, 10) === todayKey,
+  ).length;
+
+  const todayDepartures = activeHotelRowsInRange.filter(
+    (row) => String(row.check_out || row.departure_date || row.checkout_date || "").slice(0, 10) === todayKey,
+  ).length;
+
+  const occupancyMood =
+    occupancyToday >= 80
+      ? "Strong occupancy"
+      : occupancyToday >= 50
+        ? "Moderate occupancy"
+        : "Occupancy needs lift";
+
+  const executiveBriefingPoints = [
+    `${revenueMood} with ${formatPeso(collectedOperatingRevenue)} collected in the selected range.`,
+    `Cash control shows ${formatPeso(cashAvailable)} verified cash available.`,
+    `Payroll status is ${payrollStatus.toLowerCase()} at ${payrollRatio}% of collected revenue.`,
+    `${occupancyMood}: ${occupancyToday}% occupancy with ${roomsSoldToday} room(s) sold.`,
+    ...(expectedCollections > 0
+      ? [`Collections need follow-up: ${formatPeso(expectedCollections)} collectible receivables.`]
+      : ["No major collectible balance pressure detected."]),
+  ];
+
+
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#07111f] text-white">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-300/20 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-5 shadow-2xl shadow-blue-950/30 lg:p-7">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
+
+          <div className="relative grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_520px]">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-blue-300">
-                Executive Overview
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-blue-100">
+                  Owner Executive Suite
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[11px] font-bold text-slate-200">
+                  {getActiveRangeLabel()}
+                </span>
+              </div>
+
+              <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-100/80">
+                OPSCORE Hospitality Intelligence
               </p>
 
-              <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
-                Business Operations Dashboard
+              <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-6xl">
+                {executiveGreeting}, {ownerDisplayName}
               </h1>
 
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
-                Owner-level summary for cash, revenue, expenses, payroll, collections, and immediate operating risks.
+              <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-200">
+                {operationMood}
               </p>
+
+              <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
+                    Occupancy
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-white">{occupancyMood}</p>
+                  <p className="mt-1 text-3xl font-black text-blue-100">
+                    {occupancyToday}%
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {roomsSoldToday}/{availableRoomsToday} rooms sold
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
+                    Revenue
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-white">{revenueMood}</p>
+                  <p className="mt-1 text-3xl font-black text-blue-100">
+                    {formatPeso(collectedOperatingRevenue)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Collected revenue
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
+                    Cash Position
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-white">{cashMood}</p>
+                  <p className="mt-1 text-3xl font-black text-blue-100">
+                    {formatPeso(cashAvailable)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Verified cash control
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                <div className="rounded-2xl border border-blue-200/20 bg-blue-300/10 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-100/80">
+                    Recommended action
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                    {ownerAction}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-center">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Arrivals</p>
+                    <p className="mt-1 text-2xl font-black text-white">{todayArrivals}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Departures</p>
+                    <p className="mt-1 text-2xl font-black text-white">{todayDepartures}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Payroll</p>
+                    <p className="mt-1 text-2xl font-black text-white">{payrollRatio}%</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 p-3 xl:max-w-[560px]">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
-                  (range) => (
-                    <button
-                      key={range}
-                      onClick={() => {
-                        setUseCustomRange(false);
-                        setRangeType(range);
-                      }}
-                      className={
-                        !useCustomRange && rangeType === range
-                          ? "rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
-                          : "rounded-xl border border-slate-800 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-slate-900"
-                      }
-                    >
-                      {range === "daily"
-                        ? "Day"
-                        : range === "weekly"
-                          ? "Week"
-                          : range === "monthly"
-                            ? "Month"
-                            : "Year"}
-                    </button>
-                  ),
-                )}
+            <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/30 backdrop-blur">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/80">
+                    Business Health
+                  </p>
+                  <h2 className="mt-2 text-5xl font-black text-white">
+                    {businessHealthScore}
+                  </h2>
+                  <p className="mt-1 text-sm font-black uppercase tracking-[0.22em] text-blue-200">
+                    {businessStatus}
+                  </p>
+                </div>
+
+                <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-blue-300/20 bg-blue-300/10">
+                  <div className="absolute inset-2 rounded-full border border-blue-300/20" />
+                  <div className="text-center">
+                    <p className="text-3xl font-black text-white">{businessHealthScore}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200/70">/100</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
-                <input
-                  type="date"
-                  value={customFromDate}
-                  onChange={(e) => setCustomFromDate(e.target.value)}
-                  className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-300 to-cyan-200"
+                  style={{ width: `${Math.min(Math.max(businessHealthScore, 0), 100)}%` }}
                 />
-
-                <input
-                  type="date"
-                  value={customToDate}
-                  onChange={(e) => setCustomToDate(e.target.value)}
-                  className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
-                />
-
-                <button
-                  onClick={applyCustomRange}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
-                >
-                  Apply
-                </button>
-
-                <button
-                  onClick={resetToLatestRange}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:bg-slate-800"
-                >
-                  Reset
-                </button>
               </div>
 
-              <p className="mt-3 text-xs font-semibold text-blue-300">
-                {getActiveRangeLabel()}
-              </p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Alerts
+                  </p>
+                  <p className="mt-1 text-3xl font-black text-white">{criticalAlerts.length}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Actions
+                  </p>
+                  <p className="mt-1 text-3xl font-black text-white">{recommendations.length}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
+                    (range) => (
+                      <button
+                        key={range}
+                        onClick={() => {
+                          setUseCustomRange(false);
+                          setRangeType(range);
+                        }}
+                        className={
+                          !useCustomRange && rangeType === range
+                            ? "rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
+                            : "rounded-xl border border-slate-800 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-slate-900"
+                        }
+                      >
+                        {range === "daily"
+                          ? "Day"
+                          : range === "weekly"
+                            ? "Week"
+                            : range === "monthly"
+                              ? "Month"
+                              : "Year"}
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr]">
+                  <input
+                    type="date"
+                    value={customFromDate}
+                    onChange={(e) => setCustomFromDate(e.target.value)}
+                    className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
+                  />
+
+                  <input
+                    type="date"
+                    value={customToDate}
+                    onChange={(e) => setCustomToDate(e.target.value)}
+                    className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
+                  />
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={applyCustomRange}
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
+                  >
+                    Apply Range
+                  </button>
+
+                  <button
+                    onClick={resetToLatestRange}
+                    className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:bg-slate-800"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1730,50 +1901,71 @@ export default function ExecutiveDashboardPage() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-blue-500/20 bg-blue-500/10 p-5 lg:p-6">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+        <section className="mb-6 overflow-hidden rounded-3xl border border-blue-300/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/20 lg:p-6">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-stretch">
             <div>
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-                <Brain size={18} /> Executive Briefing
+              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-blue-200">
+                <Brain size={18} /> AI Executive Briefing
               </p>
-              <h2 className="mt-2 text-2xl font-black">{businessStatus}</h2>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-300">
-                Automated operating brief based on cash, collections, payroll, and operational risk.
+              <h2 className="mt-2 text-2xl font-black text-white">
+                {businessStatus === "Stable" ? "Business performance is under control." : businessStatus === "Watchlist" ? "Business is stable, but needs review." : "Immediate management attention is recommended."}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                OPSCORE summarized the current operating position based on cash, revenue, payroll, receivables, and occupancy signals.
               </p>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {executiveBriefingPoints.slice(0, 4).map((item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                  >
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
+                      Insight {index + 1}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                      {item}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-blue-400/20 bg-slate-950/70 p-4 text-center xl:min-w-[320px]">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-300/70">
-                  Alerts
-                </p>
-                <p className="mt-1 text-3xl font-black text-white">
-                  {criticalAlerts.length}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-300/70">
-                  Actions
-                </p>
-                <p className="mt-1 text-3xl font-black text-white">
-                  {recommendations.length}
-                </p>
+            <div className="rounded-3xl border border-blue-300/20 bg-slate-950/70 p-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/70">
+                Owner Action Center
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Prioritized shortcuts for the most important executive workflows.
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <a
+                  href="/manager/approval-center"
+                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
+                >
+                  Review Approvals →
+                </a>
+                <a
+                  href="/finance/payroll/manager"
+                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
+                >
+                  Open Payroll Manager →
+                </a>
+                <a
+                  href="/finance/cash-management"
+                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
+                >
+                  Review Cash Position →
+                </a>
+                <a
+                  href="/finance/expenses"
+                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
+                >
+                  Review Expenses →
+                </a>
               </div>
             </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <BriefingBox
-              title="Risk Alerts"
-              items={criticalAlerts}
-              empty="No major issue detected."
-            />
-
-            <BriefingBox
-              title="Recommended Actions"
-              items={recommendations}
-              empty="Maintain current operation and monitor daily cash."
-            />
           </div>
         </section>
 
