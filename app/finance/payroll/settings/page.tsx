@@ -770,225 +770,377 @@ export default function PayrollSettingsPage() {
   }, []);
 
   /// UI
-return (
-  <PageGuard moduleKey="payroll_settings">
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+  return (
+    <PageGuard moduleKey="payroll_settings">
+      <div className="flex min-h-screen bg-[#07111f] text-white">
+        <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-300">
-              Payroll
-            </p>
-            <h1 className="mt-2 text-3xl font-black">Payroll Settings</h1>
-            <p className="mt-2 max-w-4xl text-sm text-slate-400">
-              Configure payroll rules before building payroll register,
-              attendance import, OT approval, payslip, and employee KPI.
-            </p>
-          </div>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+          {/* EXECUTIVE HERO */}
+          <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-300/20 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-5 shadow-2xl shadow-blue-950/30 lg:p-7">
+            <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
 
-          <button
-            onClick={saveSettings}
-            disabled={isSaving}
-            className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSaving ? "Saving..." : "Save Settings"}
-          </button>
-        </section>
+            <div className="relative grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-stretch">
+              <div className="min-w-0">
+                <div className="mb-6 flex flex-wrap items-center gap-3">
+                  <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-blue-100">
+                    Payroll Control Center
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[11px] font-bold text-slate-200">
+                    Settings & Compliance
+                  </span>
+                </div>
 
-        <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
-            title="Attendance Rule"
-            value={settings.attendance_rule || "First In / Last Out"}
-            description="Break logs are ignored."
-            color="text-emerald-400"
-          />
-          <SummaryCard
-            title="Leave Pay"
-            value={settings.leave_pay_enabled || "No"}
-            description="Approved leave is unpaid."
-            color="text-blue-400"
-          />
-          <SummaryCard
-            title="OT Approval"
-            value={settings.ot_requires_approval || "Yes"}
-            description="OT must be approved first."
-            color="text-blue-300"
-          />
-          <SummaryCard
-            title="Gov Contributions"
-            value={settings.government_contributions_enabled || "No"}
-            description="Hidden when disabled."
-            color="text-slate-300"
-          />
-        </section>
+                <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-100/80">
+                  OPSCORE Configuration Suite
+                </p>
 
-        <section className="mt-8 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-          <h2 className="text-xl font-black text-blue-300">
-            Future-Ready Payroll Compliance
-          </h2>
-          <p className="mt-2 text-sm text-blue-100/80">
-            SSS, PhilHealth, Pag-IBIG, withholding tax, visibility, and required ID controls are prepared here.
-            Keep them disabled for Vincent Phase 1. When compliance is ready, enable the settings without redesigning payroll.
-          </p>
-        </section>
+                <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-6xl">
+                  Payroll Settings
+                </h1>
 
-        <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <p className="text-sm font-bold text-blue-300">Audit Protected Settings</p>
-          <p className="mt-1 text-xs leading-5 text-blue-100/80">
-            Saving payroll rules, adding holidays, toggling holidays, and deleting holidays are recorded in Audit Center.
-            Changed settings compared to defaults: {changedSettings.length}.
-          </p>
-        </section>
+                <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-slate-200 sm:text-lg">
+                  Configure attendance, overtime, leave, deductions, holidays, government compliance, and payslip controls.
+                </p>
 
-        <section className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {settingGroups.map((group) => (
-            <div
-              key={group.title}
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-6"
-            >
-              <div className="mb-5">
-                <h2 className="text-xl font-bold">{group.title}</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  {group.description}
+                <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
+                      Rule Groups
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-blue-100">
+                      {settingGroups.length}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Payroll policy sections
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
+                      Active Holidays
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-blue-100">
+                      {activeHolidays.length}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Used for holiday pay control
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
+                      Modified Controls
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-blue-100">
+                      {changedSettings.length}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Different from default setup
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/30 backdrop-blur">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/80">
+                  Settings Status
+                </p>
+
+                <h2 className="mt-3 text-3xl font-black text-white">
+                  Ready
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Payroll configuration is ready for Vincent Phase 1. Save only after reviewing policy changes.
+                </p>
+
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Compliance
+                    </p>
+                    <p className="mt-1 text-lg font-black text-blue-200">
+                      {settings.government_contributions_enabled || "No"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      OT Approval
+                    </p>
+                    <p className="mt-1 text-lg font-black text-blue-200">
+                      {settings.ot_requires_approval || "Yes"}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={saveSettings}
+                  disabled={isSaving}
+                  className="mt-5 w-full rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSaving ? "Saving Configuration..." : "Save Payroll Configuration"}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* EXECUTIVE SUMMARY */}
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              title="Attendance Policy"
+              value={settings.attendance_rule || "First In / Last Out"}
+              description="Primary attendance rule used for payroll computation."
+            />
+
+            <SummaryCard
+              title="Leave Pay"
+              value={settings.leave_pay_enabled || "No"}
+              description="Approved leave remains unpaid unless enabled."
+            />
+
+            <SummaryCard
+              title="OT Controls"
+              value={settings.ot_requires_approval || "Yes"}
+              description="Overtime must pass approval before payroll."
+            />
+
+            <SummaryCard
+              title="Compliance Status"
+              value={settings.government_contributions_enabled || "No"}
+              description="Government deductions stay hidden when disabled."
+            />
+          </section>
+
+          {/* AI ADVISOR */}
+          <section className="mb-6 overflow-hidden rounded-3xl border border-blue-300/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/20 lg:p-6">
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-stretch">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
+                  OPSCORE AI Advisor
+                </p>
+                <h2 className="mt-2 text-2xl font-black text-white">
+                  Payroll Compliance Readiness
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                  Vincent Phase 1 can keep government contribution and tax controls disabled while the system remains ready for future compliance activation.
+                </p>
+
+                <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
+                      Recommendation
+                    </p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                      Keep SSS, PhilHealth, Pag-IBIG, withholding tax, and 13th month controls disabled until management confirms the compliance rollout.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
+                      Audit Note
+                    </p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                      Configuration changes, holiday activation, and holiday deletion should be treated as payroll-control decisions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-blue-300/20 bg-slate-950/70 p-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/70">
+                  Control Summary
+                </p>
+                <div className="mt-5 space-y-3 text-sm">
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <span className="text-slate-400">Leave Pay</span>
+                    <span className="font-black text-white">{settings.leave_pay_enabled || "No"}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <span className="text-slate-400">Holiday Pay</span>
+                    <span className="font-black text-white">{settings.holiday_pay_enabled || "No"}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <span className="text-slate-400">Active Holidays</span>
+                    <span className="font-black text-white">{activeHolidays.length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* SETTINGS GROUPS */}
+          <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            {settingGroups.map((group, groupIndex) => (
+              <div
+                key={group.title}
+                className="overflow-hidden rounded-3xl border border-blue-300/10 bg-white/[0.035] shadow-xl shadow-black/10 backdrop-blur"
+              >
+                <div className="border-b border-blue-300/10 bg-slate-950/40 px-5 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/60">
+                        Rule Group {groupIndex + 1}
+                      </p>
+                      <h2 className="mt-1 text-xl font-black text-white">
+                        {group.title}
+                      </h2>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        {group.description}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-blue-300/15 bg-blue-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-blue-100">
+                      {group.fields.length} Controls
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+                  {group.fields.map((field) => (
+                    <div key={field.key}>
+                      <label className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                        {field.label}
+                      </label>
+
+                      {field.type === "select" ? (
+                        <select
+                          value={settings[field.key] || ""}
+                          onChange={(e) => updateSetting(field.key, e.target.value)}
+                          className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-400"
+                        >
+                          <option value="">Select</option>
+                          {field.options?.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type}
+                          value={settings[field.key] || ""}
+                          onChange={(e) => updateSetting(field.key, e.target.value)}
+                          className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-400"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* HOLIDAY PAY CONTROL */}
+          <section className="mt-6 overflow-hidden rounded-3xl border border-blue-300/10 bg-white/[0.035] p-5 shadow-xl shadow-black/10 backdrop-blur lg:p-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+                  Holiday Pay Control Center
+                </p>
+                <h2 className="mt-2 text-2xl font-black text-white">
+                  Holiday Rules & Multipliers
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                  Add regular and special holidays for payroll computation. Manual mode can stay active while holiday records remain ready for future automation.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {group.fields.map((field) => (
-                  <div key={field.key}>
-                    <label className="text-sm font-semibold text-slate-200">
-                      {field.label}
-                    </label>
-
-                    {field.type === "select" ? (
-                      <select
-                        value={settings[field.key] || ""}
-                        onChange={(e) =>
-                          updateSetting(field.key, e.target.value)
-                        }
-                        className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                      >
-                        <option value="">Select</option>
-                        {field.options?.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={field.type}
-                        value={settings[field.key] || ""}
-                        onChange={(e) =>
-                          updateSetting(field.key, e.target.value)
-                        }
-                        className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                      />
-                    )}
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Active</p>
+                  <p className="mt-1 text-2xl font-black text-white">{activeHolidays.length}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Inactive</p>
+                  <p className="mt-1 text-2xl font-black text-white">{inactiveHolidays.length}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Mode</p>
+                  <p className="mt-1 text-lg font-black text-white">{settings.holiday_pay_mode || "Manual"}</p>
+                </div>
               </div>
             </div>
-          ))}
-        </section>
 
-        <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Holiday List</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Add regular and special holidays for payroll computation. V1 can
-                still use manual holiday pay while keeping this list ready.
-              </p>
-            </div>
-
-            <div className="text-sm text-slate-400">
-              Active Holidays:{" "}
-              <span className="font-bold text-emerald-400">
-                {activeHolidays.length}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-5">
-            <input
-              value={holidayName}
-              onChange={(e) => setHolidayName(e.target.value)}
-              placeholder="Holiday name"
-              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none md:col-span-2"
-            />
-
-            <input
-              type="date"
-              value={holidayDate}
-              onChange={(e) => setHolidayDate(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-            />
-
-            <select
-              value={holidayType}
-              onChange={(e) => {
-                setHolidayType(e.target.value);
-                setHolidayMultiplier(e.target.value === "Regular" ? "2" : "1.3");
-              }}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-            >
-              <option value="Regular">Regular</option>
-              <option value="Special">Special</option>
-            </select>
-
-            <div className="flex gap-2">
+            <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-5">
               <input
-                type="number"
-                value={holidayMultiplier}
-                onChange={(e) => setHolidayMultiplier(e.target.value)}
-                placeholder="Multiplier"
-                className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                value={holidayName}
+                onChange={(e) => setHolidayName(e.target.value)}
+                placeholder="Holiday name"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-400 lg:col-span-2"
               />
 
-              <button
-                onClick={addHoliday}
-                disabled={isSaving}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold hover:bg-emerald-500 disabled:opacity-50"
+              <input
+                type="date"
+                value={holidayDate}
+                onChange={(e) => setHolidayDate(e.target.value)}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition [color-scheme:dark] focus:border-blue-400"
+              />
+
+              <select
+                value={holidayType}
+                onChange={(e) => {
+                  setHolidayType(e.target.value);
+                  setHolidayMultiplier(e.target.value === "Regular" ? "2" : "1.3");
+                }}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-400"
               >
-                Add
-              </button>
+                <option value="Regular">Regular</option>
+                <option value="Special">Special</option>
+              </select>
+
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={holidayMultiplier}
+                  onChange={(e) => setHolidayMultiplier(e.target.value)}
+                  placeholder="Multiplier"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-400"
+                />
+
+                <button
+                  onClick={addHoliday}
+                  disabled={isSaving}
+                  className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-500 disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
             </div>
-          </div>
 
-          <HolidayTable
-            title="Active Holidays"
-            holidays={activeHolidays}
-            formatMultiplier={formatMultiplier}
-            toggleHoliday={toggleHoliday}
-            deleteHoliday={deleteHoliday}
-          />
-
-          {inactiveHolidays.length > 0 && (
             <HolidayTable
-              title="Inactive Holidays"
-              holidays={inactiveHolidays}
+              title="Active Holidays"
+              holidays={activeHolidays}
               formatMultiplier={formatMultiplier}
               toggleHoliday={toggleHoliday}
               deleteHoliday={deleteHoliday}
             />
-          )}
-        </section>
-      </main>
-       </div>
-  </PageGuard>
-);
+
+            {inactiveHolidays.length > 0 && (
+              <HolidayTable
+                title="Inactive Holidays"
+                holidays={inactiveHolidays}
+                formatMultiplier={formatMultiplier}
+                toggleHoliday={toggleHoliday}
+                deleteHoliday={deleteHoliday}
+              />
+            )}
+          </section>
+        </main>
+      </div>
+    </PageGuard>
+  );
 }
 
-function SummaryCard({ title, value, description, color }: any) {
+function SummaryCard({ title, value, description }: any) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 text-2xl font-bold ${color}`}>{value}</h2>
-      <p className="mt-2 text-sm text-slate-500">{description}</p>
+    <div className="rounded-3xl border border-blue-300/10 bg-white/[0.035] p-5 shadow-xl shadow-black/10 backdrop-blur">
+      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-200/60">
+        {title}
+      </p>
+      <h2 className="mt-3 text-2xl font-black text-white">{value}</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
     </div>
   );
 }
@@ -1001,74 +1153,76 @@ function HolidayTable({
   deleteHoliday,
 }: any) {
   return (
-    <div className="mt-6 overflow-auto rounded-xl border border-slate-800">
+    <div className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/60">
       <div className="border-b border-slate-800 bg-slate-950 px-4 py-3">
-        <h3 className="font-bold">{title}</h3>
+        <h3 className="font-black text-white">{title}</h3>
       </div>
 
-      <table className="w-full min-w-[800px] text-sm">
-        <thead className="bg-slate-950 text-left text-slate-400">
-          <tr>
-            <th className="px-4 py-3">Holiday</th>
-            <th className="px-4 py-3">Date</th>
-            <th className="px-4 py-3">Type</th>
-            <th className="px-4 py-3 text-right">Multiplier</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Action</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {holidays.map((holiday: PayrollHoliday) => (
-            <tr key={holiday.id} className="border-t border-slate-800">
-              <td className="px-4 py-3 font-semibold">
-                {holiday.holiday_name}
-              </td>
-              <td className="px-4 py-3">{holiday.holiday_date}</td>
-              <td className="px-4 py-3">{holiday.holiday_type}</td>
-              <td className="px-4 py-3 text-right font-bold text-blue-300">
-                {formatMultiplier(holiday.multiplier)}
-              </td>
-              <td className="px-4 py-3">
-                {holiday.is_active ? (
-                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                    Active
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
-                    Inactive
-                  </span>
-                )}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => toggleHoliday(holiday)}
-                    className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold hover:bg-blue-500"
-                  >
-                    {holiday.is_active ? "Disable" : "Enable"}
-                  </button>
-
-                  <button
-                    onClick={() => deleteHoliday(holiday.id)}
-                    className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold hover:bg-red-500"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-
-          {holidays.length === 0 && (
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[800px] text-sm">
+          <thead className="bg-slate-950 text-left text-slate-400">
             <tr>
-              <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
-                No holidays found.
-              </td>
+              <th className="px-4 py-3">Holiday</th>
+              <th className="px-4 py-3">Date</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3 text-right">Multiplier</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Action</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {holidays.map((holiday: PayrollHoliday) => (
+              <tr key={holiday.id} className="border-t border-slate-800/80 hover:bg-white/[0.025]">
+                <td className="px-4 py-3 font-semibold text-white">
+                  {holiday.holiday_name}
+                </td>
+                <td className="px-4 py-3 text-slate-300">{holiday.holiday_date}</td>
+                <td className="px-4 py-3 text-slate-300">{holiday.holiday_type}</td>
+                <td className="px-4 py-3 text-right font-black text-blue-300">
+                  {formatMultiplier(holiday.multiplier)}
+                </td>
+                <td className="px-4 py-3">
+                  {holiday.is_active ? (
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
+                      Inactive
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleHoliday(holiday)}
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-black text-white hover:bg-blue-500"
+                    >
+                      {holiday.is_active ? "Disable" : "Enable"}
+                    </button>
+
+                    <button
+                      onClick={() => deleteHoliday(holiday.id)}
+                      className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-200 hover:bg-red-500/20"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+
+            {holidays.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                  No holidays found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -1946,10 +1946,47 @@ const selectAllReadyForRelease = () => {
     setSelectedRecordIds([]);
   };
 
+  const payrollHealthStatus = releaseActionRequired
+    ? "Action Required"
+    : releaseQueuePayroll.length > 0 || partialReleasePayroll.length > 0
+      ? "Ready for Release"
+      : "Controlled";
+
+  const payrollHealthScore = Math.max(
+    0,
+    100 -
+      (pendingAdjustments.length > 0 ? 30 : 0) -
+      (negativePayroll.length > 0 ? 12 : 0) -
+      (partialReleasePayroll.length > 0 ? 8 : 0),
+  );
+
+  const payrollBriefingPoints = [
+    pendingAdjustments.length > 0
+      ? `${pendingAdjustments.length} pending register approval(s) must be cleared before release.`
+      : "No pending register approval is blocking payroll release.",
+    releaseQueuePayroll.length > 0
+      ? `${releaseQueuePayroll.length} payroll record(s) are ready for first release.`
+      : "No first-time release queue is currently waiting.",
+    partialReleasePayroll.length > 0
+      ? `${partialReleasePayroll.length} partial salary balance(s) are still outstanding.`
+      : "No partial salary balance pressure detected.",
+    totalPendingNet > 0
+      ? `${formatPeso(totalPendingNet)} outstanding payroll is visible in the release pipeline.`
+      : "Outstanding payroll is currently clear for the selected view.",
+  ];
+
+  const recommendedPayrollAction = releaseActionRequired
+    ? "Resolve pending Payroll Register approvals before releasing payroll."
+    : releaseQueuePayroll.length > 0
+      ? "Review the release queue and process approved payroll records."
+      : partialReleasePayroll.length > 0
+        ? "Review remaining partial salary balances and release when funded."
+        : "Monitor payroll history and keep the release workflow controlled.";
+
   /// UI
   if (checkingAccess) {
     return (
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#07111f] text-white">
         <Sidebar />
 
         <main className="flex flex-1 items-center justify-center p-8">
@@ -1963,7 +2000,7 @@ const selectAllReadyForRelease = () => {
 
   if (!hasPageAccess) {
     return (
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#07111f] text-white">
         <Sidebar />
 
         <main className="flex flex-1 items-center justify-center p-8">
@@ -1980,209 +2017,222 @@ const selectAllReadyForRelease = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#07111f] text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">Payroll Operations</p>
-            <h1 className="mt-2 text-3xl font-bold">Payroll Manager</h1>
-            <p className="mt-2 text-slate-400">
-              Review, release, and audit approved payroll records using the OPSCORE payroll release workflow.
-            </p>
-          </div>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <section className="mb-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl shadow-black/20 lg:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-blue-300">
+                  Operational Workbench
+                </span>
+                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-[11px] font-bold text-slate-300">
+                  {currentPayrollSummary.periodLabel}
+                </span>
+                {releaseActionRequired && (
+                  <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-black text-red-300">
+                    Register review required
+                  </span>
+                )}
+              </div>
 
-          <div
-            className={`rounded-2xl border px-5 py-4 ${
-              releaseActionRequired
-                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
-            }`}
-          >
-            <p className="text-xs uppercase tracking-[0.18em]">
-              Release Control
-            </p>
-            <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
-              {releaseActionRequired ? (
-                <>
-                  <Lock size={18} /> Action Required
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 size={18} /> Ready for Release
-                </>
-              )}
-            </h2>
-          </div>
-        </div>
+              <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                Payroll Manager
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                Review payroll queues, release approved records, process partial salary balances, reopen verified corrections, and audit release history.
+              </p>
+            </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
-          <KpiCard
-            icon={<Users size={22} />}
-            title="Release Queue"
-            value={releaseQueuePayroll.length}
-            danger={releaseQueuePayroll.length > 0}
-          />
-          <KpiCard
-            icon={<RotateCcw size={22} />}
-            title="Partial Releases"
-            value={partialReleasePayroll.length}
-            danger={partialReleasePayroll.length > 0}
-          />
-          <KpiCard
-            icon={<DollarSign size={22} />}
-            title="Outstanding Payroll"
-            value={formatPeso(totalPendingNet)}
-          />
-          <KpiCard
-            icon={<CheckCircle2 size={22} />}
-            title="Released History"
-            value={filteredReleasedPayroll.length}
-            success
-          />
-          <KpiCard
-            icon={<DollarSign size={22} />}
-            title="Released Total"
-            value={formatPeso(totalReleasedHistory)}
-            success
-          />
-          <KpiCard
-            icon={<AlertTriangle size={22} />}
-            title="Pending Register Approval"
-            value={pendingAdjustments.length}
-            danger={pendingAdjustments.length > 0}
-          />
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[520px]">
+              <WorkbenchStat title="Ready" value={releaseQueuePayroll.length} danger={releaseQueuePayroll.length > 0} />
+              <WorkbenchStat title="Partial" value={partialReleasePayroll.length} danger={partialReleasePayroll.length > 0} />
+              <WorkbenchStat title="Selected" value={selectedRecordIds.length} />
+              <WorkbenchStat title="Blocked" value={pendingAdjustments.length} danger={pendingAdjustments.length > 0} />
+            </div>
+          </div>
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Payroll Release Workspace</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Manage first-time releases, remaining salary balances, and released payroll history in one controlled workspace.
-                </p>
-              </div>
+        <section className="sticky top-0 z-30 mb-4 rounded-3xl border border-slate-800 bg-[#07111f]/95 p-4 shadow-2xl shadow-black/30 backdrop-blur">
+          <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[auto_minmax(280px,1fr)_260px_auto] 2xl:items-center">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => releasePayroll("selected")}
+                disabled={isProcessing || selectedRecordIds.length === 0 || releaseActionRequired || activeTab === "history"}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Send size={16} /> Release Selected
+              </button>
 
               <button
-onClick={selectAllReadyForRelease}
+                onClick={() => releasePayroll("all")}
+                disabled={isProcessing || releaseActionRequired || activeTab === "history" || visibleReleaseRows.length === 0}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 text-sm font-black text-blue-200 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CheckCircle2 size={16} /> Release All
+              </button>
+
+              <button
+                onClick={selectAllReadyForRelease}
                 disabled={tabRows.length === 0}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Select Visible
+                <Users size={16} /> Select Visible
+              </button>
+
+              {activeTab === "history" && (
+                <button
+                  onClick={reopenPayroll}
+                  disabled={isProcessing || selectedRecordIds.length === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RotateCcw size={16} /> Reopen
+                </button>
+              )}
+
+              <button
+                onClick={clearSelection}
+                disabled={selectedRecordIds.length === 0}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X size={16} /> Clear
               </button>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <button
-                onClick={() => {
-                  setActiveTab("queue");
-                  setSelectedRecordIds([]);
-                }}
-                className={`rounded-2xl border p-4 text-left ${
-                  activeTab === "queue"
-  ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
-  : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
-                }`}
-              >
-                <p className="text-xs font-black uppercase tracking-[0.18em]">
-                  Queue
-                </p>
-                <h3 className="mt-1 text-lg font-black">Release Queue</h3>
-                <p className="mt-1 text-sm opacity-80">
-                  {releaseQueuePayroll.length} waiting
-                </p>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab("partial");
-                  setSelectedRecordIds([]);
-                }}
-                className={`rounded-2xl border p-4 text-left ${
-                  activeTab === "partial"
-  ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
-  : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
-                }`}
-              >
-                <p className="text-xs font-black uppercase tracking-[0.18em]">
-                  Partial
-                </p>
-                <h3 className="mt-1 text-lg font-black">Partial Releases</h3>
-                <p className="mt-1 text-sm opacity-80">
-                  {partialReleasePayroll.length} remaining
-                </p>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab("history");
-                  setSelectedRecordIds([]);
-                }}
-                className={`rounded-2xl border p-4 text-left ${
-                  activeTab === "history"
-  ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
-  : "border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:bg-slate-900"
-                }`}
-              >
-                <p className="text-xs font-black uppercase tracking-[0.18em]">
-                  History
-                </p>
-                <h3 className="mt-1 text-lg font-black">Released History</h3>
-                <p className="mt-1 text-sm opacity-80">
-                  {filteredReleasedPayroll.length} released
-                </p>
-              </button>
+            <div className="relative min-w-0">
+              <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search employee, department, position, or payroll period..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-9 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50"
+              />
             </div>
 
-            {pendingAdjustments.length > 0 && (
-              <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-                <p className="font-black text-red-300">
-                  Action required before release
-                </p>
-                <p className="mt-1 text-sm text-red-200">
-                  Resolve pending register approvals, regenerate payroll if needed, then continue release processing.
+            <select
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm font-semibold text-white outline-none focus:border-blue-500/50"
+            >
+              <option value="All">All Periods</option>
+              {periodOptions.map((period) => (
+                <option key={period} value={period}>
+                  {period}
+                </option>
+              ))}
+            </select>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                Selected Amount
+              </p>
+              <p className="mt-0.5 font-black text-white">
+                {formatPeso(selectedNet)}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {pendingAdjustments.length > 0 && (
+          <section className="mb-4 rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-100">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-black text-red-200">Release blocked by pending Register approval.</p>
+                <p className="mt-1 text-red-100/75">
+                  Resolve {pendingAdjustments.length} pending adjustment(s) in Payroll Register before releasing payroll.
                 </p>
               </div>
-            )}
+              <Lock size={20} className="text-red-300" />
+            </div>
+          </section>
+        )}
+
+        <section className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl shadow-black/15">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setActiveTab("queue");
+                    setSelectedRecordIds([]);
+                  }}
+                  className={
+                    activeTab === "queue"
+                      ? "rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white"
+                      : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                  }
+                >
+                  Queue <span className="ml-2 text-xs opacity-75">{releaseQueuePayroll.length}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab("partial");
+                    setSelectedRecordIds([]);
+                  }}
+                  className={
+                    activeTab === "partial"
+                      ? "rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white"
+                      : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                  }
+                >
+                  Partial <span className="ml-2 text-xs opacity-75">{partialReleasePayroll.length}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab("history");
+                    setSelectedRecordIds([]);
+                  }}
+                  className={
+                    activeTab === "history"
+                      ? "rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white"
+                      : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                  }
+                >
+                  History <span className="ml-2 text-xs opacity-75">{filteredReleasedPayroll.length}</span>
+                </button>
+              </div>
+
+              <div className="text-xs font-semibold text-slate-400">
+                {activeTab === "queue"
+                  ? "Approved payroll records ready for release."
+                  : activeTab === "partial"
+                    ? "Remaining salary balances from partial releases."
+                    : "Released payroll records for audit and correction review."}
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <h2 className="text-xl font-bold">Filters</h2>
-
-            <div className="mt-5 space-y-3">
-              <div className="relative">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-3 text-slate-500"
-                />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search employee / period..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none"
-                />
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl shadow-black/15">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+              Workbench Status
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
+                <p className="text-slate-500">Outstanding</p>
+                <p className="mt-1 font-black text-white">{formatPeso(totalPendingNet)}</p>
               </div>
-
-              <select
-                value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-              >
-                <option value="All">All Periods</option>
-                {periodOptions.map((period) => (
-                  <option key={period} value={period}>
-                    {period}
-                  </option>
-                ))}
-              </select>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
+                <p className="text-slate-500">Released</p>
+                <p className="mt-1 font-black text-white">{formatPeso(totalReleasedHistory)}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
+                <p className="text-slate-500">Carry Forward</p>
+                <p className="mt-1 font-black text-white">{formatPeso(totalCarryForward)}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
+                <p className="text-slate-500">Status</p>
+                <p className="mt-1 font-black text-white">{payrollHealthStatus}</p>
+              </div>
             </div>
           </div>
         </section>
 
         {selectedRecordIds.length > 0 && (
-          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-blue-500/20 bg-slate-900/95 p-5 backdrop-blur">
+          <section className="sticky top-3 z-40 mb-6 rounded-3xl border border-blue-300/20 bg-[#0B1220]/95 p-5 shadow-2xl shadow-blue-950/20 backdrop-blur">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <p className="text-sm font-black text-blue-200">
@@ -2225,7 +2275,7 @@ onClick={selectAllReadyForRelease}
           </section>
         )}
 
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mb-6 rounded-3xl border border-blue-300/15 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur lg:p-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-xl font-bold">
@@ -2259,10 +2309,10 @@ onClick={selectAllReadyForRelease}
             )}
           </div>
 
-          <div className="mt-5 max-h-[620px] overflow-auto rounded-xl border border-slate-800">
+          <div className="mt-5 max-h-[620px] overflow-auto rounded-2xl border border-slate-800">
             {activeTab === "history" ? (
               <table className="w-full min-w-[1250px] text-sm">
-                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                <thead className="sticky top-0 bg-[#08111f] text-left text-slate-300">
                   <tr>
                     <th className="px-4 py-3">Select</th>
                     <th className="px-4 py-3">Employee</th>
@@ -2281,7 +2331,7 @@ onClick={selectAllReadyForRelease}
                   {filteredReleasedPayroll.map((record) => (
                     <tr
                       key={record.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
+                      className="border-t border-slate-800/80 hover:bg-blue-500/5"
                     >
                       <td className="px-4 py-3">
                         <input
@@ -2352,7 +2402,7 @@ onClick={selectAllReadyForRelease}
               </table>
             ) : (
               <table className="w-full min-w-[1400px] text-sm">
-                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                <thead className="sticky top-0 bg-[#08111f] text-left text-slate-300">
                   <tr>
                     <th className="px-4 py-3">Select</th>
                     <th className="px-4 py-3">Employee</th>
@@ -2372,7 +2422,7 @@ onClick={selectAllReadyForRelease}
                   {visibleReleaseRows.map((record) => (
                     <tr
                       key={record.id}
-                      className={`border-t border-slate-800 hover:bg-slate-800/40 ${
+                      className={`border-t border-slate-800/80 hover:bg-blue-500/5 ${
                         getRecordAmount(record) < 0 ? "bg-red-500/5" : ""
                       }`}
                     >
@@ -2502,7 +2552,7 @@ onClick={selectAllReadyForRelease}
           </div>
         </section>
 
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mb-6 rounded-3xl border border-blue-300/15 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur lg:p-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
@@ -2511,7 +2561,7 @@ onClick={selectAllReadyForRelease}
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-right">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-right">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                 Active Balance Rows
               </p>
@@ -2525,7 +2575,7 @@ onClick={selectAllReadyForRelease}
             </div>
           </div>
 
-          <div className="mt-5 max-h-[360px] overflow-auto rounded-xl border border-slate-800 bg-slate-950/40">
+          <div className="mt-5 max-h-[360px] overflow-auto rounded-2xl border border-slate-800 bg-slate-950/40">
             <table className="w-full min-w-[1050px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-950 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
@@ -2611,7 +2661,7 @@ onClick={selectAllReadyForRelease}
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="rounded-3xl border border-blue-300/15 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur lg:p-6">
           <h2 className="text-xl font-bold">Register Adjustment Status</h2>
           <p className="mt-1 text-sm text-slate-400">
             Read-only. Approve or reject adjustments in Payroll Register only.
@@ -2635,7 +2685,7 @@ onClick={selectAllReadyForRelease}
             />
           </div>
 
-          <div className="mt-5 overflow-x-auto rounded-xl border border-slate-800">
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-800">
             <table className="w-full min-w-[1000px] text-sm">
               <thead className="bg-slate-950 text-left text-slate-400">
                 <tr>
@@ -2651,7 +2701,7 @@ onClick={selectAllReadyForRelease}
                 {filteredAdjustments.map((item) => (
                   <tr
                     key={item.id}
-                    className="border-t border-slate-800 hover:bg-slate-800/40"
+                    className="border-t border-slate-800/80 hover:bg-blue-500/5"
                   >
                     <td className="px-4 py-3 font-bold">
                       {item.employee_name || getEmployeeName(item)}
@@ -2864,7 +2914,7 @@ function PayrollAuditModal({
           </section>
 
           <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:col-span-2">
+            <div className="rounded-3xl border border-blue-300/15 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur xl:col-span-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-lg font-black text-white">
@@ -2911,13 +2961,13 @@ function PayrollAuditModal({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-3xl border border-blue-300/15 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur">
               <h3 className="text-lg font-black text-white">Audit Timeline</h3>
               <div className="mt-4 space-y-3">
                 {timelineRows.map((item) => (
                   <div
                     key={item.label}
-                    className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                    className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3"
                   >
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                       {item.label}
@@ -2929,7 +2979,7 @@ function PayrollAuditModal({
                 ))}
 
                 {timelineRows.length === 0 && (
-                  <p className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-6 text-center text-sm text-slate-500">
+                  <p className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-6 text-center text-sm text-slate-500">
                     No timeline dates saved on this payroll record.
                   </p>
                 )}
@@ -2937,7 +2987,7 @@ function PayrollAuditModal({
             </div>
           </section>
 
-          <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <section className="mt-6 rounded-3xl border border-blue-300/15 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h3 className="text-lg font-black text-white">
@@ -2957,7 +3007,7 @@ function PayrollAuditModal({
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-800">
               <table className="w-full min-w-[950px] text-sm">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
@@ -2971,7 +3021,7 @@ function PayrollAuditModal({
                 </thead>
                 <tbody>
                   {transactions.map((item: any) => (
-                    <tr key={item.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                    <tr key={item.id} className="border-t border-slate-800/80 hover:bg-blue-500/5">
                       <td className="px-4 py-3 font-bold text-slate-200">
                         {formatDateTime(item.released_at || item.created_at)}
                       </td>
@@ -3038,7 +3088,7 @@ function PayrollAuditModal({
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-800">
               <table className="w-full min-w-[1050px] text-sm">
                 <thead className="bg-slate-950 text-left text-slate-400">
                   <tr>
@@ -3053,7 +3103,7 @@ function PayrollAuditModal({
                 </thead>
                 <tbody>
                   {liabilityRows.map((item: any) => (
-                    <tr key={item.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                    <tr key={item.id} className="border-t border-slate-800/80 hover:bg-blue-500/5">
                       <td className="px-4 py-3 font-bold text-white">
                         {item.balance_type || "Balance"}
                       </td>
@@ -3138,7 +3188,7 @@ function AuditSummaryCard({ title, value, helper, tone = "default" }: any) {
 
 function AuditLine({ label, value, success, danger }: any) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3">
       <span className="text-slate-400">{label}</span>
       <span
         className={`text-right font-black ${
@@ -3161,13 +3211,33 @@ function PayrollComparisonCard({ title, period, rows }: any) {
         {rows.map(([label, value]: any[]) => (
           <div
             key={label}
-            className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm"
           >
             <span className="text-slate-400">{label}</span>
             <span className="font-black text-white">{value}</span>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+
+function WorkbenchStat({ title, value, danger }: any) {
+  return (
+    <div
+      className={`rounded-2xl border p-3 ${
+        danger
+          ? "border-red-500/25 bg-red-500/10"
+          : "border-slate-800 bg-slate-950"
+      }`}
+    >
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+        {title}
+      </p>
+      <p className={danger ? "mt-1 text-2xl font-black text-red-300" : "mt-1 text-2xl font-black text-white"}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -3186,31 +3256,33 @@ function KpiCard({
   danger?: boolean;
 }) {
   const cardStyle = danger
-    ? "border-red-500/20 bg-slate-900"
+    ? "border-blue-300/20 bg-white/[0.045]"
     : success
-      ? "border-emerald-500/20 bg-slate-900"
-      : "border-slate-800 bg-slate-900";
+      ? "border-blue-300/20 bg-white/[0.045]"
+      : "border-blue-300/15 bg-white/[0.035]";
 
   const iconStyle = danger
-    ? "bg-red-500/10 text-red-300"
+    ? "bg-blue-500/10 text-blue-200"
     : success
-      ? "bg-emerald-500/10 text-emerald-300"
-      : "bg-slate-800 text-slate-300";
+      ? "bg-blue-500/10 text-blue-200"
+      : "bg-slate-950/80 text-blue-100";
 
   return (
-    <div className={`rounded-2xl border p-5 ${cardStyle}`}>
-      <div className="mb-3 flex items-center gap-3">
-        <div className={`rounded-full p-3 ${iconStyle}`}>{icon}</div>
-        <p className="text-sm text-slate-400">{title}</p>
+    <div className={`rounded-3xl border p-5 shadow-xl shadow-black/15 backdrop-blur ${cardStyle}`}>
+      <div className="mb-4 flex items-center gap-3">
+        <div className={`rounded-2xl p-3 ${iconStyle}`}>{icon}</div>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+          {title}
+        </p>
       </div>
-      <h2 className="text-2xl font-bold text-white">{value}</h2>
+      <h2 className="text-2xl font-black text-white">{value}</h2>
     </div>
   );
 }
 
 function MiniStat({ title, value, success, danger }: any) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+    <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
       <p className="text-xs text-slate-500">{title}</p>
       <h3
         className={`mt-1 text-2xl font-black ${

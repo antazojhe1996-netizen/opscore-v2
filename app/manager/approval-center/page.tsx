@@ -1347,87 +1347,71 @@ export default function ApprovalCenterPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#07111f] text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6 xl:p-8">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-              Workflow Control
-            </p>
-            <h1 className="mt-2 text-4xl font-black text-white">
-              Approval Center
-            </h1>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
-              Centralized approval workspace for leave, payroll, cash drawer,
-              expense, and operational requests. Only requests assigned to your
-              approval role are shown.
-            </p>
-            <p className="mt-2 text-xs text-slate-500">
-              Current user: {currentEmployeeName || currentEmployeeId || "Not detected"}
-            </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 xl:p-8">
+        <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
+                Decision Center
+              </p>
+              <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                Approval Queue
+              </h1>
+              <p className="mt-1 max-w-3xl text-sm text-slate-400">
+                Review, approve, or reject assigned finance, cash, payroll, and leave requests.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-800 bg-slate-950 p-2 text-center">
+              <div className="min-w-[92px] rounded-xl bg-slate-900 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pending</p>
+                <p className="mt-1 text-xl font-black text-white">{pendingRequests.length}</p>
+              </div>
+              <div className="min-w-[92px] rounded-xl bg-slate-900 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Approved</p>
+                <p className="mt-1 text-xl font-black text-white">{approvedRequests.length}</p>
+              </div>
+              <div className="min-w-[92px] rounded-xl bg-slate-900 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Rejected</p>
+                <p className="mt-1 text-xl font-black text-white">{rejectedRequests.length}</p>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <ApprovalKpiCard
-            icon={<Clock className="h-5 w-5" />}
-            title="Needs Action"
-            value={pendingRequests.length}
-            description="Pending requests assigned to you"
-            danger={pendingRequests.length > 0}
-          />
-          <ApprovalKpiCard
-            icon={<CheckCircle className="h-5 w-5" />}
-            title="Completed"
-            value={approvedRequests.length}
-            description="Approved requests in your queue"
-            success
-          />
-          <ApprovalKpiCard
-            icon={<XCircle className="h-5 w-5" />}
-            title="Declined"
-            value={rejectedRequests.length}
-            description="Rejected approval requests"
-            danger={rejectedRequests.length > 0}
-          />
-          <ApprovalKpiCard
-            icon={<FileText className="h-5 w-5" />}
-            title="All Requests"
-            value={visibleRequests.length}
-            description="Total visible approval workload"
-          />
-        </section>
-
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                Status
-              </label>
-              <select
-                value={activeTab}
-                onChange={(event) => {
-                  setActiveTab(event.target.value);
-                  setCategoryFilter("ALL");
-                }}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
-              >
-                <option value="PENDING">Pending</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
-              </select>
+        <section className="sticky top-0 z-30 mb-4 rounded-2xl border border-slate-800 bg-slate-950/95 p-4 shadow-xl shadow-black/20 backdrop-blur">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "PENDING", label: "Pending", count: pendingRequests.length },
+                { key: "APPROVED", label: "Approved", count: approvedRequests.length },
+                { key: "REJECTED", label: "Rejected", count: rejectedRequests.length },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => {
+                    setActiveTab(tab.key);
+                    setCategoryFilter("ALL");
+                  }}
+                  className={
+                    activeTab === tab.key
+                      ? "rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white"
+                      : "rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                  }
+                >
+                  {tab.label} <span className="ml-1 text-xs opacity-70">{tab.count}</span>
+                </button>
+              ))}
             </div>
 
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                Category
-              </label>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr] xl:w-[520px]">
               <select
                 value={categoryFilter}
                 onChange={(event) => setCategoryFilter(event.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
+                className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
               >
                 {categoryItems.map((item) => (
                   <option key={item.key} value={item.key}>
@@ -1435,28 +1419,49 @@ export default function ApprovalCenterPage() {
                   </option>
                 ))}
               </select>
-            </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-400">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                Current View
-              </p>
-              <p className="mt-1">
-                Showing <span className="font-black text-white">{filteredRequests.length}</span>{" "}
-                {activeTab.toLowerCase()} request(s) under{" "}
-                <span className="font-black text-white">{getCategoryLabel(categoryFilter)}</span>.
-              </p>
+              <div className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-slate-400">
+                <span className="font-bold text-white">{filteredRequests.length}</span> {activeTab.toLowerCase()} request(s) • {getCategoryLabel(categoryFilter)}
+              </div>
             </div>
           </div>
         </section>
 
+        <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
+                Current user: <span className="font-bold text-slate-200">{currentEmployeeName || currentEmployeeId || "Not detected"}</span>
+              </span>
+              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
+                Assigned workload: <span className="font-bold text-slate-200">{visibleRequests.length}</span>
+              </span>
+              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
+                Cash: <span className="font-bold text-slate-200">{getCategoryCount(activeTab, "CASH")}</span>
+              </span>
+              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
+                Leave: <span className="font-bold text-slate-200">{getCategoryCount(activeTab, "LEAVE")}</span>
+              </span>
+              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
+                Payroll: <span className="font-bold text-slate-200">{getCategoryCount(activeTab, "PAYROLL")}</span>
+              </span>
+            </div>
+
+            <button
+              onClick={refreshApprovalCenter}
+              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+            >
+              Refresh Queue
+            </button>
+          </div>
+        </section>
+
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="text-xl font-black text-white">Approval Queue</h2>
+              <h2 className="text-xl font-black text-white">Manager Action Queue</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Review assigned requests. Detailed payload, workflow assignment,
-                and audit history are available inside the review drawer.
+                Open a request to review details, workflow assignment, and approval actions.
               </p>
             </div>
             <ApprovalStatusBadge status={activeTab} />
@@ -1520,7 +1525,7 @@ export default function ApprovalCenterPage() {
                         <td className="px-4 py-4 text-right">
                           <button
                             onClick={() => setSelectedRequest(request)}
-                            className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                            className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
                           >
                             Review
                           </button>
@@ -1536,12 +1541,12 @@ export default function ApprovalCenterPage() {
 
         {selectedRequest && (
           <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
-            <aside className="flex h-full w-full max-w-2xl flex-col border-l border-slate-800 bg-slate-950 text-white shadow-2xl">
-              <div className="border-b border-slate-800 p-6">
+            <aside className="flex h-full w-full max-w-3xl flex-col border-l border-slate-800 bg-slate-950 text-white shadow-2xl">
+              <div className="border-b border-slate-800 bg-slate-950 p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-                      Review Request
+                    <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-400">
+                      Request Review Center
                     </p>
                     <h2 className="mt-2 text-3xl font-black text-white">
                       {selectedRequest.title || "Untitled Request"}
@@ -1607,8 +1612,8 @@ export default function ApprovalCenterPage() {
                   )}
                 </section>
 
-                <section className="mb-5 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
-                  <h3 className="text-lg font-black text-blue-200">Approval Assignment</h3>
+                <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                  <h3 className="text-lg font-black text-slate-200">Approval Assignment</h3>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                     <ApprovalInfoRow label="Required Role" value={getApproverRoleForRequest(selectedRequest)} />
                     <ApprovalInfoRow label="Assigned Approvers" value={getAssignedApproverLabel(selectedRequest)} />
@@ -1645,7 +1650,7 @@ export default function ApprovalCenterPage() {
                           onClick={() => approveRequest(selectedRequest)}
                           className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-black text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {isProcessing ? "Processing..." : "Approve Request"}
+                          {isProcessing ? "Processing..." : "Approve Decision"}
                         </button>
 
                         <button
@@ -1679,7 +1684,7 @@ export default function ApprovalCenterPage() {
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
               <div className="mb-4">
-                <h3 className="text-lg font-black text-white">Reject Request</h3>
+                <h3 className="text-lg font-black text-white">Decline Request</h3>
                 <p className="mt-1 text-sm text-slate-400">
                   Enter the reason for rejecting this request. This reason will be saved in the approval audit trail.
                 </p>
@@ -1710,12 +1715,13 @@ export default function ApprovalCenterPage() {
                   onClick={() => rejectRequest(selectedRequest, rejectReason)}
                   className="flex-1 rounded-xl bg-red-600 py-2 text-sm font-black text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isProcessing ? "Rejecting..." : "Confirm Reject"}
+                  {isProcessing ? "Declining..." : "Confirm Decline"}
                 </button>
               </div>
             </div>
           </div>
         )}
+
       </main>
     </div>
   );
@@ -1730,10 +1736,10 @@ function ApprovalKpiCard({
   danger,
 }: any) {
   const cardStyle = danger
-    ? "border-red-500/20 bg-slate-900"
+    ? "border-red-500/20 bg-white/[0.045]"
     : success
-      ? "border-emerald-500/20 bg-slate-900"
-      : "border-slate-800 bg-slate-900";
+      ? "border-emerald-500/20 bg-white/[0.045]"
+      : "border-blue-300/10 bg-white/[0.045]";
 
   const iconStyle = danger
     ? "bg-red-500/10 text-red-300"
@@ -1742,7 +1748,7 @@ function ApprovalKpiCard({
       : "bg-slate-950 text-slate-300";
 
   return (
-    <div className={`rounded-2xl border p-5 ${cardStyle}`}>
+    <div className={`rounded-2xl border p-4 ${cardStyle}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm text-slate-400">{title}</p>
         <div className={`rounded-xl p-3 ${iconStyle}`}>{icon}</div>
@@ -1782,7 +1788,7 @@ function ApprovalDetailCard({ label, value }: any) {
 
 function ApprovalInfoRow({ label, value, wide }: any) {
   return (
-    <div className={`rounded-xl bg-slate-950 px-4 py-3 ${wide ? "md:col-span-2" : ""}`}>
+    <div className={`rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 ${wide ? "md:col-span-2" : ""}`}>
       <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
       <p className="mt-1 break-words text-sm font-semibold text-slate-200">{value}</p>
     </div>

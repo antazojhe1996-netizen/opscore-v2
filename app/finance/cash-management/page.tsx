@@ -32,7 +32,8 @@ export default function CashManagementPage() {
   const [actualClosingCash, setActualClosingCash] = useState("");
   const [closeRemarks, setCloseRemarks] = useState("");
   const [closingRemittanceAmount, setClosingRemittanceAmount] = useState("");
-  const [closingRemittanceReceivedBy, setClosingRemittanceReceivedBy] = useState("");
+  const [closingRemittanceReceivedBy, setClosingRemittanceReceivedBy] =
+    useState("");
   const [closingRemittanceRemarks, setClosingRemittanceRemarks] = useState("");
 
   /// STATES - CASH MOVEMENT FORM
@@ -74,10 +75,14 @@ export default function CashManagementPage() {
   const savingRef = useRef(false);
   const [showOpenDrawer, setShowOpenDrawer] = useState(false);
   const [showCloseDrawer, setShowCloseDrawer] = useState(false);
-  const [showDrawerHolderSettings, setShowDrawerHolderSettings] = useState(false);
+  const [showDrawerHolderSettings, setShowDrawerHolderSettings] =
+    useState(false);
   const [drawerHolderSearch, setDrawerHolderSearch] = useState("");
-  const [authorizedDrawerHolders, setAuthorizedDrawerHolders] = useState<string[]>([]);
-  const [drawerHolderSettingsLoaded, setDrawerHolderSettingsLoaded] = useState(false);
+  const [authorizedDrawerHolders, setAuthorizedDrawerHolders] = useState<
+    string[]
+  >([]);
+  const [drawerHolderSettingsLoaded, setDrawerHolderSettingsLoaded] =
+    useState(false);
   const [currentEmployeeId, setCurrentEmployeeId] = useState("");
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [currentRoleName, setCurrentRoleName] = useState("");
@@ -121,15 +126,39 @@ export default function CashManagementPage() {
   const fallbackSubcategories: Record<string, string[]> = {
     Food: ["Market", "Grocery", "Kitchen Ingredients", "Staff Meal", "Other"],
     Beverages: ["Soft Drinks", "Beer", "Liquor", "Coffee", "Other"],
-    Housekeeping: ["Laundry", "Linen", "Amenities", "Cleaning Supplies", "Other"],
-    Maintenance: ["Aircon", "Electrical", "Plumbing", "Room Repair", "Tools", "Other"],
+    Housekeeping: [
+      "Laundry",
+      "Linen",
+      "Amenities",
+      "Cleaning Supplies",
+      "Other",
+    ],
+    Maintenance: [
+      "Aircon",
+      "Electrical",
+      "Plumbing",
+      "Room Repair",
+      "Tools",
+      "Other",
+    ],
     Laundry: ["Guest Linen", "Staff Uniform", "Towels", "Other"],
     Frontdesk: ["Office Supplies", "Printing", "Guest Supplies", "Other"],
     "Pool Maintenance": ["Chemicals", "Cleaning", "Equipment", "Other"],
-    "Gas Vehicle/RFID": ["Gasoline", "RFID", "Parking", "Vehicle Repair", "Other"],
+    "Gas Vehicle/RFID": [
+      "Gasoline",
+      "RFID",
+      "Parking",
+      "Vehicle Repair",
+      "Other",
+    ],
     Sanitary: ["Garbage", "Pest Control", "Disinfection", "Other"],
     "Employee Salary": ["Salary Release", "Allowance", "Other"],
-    Supplies: ["Office Supplies", "Hotel Supplies", "Kitchen Supplies", "Other"],
+    Supplies: [
+      "Office Supplies",
+      "Hotel Supplies",
+      "Kitchen Supplies",
+      "Other",
+    ],
     Other: ["Other"],
   };
 
@@ -151,7 +180,9 @@ export default function CashManagementPage() {
 
   /// CALCULATIONS - VOID SAFETY
   const getMovementStatus = (movement: any) =>
-    String(movement?.status || movement?.movement_status || "ACTIVE").toUpperCase();
+    String(
+      movement?.status || movement?.movement_status || "ACTIVE",
+    ).toUpperCase();
 
   const isVoidedMovement = (movement: any) =>
     getMovementStatus(movement) === "VOIDED" ||
@@ -163,7 +194,7 @@ export default function CashManagementPage() {
 
   const isUuid = (value: any) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      String(value || "").trim()
+      String(value || "").trim(),
     );
 
   const getEmployeePayrollId = (employee: any) => {
@@ -188,7 +219,10 @@ export default function CashManagementPage() {
         : "";
 
     const cachedCompanyId = String(
-      currentCompanyId || currentEmployeeRecord?.company_id || storedCompanyId || ""
+      currentCompanyId ||
+        currentEmployeeRecord?.company_id ||
+        storedCompanyId ||
+        "",
     ).trim();
 
     if (cachedCompanyId) {
@@ -239,7 +273,7 @@ export default function CashManagementPage() {
     return employees
       .filter((employee) => hasCompleteEmployeeIdentity(employee))
       .sort((a, b) =>
-        getEmployeeFullName(a).localeCompare(getEmployeeFullName(b))
+        getEmployeeFullName(a).localeCompare(getEmployeeFullName(b)),
       );
   }, [employees]);
 
@@ -250,7 +284,7 @@ export default function CashManagementPage() {
     .filter(Boolean);
 
   const drawerHolderOptions = validEmployeeOptions.filter((employee) =>
-    authorizedDrawerHolders.includes(getEmployeeFullName(employee))
+    authorizedDrawerHolders.includes(getEmployeeFullName(employee)),
   );
 
   const currentEmployeeRecord = validEmployeeOptions.find((employee) => {
@@ -259,16 +293,20 @@ export default function CashManagementPage() {
 
     return (
       String(employeeId || "") === String(currentEmployeeId || "") ||
-      String(fullName || "").toLowerCase() === String(currentEmployeeName || "").toLowerCase()
+      String(fullName || "").toLowerCase() ===
+        String(currentEmployeeName || "").toLowerCase()
     );
   });
 
-  const currentDrawerHolderName =
-    currentEmployeeRecord ? getEmployeeFullName(currentEmployeeRecord) : currentEmployeeName;
+  const currentDrawerHolderName = currentEmployeeRecord
+    ? getEmployeeFullName(currentEmployeeRecord)
+    : currentEmployeeName;
 
   const canManageDrawerForOthers = (() => {
     const roleText = String(currentRoleName || "").toLowerCase();
-    const positionText = String(currentEmployeeRecord?.position || "").toLowerCase();
+    const positionText = String(
+      currentEmployeeRecord?.position || "",
+    ).toLowerCase();
     const nameText = String(currentDrawerHolderName || "").toLowerCase();
 
     return (
@@ -286,20 +324,28 @@ export default function CashManagementPage() {
   const allowedOpenDrawerHolderOptions = canManageDrawerForOthers
     ? drawerHolderOptions
     : drawerHolderOptions.filter(
-        (employee) => getEmployeeFullName(employee) === currentDrawerHolderName
+        (employee) => getEmployeeFullName(employee) === currentDrawerHolderName,
       );
 
-  const filteredDrawerHolderSettingEmployees = validEmployeeOptions.filter((employee) => {
-    const fullName = getEmployeeFullName(employee);
-    const search = drawerHolderSearch.toLowerCase();
+  const filteredDrawerHolderSettingEmployees = validEmployeeOptions.filter(
+    (employee) => {
+      const fullName = getEmployeeFullName(employee);
+      const search = drawerHolderSearch.toLowerCase();
 
-    return (
-      fullName.toLowerCase().includes(search) ||
-      String(employee.department || "").toLowerCase().includes(search) ||
-      String(employee.position || "").toLowerCase().includes(search) ||
-      String(employee.employee_no || "").toLowerCase().includes(search)
-    );
-  });
+      return (
+        fullName.toLowerCase().includes(search) ||
+        String(employee.department || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(employee.position || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(employee.employee_no || "")
+          .toLowerCase()
+          .includes(search)
+      );
+    },
+  );
 
   const toggleAuthorizedDrawerHolder = (name: string) => {
     if (!name) return;
@@ -307,7 +353,7 @@ export default function CashManagementPage() {
     setAuthorizedDrawerHolders((current) =>
       current.includes(name)
         ? current.filter((item) => item !== name)
-        : [...current, name].sort((a, b) => a.localeCompare(b))
+        : [...current, name].sort((a, b) => a.localeCompare(b)),
     );
   };
 
@@ -317,10 +363,10 @@ export default function CashManagementPage() {
   const isExpenseRelease =
     movementType === "Cash Out" && source === "Expense Release";
 
-  const isCashExpenseCashOut =
-    isExpenseRelease && paymentType === "Cash";
+  const isCashExpenseCashOut = isExpenseRelease && paymentType === "Cash";
 
-  const shouldCreateExpenseFromCashOut = isExpenseRelease || isCashAdvanceCashOut;
+  const shouldCreateExpenseFromCashOut =
+    isExpenseRelease || isCashAdvanceCashOut;
 
   // CASH DRAWER APPROVAL GATE V1
   // Money IN records immediately. Money OUT goes to Manager Approval Center first.
@@ -343,7 +389,8 @@ export default function CashManagementPage() {
   };
 
   const selectedCashAdvanceEmployee = validEmployeeOptions.find(
-    (employee) => String(getEmployeePayrollId(employee)) === String(cashAdvanceEmployeeId)
+    (employee) =>
+      String(getEmployeePayrollId(employee)) === String(cashAdvanceEmployeeId),
   );
 
   const cashAdvanceEmployeeName = selectedCashAdvanceEmployee
@@ -357,7 +404,7 @@ export default function CashManagementPage() {
       payrollPeriods.find(
         (period) =>
           String(period.start_date || "") <= dateValue &&
-          String(period.end_date || "") >= dateValue
+          String(period.end_date || "") >= dateValue,
       ) || null
     );
   };
@@ -383,7 +430,7 @@ export default function CashManagementPage() {
         );
       })
       .sort((a, b) =>
-        String(b.created_at || "").localeCompare(String(a.created_at || ""))
+        String(b.created_at || "").localeCompare(String(a.created_at || "")),
       );
   }, [approvalRequests]);
 
@@ -398,18 +445,20 @@ export default function CashManagementPage() {
     return "bg-slate-700 text-slate-300";
   };
 
-
   const expenseCategoryOptions =
     expenseCategories.length > 0
       ? expenseCategories
-          .map((category) => category.name || category.category_name || category.label)
+          .map(
+            (category) =>
+              category.name || category.category_name || category.label,
+          )
           .filter(Boolean)
       : fallbackExpenseCategories;
 
   const selectedExpenseCategoryRecord = expenseCategories.find(
     (item) =>
       String(item.name || item.category_name || item.label || "") ===
-      String(expenseCategory || "")
+      String(expenseCategory || ""),
   );
 
   const databaseSubcategoryOptions = expenseSubcategories
@@ -417,7 +466,9 @@ export default function CashManagementPage() {
       if (!expenseCategory) return false;
 
       if (item.category_id && selectedExpenseCategoryRecord?.id) {
-        return String(item.category_id) === String(selectedExpenseCategoryRecord.id);
+        return (
+          String(item.category_id) === String(selectedExpenseCategoryRecord.id)
+        );
       }
 
       return String(item.category || "") === String(expenseCategory || "");
@@ -433,7 +484,9 @@ export default function CashManagementPage() {
   /// CALCULATIONS - BASE MOVEMENTS
   const drawerScopedMovements = useMemo(() => {
     if (activeDrawer) {
-      return movements.filter((item) => item.cash_drawer_id === activeDrawer.id);
+      return movements.filter(
+        (item) => item.cash_drawer_id === activeDrawer.id,
+      );
     }
 
     if (ledgerDateScope === "ALL") {
@@ -453,7 +506,7 @@ export default function CashManagementPage() {
     return movements.filter(
       (item) =>
         String(item.cash_drawer_id || "") === String(activeDrawer.id || "") &&
-        !isVoidedMovement(item)
+        !isVoidedMovement(item),
     );
   }, [movements, activeDrawer]);
 
@@ -480,11 +533,21 @@ export default function CashManagementPage() {
       const search = searchTerm.toLowerCase();
 
       const matchesSearch =
-        String(item.source || "").toLowerCase().includes(search) ||
-        String(item.from_person || "").toLowerCase().includes(search) ||
-        String(item.to_person || "").toLowerCase().includes(search) ||
-        String(item.encoded_by || "").toLowerCase().includes(search) ||
-        String(item.remarks || "").toLowerCase().includes(search);
+        String(item.source || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(item.from_person || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(item.to_person || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(item.encoded_by || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(item.remarks || "")
+          .toLowerCase()
+          .includes(search);
 
       return matchesType && matchesPayment && matchesHolder && matchesSearch;
     });
@@ -498,7 +561,7 @@ export default function CashManagementPage() {
 
   /// CALCULATIONS - CASH ONLY MOVEMENTS
   const cashOnlyMovements = operationalMovements.filter(
-    (item) => (item.payment_type || "Cash") === "Cash"
+    (item) => (item.payment_type || "Cash") === "Cash",
   );
 
   const cashInTotal = cashOnlyMovements
@@ -506,7 +569,7 @@ export default function CashManagementPage() {
       (item) =>
         item.movement_type === "Opening Float" ||
         item.movement_type === "Cash In" ||
-        (item.movement_type === "Adjustment" && Number(item.amount || 0) > 0)
+        (item.movement_type === "Adjustment" && Number(item.amount || 0) > 0),
     )
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -516,7 +579,7 @@ export default function CashManagementPage() {
         item.movement_type === "Cash Out" ||
         item.source === "Bank Deposit" ||
         item.source === "Owner Withdrawal" ||
-        (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
+        (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0),
     )
     .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
@@ -554,7 +617,7 @@ export default function CashManagementPage() {
     .filter(
       (item) =>
         (item.payment_type || "Cash") === "Bank" ||
-        item.source === "Bank Deposit"
+        item.source === "Bank Deposit",
     )
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
@@ -567,11 +630,11 @@ export default function CashManagementPage() {
     const drawerMovements = movements.filter(
       (item) =>
         String(item.cash_drawer_id || "") === String(drawer.id || "") &&
-        !isVoidedMovement(item)
+        !isVoidedMovement(item),
     );
 
     const cashMovements = drawerMovements.filter(
-      (item) => (item.payment_type || "Cash") === "Cash"
+      (item) => (item.payment_type || "Cash") === "Cash",
     );
 
     const cashIn = cashMovements
@@ -579,7 +642,7 @@ export default function CashManagementPage() {
         (item) =>
           item.movement_type === "Opening Float" ||
           item.movement_type === "Cash In" ||
-          (item.movement_type === "Adjustment" && Number(item.amount || 0) > 0)
+          (item.movement_type === "Adjustment" && Number(item.amount || 0) > 0),
       )
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -588,7 +651,7 @@ export default function CashManagementPage() {
         (item) =>
           item.movement_type === "Cash Out" ||
           item.source === "Owner Withdrawal" ||
-          (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
+          (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0),
       )
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
@@ -597,7 +660,7 @@ export default function CashManagementPage() {
         (item) =>
           item.movement_type === "Remittance" &&
           (item.source === "Drawer Closing Remittance" ||
-            item.reference_type === "drawer_closing_remittance")
+            item.reference_type === "drawer_closing_remittance"),
       )
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -606,7 +669,7 @@ export default function CashManagementPage() {
         (item) =>
           item.movement_type === "Remittance" &&
           item.source !== "Drawer Closing Remittance" &&
-          item.reference_type !== "drawer_closing_remittance"
+          item.reference_type !== "drawer_closing_remittance",
       )
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -637,13 +700,15 @@ export default function CashManagementPage() {
 
   const filteredDrawers = useMemo(() => {
     return drawers.filter((drawer) => {
-      const drawerDate = String(drawer.opened_at || drawer.created_at || "").slice(0, 10);
+      const drawerDate = String(
+        drawer.opened_at || drawer.created_at || "",
+      ).slice(0, 10);
       const matchesDate =
         historyDateScope === "ALL"
           ? true
           : historyDateScope === "TODAY"
-          ? drawerDate === today
-          : drawerDate === historyDateFilter;
+            ? drawerDate === today
+            : drawerDate === historyDateFilter;
 
       const matchesHolder =
         historyHolderFilter === "ALL"
@@ -657,7 +722,14 @@ export default function CashManagementPage() {
 
       return matchesDate && matchesHolder && matchesStatus;
     });
-  }, [drawers, historyDateScope, historyDateFilter, historyHolderFilter, historyStatusFilter, today]);
+  }, [
+    drawers,
+    historyDateScope,
+    historyDateFilter,
+    historyHolderFilter,
+    historyStatusFilter,
+    today,
+  ]);
 
   /// FUNCTIONS - FORMATTERS
   const formatMoney = (value: any) => {
@@ -722,7 +794,9 @@ export default function CashManagementPage() {
   const getEmployees = async () => {
     const { data, error } = await supabase
       .from("employees")
-      .select("id, company_id, employee_no, first_name, last_name, department, position, employment_status, payroll_active")
+      .select(
+        "id, company_id, employee_no, first_name, last_name, department, position, employment_status, payroll_active",
+      )
       .eq("payroll_active", true)
       .order("first_name", { ascending: true });
 
@@ -833,7 +907,9 @@ export default function CashManagementPage() {
     const { data, error } = await supabase
       .from("approval_requests")
       .select("*")
-      .or("module.eq.Cash Management,request_type.eq.CASH_ADVANCE_RELEASE,request_type.eq.CASH_EXPENSE_RELEASE,request_type.eq.CASH_DRAWER_OUT,request_type.eq.OWNER_WITHDRAWAL,request_type.eq.BANK_DEPOSIT,request_type.eq.ADJUSTMENT_OUT")
+      .or(
+        "module.eq.Cash Management,request_type.eq.CASH_ADVANCE_RELEASE,request_type.eq.CASH_EXPENSE_RELEASE,request_type.eq.CASH_DRAWER_OUT,request_type.eq.OWNER_WITHDRAWAL,request_type.eq.BANK_DEPOSIT,request_type.eq.ADJUSTMENT_OUT",
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -889,14 +965,14 @@ export default function CashManagementPage() {
     const reportMovements = movements.filter(
       (item) =>
         String(item.cash_drawer_id || "") === String(drawer.id || "") &&
-        !isVoidedMovement(item)
+        !isVoidedMovement(item),
     );
 
     const hasClosingRemittance = reportMovements.some(
       (item) =>
         item.movement_type === "Remittance" &&
         (item.source === "Drawer Closing Remittance" ||
-          item.reference_type === "drawer_closing_remittance")
+          item.reference_type === "drawer_closing_remittance"),
     );
 
     const syntheticClosingRemittance =
@@ -918,16 +994,24 @@ export default function CashManagementPage() {
           ]
         : [];
 
-    const allReportMovements = [...reportMovements, ...syntheticClosingRemittance];
+    const allReportMovements = [
+      ...reportMovements,
+      ...syntheticClosingRemittance,
+    ];
 
     const sum = (rows: any[]) =>
       rows.reduce((total, item) => total + Number(item.amount || 0), 0);
 
     const absSum = (rows: any[]) =>
-      rows.reduce((total, item) => total + Math.abs(Number(item.amount || 0)), 0);
+      rows.reduce(
+        (total, item) => total + Math.abs(Number(item.amount || 0)),
+        0,
+      );
 
     const byPayment = (payment: string) =>
-      allReportMovements.filter((item) => (item.payment_type || "Cash") === payment);
+      allReportMovements.filter(
+        (item) => (item.payment_type || "Cash") === payment,
+      );
 
     const cashRows = byPayment("Cash");
     const gcashRows = byPayment("GCash");
@@ -935,48 +1019,58 @@ export default function CashManagementPage() {
     const terminalRows = byPayment("Terminal");
 
     const cashInRows = cashRows.filter(
-      (item) => item.movement_type === "Opening Float" || item.movement_type === "Cash In"
+      (item) =>
+        item.movement_type === "Opening Float" ||
+        item.movement_type === "Cash In",
     );
 
     const openingFloatRows = cashRows.filter(
-      (item) => item.movement_type === "Opening Float"
+      (item) => item.movement_type === "Opening Float",
     );
 
-    const cashSalesRows = cashRows.filter((item) => item.movement_type === "Cash In");
+    const cashSalesRows = cashRows.filter(
+      (item) => item.movement_type === "Cash In",
+    );
 
     const cashOutRows = cashRows.filter(
       (item) =>
         item.movement_type === "Cash Out" ||
         item.source === "Owner Withdrawal" ||
-        (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
+        (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0),
     );
 
     const closingRemittanceRows = cashRows.filter(
       (item) =>
         item.movement_type === "Remittance" &&
         (item.source === "Drawer Closing Remittance" ||
-          item.reference_type === "drawer_closing_remittance")
+          item.reference_type === "drawer_closing_remittance"),
     );
 
     const manualRemittanceRows = cashRows.filter(
       (item) =>
         item.movement_type === "Remittance" &&
         item.source !== "Drawer Closing Remittance" &&
-        item.reference_type !== "drawer_closing_remittance"
+        item.reference_type !== "drawer_closing_remittance",
     );
 
     const openingFloat =
-      openingFloatRows.length > 0 ? sum(openingFloatRows) : Number(drawer.opening_float || 0);
+      openingFloatRows.length > 0
+        ? sum(openingFloatRows)
+        : Number(drawer.opening_float || 0);
     const cashSales = sum(cashSalesRows);
     const cashExpenses = absSum(cashOutRows);
     const manualRemittance = sum(manualRemittanceRows);
     const closingRemittance = sum(closingRemittanceRows);
     const expectedCash = Number(
-      customSummary?.expected_cash ?? openingFloat + cashSales - cashExpenses - manualRemittance
+      customSummary?.expected_cash ??
+        openingFloat + cashSales - cashExpenses - manualRemittance,
     );
-    const actualCash = Number(customSummary?.actual_cash ?? drawer.actual_cash ?? 0);
+    const actualCash = Number(
+      customSummary?.actual_cash ?? drawer.actual_cash ?? 0,
+    );
     const remainingCash = Number(
-      customSummary?.remaining_cash_after_remittance ?? actualCash - closingRemittance
+      customSummary?.remaining_cash_after_remittance ??
+        actualCash - closingRemittance,
     );
     // Full-remittance policy for owner report:
     // Expected Cash must be fully remitted. Any amount left unremitted becomes variance.
@@ -987,24 +1081,39 @@ export default function CashManagementPage() {
       Math.abs(variance) < 0.01 ? "BALANCED" : variance < 0 ? "SHORT" : "OVER";
 
     const cashCollections = cashSales;
-    const gcashCollections = sum(gcashRows.filter((item) => item.movement_type === "Cash In"));
-    const bankCollections = sum(bankRows.filter((item) => item.movement_type === "Cash In"));
-    const terminalCollections = sum(
-      terminalRows.filter((item) => item.movement_type === "Cash In")
+    const gcashCollections = sum(
+      gcashRows.filter((item) => item.movement_type === "Cash In"),
     );
-    const totalCollections = cashCollections + gcashCollections + bankCollections + terminalCollections;
+    const bankCollections = sum(
+      bankRows.filter((item) => item.movement_type === "Cash In"),
+    );
+    const terminalCollections = sum(
+      terminalRows.filter((item) => item.movement_type === "Cash In"),
+    );
+    const totalCollections =
+      cashCollections +
+      gcashCollections +
+      bankCollections +
+      terminalCollections;
 
-    const salesRows = allReportMovements.filter((item) => item.movement_type === "Cash In");
-    const roomSales = sum(salesRows.filter((item) => item.source === "Room Sales"));
-    const restaurantSales = sum(salesRows.filter((item) => item.source === "Restaurant Sales"));
+    const salesRows = allReportMovements.filter(
+      (item) => item.movement_type === "Cash In",
+    );
+    const roomSales = sum(
+      salesRows.filter((item) => item.source === "Room Sales"),
+    );
+    const restaurantSales = sum(
+      salesRows.filter((item) => item.source === "Restaurant Sales"),
+    );
     const apartmentCollections = sum(
-      salesRows.filter((item) => item.source === "Apartment Collection")
+      salesRows.filter((item) => item.source === "Apartment Collection"),
     );
     const otherSales = Math.max(
       sum(salesRows) - roomSales - restaurantSales - apartmentCollections,
-      0
+      0,
     );
-    const totalSales = roomSales + restaurantSales + apartmentCollections + otherSales;
+    const totalSales =
+      roomSales + restaurantSales + apartmentCollections + otherSales;
 
     const manualCashExpenses = absSum(
       cashOutRows.filter(
@@ -1012,32 +1121,62 @@ export default function CashManagementPage() {
           item.source !== "Expense Release" &&
           item.source !== "Cash Advance" &&
           item.source !== "Owner Withdrawal" &&
-          item.source !== "Bank Deposit"
-      )
+          item.source !== "Bank Deposit",
+      ),
     );
-    const expenseReleases = absSum(cashOutRows.filter((item) => item.source === "Expense Release"));
-    const cashAdvances = absSum(cashOutRows.filter((item) => item.source === "Cash Advance"));
-    const ownerWithdrawals = absSum(cashOutRows.filter((item) => item.source === "Owner Withdrawal"));
-    const bankDeposits = absSum(cashOutRows.filter((item) => item.source === "Bank Deposit"));
+    const expenseReleases = absSum(
+      cashOutRows.filter((item) => item.source === "Expense Release"),
+    );
+    const cashAdvances = absSum(
+      cashOutRows.filter((item) => item.source === "Cash Advance"),
+    );
+    const ownerWithdrawals = absSum(
+      cashOutRows.filter((item) => item.source === "Owner Withdrawal"),
+    );
+    const bankDeposits = absSum(
+      cashOutRows.filter((item) => item.source === "Bank Deposit"),
+    );
     const otherExpenses = Math.max(
-      cashExpenses - manualCashExpenses - expenseReleases - cashAdvances - ownerWithdrawals - bankDeposits,
-      0
+      cashExpenses -
+        manualCashExpenses -
+        expenseReleases -
+        cashAdvances -
+        ownerWithdrawals -
+        bankDeposits,
+      0,
     );
     const totalExpenses =
-      manualCashExpenses + expenseReleases + cashAdvances + ownerWithdrawals + bankDeposits + otherExpenses;
+      manualCashExpenses +
+      expenseReleases +
+      cashAdvances +
+      ownerWithdrawals +
+      bankDeposits +
+      otherExpenses;
 
     const businessDate =
-      customSummary?.business_date || String(drawer.opened_at || drawer.created_at || today).slice(0, 10);
+      customSummary?.business_date ||
+      String(drawer.opened_at || drawer.created_at || today).slice(0, 10);
     const generatedAt = formatDateTime(new Date().toISOString());
     const receivedBy =
       customSummary?.received_by || closingRemittanceRows[0]?.to_person || "-";
     const preparedBy = drawer.holder_name || "-";
     const managementRemarks =
-      customSummary?.remarks || drawer.remarks || closeRemarks || drawer.drawerRemarks || "-";
+      customSummary?.remarks ||
+      drawer.remarks ||
+      closeRemarks ||
+      drawer.drawerRemarks ||
+      "-";
 
-    const formatPlainMoney = (value: any) => formatMoney(value).replace("₱-", "(₱") + (Number(value || 0) < 0 ? ")" : "");
+    const formatPlainMoney = (value: any) =>
+      formatMoney(value).replace("₱-", "(₱") +
+      (Number(value || 0) < 0 ? ")" : "");
 
-    const line = (label: string, value: any, bold = false, negative = false) => `
+    const line = (
+      label: string,
+      value: any,
+      bold = false,
+      negative = false,
+    ) => `
       <div class="line ${bold ? "bold" : ""}">
         <span>${escapeHtml(label)}</span>
         <strong class="${negative ? "negative" : ""}">${formatPlainMoney(value)}</strong>
@@ -1059,7 +1198,7 @@ export default function CashManagementPage() {
             <td class="amount">${formatMoney(item.amount)}</td>
             <td>${escapeHtml(item.remarks || "-")}</td>
           </tr>
-        `
+        `,
       )
       .join("");
 
@@ -1347,7 +1486,9 @@ export default function CashManagementPage() {
     }
 
     if (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName) {
-      alert("You can only open your own cash drawer. Ask Admin/Finance to open a drawer for another holder.");
+      alert(
+        "You can only open your own cash drawer. Ask Admin/Finance to open a drawer for another holder.",
+      );
       return;
     }
 
@@ -1608,17 +1749,21 @@ export default function CashManagementPage() {
         },
       });
 
-      alert("Remittance was saved, but drawer close failed. Check drawer status and audit log.");
+      alert(
+        "Remittance was saved, but drawer close failed. Check drawer status and audit log.",
+      );
       return;
     }
 
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Cash Management",
-      action: remittanceValue > 0 ? "Close Drawer With Remittance" : "Close Drawer",
-      description: remittanceValue > 0
-        ? `${activeDrawer.holder_name} closed drawer and remitted ${formatMoney(remittanceValue)} to ${receiverName}. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`
-        : `${activeDrawer.holder_name} closed drawer. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`,
+      action:
+        remittanceValue > 0 ? "Close Drawer With Remittance" : "Close Drawer",
+      description:
+        remittanceValue > 0
+          ? `${activeDrawer.holder_name} closed drawer and remitted ${formatMoney(remittanceValue)} to ${receiverName}. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`
+          : `${activeDrawer.holder_name} closed drawer. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`,
       severity: Math.abs(drawerVariance) >= 500 ? "critical" : "warning",
       recordId: activeDrawer.id,
       oldValue: activeDrawer,
@@ -1756,7 +1901,9 @@ export default function CashManagementPage() {
     }
 
     if (isCashAdvanceCashOut && paymentType === "Cash" && !activeDrawer) {
-      alert("Please open a drawer first before releasing a cash advance in cash.");
+      alert(
+        "Please open a drawer first before releasing a cash advance in cash.",
+      );
       savingRef.current = false;
       return;
     }
@@ -1778,7 +1925,9 @@ export default function CashManagementPage() {
       : null;
 
     if (isCashAdvanceCashOut && !targetPayrollPeriod) {
-      alert(`No usable payroll period covers ${businessDate}. Create, reopen, partially release, or release the correct cutoff first.`);
+      alert(
+        `No usable payroll period covers ${businessDate}. Create, reopen, partially release, or release the correct cutoff first.`,
+      );
       savingRef.current = false;
       return;
     }
@@ -1789,7 +1938,11 @@ export default function CashManagementPage() {
       return;
     }
 
-    if (isExpenseRelease && expenseSubcategoryOptions.length > 0 && !expenseSubcategory) {
+    if (
+      isExpenseRelease &&
+      expenseSubcategoryOptions.length > 0 &&
+      !expenseSubcategory
+    ) {
       alert("Please select expense subcategory.");
       savingRef.current = false;
       return;
@@ -1820,16 +1973,16 @@ export default function CashManagementPage() {
       paymentType === "Cash" && !fromPerson.trim()
         ? activeDrawer?.holder_name || ""
         : isExpenseRelease && !fromPerson.trim()
-        ? paymentType
-        : fromPerson.trim();
+          ? paymentType
+          : fromPerson.trim();
 
     const autoTo = isCashAdvanceCashOut
       ? cashAdvanceEmployeeName
       : isExpenseRelease
-      ? expenseReleasedTo.trim()
-      : paymentType === "Cash" && !toPerson.trim()
-      ? activeDrawer?.holder_name || ""
-      : toPerson.trim();
+        ? expenseReleasedTo.trim()
+        : paymentType === "Cash" && !toPerson.trim()
+          ? activeDrawer?.holder_name || ""
+          : toPerson.trim();
 
     // Audit identity rule:
     // - encoded_by / requested_by must be the logged-in user who created the transaction.
@@ -1845,7 +1998,9 @@ export default function CashManagementPage() {
     const companyId = await getCurrentCompanyId();
 
     if (!companyId) {
-      alert("Unable to save cash movement. No company_id found for current user.");
+      alert(
+        "Unable to save cash movement. No company_id found for current user.",
+      );
       savingRef.current = false;
       return;
     }
@@ -1883,8 +2038,8 @@ export default function CashManagementPage() {
           cashAdvancePurpose.trim() ? ` - ${cashAdvancePurpose.trim()}` : ""
         }${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
       : isExpenseRelease
-      ? `${expenseDescription.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
-      : remarks.trim();
+        ? `${expenseDescription.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
+        : remarks.trim();
 
     if (isCashDrawerMoneyOut) {
       const requestType = getCashApprovalRequestType();
@@ -1908,19 +2063,29 @@ export default function CashManagementPage() {
         should_create_expense: shouldCreateExpenseFromCashOut,
         is_cash_expense_cash_out: isCashExpenseCashOut,
         is_cash_advance_cash_out: isCashAdvanceCashOut,
-        expense_category: isCashAdvanceCashOut ? "Cash Advance" : expenseCategory,
+        expense_category: isCashAdvanceCashOut
+          ? "Cash Advance"
+          : expenseCategory,
         expense_subcategory: isCashAdvanceCashOut
           ? "Cash Advance Release"
           : expenseSubcategory || null,
-        expense_department: isCashAdvanceCashOut ? "Payroll" : expenseDepartment,
+        expense_department: isCashAdvanceCashOut
+          ? "Payroll"
+          : expenseDepartment,
         expense_description: isCashAdvanceCashOut
           ? `Cash Advance - ${cashAdvanceEmployeeName}`
           : expenseDescription.trim(),
         expense_released_to: expenseReleasedTo.trim(),
-        cash_advance_employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
-        cash_advance_employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : null,
+        cash_advance_employee_id: isCashAdvanceCashOut
+          ? cashAdvanceEmployeeId
+          : null,
+        cash_advance_employee_name: isCashAdvanceCashOut
+          ? cashAdvanceEmployeeName
+          : null,
         cash_advance_purpose: cashAdvancePurpose.trim(),
-        payroll_period_id: isCashAdvanceCashOut ? targetPayrollPeriod?.id || null : null,
+        payroll_period_id: isCashAdvanceCashOut
+          ? targetPayrollPeriod?.id || null
+          : null,
         payroll_period_label: isCashAdvanceCashOut
           ? targetPayrollPeriod
             ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
@@ -1940,7 +2105,9 @@ export default function CashManagementPage() {
         if (duplicateApprovalExists) {
           setIsSaving(false);
           savingRef.current = false;
-          alert("Possible duplicate approval request detected. This request was not submitted again.");
+          alert(
+            "Possible duplicate approval request detected. This request was not submitted again.",
+          );
           return;
         }
       } catch {
@@ -1968,10 +2135,15 @@ export default function CashManagementPage() {
       savingRef.current = false;
 
       if (approvalError) {
-        console.log("CREATE CASH DRAWER APPROVAL ERROR:", approvalError.message);
-        alert(`Failed to send cash movement to Approval Center. ${approvalError.message}`);
+        console.log(
+          "CREATE CASH DRAWER APPROVAL ERROR:",
+          approvalError.message,
+        );
+        alert(
+          `Failed to send cash movement to Approval Center. ${approvalError.message}`,
+        );
         savingRef.current = false;
-      return;
+        return;
       }
 
       await createAuditLog({
@@ -1987,7 +2159,9 @@ export default function CashManagementPage() {
       await getApprovalRequests();
       await getCashMovements();
       await getDrawers();
-      alert("Cash movement sent to Manager Approval Center. No drawer deduction was made yet.");
+      alert(
+        "Cash movement sent to Manager Approval Center. No drawer deduction was made yet.",
+      );
       savingRef.current = false;
       return;
     }
@@ -2007,7 +2181,9 @@ export default function CashManagementPage() {
       if (duplicateMovementExists) {
         setIsSaving(false);
         savingRef.current = false;
-        alert("Possible duplicate cash movement detected. This transaction was not saved again.");
+        alert(
+          "Possible duplicate cash movement detected. This transaction was not saved again.",
+        );
         return;
       }
     } catch {
@@ -2090,7 +2266,9 @@ export default function CashManagementPage() {
           employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
           employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : null,
           deduct_to_payroll: isCashAdvanceCashOut,
-          payroll_period_id: isCashAdvanceCashOut ? targetPayrollPeriod?.id || null : null,
+          payroll_period_id: isCashAdvanceCashOut
+            ? targetPayrollPeriod?.id || null
+            : null,
           remarks: isCashAdvanceCashOut
             ? `Source: ${paymentType === "Cash" ? "Cash Control" : paymentType}. Auto linked by selected date to: ${
                 targetPayrollPeriod
@@ -2098,7 +2276,9 @@ export default function CashManagementPage() {
                   : activePayrollLabel
               }. ${cashAdvancePurpose.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`.trim()
             : `${remarks.trim()}${
-                expenseReleasedTo.trim() ? ` Released to: ${expenseReleasedTo.trim()}` : ""
+                expenseReleasedTo.trim()
+                  ? ` Released to: ${expenseReleasedTo.trim()}`
+                  : ""
               }`.trim(),
           source: isCashAdvanceCashOut
             ? paymentType === "Cash"
@@ -2114,7 +2294,7 @@ export default function CashManagementPage() {
 
       if (expenseError) {
         setIsSaving(false);
-      savingRef.current = false;
+        savingRef.current = false;
         console.log("AUTO CREATE EXPENSE ERROR:", expenseError.message);
 
         await createAuditLog({
@@ -2130,10 +2310,12 @@ export default function CashManagementPage() {
           },
         });
 
-        alert("Cash movement was saved, but expense entry failed. Check expenses table columns.");
+        alert(
+          "Cash movement was saved, but expense entry failed. Check expenses table columns.",
+        );
         await getCashMovements();
         savingRef.current = false;
-      return;
+        return;
       }
 
       createdExpenseData = expenseData;
@@ -2153,7 +2335,9 @@ export default function CashManagementPage() {
           `Cutoff: ${cutoffLabel}`,
           `Expense ID: ${expenseData.id}`,
           `Cash Movement ID: ${movementData.id}`,
-          cashAdvancePurpose.trim() ? `Purpose: ${cashAdvancePurpose.trim()}` : "",
+          cashAdvancePurpose.trim()
+            ? `Purpose: ${cashAdvancePurpose.trim()}`
+            : "",
           remarks.trim() ? `Remarks: ${remarks.trim()}` : "",
         ]
           .filter(Boolean)
@@ -2179,7 +2363,10 @@ export default function CashManagementPage() {
 
         if (balanceError) {
           balanceCreationFailed = true;
-          console.log("AUTO CREATE CASH ADVANCE BALANCE ERROR:", balanceError.message);
+          console.log(
+            "AUTO CREATE CASH ADVANCE BALANCE ERROR:",
+            balanceError.message,
+          );
 
           await createAuditLog({
             userName: "OPSCORE USER",
@@ -2198,7 +2385,9 @@ export default function CashManagementPage() {
             },
           });
 
-          alert("Cash advance saved to cash movement and expenses, but employee balance failed.");
+          alert(
+            "Cash advance saved to cash movement and expenses, but employee balance failed.",
+          );
         } else {
           createdBalanceData = balanceData;
 
@@ -2221,15 +2410,18 @@ export default function CashManagementPage() {
       action: isCashAdvanceCashOut
         ? "Cash Advance Released"
         : isExpenseRelease
-        ? "Expense Released"
-        : "Cash Movement Created",
+          ? "Expense Released"
+          : "Cash Movement Created",
       description: isCashAdvanceCashOut
         ? `${cashAdvanceEmployeeName} cash advance released from drawer - ${formatMoney(amountValue)}`
         : isExpenseRelease
-        ? `Expense released via ${paymentType}: ${expenseDescription.trim()} - ${formatMoney(amountValue)}`
-        : `${movementType} ${source} recorded - ${formatMoney(amountValue)}`,
+          ? `Expense released via ${paymentType}: ${expenseDescription.trim()} - ${formatMoney(amountValue)}`
+          : `${movementType} ${source} recorded - ${formatMoney(amountValue)}`,
       severity:
-        isCashAdvanceCashOut || isExpenseRelease || movementType === "Cash Out" || movementType === "Adjustment"
+        isCashAdvanceCashOut ||
+        isExpenseRelease ||
+        movementType === "Cash Out" ||
+        movementType === "Adjustment"
           ? "warning"
           : "info",
       recordId: movementData.id,
@@ -2252,13 +2444,15 @@ export default function CashManagementPage() {
     });
 
     setIsSaving(false);
-      savingRef.current = false;
+    savingRef.current = false;
     resetForm();
     await getCashMovements();
     await getDrawers();
 
     if (isCashAdvanceCashOut) {
-      alert(`Cash advance saved via ${paymentType} to Cash Movements, Expenses, and Payroll Balances.`);
+      alert(
+        `Cash advance saved via ${paymentType} to Cash Movements, Expenses, and Payroll Balances.`,
+      );
       savingRef.current = false;
       return;
     }
@@ -2282,7 +2476,10 @@ export default function CashManagementPage() {
       .maybeSingle();
 
     if (movementFetchError) {
-      console.log("FETCH CASH MOVEMENT BEFORE VOID ERROR:", movementFetchError.message);
+      console.log(
+        "FETCH CASH MOVEMENT BEFORE VOID ERROR:",
+        movementFetchError.message,
+      );
 
       await createAuditLog({
         userName: currentEmployeeName || "OPSCORE USER",
@@ -2316,7 +2513,9 @@ export default function CashManagementPage() {
       movement.reference_type === "drawer_closing_remittance" ||
       movement.source === "Drawer Closing Remittance"
     ) {
-      alert("Drawer closing remittance is locked. Reopen or correct the drawer instead of voiding this record.");
+      alert(
+        "Drawer closing remittance is locked. Reopen or correct the drawer instead of voiding this record.",
+      );
       return;
     }
 
@@ -2341,7 +2540,7 @@ export default function CashManagementPage() {
     const reason = prompt(
       linkedExpense
         ? `Void this cash movement and mark its linked expense as voided?\n\nPlease enter the void reason:`
-        : "Void this cash movement?\n\nPlease enter the void reason:"
+        : "Void this cash movement?\n\nPlease enter the void reason:",
     );
 
     const voidReason = String(reason || "").trim();
@@ -2354,7 +2553,7 @@ export default function CashManagementPage() {
     const confirmVoid = confirm(
       linkedExpense
         ? `Confirm void?\n\nThis will keep the records for audit trail and exclude the cash movement from cash totals.\n\nLinked expense will also be marked VOIDED.`
-        : `Confirm void?\n\nThis will keep the record for audit trail and exclude it from cash totals.`
+        : `Confirm void?\n\nThis will keep the record for audit trail and exclude it from cash totals.`,
     );
 
     if (!confirmVoid) return;
@@ -2362,7 +2561,8 @@ export default function CashManagementPage() {
     setIsSaving(true);
 
     const voidedAt = new Date().toISOString();
-    const voidedBy = currentEmployeeName || currentDrawerHolderName || "OPSCORE USER";
+    const voidedBy =
+      currentEmployeeName || currentDrawerHolderName || "OPSCORE USER";
     const originalRemarks = String(movement.remarks || "").trim();
     const movementRemarks = [
       originalRemarks,
@@ -2400,14 +2600,17 @@ export default function CashManagementPage() {
         },
       });
 
-      alert("Failed to void cash movement. Check if void columns exist in finance_cash_movements.");
+      alert(
+        "Failed to void cash movement. Check if void columns exist in finance_cash_movements.",
+      );
       return;
     }
 
     let linkedExpenseVoided = false;
     let linkedBalanceVoided = false;
     let fallbackBalancesVoided = false;
-    const linkedPeriodId = linkedExpense?.payroll_period_id || linkedExpense?.period_id || null;
+    const linkedPeriodId =
+      linkedExpense?.payroll_period_id || linkedExpense?.period_id || null;
 
     if (linkedExpense) {
       const expenseRemarks = [
@@ -2448,7 +2651,9 @@ export default function CashManagementPage() {
           },
         });
 
-        alert("Cash movement was voided, but linked expense failed to void. Check expense columns.");
+        alert(
+          "Cash movement was voided, but linked expense failed to void. Check expense columns.",
+        );
       } else {
         linkedExpenseVoided = true;
       }
@@ -2465,7 +2670,10 @@ export default function CashManagementPage() {
           .eq("id", linkedExpense.employee_balance_id);
 
         if (balanceVoidError) {
-          console.log("VOID LINKED EMPLOYEE BALANCE ERROR:", balanceVoidError.message);
+          console.log(
+            "VOID LINKED EMPLOYEE BALANCE ERROR:",
+            balanceVoidError.message,
+          );
 
           await createAuditLog({
             userName: voidedBy,
@@ -2544,7 +2752,7 @@ export default function CashManagementPage() {
     alert(
       linkedExpense
         ? "Cash movement was voided. Linked expense/balance were marked voided when available."
-        : "Cash movement was voided."
+        : "Cash movement was voided.",
     );
   };
 
@@ -2552,14 +2760,20 @@ export default function CashManagementPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    setCurrentEmployeeId(localStorage.getItem("opscore_current_employee_id") || "");
-    setCurrentEmployeeName(localStorage.getItem("opscore_current_employee_name") || "");
-    setCurrentCompanyId(localStorage.getItem("opscore_current_company_id") || "");
+    setCurrentEmployeeId(
+      localStorage.getItem("opscore_current_employee_id") || "",
+    );
+    setCurrentEmployeeName(
+      localStorage.getItem("opscore_current_employee_name") || "",
+    );
+    setCurrentCompanyId(
+      localStorage.getItem("opscore_current_company_id") || "",
+    );
     setCurrentRoleName(
       localStorage.getItem("opscore_current_role_name") ||
         localStorage.getItem("opscore_current_role") ||
         localStorage.getItem("opscore_current_role_label") ||
-        ""
+        "",
     );
   }, []);
 
@@ -2582,7 +2796,7 @@ export default function CashManagementPage() {
 
     localStorage.setItem(
       "opscore_authorized_drawer_holders",
-      JSON.stringify(authorizedDrawerHolders)
+      JSON.stringify(authorizedDrawerHolders),
     );
   }, [authorizedDrawerHolders, drawerHolderSettingsLoaded]);
 
@@ -2642,823 +2856,1243 @@ export default function CashManagementPage() {
     }
   }, [sourceOptions, source]);
 
-
   /// UI
   return (
     <PageGuard moduleKey="cash_management">
       <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+        <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-              Finance Control
-            </p>
-            <h1 className="mt-2 text-3xl font-bold">Cash Management</h1>
-            <p className="mt-2 text-sm text-slate-400">
-              Open drawer, track cash movement, release cash expenses, post cash advances, and require drawer remittance during closing.
-            </p>
-          </div>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-6">
+          <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
+                  Finance Workbench
+                </p>
+                <h1 className="mt-2 text-2xl font-black tracking-tight text-white">
+                  Cash Management
+                </h1>
+                <p className="mt-1 max-w-4xl text-sm leading-6 text-slate-400">
+                  Open drawers, record cash movements, submit money-out
+                  requests, close remittances, and audit drawer history.
+                </p>
+              </div>
 
-          <div className="flex gap-2">
-            {canManageDrawerForOthers && (
-              <button
-                onClick={() => setShowDrawerHolderSettings(true)}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold hover:border-sky-400 hover:text-sky-300"
-              >
-                Drawer Holder Settings
-              </button>
-            )}
-
-            {activeDrawer && (
-              <button
-                onClick={() => printDrawerReport(activeDrawer)}
-                className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold hover:bg-slate-600"
-              >
-                Print Report
-              </button>
-            )}
-
-            {!activeDrawer && (
-              <button
-                onClick={() => setShowOpenDrawer(true)}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500"
-              >
-                Open Drawer
-              </button>
-            )}
-
-            {activeDrawer && (
-              <button
-                onClick={() => setShowCloseDrawer(true)}
-                className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold hover:bg-slate-600"
-              >
-                Close Drawer
-              </button>
-            )}
-          </div>
-        </div>
-
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          {activeDrawer ? (
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard title="Active Drawer Holder" value={activeDrawer.holder_name} color="text-blue-300" />
-              <SummaryCard title="Opening Float" value={formatMoney(activeDrawer.opening_float)} color="text-blue-400" />
-              <SummaryCard title="Drawer Cash" value={formatMoney(activeDrawerCash)} color="text-blue-300" />
-              <SummaryCard title="Status" value="OPEN" color="text-blue-300" />
-            </div>
-          ) : (
-            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-5">
-              <h2 className="text-xl font-bold text-blue-300">No Active Drawer</h2>
-              <p className="mt-1 text-sm text-slate-300">
-                Open a drawer first before releasing cash expenses or cash advances.
-              </p>
-            </div>
-          )}
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Cash On Hand After Remittance" value={formatMoney(cashOnHand)} color="text-blue-300" />
-          <SummaryCard title="GCash / Digital" value={formatMoney(gcashTotal)} color="text-blue-300" />
-          <SummaryCard title="Bank" value={formatMoney(bankTotal)} color="text-blue-400" />
-          <SummaryCard title="Terminal" value={formatMoney(terminalTotal)} color="text-sky-400" />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <SummaryCard title="Cash In" value={formatMoney(cashInTotal)} color="text-blue-400" />
-          <SummaryCard title="Cash Out" value={formatMoney(cashOutTotal)} color="text-blue-300" />
-          <SummaryCard title="Cash Remitted" value={formatMoney(remittanceTotal)} color="text-blue-300" />
-        </section>
-
-        <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[430px_minmax(0,1fr)]">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="text-xl font-bold">Add Cash Movement</h2>
-
-            <div className="mt-5 space-y-4">
-              <input type="date" value={businessDate} onChange={(e) => setBusinessDate(e.target.value)} style={{ colorScheme: "dark" }} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-              <select
-                value={movementType}
-                onChange={(e) => {
-                  const nextType = e.target.value;
-                  setMovementType(nextType);
-
-                  if (nextType === "Remittance") {
-                    setSource("Remittance");
-                    setPaymentType("Cash");
-                    return;
-                  }
-
-                  if (nextType === "Opening Float") {
-                    setSource("Petty Cash");
-                    setPaymentType("Cash");
-                    return;
-                  }
-
-                  if (nextType === "Adjustment") {
-                    setSource("Other");
-                    return;
-                  }
-
-                  if (nextType === "Cash In") {
-                    setSource(sourceOptions[0] || "");
-                    return;
-                  }
-
-                  if (nextType === "Cash Out") {
-                    setSource("Expense Release");
-                  }
-                }}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-              >
-                {movementTypes.filter((type) => type !== "Remittance").map((type) => <option key={type}>{type}</option>)}
-              </select>
-
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-              >
-                {sourceOptions.length === 0 && (
-                  <option value="">No active cash sources found</option>
+              <div className="flex flex-wrap gap-2">
+                {canManageDrawerForOthers && (
+                  <button
+                    onClick={() => setShowDrawerHolderSettings(true)}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                  >
+                    Holder Settings
+                  </button>
                 )}
-                {sourceOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
 
-              <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                {paymentTypes.map((item) => <option key={item}>{item}</option>)}
-              </select>
+                {activeDrawer && (
+                  <button
+                    onClick={() => printDrawerReport(activeDrawer)}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                  >
+                    Print Report
+                  </button>
+                )}
 
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+                {!activeDrawer && (
+                  <button
+                    onClick={() => setShowOpenDrawer(true)}
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
+                  >
+                    Open Drawer
+                  </button>
+                )}
 
-              {movementType === "Remittance" && (
-                <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
-                  <p className="text-sm font-bold text-sky-300">Remittance Process</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-300">
-                    Remittance is a custody transfer only. It reduces drawer cash but does not count as an expense or profit deduction. Enter the remitted by person in From and the receiver in To.
-                  </p>
-                </div>
-              )}
-
-              {shouldCreateExpenseFromCashOut && (
-                <div className={`rounded-2xl border p-4 ${
-                  isCashAdvanceCashOut
-                    ? "border-blue-500/20 bg-blue-500/10"
-                    : "border-red-500/20 bg-blue-500/10"
-                }`}>
-                  <p className={`mb-3 text-sm font-bold ${
-                    isCashAdvanceCashOut ? "text-blue-300" : "text-blue-300"
-                  }`}>
-                    {isCashAdvanceCashOut ? "Cash Advance Details" : "Cash Expense Details"}
-                  </p>
-
-                  {isCashAdvanceCashOut ? (
-                    <div className="space-y-3">
-                      <select
-                        value={cashAdvanceEmployeeId}
-                        onChange={(e) => setCashAdvanceEmployeeId(e.target.value)}
-                        autoComplete="off"
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                      >
-                        <option value="">Select employee</option>
-                        {cashAdvanceEmployeeOptions.map((employee) => {
-                          const payrollEmployeeId = getEmployeePayrollId(employee);
-                          const fullName = getEmployeeFullName(employee);
-
-                          return (
-                            <option key={payrollEmployeeId} value={payrollEmployeeId}>
-                              {fullName}
-                              {employee.employee_no ? ` - ${employee.employee_no}` : ""}
-                            </option>
-                          );
-                        })}
-                      </select>
-
-                      <div className={`rounded-xl border p-3 ${
-                        activePayrollPeriod
-                          ? "border-blue-500/20 bg-blue-500/10"
-                          : "border-blue-500/20 bg-blue-500/10"
-                      }`}>
-                        <p className={`text-xs font-black ${
-                          activePayrollPeriod ? "text-emerald-300" : "text-blue-300"
-                        }`}>
-                          {activePayrollPeriod
-                            ? "✓ Auto Linked by Selected Date"
-                            : "⚠ No Usable Payroll Period for Selected Date"}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-300">
-                          {activePayrollPeriod
-                            ? activePayrollLabel
-                            : "Create, reopen, partially approve/release, or release the cutoff that covers the selected date. No manual cutoff selection needed here."}
-                        </p>
-                      </div>
-
-                      <input
-                        value={cashAdvancePurpose}
-                        onChange={(e) => setCashAdvancePurpose(e.target.value)}
-                        placeholder="Purpose / reason (optional)"
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                      />
-
-                      <p className="text-xs leading-5 text-blue-200">
-                        No cutoff selection needed. Cash requires an open drawer. GCash, Bank, and Terminal cash advances post to Cash Movements, Expenses, and Employee Balances for Payroll Register deduction.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <select
-                        value={expenseCategory}
-                        onChange={(e) => {
-                          setExpenseCategory(e.target.value);
-                          setExpenseSubcategory("");
-                        }}
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                      >
-                        <option value="">Select expense category</option>
-                        {expenseCategoryOptions.map((item) => <option key={item}>{item}</option>)}
-                      </select>
-
-                      {expenseSubcategoryOptions.length > 0 && (
-                        <select
-                          value={expenseSubcategory}
-                          onChange={(e) => setExpenseSubcategory(e.target.value)}
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                        >
-                          <option value="">Select expense subcategory</option>
-                          {expenseSubcategoryOptions.map((item) => <option key={item}>{item}</option>)}
-                        </select>
-                      )}
-
-                      <select value={expenseDepartment} onChange={(e) => setExpenseDepartment(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                        <option value="">Select department / area</option>
-                        {expenseDepartments.map((item) => <option key={item}>{item}</option>)}
-                      </select>
-
-                      <input value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} placeholder="Expense description / purpose" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-                      <input value={expenseReleasedTo} onChange={(e) => setExpenseReleasedTo(e.target.value)} placeholder="Released to / received by" list="employee-name-list" autoComplete="off" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-                      <p className="text-xs leading-5 text-blue-200">
-                        This creates both Cash Movement and Expenses entry. No approval workflow.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!shouldCreateExpenseFromCashOut && (movementType === "Cash Out" || movementType === "Remittance" || movementType === "Adjustment") && (
-                <input value={fromPerson} onChange={(e) => setFromPerson(e.target.value)} placeholder={activeDrawer ? `From: ${activeDrawer.holder_name}` : "From / Released by"} list="employee-name-list" autoComplete="off" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-              )}
-
-              {!shouldCreateExpenseFromCashOut && (movementType === "Opening Float" || movementType === "Cash In" || movementType === "Remittance" || movementType === "Adjustment") && (
-                <input value={toPerson} onChange={(e) => setToPerson(e.target.value)} placeholder={activeDrawer ? `To: ${activeDrawer.holder_name}` : "To / Received by / Holder"} list="employee-name-list" autoComplete="off" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-              )}
-
-              <input
-                value={activeDrawer?.holder_name || encodedBy || "System"}
-                readOnly
-                placeholder="Encoded by"
-                autoComplete="off"
-                className="w-full cursor-not-allowed rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-400 outline-none"
-              />
-
-              <datalist id="employee-name-list">
-                {validEmployeeOptions.map((employee) => (
-                  <option
-                    key={employee.id}
-                    value={`${employee.first_name} ${employee.last_name}`}
-                    label={`${employee.first_name} ${employee.last_name} - ${employee.employee_no}`}
-                  />
-                ))}
-              </datalist>
-
-              <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={3} placeholder="Remarks / reference / purpose" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-              <button onClick={saveMovement} disabled={isSaving} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
-                {isSaving ? "Saving..." : isCashAdvanceCashOut ? "Save Cash Advance" : isExpenseRelease ? "Save Expense Release" : "Save Cash Movement"}
-              </button>
+                {activeDrawer && (
+                  <button
+                    onClick={() => setShowCloseDrawer(true)}
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
+                  >
+                    Close Drawer
+                  </button>
+                )}
+              </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="text-xl font-bold">Cash Movement Ledger</h2>
+          <section className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <WorkbenchMetric
+              title="Drawer"
+              value={
+                activeDrawer ? activeDrawer.holder_name : "No active drawer"
+              }
+              subtitle={
+                activeDrawer
+                  ? "Open drawer holder"
+                  : "Open a drawer to release cash"
+              }
+              status={activeDrawer ? "OPEN" : "CLOSED"}
+            />
+            <WorkbenchMetric
+              title="Cash On Hand"
+              value={formatMoney(cashOnHand)}
+              subtitle="After cash out and remittance"
+            />
+            <WorkbenchMetric
+              title="Cash In / Out"
+              value={`${formatMoney(cashInTotal)} / ${formatMoney(cashOutTotal)}`}
+              subtitle="Current drawer cash movement"
+            />
+            <WorkbenchMetric
+              title="Pending Requests"
+              value={
+                cashApprovalRequests.filter(
+                  (request) =>
+                    String(request.status || "").toUpperCase() === "PENDING",
+                ).length
+              }
+              subtitle="Money-out approval queue"
+            />
+          </section>
 
-            <div className="my-5 grid grid-cols-1 gap-3 md:grid-cols-5">
-              <select value={ledgerDateScope} onChange={(e) => setLedgerDateScope(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="TODAY">Today</option>
-                <option value="ALL">All Dates</option>
-                <option value="CUSTOM">Custom Date</option>
-              </select>
+          <section className="sticky top-0 z-20 mb-4 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 backdrop-blur">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                <select
+                  value={ledgerDateScope}
+                  onChange={(e) => setLedgerDateScope(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="TODAY">Today</option>
+                  <option value="CUSTOM">Selected Date</option>
+                  <option value="ALL">All Ledger</option>
+                </select>
 
-              {ledgerDateScope === "CUSTOM" && (
-                <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ colorScheme: "dark" }} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-              )}
+                {ledgerDateScope === "CUSTOM" ? (
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    style={{ colorScheme: "dark" }}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  />
+                ) : (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
+                    {ledgerDateScope === "ALL" ? "All dates" : today}
+                  </div>
+                )}
 
-              <select value={holderFilter} onChange={(e) => setHolderFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="AUTO">Auto Holder</option>
-                <option value="ALL">All Holders</option>
-                {validEmployeeOptions.map((employee) => (
-                  <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`}>
-                    {employee.first_name} {employee.last_name}
-                  </option>
-                ))}
-              </select>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="ALL">All Movement Types</option>
+                  {movementTypes.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
 
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="ALL">All Types</option>
-                {movementTypes.map((type) => <option key={type}>{type}</option>)}
-              </select>
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search ledger..."
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+              </div>
 
-              <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="ALL">All Payments</option>
-                {paymentTypes.map((type) => <option key={type}>{type}</option>)}
-              </select>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setMovementType("Cash In");
+                    setSource(sourceOptions[0] || "");
+                    setPaymentType("Cash");
+                  }}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                >
+                  Cash In
+                </button>
+                <button
+                  onClick={() => {
+                    setMovementType("Cash Out");
+                    setSource("Expense Release");
+                    setPaymentType("Cash");
+                  }}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                >
+                  Cash Out
+                </button>
+                <button
+                  onClick={() => {
+                    setMovementType("Remittance");
+                    setSource("Remittance");
+                    setPaymentType("Cash");
+                  }}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                >
+                  Remittance
+                </button>
+              </div>
+            </div>
+          </section>
 
-              <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search..." className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+          <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[430px_minmax(0,1fr)]">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+              <h2 className="text-xl font-bold">Add Cash Movement</h2>
+
+              <div className="mt-5 space-y-4">
+                <input
+                  type="date"
+                  value={businessDate}
+                  onChange={(e) => setBusinessDate(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+
+                <select
+                  value={movementType}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    setMovementType(nextType);
+
+                    if (nextType === "Remittance") {
+                      setSource("Remittance");
+                      setPaymentType("Cash");
+                      return;
+                    }
+
+                    if (nextType === "Opening Float") {
+                      setSource("Petty Cash");
+                      setPaymentType("Cash");
+                      return;
+                    }
+
+                    if (nextType === "Adjustment") {
+                      setSource("Other");
+                      return;
+                    }
+
+                    if (nextType === "Cash In") {
+                      setSource(sourceOptions[0] || "");
+                      return;
+                    }
+
+                    if (nextType === "Cash Out") {
+                      setSource("Expense Release");
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  {movementTypes
+                    .filter((type) => type !== "Remittance")
+                    .map((type) => (
+                      <option key={type}>{type}</option>
+                    ))}
+                </select>
+
+                <select
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  {sourceOptions.length === 0 && (
+                    <option value="">No active cash sources found</option>
+                  )}
+                  {sourceOptions.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={paymentType}
+                  onChange={(e) => setPaymentType(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  {paymentTypes.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Amount"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+
+                {movementType === "Remittance" && (
+                  <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
+                    <p className="text-sm font-bold text-sky-300">
+                      Remittance Process
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">
+                      Remittance is a custody transfer only. It reduces drawer
+                      cash but does not count as an expense or profit deduction.
+                      Enter the remitted by person in From and the receiver in
+                      To.
+                    </p>
+                  </div>
+                )}
+
+                {shouldCreateExpenseFromCashOut && (
+                  <div
+                    className={`rounded-2xl border p-4 ${
+                      isCashAdvanceCashOut
+                        ? "border-blue-500/20 bg-blue-500/10"
+                        : "border-red-500/20 bg-blue-500/10"
+                    }`}
+                  >
+                    <p
+                      className={`mb-3 text-sm font-bold ${
+                        isCashAdvanceCashOut ? "text-blue-300" : "text-blue-300"
+                      }`}
+                    >
+                      {isCashAdvanceCashOut
+                        ? "Cash Advance Details"
+                        : "Cash Expense Details"}
+                    </p>
+
+                    {isCashAdvanceCashOut ? (
+                      <div className="space-y-3">
+                        <select
+                          value={cashAdvanceEmployeeId}
+                          onChange={(e) =>
+                            setCashAdvanceEmployeeId(e.target.value)
+                          }
+                          autoComplete="off"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="">Select employee</option>
+                          {cashAdvanceEmployeeOptions.map((employee) => {
+                            const payrollEmployeeId =
+                              getEmployeePayrollId(employee);
+                            const fullName = getEmployeeFullName(employee);
+
+                            return (
+                              <option
+                                key={payrollEmployeeId}
+                                value={payrollEmployeeId}
+                              >
+                                {fullName}
+                                {employee.employee_no
+                                  ? ` - ${employee.employee_no}`
+                                  : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+
+                        <div
+                          className={`rounded-xl border p-3 ${
+                            activePayrollPeriod
+                              ? "border-blue-500/20 bg-blue-500/10"
+                              : "border-blue-500/20 bg-blue-500/10"
+                          }`}
+                        >
+                          <p
+                            className={`text-xs font-black ${
+                              activePayrollPeriod
+                                ? "text-emerald-300"
+                                : "text-blue-300"
+                            }`}
+                          >
+                            {activePayrollPeriod
+                              ? "✓ Auto Linked by Selected Date"
+                              : "⚠ No Usable Payroll Period for Selected Date"}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-slate-300">
+                            {activePayrollPeriod
+                              ? activePayrollLabel
+                              : "Create, reopen, partially approve/release, or release the cutoff that covers the selected date. No manual cutoff selection needed here."}
+                          </p>
+                        </div>
+
+                        <input
+                          value={cashAdvancePurpose}
+                          onChange={(e) =>
+                            setCashAdvancePurpose(e.target.value)
+                          }
+                          placeholder="Purpose / reason (optional)"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        />
+
+                        <p className="text-xs leading-5 text-blue-200">
+                          No cutoff selection needed. Cash requires an open
+                          drawer. GCash, Bank, and Terminal cash advances post
+                          to Cash Movements, Expenses, and Employee Balances for
+                          Payroll Register deduction.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <select
+                          value={expenseCategory}
+                          onChange={(e) => {
+                            setExpenseCategory(e.target.value);
+                            setExpenseSubcategory("");
+                          }}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="">Select expense category</option>
+                          {expenseCategoryOptions.map((item) => (
+                            <option key={item}>{item}</option>
+                          ))}
+                        </select>
+
+                        {expenseSubcategoryOptions.length > 0 && (
+                          <select
+                            value={expenseSubcategory}
+                            onChange={(e) =>
+                              setExpenseSubcategory(e.target.value)
+                            }
+                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                          >
+                            <option value="">Select expense subcategory</option>
+                            {expenseSubcategoryOptions.map((item) => (
+                              <option key={item}>{item}</option>
+                            ))}
+                          </select>
+                        )}
+
+                        <select
+                          value={expenseDepartment}
+                          onChange={(e) => setExpenseDepartment(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="">Select department / area</option>
+                          {expenseDepartments.map((item) => (
+                            <option key={item}>{item}</option>
+                          ))}
+                        </select>
+
+                        <input
+                          value={expenseDescription}
+                          onChange={(e) =>
+                            setExpenseDescription(e.target.value)
+                          }
+                          placeholder="Expense description / purpose"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        />
+
+                        <input
+                          value={expenseReleasedTo}
+                          onChange={(e) => setExpenseReleasedTo(e.target.value)}
+                          placeholder="Released to / received by"
+                          list="employee-name-list"
+                          autoComplete="off"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        />
+
+                        <p className="text-xs leading-5 text-blue-200">
+                          This creates both Cash Movement and Expenses entry. No
+                          approval workflow.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!shouldCreateExpenseFromCashOut &&
+                  (movementType === "Cash Out" ||
+                    movementType === "Remittance" ||
+                    movementType === "Adjustment") && (
+                    <input
+                      value={fromPerson}
+                      onChange={(e) => setFromPerson(e.target.value)}
+                      placeholder={
+                        activeDrawer
+                          ? `From: ${activeDrawer.holder_name}`
+                          : "From / Released by"
+                      }
+                      list="employee-name-list"
+                      autoComplete="off"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    />
+                  )}
+
+                {!shouldCreateExpenseFromCashOut &&
+                  (movementType === "Opening Float" ||
+                    movementType === "Cash In" ||
+                    movementType === "Remittance" ||
+                    movementType === "Adjustment") && (
+                    <input
+                      value={toPerson}
+                      onChange={(e) => setToPerson(e.target.value)}
+                      placeholder={
+                        activeDrawer
+                          ? `To: ${activeDrawer.holder_name}`
+                          : "To / Received by / Holder"
+                      }
+                      list="employee-name-list"
+                      autoComplete="off"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    />
+                  )}
+
+                <input
+                  value={activeDrawer?.holder_name || encodedBy || "System"}
+                  readOnly
+                  placeholder="Encoded by"
+                  autoComplete="off"
+                  className="w-full cursor-not-allowed rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-400 outline-none"
+                />
+
+                <datalist id="employee-name-list">
+                  {validEmployeeOptions.map((employee) => (
+                    <option
+                      key={employee.id}
+                      value={`${employee.first_name} ${employee.last_name}`}
+                      label={`${employee.first_name} ${employee.last_name} - ${employee.employee_no}`}
+                    />
+                  ))}
+                </datalist>
+
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={3}
+                  placeholder="Remarks / reference / purpose"
+                  className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+
+                <button
+                  onClick={saveMovement}
+                  disabled={isSaving}
+                  className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSaving
+                    ? "Saving..."
+                    : isCashAdvanceCashOut
+                      ? "Save Cash Advance"
+                      : isExpenseRelease
+                        ? "Save Expense Release"
+                        : "Save Cash Movement"}
+                </button>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+              <h2 className="text-xl font-bold">Cash Movement Ledger</h2>
+
+              <div className="my-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="ALL">All Payment Types</option>
+                  {paymentTypes.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={holderFilter}
+                  onChange={(e) => setHolderFilter(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="AUTO">Active Drawer Holder</option>
+                  <option value="ALL">All Holders</option>
+                  {validEmployeeOptions.map((employee) => (
+                    <option
+                      key={employee.id}
+                      value={`${employee.first_name} ${employee.last_name}`}
+                    >
+                      {employee.first_name} {employee.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="max-h-[700px] overflow-auto rounded-xl border border-slate-800">
+                <table className="w-full min-w-[1200px] text-sm">
+                  <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Payment</th>
+                      <th className="px-4 py-3">Source</th>
+                      <th className="px-4 py-3 text-right">Amount</th>
+                      <th className="px-4 py-3">From</th>
+                      <th className="px-4 py-3">To / Holder</th>
+                      <th className="px-4 py-3">Encoded By</th>
+                      <th className="px-4 py-3">Remarks</th>
+                      <th className="px-4 py-3">Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredMovements.map((item) => (
+                      <tr
+                        key={item.id}
+                        className={`border-t border-slate-800 text-slate-200 hover:bg-slate-800/40 ${isVoidedMovement(item) ? "bg-red-950/20 opacity-70" : ""}`}
+                      >
+                        <td className="px-4 py-3">{item.business_date}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getMovementStyle(item.movement_type)}`}
+                          >
+                            {item.movement_type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getPaymentStyle(item.payment_type || "Cash")}`}
+                          >
+                            {item.payment_type || "Cash"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">{item.source}</td>
+                        <td className="px-4 py-3 text-right font-semibold">
+                          {formatMoney(item.amount)}
+                        </td>
+                        <td className="px-4 py-3">{item.from_person || "-"}</td>
+                        <td className="px-4 py-3">{item.to_person || "-"}</td>
+                        <td className="px-4 py-3">{item.encoded_by || "-"}</td>
+                        <td className="px-4 py-3">
+                          {isVoidedMovement(item) ? (
+                            <div className="space-y-1">
+                              <p className="line-through text-slate-400">
+                                {item.remarks || "-"}
+                              </p>
+                              <p className="text-xs text-blue-300">
+                                Void reason:{" "}
+                                {item.void_reason || "No reason saved"}
+                              </p>
+                            </div>
+                          ) : (
+                            item.remarks || "-"
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {isVoidedMovement(item) ? (
+                            <span className="rounded-lg bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
+                              VOIDED
+                            </span>
+                          ) : item.reference_type ===
+                              "drawer_closing_remittance" ||
+                            item.source === "Drawer Closing Remittance" ? (
+                            <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
+                              Locked
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => voidMovement(item.id)}
+                              className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold hover:bg-amber-500"
+                            >
+                              Void
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {filteredMovements.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="px-4 py-12 text-center text-slate-500"
+                        >
+                          No cash movements found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold">
+                  Cash Request Approval History
+                </h2>
+                <p className="mt-1 text-xs text-slate-400">
+                  Receptionists can monitor if cash advance / cash release
+                  requests are pending, approved, or rejected.
+                </p>
+              </div>
+
+              <button
+                onClick={getApprovalRequests}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold hover:bg-slate-800"
+              >
+                Refresh Status
+              </button>
             </div>
 
-            <div className="max-h-[700px] overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1200px] text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
+            <div className="overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1150px] text-sm">
+                <thead className="bg-slate-950 text-slate-400">
                   <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Payment</th>
-                    <th className="px-4 py-3">Source</th>
-                    <th className="px-4 py-3 text-right">Amount</th>
-                    <th className="px-4 py-3">From</th>
-                    <th className="px-4 py-3">To / Holder</th>
-                    <th className="px-4 py-3">Encoded By</th>
-                    <th className="px-4 py-3">Remarks</th>
-                    <th className="px-4 py-3">Action</th>
+                    <th className="px-3 py-3 text-left">Date</th>
+                    <th className="px-3 py-3 text-left">Type</th>
+                    <th className="px-3 py-3 text-left">Payment</th>
+                    <th className="px-3 py-3 text-left">Employee / Receiver</th>
+                    <th className="px-3 py-3 text-right">Amount</th>
+                    <th className="px-3 py-3 text-left">Requested By</th>
+                    <th className="px-3 py-3 text-center">Status</th>
+                    <th className="px-3 py-3 text-left">Remarks</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredMovements.map((item) => (
-                    <tr key={item.id} className={`border-t border-slate-800 text-slate-200 hover:bg-slate-800/40 ${isVoidedMovement(item) ? "bg-red-950/20 opacity-70" : ""}`}>
-                      <td className="px-4 py-3">{item.business_date}</td>
-                      <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${getMovementStyle(item.movement_type)}`}>{item.movement_type}</span></td>
-                      <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${getPaymentStyle(item.payment_type || "Cash")}`}>{item.payment_type || "Cash"}</span></td>
-                      <td className="px-4 py-3">{item.source}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatMoney(item.amount)}</td>
-                      <td className="px-4 py-3">{item.from_person || "-"}</td>
-                      <td className="px-4 py-3">{item.to_person || "-"}</td>
-                      <td className="px-4 py-3">{item.encoded_by || "-"}</td>
-                      <td className="px-4 py-3">
-                        {isVoidedMovement(item) ? (
-                          <div className="space-y-1">
-                            <p className="line-through text-slate-400">{item.remarks || "-"}</p>
-                            <p className="text-xs text-blue-300">Void reason: {item.void_reason || "No reason saved"}</p>
-                          </div>
-                        ) : (
-                          item.remarks || "-"
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {isVoidedMovement(item) ? (
-                          <span className="rounded-lg bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                            VOIDED
-                          </span>
-                        ) : item.reference_type === "drawer_closing_remittance" || item.source === "Drawer Closing Remittance" ? (
-                          <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
-                            Locked
-                          </span>
-                        ) : (
-                          <button onClick={() => voidMovement(item.id)} className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold hover:bg-amber-500">
-                            Void
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {cashApprovalRequests.slice(0, 15).map((request) => {
+                    const payload = request.request_payload || {};
+                    const requestDate =
+                      payload.business_date ||
+                      String(request.created_at || "").slice(0, 10);
+                    const requestType = String(
+                      request.request_type || "-",
+                    ).replaceAll("_", " ");
+                    const receiver =
+                      payload.cash_advance_employee_name ||
+                      payload.to_person ||
+                      payload.expense_released_to ||
+                      "-";
+                    const amountValue = payload.amount || 0;
+                    const paymentValue = payload.payment_type || "-";
+                    const remarksValue =
+                      payload.cash_advance_purpose ||
+                      payload.remarks ||
+                      request.description ||
+                      "-";
 
-                  {filteredMovements.length === 0 && (
+                    return (
+                      <tr
+                        key={request.id}
+                        className="border-t border-slate-800"
+                      >
+                        <td className="px-3 py-3 font-semibold">
+                          {requestDate}
+                        </td>
+                        <td className="px-3 py-3">{requestType}</td>
+                        <td className="px-3 py-3">
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-bold ${getPaymentStyle(paymentValue)}`}
+                          >
+                            {paymentValue}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 font-semibold">{receiver}</td>
+                        <td className="px-3 py-3 text-right font-black">
+                          {formatMoney(amountValue)}
+                        </td>
+                        <td className="px-3 py-3">
+                          {request.requested_by || payload.encoded_by || "-"}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-black ${getApprovalStatusStyle(request.status)}`}
+                          >
+                            {String(request.status || "PENDING").toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-slate-300">
+                          {remarksValue}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {cashApprovalRequests.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-4 py-12 text-center text-slate-500">No cash movements found.</td>
+                      <td
+                        colSpan={8}
+                        className="px-3 py-10 text-center text-slate-500"
+                      >
+                        No cash approval requests found.
+                      </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </section>
-        </div>
 
-        
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold">Cash Request Approval History</h2>
-              <p className="mt-1 text-xs text-slate-400">
-                Receptionists can monitor if cash advance / cash release requests are pending, approved, or rejected.
-              </p>
-            </div>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Drawer History</h2>
+                <p className="mt-1 text-xs text-slate-400">
+                  Uses cash-only drawer logic. Bank, GCash, and Terminal
+                  payments are excluded from expected cash.
+                </p>
+              </div>
 
-            <button
-              onClick={getApprovalRequests}
-              className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold hover:bg-slate-800"
-            >
-              Refresh Status
-            </button>
-          </div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                <select
+                  value={historyDateScope}
+                  onChange={(e) => setHistoryDateScope(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="TODAY">Today</option>
+                  <option value="ALL">All History</option>
+                  <option value="CUSTOM">Custom Date</option>
+                </select>
 
-          <div className="overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1150px] text-sm">
-              <thead className="bg-slate-950 text-slate-400">
-                <tr>
-                  <th className="px-3 py-3 text-left">Date</th>
-                  <th className="px-3 py-3 text-left">Type</th>
-                  <th className="px-3 py-3 text-left">Payment</th>
-                  <th className="px-3 py-3 text-left">Employee / Receiver</th>
-                  <th className="px-3 py-3 text-right">Amount</th>
-                  <th className="px-3 py-3 text-left">Requested By</th>
-                  <th className="px-3 py-3 text-center">Status</th>
-                  <th className="px-3 py-3 text-left">Remarks</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {cashApprovalRequests.slice(0, 15).map((request) => {
-                  const payload = request.request_payload || {};
-                  const requestDate = payload.business_date || String(request.created_at || "").slice(0, 10);
-                  const requestType = String(request.request_type || "-").replaceAll("_", " ");
-                  const receiver =
-                    payload.cash_advance_employee_name ||
-                    payload.to_person ||
-                    payload.expense_released_to ||
-                    "-";
-                  const amountValue = payload.amount || 0;
-                  const paymentValue = payload.payment_type || "-";
-                  const remarksValue =
-                    payload.cash_advance_purpose ||
-                    payload.remarks ||
-                    request.description ||
-                    "-";
-
-                  return (
-                    <tr key={request.id} className="border-t border-slate-800">
-                      <td className="px-3 py-3 font-semibold">{requestDate}</td>
-                      <td className="px-3 py-3">{requestType}</td>
-                      <td className="px-3 py-3">
-                        <span className={`rounded-full px-2 py-1 text-xs font-bold ${getPaymentStyle(paymentValue)}`}>
-                          {paymentValue}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 font-semibold">{receiver}</td>
-                      <td className="px-3 py-3 text-right font-black">{formatMoney(amountValue)}</td>
-                      <td className="px-3 py-3">{request.requested_by || payload.encoded_by || "-"}</td>
-                      <td className="px-3 py-3 text-center">
-                        <span className={`rounded-full px-3 py-1 text-xs font-black ${getApprovalStatusStyle(request.status)}`}>
-                          {String(request.status || "PENDING").toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-slate-300">{remarksValue}</td>
-                    </tr>
-                  );
-                })}
-
-                {cashApprovalRequests.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-3 py-10 text-center text-slate-500">
-                      No cash approval requests found.
-                    </td>
-                  </tr>
+                {historyDateScope === "CUSTOM" ? (
+                  <input
+                    type="date"
+                    value={historyDateFilter}
+                    onChange={(e) => setHistoryDateFilter(e.target.value)}
+                    style={{ colorScheme: "dark" }}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  />
+                ) : (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
+                    {historyDateScope === "ALL" ? "All dates" : today}
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </section>
 
-<section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Drawer History</h2>
-              <p className="mt-1 text-xs text-slate-400">
-                Uses cash-only drawer logic. Bank, GCash, and Terminal payments are excluded from expected cash.
-              </p>
+                <select
+                  value={historyHolderFilter}
+                  onChange={(e) => setHistoryHolderFilter(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="ALL">All Holders</option>
+                  {validEmployeeOptions.map((employee) => (
+                    <option
+                      key={employee.id}
+                      value={`${employee.first_name} ${employee.last_name}`}
+                    >
+                      {employee.first_name} {employee.last_name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={historyStatusFilter}
+                  onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="OPEN">Open</option>
+                  <option value="CLOSED">Closed</option>
+                </select>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-              <select value={historyDateScope} onChange={(e) => setHistoryDateScope(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="TODAY">Today</option>
-                <option value="ALL">All History</option>
-                <option value="CUSTOM">Custom Date</option>
-              </select>
+            <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1250px] text-sm">
+                <thead className="bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Holder</th>
+                    <th className="px-4 py-3">Opened</th>
+                    <th className="px-4 py-3">Closed</th>
+                    <th className="px-4 py-3 text-right">Opening</th>
+                    <th className="px-4 py-3 text-right">Expected Cash</th>
+                    <th className="px-4 py-3 text-right">Actual Count</th>
+                    <th className="px-4 py-3 text-right">Remitted</th>
+                    <th className="px-4 py-3 text-right">Remaining</th>
+                    <th className="px-4 py-3 text-right">Variance</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">PDF</th>
+                  </tr>
+                </thead>
 
-              {historyDateScope === "CUSTOM" ? (
-                <input type="date" value={historyDateFilter} onChange={(e) => setHistoryDateFilter(e.target.value)} style={{ colorScheme: "dark" }} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-              ) : (
-                <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
-                  {historyDateScope === "ALL" ? "All dates" : today}
+                <tbody>
+                  {filteredDrawers.map((drawer) => {
+                    const summary = getDrawerCashSummary(drawer);
+                    const displayActual =
+                      String(drawer.status || "").toUpperCase() === "CLOSED"
+                        ? summary.actualCash
+                        : 0;
+                    const displayRemaining =
+                      String(drawer.status || "").toUpperCase() === "CLOSED"
+                        ? summary.remainingCashAfterRemittance
+                        : summary.expectedBeforeClosingRemittance;
+
+                    return (
+                      <tr
+                        key={drawer.id}
+                        className="border-t border-slate-800 text-slate-200"
+                      >
+                        <td className="px-4 py-3">{drawer.holder_name}</td>
+                        <td className="px-4 py-3">
+                          {formatDateTime(drawer.opened_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatDateTime(drawer.closed_at)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatMoney(drawer.opening_float)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatMoney(summary.expectedBeforeClosingRemittance)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatMoney(displayActual)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatMoney(summary.closingRemittance)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatMoney(displayRemaining)}
+                        </td>
+                        <td
+                          className={`px-4 py-3 text-right font-semibold ${summary.variance < 0 ? "text-blue-300" : "text-blue-300"}`}
+                        >
+                          {formatMoney(summary.variance)}
+                        </td>
+                        <td className="px-4 py-3">{drawer.status}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() =>
+                              printDrawerReport(drawer, {
+                                ...drawer,
+                                expected_cash:
+                                  summary.expectedBeforeClosingRemittance,
+                                actual_cash: summary.actualCash,
+                                remittance_amount: summary.closingRemittance,
+                                remaining_cash_after_remittance:
+                                  summary.remainingCashAfterRemittance,
+                                // Full-remittance policy: remitted amount minus expected cash.
+                                variance:
+                                  summary.closingRemittance -
+                                  summary.expectedBeforeClosingRemittance,
+                                received_by:
+                                  movements.find(
+                                    (item) =>
+                                      String(item.cash_drawer_id || "") ===
+                                        String(drawer.id || "") &&
+                                      item.movement_type === "Remittance" &&
+                                      (item.source ===
+                                        "Drawer Closing Remittance" ||
+                                        item.reference_type ===
+                                          "drawer_closing_remittance"),
+                                  )?.to_person || "-",
+                              })
+                            }
+                            className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:bg-blue-500"
+                          >
+                            Print PDF
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredDrawers.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={11}
+                        className="px-4 py-10 text-center text-slate-500"
+                      >
+                        No drawer history found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {showDrawerHolderSettings && (
+            <Modal
+              title="Drawer Holder Settings"
+              onClose={() => setShowDrawerHolderSettings(false)}
+            >
+              <div className="space-y-4">
+                <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
+                  <p className="text-sm font-bold text-sky-300">
+                    Authorized Cash Control Holders
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-300">
+                    Only selected names will appear when opening a drawer.
+                    Admin/Finance may open drawers for others; normal cashiers
+                    can only open their own drawer. Current settings are
+                    browser-local until the finance_drawer_holders table is
+                    added.
+                  </p>
                 </div>
-              )}
 
-              <select value={historyHolderFilter} onChange={(e) => setHistoryHolderFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="ALL">All Holders</option>
-                {validEmployeeOptions.map((employee) => (
-                  <option key={employee.id} value={`${employee.first_name} ${employee.last_name}`}>
-                    {employee.first_name} {employee.last_name}
+                <input
+                  value={drawerHolderSearch}
+                  onChange={(e) => setDrawerHolderSearch(e.target.value)}
+                  placeholder="Search employee, department, or position..."
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() =>
+                      setAuthorizedDrawerHolders(
+                        allEmployeeNames.sort((a, b) => a.localeCompare(b)),
+                      )
+                    }
+                    className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setAuthorizedDrawerHolders([])}
+                    className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
+                  >
+                    Clear All
+                  </button>
+                  <span className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">
+                    Selected: {authorizedDrawerHolders.length}
+                  </span>
+                </div>
+
+                <div className="max-h-[420px] overflow-auto rounded-xl border border-slate-800">
+                  {filteredDrawerHolderSettingEmployees.map((employee) => {
+                    const fullName = getEmployeeFullName(employee);
+                    const checked = authorizedDrawerHolders.includes(fullName);
+
+                    return (
+                      <label
+                        key={employee.id}
+                        className="flex cursor-pointer items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 hover:bg-slate-800/50"
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-white">
+                            {fullName}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {employee.department || "No department"}
+                            {employee.position ? ` • ${employee.position}` : ""}
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            toggleAuthorizedDrawerHolder(fullName)
+                          }
+                          className="h-4 w-4 accent-sky-500"
+                        />
+                      </label>
+                    );
+                  })}
+
+                  {filteredDrawerHolderSettingEmployees.length === 0 && (
+                    <div className="p-6 text-center text-sm text-slate-500">
+                      No employees matched your search.
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setShowDrawerHolderSettings(false)}
+                  className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-bold hover:bg-sky-500"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </Modal>
+          )}
+
+          {showOpenDrawer && (
+            <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-100">
+                {canManageDrawerForOthers
+                  ? "Admin/Finance/Manager override is enabled. You may open a drawer for an authorized holder."
+                  : "Cash drawer is locked to your own logged-in employee account."}
+              </div>
+
+              <select
+                value={drawerHolder}
+                onChange={(e) => setDrawerHolder(e.target.value)}
+                disabled={!canManageDrawerForOthers}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">Select authorized drawer holder</option>
+                {allowedOpenDrawerHolderOptions.map((employee) => (
+                  <option
+                    key={employee.id}
+                    value={getEmployeeFullName(employee)}
+                  >
+                    {getEmployeeFullName(employee)}
+                    {employee.department ? ` - ${employee.department}` : ""}
                   </option>
                 ))}
               </select>
 
-              <select value={historyStatusFilter} onChange={(e) => setHistoryStatusFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="ALL">All Status</option>
-                <option value="OPEN">Open</option>
-                <option value="CLOSED">Closed</option>
-              </select>
-            </div>
-          </div>
+              {drawerHolderOptions.length === 0 && (
+                <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
+                  No authorized drawer holders yet. Admin/Finance must open
+                  Drawer Holder Settings and choose who is allowed to handle
+                  cash drawers.
+                </div>
+              )}
 
-          <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1250px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Holder</th>
-                  <th className="px-4 py-3">Opened</th>
-                  <th className="px-4 py-3">Closed</th>
-                  <th className="px-4 py-3 text-right">Opening</th>
-                  <th className="px-4 py-3 text-right">Expected Cash</th>
-                  <th className="px-4 py-3 text-right">Actual Count</th>
-                  <th className="px-4 py-3 text-right">Remitted</th>
-                  <th className="px-4 py-3 text-right">Remaining</th>
-                  <th className="px-4 py-3 text-right">Variance</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">PDF</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredDrawers.map((drawer) => {
-                  const summary = getDrawerCashSummary(drawer);
-                  const displayActual =
-                    String(drawer.status || "").toUpperCase() === "CLOSED"
-                      ? summary.actualCash
-                      : 0;
-                  const displayRemaining =
-                    String(drawer.status || "").toUpperCase() === "CLOSED"
-                      ? summary.remainingCashAfterRemittance
-                      : summary.expectedBeforeClosingRemittance;
-
-                  return (
-                    <tr key={drawer.id} className="border-t border-slate-800 text-slate-200">
-                      <td className="px-4 py-3">{drawer.holder_name}</td>
-                      <td className="px-4 py-3">{formatDateTime(drawer.opened_at)}</td>
-                      <td className="px-4 py-3">{formatDateTime(drawer.closed_at)}</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(drawer.opening_float)}</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(summary.expectedBeforeClosingRemittance)}</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(displayActual)}</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(summary.closingRemittance)}</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(displayRemaining)}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${summary.variance < 0 ? "text-blue-300" : "text-blue-300"}`}>{formatMoney(summary.variance)}</td>
-                      <td className="px-4 py-3">{drawer.status}</td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() =>
-                            printDrawerReport(drawer, {
-                              ...drawer,
-                              expected_cash: summary.expectedBeforeClosingRemittance,
-                              actual_cash: summary.actualCash,
-                              remittance_amount: summary.closingRemittance,
-                              remaining_cash_after_remittance: summary.remainingCashAfterRemittance,
-                              // Full-remittance policy: remitted amount minus expected cash.
-                              variance: summary.closingRemittance - summary.expectedBeforeClosingRemittance,
-                              received_by:
-                                movements.find(
-                                  (item) =>
-                                    String(item.cash_drawer_id || "") === String(drawer.id || "") &&
-                                    item.movement_type === "Remittance" &&
-                                    (item.source === "Drawer Closing Remittance" ||
-                                      item.reference_type === "drawer_closing_remittance")
-                                )?.to_person || "-",
-                            })
-                          }
-                          className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:bg-blue-500"
-                        >
-                          Print PDF
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {filteredDrawers.length === 0 && (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-10 text-center text-slate-500">No drawer history found.</td>
-                  </tr>
+              {!canManageDrawerForOthers &&
+                currentDrawerHolderName &&
+                !authorizedDrawerHolders.includes(currentDrawerHolderName) && (
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
+                    Your account is not authorized as a drawer holder. Ask
+                    Admin/Finance to authorize {currentDrawerHolderName}.
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {showDrawerHolderSettings && (
-          <Modal title="Drawer Holder Settings" onClose={() => setShowDrawerHolderSettings(false)}>
-            <div className="space-y-4">
-              <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
-                <p className="text-sm font-bold text-sky-300">Authorized Cash Control Holders</p>
-                <p className="mt-1 text-xs leading-5 text-slate-300">
-                  Only selected names will appear when opening a drawer. Admin/Finance may open drawers for others; normal cashiers can only open their own drawer. Current settings are browser-local until the finance_drawer_holders table is added.
-                </p>
-              </div>
 
               <input
-                value={drawerHolderSearch}
-                onChange={(e) => setDrawerHolderSearch(e.target.value)}
-                placeholder="Search employee, department, or position..."
+                type="number"
+                value={openingFloat}
+                onChange={(e) => setOpeningFloat(e.target.value)}
+                placeholder="Opening float"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
               />
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setAuthorizedDrawerHolders(allEmployeeNames.sort((a, b) => a.localeCompare(b)))}
-                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
-                >
-                  Select All
-                </button>
-                <button
-                  onClick={() => setAuthorizedDrawerHolders([])}
-                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
-                >
-                  Clear All
-                </button>
-                <span className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">
-                  Selected: {authorizedDrawerHolders.length}
-                </span>
-              </div>
-
-              <div className="max-h-[420px] overflow-auto rounded-xl border border-slate-800">
-                {filteredDrawerHolderSettingEmployees.map((employee) => {
-                  const fullName = getEmployeeFullName(employee);
-                  const checked = authorizedDrawerHolders.includes(fullName);
-
-                  return (
-                    <label
-                      key={employee.id}
-                      className="flex cursor-pointer items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 hover:bg-slate-800/50"
-                    >
-                      <div>
-                        <p className="text-sm font-bold text-white">{fullName}</p>
-                        <p className="text-xs text-slate-400">
-                          {employee.department || "No department"}
-                          {employee.position ? ` • ${employee.position}` : ""}
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleAuthorizedDrawerHolder(fullName)}
-                        className="h-4 w-4 accent-sky-500"
-                      />
-                    </label>
-                  );
-                })}
-
-                {filteredDrawerHolderSettingEmployees.length === 0 && (
-                  <div className="p-6 text-center text-sm text-slate-500">
-                    No employees matched your search.
-                  </div>
-                )}
-              </div>
+              <textarea
+                value={drawerRemarks}
+                onChange={(e) => setDrawerRemarks(e.target.value)}
+                rows={3}
+                placeholder="Opening remarks"
+                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+              />
 
               <button
-                onClick={() => setShowDrawerHolderSettings(false)}
-                className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-bold hover:bg-sky-500"
+                onClick={openDrawer}
+                disabled={
+                  isSaving ||
+                  allowedOpenDrawerHolderOptions.length === 0 ||
+                  !drawerHolder ||
+                  (!canManageDrawerForOthers &&
+                    drawerHolder !== currentDrawerHolderName)
+                }
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Save Settings
+                {isSaving ? "Opening..." : "Open Drawer"}
               </button>
-            </div>
-          </Modal>
-        )}
+            </Modal>
+          )}
 
-        {showOpenDrawer && (
-          <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
-            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-100">
-              {canManageDrawerForOthers
-                ? "Admin/Finance/Manager override is enabled. You may open a drawer for an authorized holder."
-                : "Cash drawer is locked to your own logged-in employee account."}
-            </div>
-
-            <select
-              value={drawerHolder}
-              onChange={(e) => setDrawerHolder(e.target.value)}
-              disabled={!canManageDrawerForOthers}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          {showCloseDrawer && activeDrawer && (
+            <Modal
+              title="Close Drawer"
+              onClose={() => setShowCloseDrawer(false)}
             >
-              <option value="">Select authorized drawer holder</option>
-              {allowedOpenDrawerHolderOptions.map((employee) => (
-                <option key={employee.id} value={getEmployeeFullName(employee)}>
-                  {getEmployeeFullName(employee)}
-                  {employee.department ? ` - ${employee.department}` : ""}
-                </option>
-              ))}
-            </select>
-
-            {drawerHolderOptions.length === 0 && (
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
-                No authorized drawer holders yet. Admin/Finance must open Drawer Holder Settings and choose who is allowed to handle cash drawers.
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
+                <p className="text-sm text-slate-300">Expected Drawer Cash</p>
+                <h3 className="mt-2 text-2xl font-bold text-blue-300">
+                  {formatMoney(activeDrawerCash)}
+                </h3>
               </div>
-            )}
 
-            {!canManageDrawerForOthers && currentDrawerHolderName && !authorizedDrawerHolders.includes(currentDrawerHolderName) && (
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
-                Your account is not authorized as a drawer holder. Ask Admin/Finance to authorize {currentDrawerHolderName}.
-              </div>
-            )}
+              <input
+                type="number"
+                value={actualClosingCash}
+                onChange={(e) => setActualClosingCash(e.target.value)}
+                placeholder="Actual cash counted before remittance"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+              />
 
-            <input type="number" value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="Opening float" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
+                <p className="text-sm font-bold text-sky-300">
+                  Drawer Remittance
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Record the cash turned over when closing the drawer. This
+                  creates an automatic Remittance movement and does not count as
+                  an expense.
+                </p>
 
-            <textarea value={drawerRemarks} onChange={(e) => setDrawerRemarks(e.target.value)} rows={3} placeholder="Opening remarks" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+                <div className="mt-4 space-y-3">
+                  <input
+                    type="number"
+                    value={closingRemittanceAmount}
+                    onChange={(e) => setClosingRemittanceAmount(e.target.value)}
+                    placeholder="Remittance amount"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  />
 
-            <button
-              onClick={openDrawer}
-              disabled={
-                isSaving ||
-                allowedOpenDrawerHolderOptions.length === 0 ||
-                !drawerHolder ||
-                (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName)
-              }
-              className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isSaving ? "Opening..." : "Open Drawer"}
-            </button>
-          </Modal>
-        )}
+                  <input
+                    value={closingRemittanceReceivedBy}
+                    onChange={(e) =>
+                      setClosingRemittanceReceivedBy(e.target.value)
+                    }
+                    placeholder="Received by"
+                    list="employee-name-list"
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  />
 
-        {showCloseDrawer && activeDrawer && (
-          <Modal title="Close Drawer" onClose={() => setShowCloseDrawer(false)}>
-            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
-              <p className="text-sm text-slate-300">Expected Drawer Cash</p>
-              <h3 className="mt-2 text-2xl font-bold text-blue-300">
-                {formatMoney(activeDrawerCash)}
-              </h3>
-            </div>
+                  <textarea
+                    value={closingRemittanceRemarks}
+                    onChange={(e) =>
+                      setClosingRemittanceRemarks(e.target.value)
+                    }
+                    rows={2}
+                    placeholder="Remittance remarks / reference"
+                    className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  />
 
-            <input type="number" value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} placeholder="Actual cash counted before remittance" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
-              <p className="text-sm font-bold text-sky-300">Drawer Remittance</p>
-              <p className="mt-1 text-xs leading-5 text-slate-300">
-                Record the cash turned over when closing the drawer. This creates an automatic Remittance movement and does not count as an expense.
-              </p>
-
-              <div className="mt-4 space-y-3">
-                <input
-                  type="number"
-                  value={closingRemittanceAmount}
-                  onChange={(e) => setClosingRemittanceAmount(e.target.value)}
-                  placeholder="Remittance amount"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                />
-
-                <input
-                  value={closingRemittanceReceivedBy}
-                  onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)}
-                  placeholder="Received by"
-                  list="employee-name-list" autoComplete="off"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                />
-
-                <textarea
-                  value={closingRemittanceRemarks}
-                  onChange={(e) => setClosingRemittanceRemarks(e.target.value)}
-                  rows={2}
-                  placeholder="Remittance remarks / reference"
-                  className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                />
-
-                <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
-                  <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
-                    <p className="text-slate-500">Remaining after remittance</p>
-                    <p className="mt-1 font-black text-emerald-300">
-                      {formatMoney(Number(actualClosingCash || 0) - Number(closingRemittanceAmount || 0))}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
-                    <p className="text-slate-500">Variance before remittance</p>
-                    <p className={`mt-1 font-black ${Number(actualClosingCash || 0) - activeDrawerCash < 0 ? "text-blue-300" : "text-emerald-300"}`}>
-                      {formatMoney(Number(actualClosingCash || 0) - activeDrawerCash)}
-                    </p>
+                  <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+                    <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+                      <p className="text-slate-500">
+                        Remaining after remittance
+                      </p>
+                      <p className="mt-1 font-black text-emerald-300">
+                        {formatMoney(
+                          Number(actualClosingCash || 0) -
+                            Number(closingRemittanceAmount || 0),
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+                      <p className="text-slate-500">
+                        Variance before remittance
+                      </p>
+                      <p
+                        className={`mt-1 font-black ${Number(actualClosingCash || 0) - activeDrawerCash < 0 ? "text-blue-300" : "text-emerald-300"}`}
+                      >
+                        {formatMoney(
+                          Number(actualClosingCash || 0) - activeDrawerCash,
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <textarea value={closeRemarks} onChange={(e) => setCloseRemarks(e.target.value)} rows={3} placeholder="Closing remarks / variance explanation" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
+              <textarea
+                value={closeRemarks}
+                onChange={(e) => setCloseRemarks(e.target.value)}
+                rows={3}
+                placeholder="Closing remarks / variance explanation"
+                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+              />
 
-            <button onClick={closeDrawer} disabled={isSaving} className="w-full rounded-xl bg-slate-700 px-4 py-3 text-sm font-bold hover:bg-slate-600 disabled:opacity-50">
-              {isSaving ? "Closing..." : "Save Remittance & Close Drawer"}
-            </button>
-          </Modal>
-        )}
-      </main>
+              <button
+                onClick={closeDrawer}
+                disabled={isSaving}
+                className="w-full rounded-xl bg-slate-700 px-4 py-3 text-sm font-bold hover:bg-slate-600 disabled:opacity-50"
+              >
+                {isSaving ? "Closing..." : "Save Remittance & Close Drawer"}
+              </button>
+            </Modal>
+          )}
+        </main>
       </div>
     </PageGuard>
+  );
+}
+
+function WorkbenchMetric({ title, value, subtitle, status }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+            {title}
+          </p>
+          <p className="mt-2 truncate text-xl font-black text-white">{value}</p>
+          {subtitle && (
+            <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+          )}
+        </div>
+        {status && (
+          <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-black text-slate-300">
+            {status}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -3466,7 +4100,9 @@ function SummaryCard({ title, value, color }: any) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
       <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>{value}</h2>
+      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>
+        {value}
+      </h2>
     </div>
   );
 }
@@ -3477,7 +4113,10 @@ function Modal({ title, children, onClose }: any) {
       <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-2xl font-bold">{title}</h2>
-          <button onClick={onClose} className="rounded-lg bg-slate-700 px-3 py-1 text-sm hover:bg-slate-600">
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-slate-700 px-3 py-1 text-sm hover:bg-slate-600"
+          >
             Close
           </button>
         </div>

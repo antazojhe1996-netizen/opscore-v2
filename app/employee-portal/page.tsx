@@ -1839,6 +1839,7 @@ export default function EmployeePortalPage() {
   }, [currentUser, isAssignedApprover]);
 
   /// UI
+  // Operational Portal Workbench: action-first, compact sections, minimal dashboard styling.
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       {menuOpen && (
@@ -1850,11 +1851,12 @@ export default function EmployeePortalPage() {
       )}
 
       <aside
-className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y-auto border-r border-slate-800 bg-slate-950 p-5 shadow-2xl shadow-black/40 transition-transform duration-300 ${          menuOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y-auto border-r border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/30 transition-transform duration-300 ${
+          menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-300">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-300">
             OPSCORE
           </p>
           <h2 className="mt-3 text-xl font-black">{employeeName}</h2>
@@ -1891,18 +1893,18 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
         </button>
       </aside>
 
-      <section className="mx-auto max-w-5xl p-4 pb-10 sm:p-6">
+      <section className="mx-auto max-w-6xl p-3 pb-8 sm:p-5">
         <header className="sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-900 bg-slate-950/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             <button
               onClick={() => setMenuOpen(true)}
-              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-lg font-black text-blue-300"
+              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-lg font-black text-slate-300"
             >
               ☰
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+              <p className="truncate text-xs font-black uppercase tracking-[0.25em] text-slate-300">
                 OPSCORE Employee Portal
               </p>
               <h1 className="truncate text-lg font-black sm:text-2xl">
@@ -1918,18 +1920,18 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
         {activeTab === "home" && (
           <div className="space-y-5">
-            <section className="rounded-3xl border border-blue-500/20 bg-blue-600/10 p-5 shadow-xl shadow-black/20">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 ">
               <p className="text-sm font-bold text-blue-200">Quick Attendance</p>
-              <h2 className="mt-2 text-3xl font-black">Time In / Time Out</h2>
+              <h2 className="mt-2 text-2xl font-black">Time In / Time Out</h2>
               <p className="mt-1 text-sm text-slate-300">
                 Use this first when starting or ending your shift.
               </p>
 
-              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-2 gap-3">
                 <button
                   onClick={handleTimeIn}
                   disabled={loading || !!todayAttendance?.time_in || !currentUser}
-                  className="rounded-2xl bg-emerald-500 px-5 py-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Time In
                 </button>
@@ -1941,13 +1943,13 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                     !todayAttendance?.time_in ||
                     !!todayAttendance?.time_out
                   }
-                  className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Time Out
                 </button>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Info label="Time In" value={formatTime(todayAttendance?.time_in)} />
                 <Info label="Time Out" value={formatTime(todayAttendance?.time_out)} />
                 <Info label="Status" value={todayAttendance?.status || "Not timed in"} />
@@ -1961,15 +1963,15 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
               onScheduleClick={() => openTab("schedule")}
             />
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="text-lg font-black">Notifications</h2>
               <p className="mt-1 text-sm text-slate-400">Important updates from your employee portal.</p>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2">
                 {portalNotifications.map((message, index) => (
                   <div
                     key={`${message}-${index}`}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-200"
+                    className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-200"
                   >
                     {message}
                   </div>
@@ -1987,7 +1989,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
               onScheduleClick={() => {}}
             />
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="text-lg font-black">This Week</h2>
               <p className="mt-1 text-sm text-slate-400">
                 Your published schedule for the current week.
@@ -2002,7 +2004,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                       key={item.day}
                       className={`rounded-2xl border p-4 ${
                         isToday
-                          ? "border-blue-500/30 bg-blue-600/10"
+                          ? "border-blue-500/30 bg-slate-900"
                           : "border-slate-800 bg-slate-950"
                       }`}
                     >
@@ -2014,7 +2016,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                       </p>
                       <p
                         className={`mt-3 text-lg font-black ${
-                          item.shift === "OFF" ? "text-slate-500" : "text-blue-300"
+                          item.shift === "OFF" ? "text-slate-500" : "text-slate-300"
                         }`}
                       >
                         {item.shift}
@@ -2031,7 +2033,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
         )}
 
         {activeTab === "attendance" && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-lg font-black">Attendance History</h2>
             <p className="mt-1 text-sm text-slate-400">
               Your latest attendance entries from the last 30 days.
@@ -2059,7 +2061,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                         {formatDate(entry.attendance_date)}
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-bold text-blue-300">
+                        <p className="font-bold text-slate-300">
                           {entry.scheduled_shift || "-"}
                         </p>
                         <p className="text-xs text-slate-500">
@@ -2091,7 +2093,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
         )}
 
         {activeTab === "performance" && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-black">Attendance Performance</h2>
@@ -2102,12 +2104,12 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
               <div className="rounded-2xl border border-slate-800 bg-slate-950 px-6 py-5">
                 <p className="text-xs uppercase tracking-widest text-slate-500">Score</p>
-                <p className="text-4xl font-black text-blue-300">{attendanceScore}</p>
+                <p className="text-3xl font-black text-slate-300">{attendanceScore}</p>
                 <p className="text-sm font-bold text-slate-400">{attendanceScoreLabel}</p>
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Info label="Present" value={presentCount} />
               <Info label="Late" value={lateCount} />
               <Info label="Undertime" value={undertimeCount} />
@@ -2118,7 +2120,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
         {activeTab === "leave" && (
           <div className="space-y-5">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-lg font-black">Employee Leave Center</h2>
@@ -2147,7 +2149,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Info label="Pending" value={leaveStatuses.pending} />
                 <Info label="Approved" value={leaveStatuses.approved} />
                 <Info label="Cancelled" value={leaveStatuses.cancelled} />
@@ -2155,7 +2157,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="text-lg font-black">Remaining Leave Credits</h2>
               <p className="mt-1 text-sm text-slate-400">
                 Credits are read from employee_leave_credits. Approved leave deductions remain handled by Approval Center.
@@ -2171,7 +2173,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 {leaveCredits.map((credit) => (
                   <div
                     key={credit.id || `${credit.leave_type}-${credit.employee_no}`}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -2207,7 +2209,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
             </section>
 
             {leaveView === "request" && (
-              <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
                 <h2 className="text-lg font-black">Request Leave</h2>
                 <p className="mt-1 text-sm text-slate-400">
                   Submitted requests go directly to Manager Approval Center.
@@ -2244,7 +2246,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                   </div>
 
                   <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm">
-                    Days: <span className="font-bold text-blue-300">{leaveDays}</span>
+                    Days: <span className="font-bold text-slate-300">{leaveDays}</span>
                   </div>
 
                   <textarea
@@ -2271,7 +2273,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
               </section>
             )}
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-black">My Leave Requests</h2>
@@ -2287,14 +2289,14 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 </button>
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2">
                 {leaveHistory.map((leave) => {
                   const pendingCancel = leave.id ? isLeaveCancellationPending(leave.id) : false;
 
                   return (
                     <div
                       key={leave.id || `${leave.start_date}-${leave.end_date}`}
-                      className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                      className="rounded-xl border border-slate-800 bg-slate-950 p-3"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -2317,7 +2319,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                           )}
 
                           {pendingCancel && (
-                            <p className="mt-2 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs font-bold text-blue-300">
+                            <p className="mt-2 rounded-xl border border-slate-800 bg-blue-500/10 p-3 text-xs font-bold text-slate-300">
                               Cancellation request pending in Approval Center.
                             </p>
                           )}
@@ -2351,13 +2353,13 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
         )}
 
         {activeTab === "payslip" && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-lg font-black">My Payslips</h2>
             <p className="mt-1 text-sm text-slate-400">
               Your payroll snapshots and downloadable payslips will appear here.
             </p>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-2">
               {payslips.map((payslip) => {
                 const gross = getPayslipGross(payslip);
                 const deductions = getPayslipDeductions(payslip);
@@ -2367,7 +2369,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 return (
                   <div
                     key={payslip.id || period}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -2376,7 +2378,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                           {formatDate(payslip.start_date)} - {formatDate(payslip.end_date)}
                         </p>
                         {payslip.snapshot_type && (
-                          <p className="mt-1 text-xs font-bold text-blue-300">
+                          <p className="mt-1 text-xs font-bold text-slate-300">
                             {payslip.snapshot_type}
                           </p>
                         )}
@@ -2420,7 +2422,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
 
         {activeTab === "cashadvance" && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-lg font-black">My Cash Advances & Balances</h2>
             <p className="mt-1 text-sm text-slate-400">
               Track cash advances, payroll balances, deductions, and remaining amounts.
@@ -2436,7 +2438,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
               {employeeBalances.map((balance) => (
                 <div
                   key={balance.id || `${balance.balance_type}-${balance.created_at}`}
-                  className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                  className="rounded-xl border border-slate-800 bg-slate-950 p-3"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
@@ -2473,7 +2475,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
 
         {activeTab === "announcements" && (
           <div className="space-y-5">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-black">Announcements</h2>
@@ -2489,11 +2491,11 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 </button>
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2">
                 {announcements.map((announcement) => (
                   <div
                     key={announcement.id || `${announcement.title}-${announcement.created_at}`}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -2524,7 +2526,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
             </section>
 
             {canUseManagerTools && (
-              <section className="rounded-3xl border border-blue-500/20 bg-blue-600/10 p-5">
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                 <h2 className="text-lg font-black">Post Announcement</h2>
                 <p className="mt-1 text-sm text-slate-300">
                   Managers can post mobile announcements directly from the portal.
@@ -2569,7 +2571,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
         )}
 
         {activeTab === "manager" && canUseManagerTools && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-black">Manager Mobile Approvals</h2>
@@ -2586,7 +2588,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
               </button>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-2">
               {managerApprovals.map((request) => {
                 const payload = request.request_payload || {};
                 const requestType = String(request.request_type || "").replaceAll("_", " ");
@@ -2594,11 +2596,11 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
                 return (
                   <div
                     key={request.id || `${request.request_type}-${request.reference_id}`}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">
                           {requestType}
                         </p>
                         <p className="mt-1 font-black text-white">
@@ -2660,7 +2662,7 @@ className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y
         )}
 
         {activeTab === "profile" && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-lg font-black">My Profile</h2>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2742,7 +2744,7 @@ function CancelLeaveModal({
 }: any) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <section className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
+      <section className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
         <div className="border-b border-slate-800 pb-4">
           <p className="text-xs font-black uppercase tracking-[0.25em] text-red-300">
             Cancel Approved Leave
@@ -2805,7 +2807,7 @@ function RejectApprovalModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <section className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
+      <section className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
         <div className="border-b border-slate-800 pb-4">
           <p className="text-xs font-black uppercase tracking-[0.25em] text-red-300">
             Reject Approval Request
@@ -2822,7 +2824,7 @@ function RejectApprovalModal({
           )}
         </div>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-3 space-y-2">
           {payload.reason && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
               <p className="text-xs uppercase tracking-widest text-slate-500">Original Reason</p>
@@ -2889,10 +2891,10 @@ function PortalPayslipModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/70 p-4 backdrop-blur-sm">
-      <section className="w-full max-w-3xl rounded-3xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
+      <section className="w-full max-w-3xl rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
         <div className="flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">OPSCORE Payslip</p>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-300">OPSCORE Payslip</p>
             <h2 className="mt-2 text-2xl font-black">{getPayslipPeriodLabel(payslip)}</h2>
             <p className="mt-1 text-sm text-slate-400">Review your payroll summary before printing or saving as PDF.</p>
           </div>
@@ -2907,7 +2909,7 @@ function PortalPayslipModal({
 
         <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">Net Pay</p>
-          <h3 className="mt-2 text-4xl font-black text-emerald-300">{formatMoney(net)}</h3>
+          <h3 className="mt-2 text-3xl font-black text-emerald-300">{formatMoney(net)}</h3>
           <p className="mt-1 text-sm text-emerald-100/80">Amount payable after approved deductions.</p>
         </div>
 
@@ -2976,7 +2978,7 @@ function TodayScheduleCard({
   onScheduleClick: () => void;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-slate-400">Today&apos;s Schedule</p>
@@ -2987,7 +2989,7 @@ function TodayScheduleCard({
 
         <div className="text-left sm:text-right">
           <p className="text-sm text-slate-400">Shift Time</p>
-          <p className="text-lg font-black text-blue-300">
+          <p className="text-lg font-black text-slate-300">
             {formatTime(schedule?.scheduled_in)} - {formatTime(schedule?.scheduled_out)}
           </p>
         </div>
@@ -3024,7 +3026,7 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "released"
       ? "bg-emerald-500/10 text-emerald-400"
       : normalized === "pending" || normalized === "draft"
-      ? "bg-blue-500/10 text-blue-300"
+      ? "bg-blue-500/10 text-slate-300"
       : normalized === "late"
       ? "bg-red-500/10 text-red-300"
       : normalized === "undertime" ||
@@ -3035,7 +3037,7 @@ function StatusBadge({ status }: { status: string }) {
       : normalized === "cancelled"
       ? "bg-slate-500/10 text-slate-300"
       : normalized === "active"
-      ? "bg-blue-500/10 text-blue-300"
+      ? "bg-blue-500/10 text-slate-300"
       : "bg-slate-700 text-slate-300";
 
   return (

@@ -1322,73 +1322,525 @@ export default function SchedulingPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#07111f] text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Scheduling</h1>
-            <p className="mt-2 text-slate-400">
-              Build weekly schedules, import Excel schedules, monitor staffing coverage, and publish locked schedules.
-            </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <section className="mb-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                  Scheduling Workbench
+                </h1>
+
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black ${
+                    publishedSchedule
+                      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+                      : "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                  }`}
+                >
+                  {publishedSchedule ? <Lock size={14} /> : <Unlock size={14} />}
+                  {publishedSchedule
+                    ? "Published / Locked"
+                    : saveStatus === "saving"
+                    ? "Saving"
+                    : saveStatus === "saved"
+                    ? "Saved"
+                    : "Editable"}
+                </span>
+              </div>
+
+              <p className="mt-2 text-sm text-slate-400">
+                Build schedules, assign shifts, import Excel files, validate coverage, and publish final locked schedules.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => moveDate("prev")}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black hover:bg-slate-800"
+              >
+                ‹
+              </button>
+
+              <button
+                onClick={goToToday}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold hover:bg-slate-800"
+              >
+                Today
+              </button>
+
+              <button
+                onClick={() => moveDate("next")}
+                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black hover:bg-slate-800"
+              >
+                ›
+              </button>
+
+              <div className="flex rounded-xl border border-slate-700 bg-slate-950 p-1">
+                <button
+                  onClick={() => setViewMode("weekly")}
+                  className={
+                    viewMode === "weekly"
+                      ? "rounded-lg bg-blue-600 px-4 py-2 text-xs font-black text-white"
+                      : "rounded-lg px-4 py-2 text-xs font-bold text-slate-400 hover:bg-slate-800"
+                  }
+                >
+                  Weekly
+                </button>
+
+                <button
+                  onClick={() => setViewMode("monthly")}
+                  className={
+                    viewMode === "monthly"
+                      ? "rounded-lg bg-blue-600 px-4 py-2 text-xs font-black text-white"
+                      : "rounded-lg px-4 py-2 text-xs font-bold text-slate-400 hover:bg-slate-800"
+                  }
+                >
+                  Yearly
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="sticky top-0 z-40 mb-4 rounded-2xl border border-slate-800 bg-slate-950/95 p-4 shadow-xl shadow-black/20 backdrop-blur">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[150px_220px_minmax(180px,1fr)_auto] xl:items-center">
+            <input
+              type="number"
+              value={roomsSold}
+              onChange={(e) => setRoomsSold(Number(e.target.value || 0))}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none"
+              placeholder="Rooms sold"
+            />
+
+            <select
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none"
+            >
+              <option value="ALL">All Departments</option>
+              {departments.map((department) => (
+                <option key={department} value={department}>
+                  {department}
+                </option>
+              ))}
+            </select>
+
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search staff name, employee no, or position..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-9 py-2.5 text-sm outline-none"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => scheduleFileRef.current?.click()}
+                disabled={!!publishedSchedule}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-black text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FileSpreadsheet size={15} />
+                Import
+              </button>
+
+              <input
+                ref={scheduleFileRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) previewScheduleImport(file);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
+
+              <button
+                onClick={copyLastWeekSchedule}
+                disabled={copyingSchedule || viewMode !== "weekly" || !!publishedSchedule}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-black text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Copy size={15} />
+                {copyingSchedule ? "Copying" : "Copy Week"}
+              </button>
+
+              {publishedSchedule ? (
+                <button
+                  onClick={unpublishSchedule}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-black text-white hover:bg-red-500"
+                >
+                  <Unlock size={15} />
+                  Unpublish
+                </button>
+              ) : (
+                <button
+                  onClick={publishSchedule}
+                  disabled={viewMode !== "weekly"}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Lock size={15} />
+                  Publish
+                </button>
+              )}
+            </div>
           </div>
 
-          <div
-            className={`rounded-2xl border px-5 py-4 ${
-              publishedSchedule
-                ? "border-yellow-500/30 bg-yellow-500/10"
-                : "border-emerald-500/30 bg-emerald-500/10"
-            }`}
-          >
-            <p
-              className={`text-xs uppercase tracking-[0.18em] ${
-                publishedSchedule ? "text-yellow-300" : "text-emerald-300"
-              }`}
-            >
-              Schedule Status
-            </p>
-            <h2
-              className={`mt-1 flex items-center gap-2 text-xl font-black ${
-                publishedSchedule ? "text-yellow-400" : "text-emerald-400"
-              }`}
-            >
-              {publishedSchedule ? <Lock size={18} /> : <Unlock size={18} />}
-              {publishedSchedule ? "Published / Locked" : saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Editable"}
-            </h2>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1">
+              {selectedDepartment === "ALL" ? "All Departments" : selectedDepartment}
+            </span>
+            <span className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1">
+              {getDateRangeLabel()}
+            </span>
+            <span className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1">
+              {filteredEmployees.length} visible staff
+            </span>
+            {publishedSchedule && (
+              <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-yellow-300">
+                Editing locked
+              </span>
+            )}
           </div>
-        </div>
+        </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
-          <KpiCard icon={<Users size={22} />} title="Visible Staff" value={filteredEmployees.length} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Working Cells" value={workingCells} success />
-          <KpiCard icon={<CalendarDays size={22} />} title="Rest / OFF" value={restDayCells} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Understaffed" value={understaffedDays} danger={understaffedDays > 0} />
-          <KpiCard icon={<Users size={22} />} title="Overstaffed" value={overstaffedDays} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="Unscheduled" value={unscheduledCells} danger={unscheduledCells > 0} />
+        <section className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <KpiCard
+            icon={<Users size={18} />}
+            title="Visible Staff"
+            value={filteredEmployees.length}
+          />
+
+          <KpiCard
+            icon={<CheckCircle2 size={18} />}
+            title="Working Cells"
+            value={workingCells}
+            success
+          />
+
+          <KpiCard
+            icon={<CalendarDays size={18} />}
+            title="Rest / OFF"
+            value={restDayCells}
+          />
+
+          <KpiCard
+            icon={<AlertTriangle size={18} />}
+            title="Unscheduled"
+            value={unscheduledCells}
+            danger={unscheduledCells > 0}
+          />
         </section>
 
         {unscheduledRows.length > 0 && (
-          <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <section className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 text-red-300" size={18} />
+                <div>
+                  <p className="text-sm font-black text-red-200">
+                    {unscheduledRows.length} missing schedule cell(s) across {unscheduledEmployees} employee(s).
+                  </p>
+                  <p className="mt-1 text-xs text-red-100/70">
+                    OFF and RD are valid rest-day statuses. Blank rows need review.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-red-500/20 px-3 py-1 font-black text-red-200">
+                  Understaffed: {understaffedDays}
+                </span>
+                <span className="rounded-full bg-slate-950/60 px-3 py-1 font-black text-slate-300">
+                  Overstaffed: {overstaffedDays}
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {scheduleImportStatus && (
+          <section className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-sm text-blue-300">
+            {scheduleImportStatus}
+          </section>
+        )}
+
+        {scheduleImportPreview.length > 0 && (
+          <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="flex items-center gap-2 text-xl font-black text-red-300">
-                  <AlertTriangle size={20} />
-                  Scheduling Issues: Unscheduled Employees
-                </h2>
-                <p className="mt-1 text-sm text-red-100/80">
-                  Blank / missing schedule means no schedule assigned. OFF and RD are valid rest-day statuses and are not included in this warning.
+                <h2 className="text-lg font-black">Import Preview</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Rows: {scheduleImportPreview.length} • Ready: {importReadyCount} • Issues: {importIssueCount}
                 </p>
               </div>
 
-              <span className="rounded-full bg-red-500/20 px-4 py-2 text-sm font-black text-red-200">
-                {unscheduledRows.length} issue cell(s)
-              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={clearScheduleImportPreview}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:bg-slate-800"
+                >
+                  Clear
+                </button>
+
+                <button
+                  onClick={confirmScheduleImport}
+                  disabled={importingSchedule || !!publishedSchedule}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {importingSchedule ? "Importing" : "Confirm Import"}
+                </button>
+              </div>
             </div>
 
-            <div className="mt-4 max-h-56 overflow-auto rounded-xl border border-red-500/20 bg-slate-950/70">
+            <div className="max-h-[300px] overflow-auto rounded-xl border border-slate-800">
+              <table className="w-full min-w-[1100px] text-sm">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Employee No</th>
+                    <th className="px-4 py-3">Excel Name</th>
+                    <th className="px-4 py-3">Matched Employee</th>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Shift</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Remarks</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {scheduleImportPreview.map((row, index) => (
+                    <tr key={index} className="border-t border-slate-800">
+                      <td className="px-4 py-3">{row.employee_no || "-"}</td>
+                      <td className="px-4 py-3 font-bold">{row.excel_name || "-"}</td>
+                      <td className="px-4 py-3 font-bold text-slate-200">
+                        {row.matched_employee_name || "-"}
+                      </td>
+                      <td className="px-4 py-3">{row.day || "-"}</td>
+                      <td className="px-4 py-3">{row.shift}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black ${
+                            row.matched
+                              ? "bg-blue-500/10 text-blue-300"
+                              : "bg-red-500/10 text-red-300"
+                          }`}
+                        >
+                          {row.matched ? "Ready" : "Issue"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">{row.remarks}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-black">Schedule Board</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                {publishedSchedule ? "Published schedule is locked." : "Editable schedule grid."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300">
+                Working: {workingCells}
+              </span>
+              <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300">
+                Leave: {leaveCells}
+              </span>
+              <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300">
+                Rest/OFF: {restDayCells}
+              </span>
+              {publishedSchedule && (
+                <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-black text-yellow-300">
+                  Locked
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="max-w-full overflow-hidden rounded-2xl border border-slate-800">
+            <div className="w-full overflow-x-auto overflow-y-auto">
+              <div className={viewMode === "weekly" ? "min-w-[1180px]" : "w-max"}>
+                <div
+                  className="grid bg-slate-950 text-sm font-black text-slate-300"
+                  style={{ gridTemplateColumns: tableGridColumns }}
+                >
+                  <div className="sticky left-0 z-30 border-r border-slate-800 bg-slate-950 px-4 py-4">
+                    Staff Name
+                  </div>
+
+                  {visibleDays.map((day) => {
+                    const isToday = day.key === formatDateKey(new Date());
+
+                    return (
+                      <div
+                        key={day.key}
+                        ref={isToday ? todayColumnRef : null}
+                        className={`border-r border-slate-800 px-4 py-4 text-center last:border-r-0 ${
+                          isToday ? "bg-blue-500/10 text-blue-300" : ""
+                        }`}
+                      >
+                        <div>{day.dayName}</div>
+                        <div className="mt-1 text-xs font-normal text-slate-400">
+                          {day.dateLabel}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {filteredEmployees.map((employee) => (
+                  <div
+                    key={employee.id}
+                    className="grid border-t border-slate-800 text-sm hover:bg-slate-800/40"
+                    style={{ gridTemplateColumns: tableGridColumns }}
+                  >
+                    <div className="sticky left-0 z-20 border-r border-slate-800 bg-slate-900 px-4 py-3">
+                      <p className="font-black">
+                        {employee.first_name} {employee.last_name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {employee.position || "-"} • {employee.employee_no || "-"}
+                      </p>
+                    </div>
+
+                    {visibleDays.map((day) => {
+                      const currentShift = getShift(employee.id, day.key);
+                      const selectShiftValue =
+                        currentShift === UNSCHEDULED_SHIFT ? "OFF" : currentShift;
+                      const onLeave = isEmployeeOnLeave(employee, day.key);
+
+                      return (
+                        <div
+                          key={`${employee.id}-${day.key}`}
+                          className="border-r border-slate-800 px-2 py-2 last:border-r-0"
+                        >
+                          {onLeave ? (
+                            <div className="rounded-xl border border-red-500/40 bg-red-500/15 px-2 py-2 text-center text-xs font-black text-red-300">
+                              LEAVE
+                              <div className="mt-1 text-[10px] font-normal text-red-200">
+                                {getLeaveType(employee, day.key)}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <select
+                                value={selectShiftValue}
+                                disabled={!!publishedSchedule}
+                                onChange={(e) =>
+                                  updateSchedule(employee.id, day.key, e.target.value)
+                                }
+                                className={`block rounded-xl border px-2 py-2 text-center text-xs font-black outline-none disabled:cursor-not-allowed disabled:opacity-70 ${
+                                  viewMode === "weekly" ? "w-full" : "w-[88px]"
+                                } ${getShiftColorClass(selectShiftValue)}`}
+                              >
+                                {shifts.map((shift) => (
+                                  <option
+                                    key={shift.shift_name}
+                                    value={shift.shift_name}
+                                    className="bg-slate-900 text-white"
+                                  >
+                                    {getShortShiftLabel(shift.shift_name)}
+                                  </option>
+                                ))}
+
+                                {!shifts.some((shift) => shift.shift_name === "OFF") && (
+                                  <option value="OFF">OFF</option>
+                                )}
+
+                                {!shifts.some((shift) => shift.shift_name === "RD") && (
+                                  <option value="RD">RD</option>
+                                )}
+                              </select>
+
+                              {currentShift === UNSCHEDULED_SHIFT && (
+                                <p className="text-center text-[10px] font-bold text-red-300">
+                                  Unscheduled
+                                </p>
+                              )}
+
+                              {currentShift === "OFF" && (
+                                <p className="text-center text-[10px] font-bold text-slate-400">
+                                  OFF / Rest day
+                                </p>
+                              )}
+
+                              {currentShift === "RD" && (
+                                <p className="text-center text-[10px] font-bold text-slate-400">
+                                  Rest day
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                <SummaryRow
+                  label="Current HC"
+                  values={currentHC}
+                  tableGridColumns={tableGridColumns}
+                  color="text-blue-300"
+                />
+
+                <SummaryRow
+                  label="Required HC"
+                  values={requiredHC}
+                  tableGridColumns={tableGridColumns}
+                  color="text-slate-200"
+                />
+
+                <SummaryRow
+                  label="Coverage Gap"
+                  values={coverageGap.map((gap) =>
+                    selectedDepartment === "ALL"
+                      ? "-"
+                      : gap > 0
+                      ? `+${gap}`
+                      : String(gap)
+                  )}
+                  tableGridColumns={tableGridColumns}
+                  color="text-slate-200"
+                />
+
+                <SummaryRow
+                  label="Recommendation"
+                  values={recommendationText}
+                  tableGridColumns={tableGridColumns}
+                  color="text-slate-300"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {unscheduledRows.length > 0 && (
+          <section className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-black">Unscheduled Review</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  First 80 blank schedule cells that need assignment or intentional OFF/RD.
+                </p>
+              </div>
+            </div>
+
+            <div className="max-h-56 overflow-auto rounded-xl border border-slate-800">
               <table className="w-full min-w-[760px] text-sm">
-                <thead className="sticky top-0 bg-slate-950 text-left text-red-200">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Employee</th>
                     <th className="px-4 py-3">Department</th>
@@ -1422,409 +1874,6 @@ export default function SchedulingPage() {
             </div>
           </section>
         )}
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">
-                  {selectedDepartment === "ALL" ? "All Departments" : selectedDepartment}
-                </h2>
-                <p className="mt-1 text-sm text-slate-400">{getDateRangeLabel()}</p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button onClick={() => moveDate("prev")} className="rounded-xl bg-slate-800 px-4 py-2 font-black hover:bg-slate-700">
-                  ‹
-                </button>
-
-                <button onClick={goToToday} className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold hover:bg-slate-700">
-                  Today
-                </button>
-
-                <button onClick={() => moveDate("next")} className="rounded-xl bg-slate-800 px-4 py-2 font-black hover:bg-slate-700">
-                  ›
-                </button>
-
-                <div className="flex rounded-xl border border-slate-700 bg-slate-950 p-1">
-                  <button
-                    onClick={() => setViewMode("weekly")}
-                    className={
-                      viewMode === "weekly"
-                        ? "rounded-lg bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950"
-                        : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
-                    }
-                  >
-                    Weekly
-                  </button>
-
-                  <button
-                    onClick={() => setViewMode("monthly")}
-                    className={
-                      viewMode === "monthly"
-                        ? "rounded-lg bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950"
-                        : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
-                    }
-                  >
-                    Yearly
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
-              <input
-                type="number"
-                value={roomsSold}
-                onChange={(e) => setRoomsSold(Number(e.target.value || 0))}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                placeholder="Rooms sold"
-              />
-
-              <select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-              >
-                <option value="ALL">All Departments</option>
-                {departments.map((department) => (
-                  <option key={department} value={department}>
-                    {department}
-                  </option>
-                ))}
-              </select>
-
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search staff..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none"
-                />
-              </div>
-
-              {publishedSchedule ? (
-                <button
-                  onClick={unpublishSchedule}
-                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black hover:bg-red-500"
-                >
-                  Unpublish
-                </button>
-              ) : (
-                <button
-                  onClick={publishSchedule}
-                  disabled={viewMode !== "weekly"}
-                  className="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  Publish
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <h2 className="flex items-center gap-2 text-xl font-bold">
-              <FileSpreadsheet size={22} /> Schedule Controls
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Import schedules, copy last week, and review upload issues before saving.
-            </p>
-
-            <div className="mt-5 grid grid-cols-1 gap-3">
-              <button
-                onClick={() => scheduleFileRef.current?.click()}
-                disabled={!!publishedSchedule}
-                className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
-              >
-                Import Schedule
-              </button>
-
-              <input
-                ref={scheduleFileRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) previewScheduleImport(file);
-                  e.target.value = "";
-                }}
-                className="hidden"
-              />
-
-              <button
-                onClick={copyLastWeekSchedule}
-                disabled={copyingSchedule || viewMode !== "weekly" || !!publishedSchedule}
-                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black hover:bg-blue-500 disabled:opacity-50"
-              >
-                <Copy size={16} />
-                {copyingSchedule ? "Copying..." : "Copy Last Week"}
-              </button>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-sm font-bold text-slate-300">
-                Publish Rule
-              </p>
-              <p className="mt-2 text-xs leading-6 text-slate-500">
-                Published schedules are locked. To edit, import, or copy schedules, unpublish first. Publish and unpublish actions are recorded in Audit Trail.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {scheduleImportStatus && (
-          <section className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-sm text-blue-300">
-            {scheduleImportStatus}
-          </section>
-        )}
-
-        {scheduleImportPreview.length > 0 && (
-          <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Schedule Import Preview</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Rows: {scheduleImportPreview.length} • Ready: {importReadyCount} • Issues: {importIssueCount}
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={clearScheduleImportPreview}
-                  className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
-                >
-                  Clear Preview
-                </button>
-
-                <button
-                  onClick={confirmScheduleImport}
-                  disabled={importingSchedule || !!publishedSchedule}
-                  className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-300 disabled:opacity-50"
-                >
-                  {importingSchedule ? "Importing..." : "Confirm Import"}
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-[360px] overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1100px] text-sm">
-                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Employee No</th>
-                    <th className="px-4 py-3">Excel Name</th>
-                    <th className="px-4 py-3">Matched Employee</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Shift</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Remarks</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {scheduleImportPreview.map((row, index) => (
-                    <tr key={index} className="border-t border-slate-800">
-                      <td className="px-4 py-3">{row.employee_no || "-"}</td>
-                      <td className="px-4 py-3 font-bold">{row.excel_name || "-"}</td>
-                      <td className="px-4 py-3 font-bold text-emerald-300">
-                        {row.matched_employee_name || "-"}
-                      </td>
-                      <td className="px-4 py-3">{row.day || "-"}</td>
-                      <td className="px-4 py-3">{row.shift}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black ${
-                            row.matched
-                              ? "bg-emerald-500/10 text-emerald-400"
-                              : "bg-red-500/10 text-red-400"
-                          }`}
-                        >
-                          {row.matched ? "Ready" : "Issue"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">{row.remarks}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-  <div className="mb-5 flex items-center justify-between">
-    <div>
-      <h2 className="text-xl font-bold">Schedule Board</h2>
-      <p className="mt-1 text-sm text-slate-400">
-        {publishedSchedule ? "Schedule is locked." : "Editable schedule grid."}
-      </p>
-    </div>
-
-    {publishedSchedule && (
-      <span className="rounded-full bg-yellow-500/10 px-4 py-2 text-xs font-black text-yellow-400">
-        Published / Locked
-      </span>
-    )}
-  </div>
-
-  <div className="max-w-full overflow-hidden rounded-2xl border border-slate-800">
-    <div className="w-full overflow-x-auto overflow-y-auto">
-      <div
-        className={viewMode === "weekly" ? "min-w-[1180px]" : "w-max"}
-      >
-        <div
-          className="grid bg-slate-950 text-sm font-black text-slate-300"
-          style={{ gridTemplateColumns: tableGridColumns }}
-        >
-          <div className="sticky left-0 z-30 border-r border-slate-800 bg-slate-950 px-4 py-4">
-            Staff Name
-          </div>
-
-          {visibleDays.map((day) => {
-            const isToday = day.key === formatDateKey(new Date());
-
-            return (
-              <div
-                key={day.key}
-                ref={isToday ? todayColumnRef : null}
-                className={`border-r border-slate-800 px-4 py-4 text-center last:border-r-0 ${
-                  isToday ? "bg-yellow-400/10 text-yellow-300" : ""
-                }`}
-              >
-                <div>{day.dayName}</div>
-                <div className="mt-1 text-xs font-normal text-slate-400">
-                  {day.dateLabel}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredEmployees.map((employee) => (
-          <div
-            key={employee.id}
-            className="grid border-t border-slate-800 text-sm hover:bg-slate-800/40"
-            style={{ gridTemplateColumns: tableGridColumns }}
-          >
-            <div className="sticky left-0 z-20 border-r border-slate-800 bg-slate-900 px-4 py-3">
-              <p className="font-black">
-                {employee.first_name} {employee.last_name}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {employee.position || "-"} • {employee.employee_no || "-"}
-              </p>
-            </div>
-
-            {visibleDays.map((day) => {
-              const currentShift = getShift(employee.id, day.key);
-              const selectShiftValue = currentShift === UNSCHEDULED_SHIFT ? "OFF" : currentShift;
-              const onLeave = isEmployeeOnLeave(employee, day.key);
-
-              return (
-                <div
-                  key={`${employee.id}-${day.key}`}
-                  className="border-r border-slate-800 px-2 py-2 last:border-r-0"
-                >
-                  {onLeave ? (
-                    <div className="rounded-xl border border-red-500/40 bg-red-500/15 px-2 py-2 text-center text-xs font-black text-red-300">
-                      LEAVE
-                      <div className="mt-1 text-[10px] font-normal text-red-200">
-                        {getLeaveType(employee, day.key)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <select
-                        value={selectShiftValue}
-                        disabled={!!publishedSchedule}
-                        onChange={(e) =>
-                          updateSchedule(employee.id, day.key, e.target.value)
-                        }
-                        className={`block rounded-xl border px-2 py-2 text-center text-xs font-black outline-none disabled:cursor-not-allowed disabled:opacity-70 ${
-                          viewMode === "weekly" ? "w-full" : "w-[88px]"
-                        } ${getShiftColorClass(selectShiftValue)}`}
-                      >
-                        {shifts.map((shift) => (
-                          <option
-                            key={shift.shift_name}
-                            value={shift.shift_name}
-                            className="bg-slate-900 text-white"
-                          >
-                            {getShortShiftLabel(shift.shift_name)}
-                          </option>
-                        ))}
-
-                        {!shifts.some((shift) => shift.shift_name === "OFF") && (
-                          <option value="OFF">OFF</option>
-                        )}
-
-                        {!shifts.some((shift) => shift.shift_name === "RD") && (
-                          <option value="RD">RD</option>
-                        )}
-                      </select>
-
-                      {currentShift === UNSCHEDULED_SHIFT && (
-                        <p className="text-center text-[10px] font-bold text-red-300">
-                          Unscheduled
-                        </p>
-                      )}
-
-                      {currentShift === "OFF" && (
-                        <p className="text-center text-[10px] font-bold text-slate-400">
-                          OFF / Rest day
-                        </p>
-                      )}
-
-                      {currentShift === "RD" && (
-                        <p className="text-center text-[10px] font-bold text-slate-400">
-                          Rest day
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-
-        <SummaryRow
-          label="Current HC"
-          values={currentHC}
-          tableGridColumns={tableGridColumns}
-          color="text-blue-400"
-        />
-
-        <SummaryRow
-          label="Required HC"
-          values={requiredHC}
-          tableGridColumns={tableGridColumns}
-          color="text-emerald-400"
-        />
-
-        <SummaryRow
-          label="Coverage Gap"
-          values={coverageGap.map((gap) =>
-            selectedDepartment === "ALL"
-              ? "-"
-              : gap > 0
-              ? `+${gap}`
-              : String(gap)
-          )}
-          tableGridColumns={tableGridColumns}
-          color="text-yellow-400"
-        />
-
-        <SummaryRow
-          label="Recommendation"
-          values={recommendationText}
-          tableGridColumns={tableGridColumns}
-          color="text-slate-200"
-        />
-      </div>
-    </div>
-  </div>
-</section>
       </main>
     </div>
   );

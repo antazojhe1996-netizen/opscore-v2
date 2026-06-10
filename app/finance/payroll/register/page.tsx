@@ -2338,7 +2338,7 @@ This will:
       <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
         <style jsx global>{`
           @media print {
             @page {
@@ -2394,114 +2394,376 @@ This will:
             }
           }
         `}</style>
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <section className="mb-5 flex flex-col gap-4 border-b border-slate-800 pb-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Payroll Register</h1>
-            <p className="mt-2 text-slate-400">
-              Audit payroll, approve CA/deductions, generate payroll, then send approved payroll to Manager for payment.
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
+              Payroll Operations
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+              Payroll Register
+            </h1>
+            <p className="mt-1 max-w-4xl text-sm text-slate-400">
+              Generate payroll, review employee records, apply CA deductions, and send ready payroll to manager.
             </p>
           </div>
 
-          <div className={`rounded-2xl border px-5 py-4 ${riskStyle}`}>
-            <p className="text-xs uppercase tracking-[0.18em]">
-              Payroll Risk Level
-            </p>
-            <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
-              <Brain size={18} /> {riskLevel}
-            </h2>
-          </div>
-        </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={generatePayroll}
+              disabled={isSaving || !selectedPeriodId || isLocked}
+              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
+            >
+              {selectedPeriod?.needs_regeneration ? "Regenerate Payroll" : "Generate Payroll"}
+            </button>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-8">
-          <KpiCard icon={<Users size={22} />} title="Employees" value={records.length} />
-          <KpiCard icon={<AlertTriangle size={22} />} title="AI Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
-          <KpiCard icon={<DollarSign size={22} />} title="Gross Pay" value={formatMoney(totalGross)} />
-          <KpiCard icon={<Trash2 size={22} />} title="Deductions" value={formatMoney(totalDeductions)} danger={totalDeductions > 0} />
-          <KpiCard icon={<CheckCircle2 size={22} />} title="Computed Net" value={formatMoney(totalNet)} success={totalNet >= 0} danger={totalNet < 0} />
-          <KpiCard icon={<Send size={22} />} title="To Manager Amount" value={formatMoney(totalReleaseAmount)} success />
-          <KpiCard icon={<RotateCcw size={22} />} title="Carry Forward" value={formatMoney(totalCarryForwardAmount)} danger={totalCarryForwardAmount > 0} />
-          {(showGovernmentSection || showTax) && (
-            <KpiCard
-              icon={<DollarSign size={22} />}
-              title="Gov / Tax"
-              value={formatMoney(totalGovernmentDeductions)}
-              danger={totalGovernmentDeductions > 0}
-            />
-          )}
+            <button
+              onClick={reopenPayroll}
+              disabled={isSaving || !selectedPeriodId || !isLocked}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+            >
+              <RotateCcw size={15} /> Reopen
+            </button>
+
+            <button
+              onClick={() =>
+                selectedRecordIds.length > 0
+                  ? sendPayrollToManager("selected")
+                  : sendPayrollToManager("all")
+              }
+              disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+            >
+              <Send size={15} />
+              {selectedRecordIds.length > 0
+                ? `Send Selected (${selectedRecordIds.length})`
+                : "Send All Ready"}
+            </button>
+          </div>
+        </section>
+
+        <section className="sticky top-0 z-30 mb-5 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 shadow-xl shadow-black/20 backdrop-blur">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[260px_minmax(260px,1fr)_220px]">
+              <select
+                value={selectedPeriodId}
+                onChange={(e) => setSelectedPeriodId(e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              >
+                <option value="">Select payroll period</option>
+                {periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {period.period_name} ({period.status})
+                  </option>
+                ))}
+              </select>
+
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search employee, department, or position..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-9 py-2.5 text-sm outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-500">Status</span>
+                  <span className="font-black text-white">{selectedPeriod?.status || "No Period"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <CompactMetric label="Records" value={editableRegisterRecords.length} />
+              <CompactMetric label="Net Pay" value={formatMoney(totalNet)} danger={totalNet < 0} />
+              <CompactMetric label="To Manager" value={formatMoney(totalReleaseAmount)} />
+              <CompactMetric label="Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
+            </div>
+          </div>
         </section>
 
         {selectedPeriod?.needs_regeneration && (
-          <section className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <section className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="flex items-center gap-2 text-xl font-black text-red-300">
-                  <AlertTriangle size={22} /> Payroll Outdated
-                </h2>
-                <p className="mt-2 text-sm text-red-200">
-                  Attendance, adjustments, or employee balances were modified after the last payroll computation.
-                  Generate payroll again before reviewing or sending to Payroll Manager.
+                <p className="font-black text-red-300">Payroll needs regeneration.</p>
+                <p className="mt-1 text-red-100/80">
+                  Attendance, adjustments, or employee balances changed after the last payroll computation.
                 </p>
-                {selectedPeriod?.last_generated_at && (
-                  <p className="mt-1 text-xs text-red-200/70">
-                    Last generated: {new Date(selectedPeriod.last_generated_at).toLocaleString()}
-                  </p>
-                )}
               </div>
 
               <button
                 onClick={generatePayroll}
                 disabled={isSaving || !selectedPeriodId || isLocked}
-                className="rounded-xl bg-red-500 px-5 py-3 text-sm font-black text-white hover:bg-red-400 disabled:opacity-50"
+                className="rounded-lg bg-red-500 px-4 py-2.5 text-sm font-black text-white hover:bg-red-400 disabled:opacity-50"
               >
-                Generate Payroll Now
+                Regenerate Now
               </button>
             </div>
           </section>
         )}
 
-        <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        {managerAlerts.length > 0 && (
+          <section className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+              <p className="font-bold text-amber-200">
+                {managerAlerts.length} payroll audit alert{managerAlerts.length > 1 ? "s" : ""}
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-100/80">
+                {managerAlerts.slice(0, 4).map((alert, index) => (
+                  <span key={index}>
+                    • {alert.employee}: {alert.type}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {selectedRecordIds.length > 0 && (
+          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5 backdrop-blur">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="text-sm font-black text-blue-300">
+                  {selectedRecordIds.length} employee(s) selected
+                </p>
+                <p className="mt-1 text-xs text-blue-100/80">
+                  Gross: {formatMoney(selectedGross)} • Deductions:{" "}
+                  {formatMoney(selectedDeductions)} • Computed Net:{" "}
+                  {formatMoney(selectedNet)} • To Manager: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
+                  {(showGovernmentSection || showTax) && (
+                    <> • Gov/Tax: {formatMoney(selectedGovernmentDeductions)}</>
+                  )}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={clearSelection}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
+                >
+                  Clear
+                </button>
+
+                <button
+                  onClick={() => sendPayrollToManager("selected")}
+                  disabled={selectedRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  <Send size={16} /> Send Selected to Manager
+                </button>
+
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="flex items-center gap-2 text-xl font-bold text-blue-300">
-                <Brain size={22} /> AI Payroll Audit
-              </h2>
-              <p className="mt-1 text-sm text-blue-100/70">
-                Warning only. Approval buttons are in the Payroll Review table.
+              <h2 className="text-xl font-bold">Final Payroll Register</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Review final computed payroll. Set partial CA deduction, then send selected employees to Payroll Manager for actual release.
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <span className="rounded-full bg-red-500/10 px-4 py-2 text-xs font-black text-red-300">
-                {highAlertCount} High
-              </span>
-              <span className="rounded-full bg-blue-500/10 px-4 py-2 text-xs font-black text-blue-300">
-                {mediumAlertCount} Medium
-              </span>
+            <div className="flex flex-col gap-3 md:flex-row">
+              <button
+                onClick={selectAllFiltered}
+                disabled={filteredRecords.length === 0}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+              >
+                Select All
+              </button>
+
+              <button
+                onClick={() =>
+                  selectedRecordIds.length > 0
+                    ? sendPayrollToManager("selected")
+                    : sendPayrollToManager("all")
+                }
+                disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+              >
+                <Send size={16} />
+                {selectedRecordIds.length > 0
+                  ? `Send Selected (${selectedRecordIds.length})`
+                  : "Send All Ready"}
+              </button>
+
+
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search employee..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none xl:w-80"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {managerAlerts.length > 0 ? (
-              managerAlerts.slice(0, 8).map((alert, index) => (
-                <div
-                  key={index}
-                  className={`rounded-xl border p-4 text-sm ${
-                    alert.severity === "High"
-                      ? "border-red-500/20 bg-red-500/10 text-red-200"
-                      : "border-blue-500/20 bg-slate-950/70 text-blue-200"
-                  }`}
-                >
-                  <p className="font-bold">{alert.employee}</p>
-                  <p className="mt-1">{alert.type}</p>
-                  <p className="mt-1 text-xs opacity-80">{alert.message}</p>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
-                ✅ No payroll audit alerts.
-              </div>
-            )}
+          {selectedPeriod?.needs_regeneration && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center text-red-200">
+              <AlertTriangle className="mx-auto mb-3" size={34} />
+              <h3 className="text-xl font-black text-red-300">Payroll table hidden because data is outdated.</h3>
+              <p className="mt-2 text-sm">
+                Attendance, CA/deductions, or carry-forward balances changed after the last generation.
+                Click Generate Payroll before reviewing employee totals.
+              </p>
+            </div>
+          )}
+
+          {!selectedPeriod?.needs_regeneration && (
+          <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[1900px] text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Select</th>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Sched</th>
+                  <th className="px-4 py-3 text-right">Worked</th>
+                  <th className="px-4 py-3 text-right">RD/OFF</th>
+                  <th className="px-4 py-3 text-right">Absent</th>
+                  <th className="px-4 py-3 text-right">Late</th>
+                  <th className="px-4 py-3 text-right">UT</th>
+                  <th className="px-4 py-3 text-right">OT</th>
+                  <th className="px-4 py-3 text-right">Basic</th>
+                  <th className="px-4 py-3 text-right">Holiday</th>
+                  <th className="px-4 py-3 text-right">Auto Ded.</th>
+                  <th className="px-4 py-3 text-right">Manual Ded.</th>
+                  {(showGovernmentSection || showTax) && (
+                    <th className="px-4 py-3 text-right">Gov / Tax</th>
+                  )}
+                  <th className="px-4 py-3 text-right">CA Deduct This Cutoff</th>
+                  <th className="px-4 py-3 text-right">Computed Net</th>
+                  <th className="px-4 py-3 text-right">To Manager</th>
+                  <th className="px-4 py-3 text-right">Carry Forward</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredRecords.map((record) => {
+                  const autoDeduction = getAutoDeductionTotal(record);
+                  const governmentDeduction = getGovernmentDeductionTotal(record);
+                  const displayedNetPay = getDisplayedNetPay(record);
+                  const displayedReleaseAmount = getDisplayedReleaseAmount(record);
+                  const displayedCarryForwardAmount =
+                    getDisplayedCarryForwardAmount(record);
+
+                  const selected = selectedRecordIds.includes(String(record.id));
+
+                  return (
+                    <tr
+                      key={record.id}
+                      className={`border-t border-slate-800 hover:bg-slate-800/40 ${
+                        selected ? "bg-yellow-400/10" : ""
+                      } ${displayedNetPay < 0 ? "bg-red-500/10" : ""}`}
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleRecordSelection(record.id)}
+                          className="h-4 w-4 accent-yellow-400"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-black">{record.employee_name}</p>
+                        <p className="text-xs text-slate-500">
+                          {record.department} • {record.position}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={record.status || "Draft"} />
+                      </td>
+                      <td className="px-4 py-3 text-right">{record.scheduled_days || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.days_worked || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.rest_days || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.absent_days || 0}</td>
+                      <td className="px-4 py-3 text-right">{record.late_minutes || 0} min</td>
+                      <td className="px-4 py-3 text-right">{record.undertime_minutes || 0} min</td>
+                      <td className="px-4 py-3 text-right">{Number(record.ot_minutes || 0)} min</td>
+                      <td className="px-4 py-3 text-right">{formatMoney(record.basic_pay)}</td>
+                      <td className="px-4 py-3 text-right text-blue-400">{formatMoney(record.holiday_pay)}</td>
+                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
+                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
+                      {(showGovernmentSection || showTax) && (
+                        <td className="px-4 py-3 text-right text-red-400">
+                          {formatMoney(governmentDeduction)}
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-right">
+                        {(() => {
+                          const maxBalance = getMaxBalanceDeductionForRecord(record);
+                          const draftValue = balanceDrafts[record.id] ?? String(Number(record.balance_deduction || 0));
+
+                          return (
+                            <div className="flex flex-col items-end gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                max={maxBalance}
+                                value={draftValue}
+                                disabled={!canEditPayroll || maxBalance <= 0 || isSaving}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setBalanceDrafts((prev) => ({
+                                    ...prev,
+                                    [record.id]: value,
+                                  }));
+                                }}
+                                onBlur={(event) => updateRecordBalanceDeduction(record, event.target.value)}
+                                className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-right text-xs font-black text-blue-300 outline-none disabled:opacity-40"
+                              />
+                              <p className="text-[10px] text-slate-500">
+                                Max CA: {formatMoney(maxBalance)}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-black ${
+                          displayedNetPay < 0 ? "text-red-400" : "text-emerald-400"
+                        }`}
+                      >
+                        {formatMoney(displayedNetPay)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-emerald-400">
+                        {formatMoney(displayedReleaseAmount)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-blue-300">
+                        {formatMoney(displayedCarryForwardAmount)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openEmployeeAudit(record)}
+                          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold hover:bg-blue-500"
+                        >
+                          View Audit
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {filteredRecords.length === 0 && (
+                  <tr>
+                    <td colSpan={(showGovernmentSection || showTax) ? 20 : 19} className="px-4 py-14 text-center text-slate-500">
+                      No payroll records. Select period then click Generate.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
+          )}
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -2836,250 +3098,6 @@ Active balances are deducted through payroll only. Cancel here only when the bal
           </div>
         </section>
 
-        {selectedRecordIds.length > 0 && (
-          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5 backdrop-blur">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="text-sm font-black text-blue-300">
-                  {selectedRecordIds.length} employee(s) selected
-                </p>
-                <p className="mt-1 text-xs text-blue-100/80">
-                  Gross: {formatMoney(selectedGross)} • Deductions:{" "}
-                  {formatMoney(selectedDeductions)} • Computed Net:{" "}
-                  {formatMoney(selectedNet)} • To Manager: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
-                  {(showGovernmentSection || showTax) && (
-                    <> • Gov/Tax: {formatMoney(selectedGovernmentDeductions)}</>
-                  )}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={clearSelection}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
-                >
-                  Clear
-                </button>
-
-                <button
-                  onClick={() => sendPayrollToManager("selected")}
-                  disabled={selectedRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  <Send size={16} /> Send Selected to Manager
-                </button>
-
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Final Payroll Register</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Review final computed payroll. Set partial CA deduction, then send selected employees to Payroll Manager for actual release.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 md:flex-row">
-              <button
-                onClick={selectAllFiltered}
-                disabled={filteredRecords.length === 0}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
-              >
-                Select All
-              </button>
-
-              <button
-                onClick={() =>
-                  selectedRecordIds.length > 0
-                    ? sendPayrollToManager("selected")
-                    : sendPayrollToManager("all")
-                }
-                disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-              >
-                <Send size={16} />
-                {selectedRecordIds.length > 0
-                  ? `Send Selected (${selectedRecordIds.length})`
-                  : "Send All Ready"}
-              </button>
-
-
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search employee..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none xl:w-80"
-                />
-              </div>
-            </div>
-          </div>
-
-          {selectedPeriod?.needs_regeneration && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center text-red-200">
-              <AlertTriangle className="mx-auto mb-3" size={34} />
-              <h3 className="text-xl font-black text-red-300">Payroll table hidden because data is outdated.</h3>
-              <p className="mt-2 text-sm">
-                Attendance, CA/deductions, or carry-forward balances changed after the last generation.
-                Click Generate Payroll before reviewing employee totals.
-              </p>
-            </div>
-          )}
-
-          {!selectedPeriod?.needs_regeneration && (
-          <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1900px] text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Select</th>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Sched</th>
-                  <th className="px-4 py-3 text-right">Worked</th>
-                  <th className="px-4 py-3 text-right">RD/OFF</th>
-                  <th className="px-4 py-3 text-right">Absent</th>
-                  <th className="px-4 py-3 text-right">Late</th>
-                  <th className="px-4 py-3 text-right">UT</th>
-                  <th className="px-4 py-3 text-right">OT</th>
-                  <th className="px-4 py-3 text-right">Basic</th>
-                  <th className="px-4 py-3 text-right">Holiday</th>
-                  <th className="px-4 py-3 text-right">Auto Ded.</th>
-                  <th className="px-4 py-3 text-right">Manual Ded.</th>
-                  {(showGovernmentSection || showTax) && (
-                    <th className="px-4 py-3 text-right">Gov / Tax</th>
-                  )}
-                  <th className="px-4 py-3 text-right">CA Deduct This Cutoff</th>
-                  <th className="px-4 py-3 text-right">Computed Net</th>
-                  <th className="px-4 py-3 text-right">To Manager</th>
-                  <th className="px-4 py-3 text-right">Carry Forward</th>
-                  <th className="px-4 py-3">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredRecords.map((record) => {
-                  const autoDeduction = getAutoDeductionTotal(record);
-                  const governmentDeduction = getGovernmentDeductionTotal(record);
-                  const displayedNetPay = getDisplayedNetPay(record);
-                  const displayedReleaseAmount = getDisplayedReleaseAmount(record);
-                  const displayedCarryForwardAmount =
-                    getDisplayedCarryForwardAmount(record);
-
-                  const selected = selectedRecordIds.includes(String(record.id));
-
-                  return (
-                    <tr
-                      key={record.id}
-                      className={`border-t border-slate-800 hover:bg-slate-800/40 ${
-                        selected ? "bg-yellow-400/10" : ""
-                      } ${displayedNetPay < 0 ? "bg-red-500/10" : ""}`}
-                    >
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => toggleRecordSelection(record.id)}
-                          className="h-4 w-4 accent-yellow-400"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-black">{record.employee_name}</p>
-                        <p className="text-xs text-slate-500">
-                          {record.department} • {record.position}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={record.status || "Draft"} />
-                      </td>
-                      <td className="px-4 py-3 text-right">{record.scheduled_days || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.days_worked || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.rest_days || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.absent_days || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.late_minutes || 0} min</td>
-                      <td className="px-4 py-3 text-right">{record.undertime_minutes || 0} min</td>
-                      <td className="px-4 py-3 text-right">{Number(record.ot_minutes || 0)} min</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(record.basic_pay)}</td>
-                      <td className="px-4 py-3 text-right text-blue-400">{formatMoney(record.holiday_pay)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
-                      {(showGovernmentSection || showTax) && (
-                        <td className="px-4 py-3 text-right text-red-400">
-                          {formatMoney(governmentDeduction)}
-                        </td>
-                      )}
-                      <td className="px-4 py-3 text-right">
-                        {(() => {
-                          const maxBalance = getMaxBalanceDeductionForRecord(record);
-                          const draftValue = balanceDrafts[record.id] ?? String(Number(record.balance_deduction || 0));
-
-                          return (
-                            <div className="flex flex-col items-end gap-1">
-                              <input
-                                type="number"
-                                min="0"
-                                max={maxBalance}
-                                value={draftValue}
-                                disabled={!canEditPayroll || maxBalance <= 0 || isSaving}
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  setBalanceDrafts((prev) => ({
-                                    ...prev,
-                                    [record.id]: value,
-                                  }));
-                                }}
-                                onBlur={(event) => updateRecordBalanceDeduction(record, event.target.value)}
-                                className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-right text-xs font-black text-blue-300 outline-none disabled:opacity-40"
-                              />
-                              <p className="text-[10px] text-slate-500">
-                                Max CA: {formatMoney(maxBalance)}
-                              </p>
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td
-                        className={`px-4 py-3 text-right font-black ${
-                          displayedNetPay < 0 ? "text-red-400" : "text-emerald-400"
-                        }`}
-                      >
-                        {formatMoney(displayedNetPay)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">
-                        {formatMoney(displayedReleaseAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-blue-300">
-                        {formatMoney(displayedCarryForwardAmount)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => openEmployeeAudit(record)}
-                          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold hover:bg-blue-500"
-                        >
-                          View Audit
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {filteredRecords.length === 0 && (
-                  <tr>
-                    <td colSpan={(showGovernmentSection || showTax) ? 20 : 19} className="px-4 py-14 text-center text-slate-500">
-                      No payroll records. Select period then click Generate.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          )}
-        </section>
-
         {!selectedPeriod?.needs_regeneration && selectedAuditRecord && (
           <section className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-6">
             <div className="mb-5 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
@@ -3384,6 +3402,38 @@ function PayslipLine({
       <td className="px-4 py-2 text-slate-600">{label}</td>
       <td className="px-4 py-2 text-right font-bold">{value}</td>
     </tr>
+  );
+}
+
+
+function CompactMetric({
+  label,
+  value,
+  danger,
+}: {
+  label: string;
+  value: any;
+  danger?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2 ${
+        danger ? "border-red-500/20 bg-red-500/10" : "border-slate-800 bg-slate-900"
+      }`}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p
+        className={
+          danger
+            ? "mt-1 text-lg font-black text-red-300"
+            : "mt-1 text-lg font-black text-white"
+        }
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
