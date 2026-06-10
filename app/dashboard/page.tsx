@@ -1498,85 +1498,89 @@ export default function ExecutiveDashboardPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-              OPSCORE Executive Workspace
-            </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-blue-300">
+                Executive Overview
+              </p>
 
-            <h1 className="mt-2 text-4xl font-black">Executive Dashboard</h1>
+              <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
+                Business Operations Dashboard
+              </h1>
 
-            <p className="mt-2 text-slate-400">
-              Enterprise owner view for cash, revenue, expenses, payroll, collections, and operational risk.
-            </p>
-          </div>
-
-          <div className="w-full space-y-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 lg:w-auto">
-            <div className="flex flex-wrap gap-2">
-              {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
-                (range) => (
-                  <button
-                    key={range}
-                    onClick={() => {
-                      setUseCustomRange(false);
-                      setRangeType(range);
-                    }}
-                    className={
-                      !useCustomRange && rangeType === range
-                        ? "rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-slate-950"
-                        : "rounded-lg px-4 py-2 text-sm font-bold text-slate-400 hover:bg-slate-800"
-                    }
-                  >
-                    {range === "daily"
-                      ? "Latest Day"
-                      : range === "weekly"
-                        ? "Latest Week"
-                        : range === "monthly"
-                          ? "Latest Month"
-                          : "Latest Year"}
-                  </button>
-                ),
-              )}
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
+                Owner-level summary for cash, revenue, expenses, payroll, collections, and immediate operating risks.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-              <input
-                type="date"
-                value={customFromDate}
-                onChange={(e) => setCustomFromDate(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
-              />
+            <div className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 p-3 xl:max-w-[560px]">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
+                  (range) => (
+                    <button
+                      key={range}
+                      onClick={() => {
+                        setUseCustomRange(false);
+                        setRangeType(range);
+                      }}
+                      className={
+                        !useCustomRange && rangeType === range
+                          ? "rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
+                          : "rounded-xl border border-slate-800 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-slate-900"
+                      }
+                    >
+                      {range === "daily"
+                        ? "Day"
+                        : range === "weekly"
+                          ? "Week"
+                          : range === "monthly"
+                            ? "Month"
+                            : "Year"}
+                    </button>
+                  ),
+                )}
+              </div>
 
-              <input
-                type="date"
-                value={customToDate}
-                onChange={(e) => setCustomToDate(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
-              />
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+                <input
+                  type="date"
+                  value={customFromDate}
+                  onChange={(e) => setCustomFromDate(e.target.value)}
+                  className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
+                />
 
-              <button
-                onClick={applyCustomRange}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500"
-              >
-                Apply
-              </button>
+                <input
+                  type="date"
+                  value={customToDate}
+                  onChange={(e) => setCustomToDate(e.target.value)}
+                  className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
+                />
 
-              <button
-                onClick={resetToLatestRange}
-                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
-              >
-                Reset
-              </button>
+                <button
+                  onClick={applyCustomRange}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
+                >
+                  Apply
+                </button>
+
+                <button
+                  onClick={resetToLatestRange}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:bg-slate-800"
+                >
+                  Reset
+                </button>
+              </div>
+
+              <p className="mt-3 text-xs font-semibold text-blue-300">
+                {getActiveRangeLabel()}
+              </p>
             </div>
-
-            <p className="text-xs font-semibold text-blue-300">
-              {getActiveRangeLabel()}
-            </p>
           </div>
-        </div>
+        </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
+        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <KpiCard
             icon={<Wallet size={22} />}
             title="Verified Cash"
@@ -1588,19 +1592,11 @@ export default function ExecutiveDashboardPage() {
           />
 
           <KpiCard
-            icon={<Banknote size={22} />}
-            title="Total Remitted"
-            value={formatPeso(totalRemitted)}
-            success={totalRemitted > 0}
-            subtitle="Custody transfer"
-            formula="Total cash remittance entries from Cash Management. This is not an expense."
-          />
-
-          <KpiCard
             icon={<Hotel size={22} />}
             title="Gross Revenue"
             value={formatPeso(grossOperatingSales)}
             success
+            subtitle="Active sales"
             formula="Hotel active sales + restaurant sales + apartment collections."
           />
 
@@ -1609,6 +1605,7 @@ export default function ExecutiveDashboardPage() {
             title="Collected Revenue"
             value={formatPeso(collectedOperatingRevenue)}
             success
+            subtitle="Actual collections"
             formula="Hotel collections + restaurant sales + apartment collections."
           />
 
@@ -1623,281 +1620,159 @@ export default function ExecutiveDashboardPage() {
 
           <KpiCard
             icon={<ShieldAlert size={22} />}
-            title="Collectible Receivables"
+            title="Receivables"
             value={formatPeso(expectedCollections)}
             danger={expectedCollections > 0}
-            subtitle="Positive guest balance"
+            subtitle="Collectible balance"
             formula="Hotel collectible balance + apartment receivables. Negative credits/refunds are excluded."
           />
 
+          <KpiCard
+            icon={<Brain size={22} />}
+            title="Health Score"
+            value={`${businessHealthScore}/100`}
+            success={businessHealthScore >= 85}
+            danger={businessHealthScore < 70}
+            subtitle={businessStatus}
+            formula="Weighted score from finance, operations, and collections risk."
+          />
         </section>
 
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 lg:p-6">
           <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-300">
-                Cash Accountability
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+                Financial Trend
               </p>
-              <h2 className="mt-1 text-2xl font-black text-white">
-                Remittance & Custody Control
+              <h2 className="mt-2 text-2xl font-black text-white">
+                Revenue, Expense & Cash Position
               </h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Shows where cash went: operating releases, remittance, deposits, owner withdrawals, and verified drawer cash.
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Executive trend for revenue, expenses, verified cash, and net position.
               </p>
             </div>
 
-            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black text-blue-300">
-              {Math.abs(cashAccountabilityVariance) <= 1 ? "Balanced" : "Review Variance"}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-            <AccountabilityCard
-              title="Cash In"
-              value={formatPeso(cashMovementCashIn)}
-              helper="Opening float + cash collections"
-            />
-            <AccountabilityCard
-              title="Cash Out"
-              value={formatPeso(operationalCashOut)}
-              helper="Expenses and cash advances"
-            />
-            <AccountabilityCard
-              title="Remitted"
-              value={formatPeso(totalRemitted)}
-              helper="Cash transferred to receiver"
-            />
-            <AccountabilityCard
-              title="Bank / Owner"
-              value={formatPeso(bankDepositTotal + ownerWithdrawalTotal)}
-              helper="Bank deposit + owner withdrawal"
-            />
-            <AccountabilityCard
-              title="Verified Cash"
-              value={formatPeso(cashAvailable)}
-              helper="Drawer actual/live cash"
-            />
-            <AccountabilityCard
-              title="Variance"
-              value={formatPeso(cashAccountabilityVariance)}
-              helper="Cash in minus accounted cash"
-              danger={Math.abs(cashAccountabilityVariance) > 1}
-            />
-          </div>
-        </section>
-
-        <section className="mb-6">
-          <div className="h-[340px] rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20">
-            <h2 className="text-xl font-bold">Revenue, Expense & Cash Trend</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Executive trend for revenue, expenses, verified cash, and net position.
-            </p>
-
-            <div className="mt-4 h-[220px] min-h-[220px] min-w-0">
-              {chartReady && trendData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart
-                    data={trendData}
-                    margin={{ top: 16, right: 20, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="label" stroke="#94a3b8" />
-                    <YAxis
-                      stroke="#94a3b8"
-                      tickFormatter={(value) => `₱${Number(value) / 1000}k`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#020617",
-                        border: "1px solid #334155",
-                        borderRadius: "12px",
-                        color: "#fff",
-                      }}
-                      formatter={(value: any) => formatPeso(Number(value))}
-                    />
-                    <Legend verticalAlign="top" height={28} />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      name="Revenue"
-                      stroke="#60a5fa"
-                      strokeWidth={3}
-                      fill="#60a5fa"
-                      fillOpacity={0.18}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="expenses"
-                      name="Expenses + Payroll"
-                      stroke="#94a3b8"
-                      strokeWidth={3}
-                      fill="#94a3b8"
-                      fillOpacity={0.12}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="cash"
-                      name="Actual Cash"
-                      stroke="#38bdf8"
-                      strokeWidth={3}
-                      fill="#38bdf8"
-                      fillOpacity={0.15}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="profit"
-                      name="Net Position"
-                      stroke="#67e8f9"
-                      strokeWidth={3}
-                      fill="#67e8f9"
-                      fillOpacity={0.12}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                  No financial data found for selected range.
-                </div>
-              )}
+            <div className="rounded-full border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-400">
+              Net Position:{" "}
+              <span className={netPosition < 0 ? "text-red-300" : "text-blue-300"}>
+                {formatPeso(netPosition)}
+              </span>
             </div>
           </div>
-        </section>
 
-        <section className="mb-6">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-blue-300">
-                  <Brain size={18} /> Executive Briefing
-                </p>
-                <h2 className="mt-1 text-2xl font-black">{businessStatus}</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Automated operating brief based on cash, collections, payroll, and operational risk.
-                </p>
+          <div className="h-[260px] min-h-[260px] min-w-0 sm:h-[320px]">
+            {chartReady && trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={trendData}
+                  margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="label" stroke="#94a3b8" />
+                  <YAxis
+                    stroke="#94a3b8"
+                    width={52}
+                    tickFormatter={(value) => `₱${Number(value) / 1000}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#020617",
+                      border: "1px solid #334155",
+                      borderRadius: "12px",
+                      color: "#fff",
+                    }}
+                    formatter={(value: any) => formatPeso(Number(value))}
+                  />
+                  <Legend verticalAlign="top" height={28} />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Revenue"
+                    stroke="#60a5fa"
+                    strokeWidth={3}
+                    fill="#60a5fa"
+                    fillOpacity={0.18}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="expenses"
+                    name="Expenses + Payroll"
+                    stroke="#94a3b8"
+                    strokeWidth={3}
+                    fill="#94a3b8"
+                    fillOpacity={0.12}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cash"
+                    name="Verified Cash"
+                    stroke="#38bdf8"
+                    strokeWidth={3}
+                    fill="#38bdf8"
+                    fillOpacity={0.15}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="profit"
+                    name="Net Position"
+                    stroke="#67e8f9"
+                    strokeWidth={3}
+                    fill="#67e8f9"
+                    fillOpacity={0.12}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-800 text-sm text-slate-500">
+                No financial data found for selected range.
               </div>
-
-              <div className="grid grid-cols-2 gap-3 rounded-2xl border border-sky-400/20 bg-slate-950/60 p-4 text-center xl:min-w-[360px]">
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300/70">
-                    Alerts
-                  </p>
-                  <p className="mt-1 text-3xl font-black text-white">
-                    {criticalAlerts.length}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300/70">
-                    Actions
-                  </p>
-                  <p className="mt-1 text-3xl font-black text-white">
-                    {recommendations.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <BriefingBox
-                title="Risk Alerts"
-                items={criticalAlerts}
-                empty="No major issue detected."
-              />
-
-              <BriefingBox
-                title="Recommended Actions"
-                items={recommendations}
-                empty="Maintain current operation and monitor daily cash."
-              />
-            </div>
-          </section>
+            )}
+          </div>
         </section>
 
-
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+        <section className="mb-6 rounded-3xl border border-blue-500/20 bg-blue-500/10 p-5 lg:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-300">
-                Financial Review
+              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+                <Brain size={18} /> Executive Briefing
               </p>
-              <h2 className="mt-1 text-2xl font-black text-white">
-                Leakage & Cost Watchlist
-              </h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Focused view of cash variance, payroll load, employee balances, guest collectibles, and expense pressure.
+              <h2 className="mt-2 text-2xl font-black">{businessStatus}</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-300">
+                Automated operating brief based on cash, collections, payroll, and operational risk.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-center md:grid-cols-4">
-              <CulpritMiniCard
-                title="Top Payroll"
-                value={highestPayrollCulprit ? formatPeso(highestPayrollCulprit.payrollCost) : formatPeso(0)}
-                subtitle={highestPayrollCulprit?.employeeName || "No payroll"}
-              />
-              <CulpritMiniCard
-                title="Top Cash Advance"
-                value={highestCashAdvanceCulprit ? formatPeso(highestCashAdvanceCulprit.amount) : formatPeso(0)}
-                subtitle={highestCashAdvanceCulprit?.employeeName || "No balance"}
-              />
-              <CulpritMiniCard
-                title="Top Collectible"
-                value={highestGuestBalanceCulprit ? formatPeso(highestGuestBalanceCulprit.balance) : formatPeso(0)}
-                subtitle={highestGuestBalanceCulprit?.guest || "No guest balance"}
-              />
-              <CulpritMiniCard
-                title="Top Expense Area"
-                value={highestExpenseDepartment ? formatPeso(highestExpenseDepartment.amount) : formatPeso(0)}
-                subtitle={highestExpenseDepartment?.department || "No expenses"}
-              />
+            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-blue-400/20 bg-slate-950/70 p-4 text-center xl:min-w-[320px]">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-300/70">
+                  Alerts
+                </p>
+                <p className="mt-1 text-3xl font-black text-white">
+                  {criticalAlerts.length}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-300/70">
+                  Actions
+                </p>
+                <p className="mt-1 text-3xl font-black text-white">
+                  {recommendations.length}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-            <CulpritPanel
-              title="Payroll Cost Review"
-              description="Employees with the highest payroll cost in the selected range."
-              empty="No payroll cost found."
-              rows={payrollCulpritRows.map((row: any) => ({
-                name: row.employeeName,
-                meta: `${row.department} • ${row.records} payroll record(s) • OT ${formatPeso(row.otCost)}`,
-                value: formatPeso(row.payrollCost),
-                danger: row.otCost > 0,
-              }))}
+          <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <BriefingBox
+              title="Risk Alerts"
+              items={criticalAlerts}
+              empty="No major issue detected."
             />
 
-            <CulpritPanel
-              title="Employee Balance Review"
-              description="Employees with remaining cash advance balances."
-              empty="No outstanding cash advances."
-              rows={cashAdvanceWatchlist.map((row: any) => ({
-                name: row.employeeName,
-                meta: `${row.department} • ${row.records} balance record(s)`,
-                value: formatPeso(row.amount),
-                danger: row.amount > 0,
-              }))}
-            />
-
-            <CulpritPanel
-              title="Guest Collections Review"
-              description="Active hotel reservations with positive collectible balance."
-              empty="No uncollected guest balance found."
-              rows={uncollectedGuestRows.map((row: any) => ({
-                name: row.guest,
-                meta: `Room ${row.room} • Reservation ${row.reservation}`,
-                value: formatPeso(row.balance),
-                danger: row.balance > 0,
-              }))}
-            />
-
-            <CulpritPanel
-              title="Expense Review by Department"
-              description="Departments or areas with the highest expense amount."
-              empty="No expense pressure found."
-              rows={expenseCulpritRows.map((row: any) => ({
-                name: row.department,
-                meta: `${row.records} expense record(s)`,
-                value: formatPeso(row.amount),
-                danger: row.amount > 0,
-              }))}
+            <BriefingBox
+              title="Recommended Actions"
+              items={recommendations}
+              empty="Maintain current operation and monitor daily cash."
             />
           </div>
         </section>
@@ -1905,174 +1780,78 @@ export default function ExecutiveDashboardPage() {
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
           <InsightCard
             icon={<Wallet size={22} />}
-            title="Cash Flow Health"
-            status={cashFlowStatus}
-            statusClass={cashFlowStyle}
+            title="Cash Control"
+            status={Math.abs(cashAccountabilityVariance) <= 1 ? "Balanced" : "Review"}
+            statusClass="border-blue-500/20 bg-blue-500/10 text-blue-300"
             rows={[
               {
-                label: "Verified Cash",
-                value: formatPeso(cashAvailable),
-                formula: "Verified drawer cash only",
+                label: "Cash In",
+                value: formatPeso(cashMovementCashIn),
+                formula: "Opening float + cash collections",
               },
               {
-                label: "Total Remitted",
+                label: "Remitted",
                 value: formatPeso(totalRemitted),
                 formula: "Cash transferred out through remittance process",
               },
               {
-                label: "Collected Revenue",
-                value: formatPeso(collectedOperatingRevenue),
-                formula: "Hotel collections + restaurant sales + apartment collections in selected range.",
+                label: "Cash Out",
+                value: formatPeso(operationalCashOut),
+                formula: "Expenses and cash advances",
               },
               {
-                label: "Collectible Receivables",
-                value: formatPeso(expectedCollections),
-                formula: "Hotel collectible balance + apartment receivables. Negative credits/refunds are excluded.",
+                label: "Bank / Owner",
+                value: formatPeso(bankDepositTotal + ownerWithdrawalTotal),
+                formula: "Bank deposit + owner withdrawal",
               },
               {
-                label: "Upcoming Bills",
-                value: formatPeso(upcomingBillsTotal),
-                formula: "Bills due within 14 days",
-              },
-              {
-                label: "Payroll Load",
-                value: formatPeso(payrollTotal),
-                formula: "Total payroll in selected range",
-              },
-              {
-                label: "Cash If Collected",
-                value: formatPeso(projectedCashPosition),
-                formula: "Cash + collectible receivables - bills - payroll",
+                label: "Variance",
+                value: formatPeso(cashAccountabilityVariance),
+                formula: "Cash in minus accounted cash",
               },
             ]}
           />
 
           <InsightCard
             icon={<Hotel size={22} />}
-            title="Hotel Sales Control"
-            status={outstandingGuestBalance > 0 ? "Collect" : "Clean"}
-            statusClass={
-              outstandingGuestBalance > 0
-                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
-            }
+            title="Revenue Control"
+            status={topRevenueSource.name || "Review"}
+            statusClass="border-blue-500/20 bg-blue-500/10 text-blue-300"
             rows={[
               {
-                label: "Gross Hotel Sales",
+                label: "Top Source",
+                value: `${topRevenueSource.name} (${topRevenueShare}%)`,
+                formula: "Biggest income source in selected range",
+              },
+              {
+                label: "Rooms",
                 value: formatPeso(grossRoomSales),
                 formula: "Active/non-cancelled hotel sales from room-sales import",
+              },
+              {
+                label: "Restaurant",
+                value: formatPeso(restaurantRevenue),
+                formula: "Restaurant sales",
+              },
+              {
+                label: "Apartment",
+                value: formatPeso(apartmentRevenue),
+                formula: "Apartment collections",
               },
               {
                 label: "Cancelled Gross",
                 value: formatPeso(cancelledGrossRoomSales),
                 formula: "Cancelled reservation totals excluded from gross hotel sales",
               },
-              {
-                label: "Room Collections",
-                value: formatPeso(collectedRoomRevenue),
-                formula: "Paid hotel room collections in selected range",
-              },
-              {
-                label: "Collectible Balance",
-                value: formatPeso(outstandingGuestBalance),
-                formula: "Positive unpaid hotel guest balance from Cloudbeds import",
-              },
-              {
-                label: "Collectible Reservations",
-                value: String(unpaidGuestReservations.length),
-                formula: "Reservations with positive remaining guest balance",
-              },
-              {
-                label: "Active / Cancelled",
-                value: `${activeGuestReservations.length}/${cancelledGuestReservations}`,
-                formula: "Active reservations versus cancelled reservations",
-              },
-              {
-                label: "Avg Paid / Reservation",
-                value: formatPeso(averagePaidPerReservation),
-                formula: "Room collections divided by reservation count",
-              },
             ]}
           />
 
-          <InsightCard
-            icon={<Brain size={22} />}
-            title="Business Health"
-            status={businessStatus}
-            statusClass={statusStyle}
-            rows={[
-              {
-                label: "Cash Status",
-                value: cashFlowStatus,
-                formula: "Cash safety level",
-              },
-              {
-                label: "Payroll Status",
-                value: payrollStatus,
-                formula: "Staff cost level",
-              },
-              {
-                label: "Top Revenue Source",
-                value: `${topRevenueSource.name} (${topRevenueShare}%)`,
-                formula: "Biggest income source",
-              },
-              {
-                label: "Recoverable Cash",
-                value: formatPeso(recoverableCash),
-                formula: "Hotel + apartment collectible receivables + drawer variance",
-              },
-            ]}
-          />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <RevenueCard
-            title="Rooms"
-            value={grossRoomSales}
-            total={grossOperatingSales}
-            formula="Active/non-cancelled hotel sales from room-sales import"
-          />
-          <RevenueCard
-            title="Restaurant"
-            value={restaurantRevenue}
-            total={grossOperatingSales}
-            formula="Restaurant sales"
-          />
-          <RevenueCard
-            title="Apartment"
-            value={apartmentRevenue}
-            total={grossOperatingSales}
-            formula="Apartment collections"
-          />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
           <InsightCard
             icon={<Users size={22} />}
-            title="Payroll & Attendance"
-            status={
-              payrollNeedsRegeneration.length > 0
-                ? "Regenerate"
-                : pendingPayrollReleaseAmount > 0
-                  ? "For Release"
-                  : attendanceIssueRows.length > 0
-                    ? "Review"
-                    : "Clean"
-            }
-            statusClass={
-              payrollNeedsRegeneration.length > 0 ||
-              attendanceIssueRows.length > 0
-                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-                : pendingPayrollReleaseAmount > 0
-                  ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-                  : "border-blue-500/20 bg-blue-500/10 text-blue-300"
-            }
+            title="People & Payroll"
+            status={payrollStatus}
+            statusClass="border-blue-500/20 bg-blue-500/10 text-blue-300"
             rows={[
-              {
-                label: "Needs Regeneration",
-                value: String(payrollNeedsRegeneration.length),
-                formula: "Cutoffs changed after generation",
-              },
               {
                 label: "For Release",
                 value: formatPeso(pendingPayrollReleaseAmount),
@@ -2081,437 +1860,81 @@ export default function ExecutiveDashboardPage() {
               {
                 label: "Attendance Issues",
                 value: String(attendanceIssueRows.length),
-                formula: `${absentRows.length} absent • ${lateRows.length} late • ${missingOutRows.length} missing out`,
+                formula: "Absences, late, undertime, or missing time-out entries",
               },
               {
                 label: "Cash Advances",
                 value: formatPeso(outstandingCashAdvances),
-                formula: `${employeesWithOutstandingBalances} employee(s) affected`,
-              },
-            ]}
-          />
-
-          <InsightCard
-            icon={<ShieldAlert size={22} />}
-            title="Cash Recovery"
-            status={recoverableCash > 0 ? "Recoverable" : "Clean"}
-            statusClass={
-              recoverableCash > 0
-                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
-            }
-            rows={[
-              {
-                label: "Hotel Collectible Balance",
-                value: formatPeso(outstandingGuestBalance),
-                formula: "Positive unpaid hotel guest balance",
+                formula: "Active employee cash advance balances",
               },
               {
-                label: "Drawer Variance",
-                value: formatPeso(Math.abs(totalVariance)),
-                formula: "Cash difference",
+                label: "Needs Regeneration",
+                value: String(payrollNeedsRegeneration.length),
+                formula: "Cutoffs changed after generation",
               },
               {
-                label: "Total Recovery",
-                value: formatPeso(recoverableCash),
-                formula: "Hotel + apartment collectible receivables and drawer variance",
-              },
-            ]}
-          />
-
-          <InsightCard
-            icon={<Wallet size={22} />}
-            title="Cash Drawer Accountability"
-            status={
-              openDrawers.length > 0 || totalVariance !== 0 ? "Review" : "Clean"
-            }
-            statusClass={
-              openDrawers.length > 0 || totalVariance !== 0
-                ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-                : "border-blue-500/20 bg-blue-500/10 text-blue-300"
-            }
-            rows={[
-              {
-                label: "Open / Closed Drawers",
-                value: `${openDrawers.length}/${closedDrawers.length}`,
-                formula: "Drawer status count",
-              },
-              {
-                label: "Balanced / Variance",
-                value: `${balancedDrawerCount}/${varianceDrawerCount}`,
-                formula: "Cashiers with clean vs variance drawers",
-              },
-              {
-                label: "Largest Shortage",
-                value: largestShortage
-                  ? `${largestShortage.cashier} ${formatPeso(largestShortage.variance)}`
-                  : formatPeso(0),
-                formula: "Most negative drawer variance",
-              },
-              {
-                label: "Largest Overage",
-                value: largestOverage
-                  ? `${largestOverage.cashier} +${formatPeso(largestOverage.variance).replace("₱", "₱")}`
-                  : formatPeso(0),
-                formula: "Most positive drawer variance",
+                label: "Payroll Ratio",
+                value: `${payrollRatio}%`,
+                formula: "Payroll divided by total collected revenue",
               },
             ]}
           />
         </section>
 
-        <section className="mb-6">
-          <div className="mb-4 flex items-center gap-3">
-            <TrendingUp className="text-blue-300" size={28} />
-
-            <div>
-              <h2 className="text-2xl font-black">Department Profitability</h2>
-              <p className="text-sm text-slate-400">
-                Revenue minus allocated expenses based on Expense Allocation
-                Rules.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {departmentProfitability.map((department) => {
-              const margin =
-                department.revenue > 0
-                  ? Math.round((department.profit / department.revenue) * 100)
-                  : 0;
-
-              return (
-                <div
-                  key={department.name}
-                  className="rounded-2xl border border-slate-800 bg-slate-900 p-6"
-                >
-                  <h3 className="text-xl font-black">{department.name}</h3>
-
-                  <div className="mt-5 space-y-3">
-                    <MiniRow
-                      label="Revenue"
-                      value={formatPeso(department.revenue)}
-                      formula="Income per department"
-                    />
-                    <MiniRow
-                      label="Allocated Expenses"
-                      value={formatPeso(department.allocatedExpenses)}
-                      formula="Assigned department costs"
-                    />
-                    <MiniRow
-                      label="Profit"
-                      value={formatPeso(department.profit)}
-                      formula="Income minus costs"
-                    />
-                    <MiniRow
-                      label="Margin"
-                      value={`${margin}%`}
-                      formula="Profit percentage"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {Object.keys(allocatedExpenses.unmappedItems).length > 0 && (
-          <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-            <h2 className="text-xl font-black text-blue-300">
-              Allocation Review Needed
-            </h2>
-
-            <p className="mt-1 text-sm text-sky-200">
-              These categories do not match allocation rules.
+        <section className="grid grid-cols-1 gap-5 xl:grid-cols-4">
+          <a
+            href="/manager/approval-center"
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
+              Approvals
             </p>
+            <h3 className="mt-2 text-xl font-black">Approval Center</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Review leave, cash, expense, and operations approval queues.
+            </p>
+          </a>
 
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {Object.entries(allocatedExpenses.unmappedItems).map(
-                ([category, amount]) => (
-                  <div key={category} className="rounded-xl bg-slate-950 p-4">
-                    <p className="font-semibold">{category}</p>
-                    <p className="mt-1 text-blue-300">
-                      {formatPeso(Number(amount))}
-                    </p>
-                  </div>
-                ),
-              )}
-            </div>
-          </section>
-        )}
+          <a
+            href="/finance/payroll/manager"
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
+              Payroll
+            </p>
+            <h3 className="mt-2 text-xl font-black">Payroll Manager</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Release payroll, audit history, and review remaining balances.
+            </p>
+          </a>
 
-        <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="flex items-center gap-2 text-xl font-bold">
-              <Receipt size={22} /> Top Expense Categories
-            </h2>
+          <a
+            href="/finance/cash-management"
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
+              Cash
+            </p>
+            <h3 className="mt-2 text-xl font-black">Cash Management</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Open drawers, record movements, close shifts, and print reports.
+            </p>
+          </a>
 
-            <div className="mt-5 space-y-3">
-              {topExpenseCategories.length > 0 ? (
-                topExpenseCategories.map((item: any) => (
-                  <MiniRow
-                    key={item.category}
-                    label={item.category}
-                    value={formatPeso(item.amount)}
-                  />
-                ))
-              ) : (
-                <p className="text-sm text-slate-500">No expense data found.</p>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="flex items-center gap-2 text-xl font-bold">
-              <AlertTriangle size={22} /> Bills & Obligations
-            </h2>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <MiniStat
-                title="Outstanding"
-                value={formatPeso(outstandingBills)}
-                danger={outstandingBills > 0}
-                formula="Bills not yet paid"
-              />
-              <MiniStat
-                title="Overdue"
-                value={formatPeso(overdueBillsTotal)}
-                danger={overdueBillsTotal > 0}
-                formula="Late bills"
-              />
-              <MiniStat
-                title="Due Soon"
-                value={formatPeso(upcomingBillsTotal)}
-                danger={upcomingBillsTotal > 0}
-                formula="Bills due soon"
-              />
-              <MiniStat
-                title="Payroll Load"
-                value={formatPeso(payrollTotal)}
-                danger={payrollRatio >= 40}
-                formula="Total staff payout"
-              />
-            </div>
-
-            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-slate-300">
-                    Cashier Variance Review
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Shows who has shortage or overage in the selected period.
-                  </p>
-                </div>
-
-                <span
-                  className={
-                    varianceDrawerCount > 0
-                      ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                  }
-                >
-                  {varianceDrawerCount > 0
-                    ? `${varianceDrawerCount} variance`
-                    : "Balanced"}
-                </span>
-              </div>
-
-              <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
-                <table className="w-full min-w-[720px] text-sm">
-                  <thead className="bg-slate-900 text-left text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">Cashier</th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3 text-right">Expected</th>
-                      <th className="px-4 py-3 text-right">Actual</th>
-                      <th className="px-4 py-3 text-right">Variance</th>
-                      <th className="px-4 py-3">Status</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {drawerRowsForSummary.length > 0 ? (
-                      drawerRowsForSummary.slice(0, 8).map((drawer) => {
-                        const expected = getDrawerExpectedCash(drawer);
-                        const actual = getDrawerActualCash(drawer);
-                        const variance = getDrawerVariance(drawer);
-                        const status =
-                          variance < 0
-                            ? "Short"
-                            : variance > 0
-                              ? "Over"
-                              : "Balanced";
-
-                        return (
-                          <tr
-                            key={drawer.id}
-                            className="border-t border-slate-800 hover:bg-slate-900/70"
-                          >
-                            <td className="px-4 py-3 font-bold text-white">
-                              {getDrawerHolder(drawer)}
-                            </td>
-
-                            <td className="px-4 py-3 text-slate-300">
-                              {getDateValue(drawer) || "-"}
-                            </td>
-
-                            <td className="px-4 py-3 text-right">
-                              {formatPeso(expected)}
-                            </td>
-
-                            <td className="px-4 py-3 text-right">
-                              {formatPeso(actual)}
-                            </td>
-
-                            <td
-                              className={
-                                variance < 0
-                                  ? "px-4 py-3 text-right font-bold text-red-400"
-                                  : variance > 0
-                                    ? "px-4 py-3 text-right font-bold text-blue-300"
-                                    : "px-4 py-3 text-right font-bold text-blue-300"
-                              }
-                            >
-                              {formatPeso(variance)}
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <span
-                                className={
-                                  variance < 0
-                                    ? "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                                    : variance > 0
-                                      ? "rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                                      : "rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                                }
-                              >
-                                {status}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          className="px-4 py-10 text-center text-slate-500"
-                        >
-                          No cash drawer data found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
+          <a
+            href="/finance/expenses"
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
+              Finance
+            </p>
+            <h3 className="mt-2 text-xl font-black">Expenses Ledger</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Review operating expenses, advances, and export ledger data.
+            </p>
+          </a>
         </section>
       </main>
-    </div>
-  );
-}
-
-
-
-function AccountabilityCard({
-  title,
-  value,
-  helper,
-  danger,
-}: {
-  title: string;
-  value: string;
-  helper: string;
-  danger?: boolean;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-        {title}
-      </p>
-      <p className={danger ? "mt-2 text-xl font-black text-blue-300" : "mt-2 text-xl font-black text-white"}>
-        {value}
-      </p>
-      <p className="mt-1 text-xs leading-4 text-slate-500">{helper}</p>
-    </div>
-  );
-}
-
-function CulpritMiniCard({
-  title,
-  value,
-  subtitle,
-}: {
-  title: string;
-  value: string;
-  subtitle: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-blue-500/10 bg-slate-950/70 p-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-300/80">
-        {title}
-      </p>
-      <p className="mt-2 text-lg font-black text-white">{value}</p>
-      <p className="mt-1 max-w-[180px] truncate text-xs text-slate-500">
-        {subtitle}
-      </p>
-    </div>
-  );
-}
-
-function CulpritPanel({
-  title,
-  description,
-  rows,
-  empty,
-}: {
-  title: string;
-  description: string;
-  rows: { name: string; meta: string; value: string; danger?: boolean }[];
-  empty: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-      <div className="mb-4">
-        <h3 className="text-lg font-black text-white">{title}</h3>
-        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
-      </div>
-
-      <div className="space-y-3">
-        {rows.length > 0 ? (
-          rows.map((row, index) => (
-            <div
-              key={`${row.name}-${index}`}
-              className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-black text-blue-300">
-                    #{index + 1}
-                  </span>
-                  <p className="truncate font-black text-white">{row.name}</p>
-                </div>
-                <p className="mt-1 truncate text-xs text-slate-500">{row.meta}</p>
-              </div>
-
-              <p
-                className={
-                  row.danger
-                    ? "shrink-0 text-right text-sm font-black text-blue-300"
-                    : "shrink-0 text-right text-sm font-black text-blue-300"
-                }
-              >
-                {row.value}
-              </p>
-            </div>
-          ))
-        ) : (
-          <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
-            {empty}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
