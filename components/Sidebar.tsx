@@ -139,6 +139,7 @@ export default function Sidebar() {
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   const [currentRoleName, setCurrentRoleName] = useState("Employee");
   const [fallbackEmployeeName, setFallbackEmployeeName] = useState("No user loaded");
+  const [openSection, setOpenSection] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -190,9 +191,6 @@ export default function Sidebar() {
         ? localStorage.getItem("opscore_current_employee_id")
         : null;
 
-    // OPSCORE SESSION SOURCE OF TRUTH FIX
-    // Use the latest explicit role ID first.
-    // storedUser.role_id can become stale after role/permission changes.
     const localRoleId =
       typeof window !== "undefined"
         ? localStorage.getItem("opscore_current_role_id")
@@ -277,21 +275,21 @@ export default function Sidebar() {
     };
   }, [mounted]);
 
- const canView = (moduleKey: string) => {
-  if (moduleKey === "always_allow") return true;
+  const canView = (moduleKey: string) => {
+    if (moduleKey === "always_allow") return true;
 
-  const roleText = String(currentRoleName || "").toLowerCase();
+    const roleText = String(currentRoleName || "").toLowerCase();
 
-  if (roleText.includes("super admin") || roleText.includes("admin")) {
-    return true;
-  }
+    if (roleText.includes("super admin") || roleText.includes("admin")) {
+      return true;
+    }
 
-  return permissions.some(
-    (permission) =>
-      String(permission.module_key) === String(moduleKey) &&
-      permission.can_view === true
-  );
-};
+    return permissions.some(
+      (permission) =>
+        String(permission.module_key) === String(moduleKey) &&
+        permission.can_view === true
+    );
+  };
 
   const normalizePath = (value: string) => {
     if (value.length > 1 && value.endsWith("/")) return value.slice(0, -1);
@@ -355,50 +353,62 @@ export default function Sidebar() {
     })
     .filter(Boolean);
 
+  useEffect(() => {
+    if (!mounted || visibleSections.length === 0) return;
+
+    const activeSection = visibleSections.find((section: any) =>
+      !section.href && isSectionActive(section)
+    );
+
+    if (activeSection) {
+      setOpenSection(activeSection.title);
+    }
+  }, [mounted, pathname, loadingAccess]);
+
   if (!mounted) {
     return null;
   }
 
   return (
-    <aside className="hidden h-screen w-64 shrink-0 overflow-hidden border-r border-slate-800 bg-slate-950/95 px-4 py-4 text-white lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">
-      <div className="mb-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-4 shadow-lg shadow-black/20">
-        <p className="truncate text-base font-black text-blue-300">● OPSCORE</p>
-        <p className="mt-0.5 truncate text-[11px] text-slate-500">
-          Hotel Operations
-        </p>
-      </div>
+    <aside className="hidden h-screen w-64 shrink-0 overflow-hidden border-r border-slate-800 bg-slate-950/95 text-white lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">
+      <div className="shrink-0 px-4 pb-3 pt-4">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-4 shadow-lg shadow-black/20">
+          <p className="truncate text-base font-black text-blue-300">● OPSCORE</p>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500">Hotel Operations</p>
+        </div>
 
-      <div className="mb-3 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
-          Logged in as
-        </p>
-        <p className="mt-1 truncate text-sm font-black text-white">{employeeName}</p>
-        <p className="mt-0.5 truncate text-[11px] text-slate-300">{currentRoleName}</p>
-        <p className="mt-0.5 truncate text-[11px] text-slate-500">
-          {employeeDepartment} • #{employeeNo}
-        </p>
+        <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
+            Logged in as
+          </p>
+          <p className="mt-1 truncate text-sm font-black text-white">{employeeName}</p>
+          <p className="mt-0.5 truncate text-[11px] text-slate-300">{currentRoleName}</p>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500">
+            {employeeDepartment} • #{employeeNo}
+          </p>
 
-        <Link
-          href="/employee-portal"
-          title="My Portal"
-          className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
-            portalActive
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
-              : "border border-slate-700 bg-slate-950 text-blue-300 hover:bg-slate-900"
-          }`}
-        >
-          <User size={14} />
-          <span className="min-w-0 flex-1 truncate">My Portal</span>
-          <ChevronRight size={12} />
-        </Link>
+          <Link
+            href="/employee-portal"
+            title="My Portal"
+            className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
+              portalActive
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
+                : "border border-slate-700 bg-slate-950 text-blue-300 hover:bg-slate-900"
+            }`}
+          >
+            <User size={14} />
+            <span className="min-w-0 flex-1 truncate">My Portal</span>
+            <ChevronRight size={12} />
+          </Link>
+        </div>
       </div>
 
       {loadingAccess ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-400">
+        <div className="mx-4 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-400">
           Loading access...
         </div>
       ) : (
-        <nav className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-4 pb-3">
           {visibleSections.map((section: any) => {
             const Icon = section.icon;
 
@@ -410,7 +420,7 @@ export default function Sidebar() {
                   key={section.title}
                   href={section.href}
                   title={section.title}
-                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
                     active
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
                       : "text-slate-400 hover:bg-slate-900 hover:text-white"
@@ -423,14 +433,16 @@ export default function Sidebar() {
             }
 
             const sectionActive = isSectionActive(section);
+            const expanded = openSection === section.title;
 
             return (
-              <div key={section.title} className="group relative">
+              <div key={section.title} className="space-y-1">
                 <button
                   type="button"
                   title={section.title}
+                  onClick={() => setOpenSection(expanded ? null : section.title)}
                   className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${
-                    sectionActive
+                    sectionActive || expanded
                       ? "bg-slate-900 text-blue-200 ring-1 ring-blue-500/20"
                       : "text-slate-400 hover:bg-slate-900 hover:text-white"
                   }`}
@@ -444,19 +456,14 @@ export default function Sidebar() {
                     </span>
                   )}
 
-                  <ChevronRight size={13} className="opacity-60" />
+                  <ChevronRight
+                    size={13}
+                    className={`shrink-0 opacity-60 transition ${expanded ? "rotate-90" : ""}`}
+                  />
                 </button>
 
-                <div className="pointer-events-none absolute left-full top-0 h-full w-3" />
-                <div className="invisible absolute left-full top-0 z-[99999] ml-2 max-h-[82vh] w-72 translate-x-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-2.5 opacity-0 shadow-2xl shadow-black/60 transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
-                  <div className="mb-2 border-b border-slate-800 px-3 pb-2.5">
-                    <p className="text-sm font-black text-blue-300">{section.title}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      Select module
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
+                {expanded && (
+                  <div className="ml-4 space-y-1 border-l border-slate-800 pl-2">
                     {section.items.map((item: any) => {
                       const ItemIcon = item.icon;
                       const itemActive = isExactActive(item.href);
@@ -466,13 +473,13 @@ export default function Sidebar() {
                           key={`${section.title}-${item.href}-${item.label}`}
                           href={item.href}
                           title={item.label}
-                          className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs transition ${
+                          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[11px] transition ${
                             itemActive
                               ? "bg-blue-600 font-black text-white shadow-lg shadow-blue-600/10"
                               : "text-slate-400 hover:bg-slate-900 hover:text-white"
                           }`}
                         >
-                          <ItemIcon size={14} />
+                          <ItemIcon size={13} />
                           <span className="min-w-0 flex-1 truncate">{item.label}</span>
 
                           {item.href === "/manager/approval-center" &&
@@ -481,13 +488,11 @@ export default function Sidebar() {
                                 {pendingApprovals}
                               </span>
                             )}
-
-                          <ChevronRight size={12} className="opacity-25" />
                         </Link>
                       );
                     })}
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
@@ -500,12 +505,14 @@ export default function Sidebar() {
         </nav>
       )}
 
-      <button
-        onClick={logout}
-        className="mt-4 w-full shrink-0 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20"
-      >
-        Logout
-      </button>
+      <div className="shrink-0 px-4 pb-4 pt-3">
+        <button
+          onClick={logout}
+          className="w-full rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20"
+        >
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }
