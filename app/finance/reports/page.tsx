@@ -25,9 +25,7 @@ export default function FinanceReportsPage() {
   const [loading, setLoading] = useState(true);
   const [incomeRows, setIncomeRows] = useState<ReportRow[]>([]);
   const [expenseRows, setExpenseRows] = useState<ReportRow[]>([]);
-  const [activeTab, setActiveTab] = useState<
-    "summary" | "income" | "expenses" | "pl"
-  >("summary");
+  const [activeTab, setActiveTab] = useState<"summary" | "income" | "expenses" | "pl">("summary");
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -35,16 +33,6 @@ export default function FinanceReportsPage() {
   useEffect(() => {
     loadReports();
   }, []);
-
-  const isCancelledStatus = (status: any) => {
-    const text = String(status || "").toUpperCase();
-    return (
-      text.includes("CANCELLED") ||
-      text.includes("CANCELED") ||
-      text.includes("NO SHOW") ||
-      text.includes("NOSHOW")
-    );
-  };
 
   async function loadReports() {
     setLoading(true);
@@ -58,7 +46,7 @@ export default function FinanceReportsPage() {
       .order("expense_date", { ascending: false });
 
     expenseData?.forEach((row: any) => {
-      if (String(row.status || "").toUpperCase() === "VOIDED") return;
+      if (row.status === "VOIDED") return;
 
       expenses.push({
         transactionDate: row.expense_date || "",
@@ -83,14 +71,6 @@ export default function FinanceReportsPage() {
       .order("check_in", { ascending: false });
 
     roomSales?.forEach((row: any) => {
-      if (isCancelledStatus(row.status)) return;
-
-      const amount = Number(row.grand_total || row.total_sales || 0);
-      const paid = Number(row.amount_paid || 0);
-      const rawBalance = Number(row.balance_due || row.unpaid_balance || 0);
-      const computedBalance = amount - paid;
-      const safeBalance = Math.max(rawBalance || computedBalance || 0, 0);
-
       income.push({
         transactionDate: row.check_in || row.created_at || "",
         referenceNo: row.reservation_number || String(row.id || ""),
@@ -98,10 +78,10 @@ export default function FinanceReportsPage() {
         name: row.guest_name || "",
         category: row.room_type || "Rooms",
         subcategory: row.room || "",
-        amount,
-        paidAmount: paid,
-        balance: safeBalance,
-        paymentMethod: row.payment_method || "Not Provided by Cloudbeds",
+        amount: Number(row.grand_total || row.total_sales || 0),
+        paidAmount: Number(row.amount_paid || 0),
+        balance: Number(row.balance_due || row.unpaid_balance || 0),
+        paymentMethod: "",
         status: row.status || "",
         createdBy: "",
         createdAt: row.created_at || "",
@@ -120,12 +100,12 @@ export default function FinanceReportsPage() {
     apartmentBills?.forEach((bill: any) => {
       const payments =
         apartmentPayments?.filter(
-          (p: any) => p.bill_id === bill.id && p.status !== "VOIDED",
+          (p: any) => p.bill_id === bill.id && p.status !== "VOIDED"
         ) || [];
 
       const paid = payments.reduce(
         (sum: number, p: any) => sum + Number(p.amount || 0),
-        0,
+        0
       );
 
       const total =
@@ -157,15 +137,8 @@ export default function FinanceReportsPage() {
     setLoading(false);
   }
 
-  const filteredIncome = useMemo(
-    () => filterByDate(incomeRows),
-    [incomeRows, dateFrom, dateTo],
-  );
-
-  const filteredExpenses = useMemo(
-    () => filterByDate(expenseRows),
-    [expenseRows, dateFrom, dateTo],
-  );
+  const filteredIncome = useMemo(() => filterByDate(incomeRows), [incomeRows, dateFrom, dateTo]);
+  const filteredExpenses = useMemo(() => filterByDate(expenseRows), [expenseRows, dateFrom, dateTo]);
 
   function filterByDate(rows: ReportRow[]) {
     return rows.filter((row) => {
@@ -218,7 +191,7 @@ export default function FinanceReportsPage() {
           r.createdAt,
         ]
           .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-          .join(","),
+          .join(",")
       ),
     ].join("\n");
 
@@ -243,16 +216,13 @@ export default function FinanceReportsPage() {
             </p>
             <h1 className="mt-2 text-4xl font-black">Finance Reports</h1>
             <p className="mt-2 max-w-4xl text-sm text-slate-400">
-              Standardized income, expense, apartment, room sales, and profit
-              reports. Cancelled reservations are excluded from income.
+              Standardized income, expense, apartment, room sales, and profit reports.
             </p>
           </section>
 
           <section className="mb-6 grid grid-cols-1 gap-4 rounded-3xl border border-slate-800 bg-slate-900/70 p-5 md:grid-cols-4">
             <div>
-              <label className="text-xs font-bold uppercase text-slate-400">
-                Date From
-              </label>
+              <label className="text-xs font-bold uppercase text-slate-400">Date From</label>
               <input
                 type="date"
                 value={dateFrom}
@@ -262,9 +232,7 @@ export default function FinanceReportsPage() {
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase text-slate-400">
-                Date To
-              </label>
+              <label className="text-xs font-bold uppercase text-slate-400">Date To</label>
               <input
                 type="date"
                 value={dateTo}
@@ -284,12 +252,7 @@ export default function FinanceReportsPage() {
 
             <div className="flex items-end">
               <button
-                onClick={() =>
-                  exportCSV("opscore_all_income_expense_report.csv", [
-                    ...filteredIncome,
-                    ...filteredExpenses,
-                  ])
-                }
+                onClick={() => exportCSV("opscore_all_income_expense_report.csv", [...filteredIncome, ...filteredExpenses])}
                 className="w-full rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
               >
                 Export All
@@ -305,26 +268,10 @@ export default function FinanceReportsPage() {
           </section>
 
           <section className="mb-6 flex flex-wrap gap-3">
-            <TabButton
-              label="Summary"
-              active={activeTab === "summary"}
-              onClick={() => setActiveTab("summary")}
-            />
-            <TabButton
-              label="Income Report"
-              active={activeTab === "income"}
-              onClick={() => setActiveTab("income")}
-            />
-            <TabButton
-              label="Expense Report"
-              active={activeTab === "expenses"}
-              onClick={() => setActiveTab("expenses")}
-            />
-            <TabButton
-              label="Profit & Loss"
-              active={activeTab === "pl"}
-              onClick={() => setActiveTab("pl")}
-            />
+            <TabButton label="Summary" active={activeTab === "summary"} onClick={() => setActiveTab("summary")} />
+            <TabButton label="Income Report" active={activeTab === "income"} onClick={() => setActiveTab("income")} />
+            <TabButton label="Expense Report" active={activeTab === "expenses"} onClick={() => setActiveTab("expenses")} />
+            <TabButton label="Profit & Loss" active={activeTab === "pl"} onClick={() => setActiveTab("pl")} />
           </section>
 
           {loading ? (
@@ -350,9 +297,7 @@ export default function FinanceReportsPage() {
                 <ReportTable
                   title="Income Report"
                   rows={filteredIncome}
-                  onExport={() =>
-                    exportCSV("opscore_income_report.csv", filteredIncome)
-                  }
+                  onExport={() => exportCSV("opscore_income_report.csv", filteredIncome)}
                 />
               )}
 
@@ -360,9 +305,7 @@ export default function FinanceReportsPage() {
                 <ReportTable
                   title="Expense Report"
                   rows={filteredExpenses}
-                  onExport={() =>
-                    exportCSV("opscore_expense_report.csv", filteredExpenses)
-                  }
+                  onExport={() => exportCSV("opscore_expense_report.csv", filteredExpenses)}
                 />
               )}
 
@@ -390,9 +333,7 @@ export default function FinanceReportsPage() {
 function Kpi({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-        {title}
-      </p>
+      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{title}</p>
       <p className="mt-3 text-2xl font-black">{value}</p>
     </div>
   );
@@ -447,7 +388,7 @@ function ReportTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1400px] text-left text-sm">
+        <table className="min-w-[1400px] w-full text-left text-sm">
           <thead className="bg-slate-950 text-xs uppercase tracking-widest text-slate-400">
             <tr>
               <th className="px-4 py-3">Transaction Date</th>
@@ -469,10 +410,7 @@ function ReportTable({
           <tbody className="divide-y divide-slate-800">
             {rows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={13}
-                  className="px-4 py-8 text-center text-slate-400"
-                >
+                <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
                   No records found.
                 </td>
               </tr>

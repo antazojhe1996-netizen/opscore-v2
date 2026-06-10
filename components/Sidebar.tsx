@@ -43,25 +43,25 @@ const menuSections = [
       label: "Dashboard",
       href: "/reservations",
       icon: Hotel,
-      moduleKey: "reservation_management",
+      moduleKey: "dashboard"
     },
     {
       label: "Board",
       href: "/reservations/board",
       icon: CalendarDays,
-      moduleKey: "reservation_management",
+      moduleKey: "dashboard"
     },
     {
       label: "Ledger",
       href: "/reservations/ledger",
       icon: ClipboardList,
-      moduleKey: "reservation_management",
+      moduleKey: "dashboard"
     },
     {
       label: "Analytics",
       href: "/reservations/analytics",
       icon: BarChart3,
-      moduleKey: "reservation_management",
+      moduleKey: "dashboard"
     },
   ],
 },
@@ -329,6 +329,18 @@ const menuSections = [
       },
     ],
   },
+  {
+  title: "Reports",
+  icon: FileText,
+  items: [
+    {
+      label: "Reports Center",
+      href: "/finance/reports",
+      icon: BarChart3,
+      moduleKey: "reports_center",
+    },
+  ],
+},
   {
     title: "System",
     icon: Settings,

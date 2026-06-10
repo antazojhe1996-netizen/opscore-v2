@@ -625,6 +625,57 @@ export default function CashManagementPage() {
     .filter((item) => (item.payment_type || "Cash") === "Terminal")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
+
+  /// CALCULATIONS - PAYMENT BALANCE GUARD
+  // Guard is per payment type. Cash Out using GCash should use GCash balance,
+  // not Cash on Hand. This prevents impossible negative balances while still
+  // allowing online banking releases when physical cash is zero.
+  const getAvailableBalanceByPaymentType = (type: string) => {
+    if (type === "Cash") return cashOnHand;
+    if (type === "GCash") return gcashTotal;
+    if (type === "Bank") return bankTotal;
+    if (type === "Terminal") return terminalTotal;
+    return 0;
+  };
+
+  const isBalanceGuardedMoneyOut = (selectedMovementType = movementType) => {
+    return (
+      selectedMovementType === "Cash Out" ||
+      selectedMovementType === "Remittance" ||
+      source === "Expense Release" ||
+      source === "Cash Advance" ||
+      source === "Owner Withdrawal" ||
+      source === "Bank Deposit" ||
+      (selectedMovementType === "Adjustment" && Number(amount || 0) < 0)
+    );
+  };
+
+  const getPaymentTypeLabel = (type: string) => {
+    const available = getAvailableBalanceByPaymentType(type);
+    const unavailable = isBalanceGuardedMoneyOut() && available <= 0;
+
+    return `${type} (${formatMoney(available)})${unavailable ? " - Unavailable" : ""}`;
+  };
+
+  const isPaymentTypeDisabled = (type: string) => {
+    if (!isBalanceGuardedMoneyOut()) return false;
+    return getAvailableBalanceByPaymentType(type) <= 0;
+  };
+
+  useEffect(() => {
+    if (!isBalanceGuardedMoneyOut()) return;
+
+    if (!isPaymentTypeDisabled(paymentType)) return;
+
+    const nextAvailablePaymentType = paymentTypes.find(
+      (item) => !isPaymentTypeDisabled(item),
+    );
+
+    if (nextAvailablePaymentType) {
+      setPaymentType(nextAvailablePaymentType);
+    }
+  }, [movementType, source, cashOnHand, gcashTotal, bankTotal, terminalTotal]);
+
   const drawerDisplayName = activeDrawer?.holder_name || currentDrawerHolderName || "Cashier";
 
   const drawerFirstName =
@@ -1901,6 +1952,27 @@ export default function CashManagementPage() {
       return;
     }
 
+
+    if (isBalanceGuardedMoneyOut()) {
+      const availableBalance = getAvailableBalanceByPaymentType(paymentType);
+
+      if (availableBalance <= 0) {
+        alert(`No available ${paymentType} balance.`);
+        savingRef.current = false;
+        return;
+      }
+
+      if (amountValue > availableBalance) {
+        alert(
+          `Insufficient ${paymentType} balance. Available: ${formatMoney(
+            availableBalance,
+          )}`,
+        );
+        savingRef.current = false;
+        return;
+      }
+    }
+
     if (isCashExpenseCashOut && !activeDrawer) {
       alert("Please open a drawer first before releasing a cash expense.");
       savingRef.current = false;
@@ -3119,9 +3191,23 @@ export default function CashManagementPage() {
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
                 >
                   {paymentTypes.map((item) => (
-                    <option key={item}>{item}</option>
+                    <option
+                      key={item}
+                      value={item}
+                      disabled={isPaymentTypeDisabled(item)}
+                    >
+                      {getPaymentTypeLabel(item)}
+                    </option>
                   ))}
                 </select>
+
+                {isBalanceGuardedMoneyOut() && (
+                  <p className="-mt-2 text-xs font-semibold text-slate-400">
+                    Available {paymentType}: {formatMoney(
+                      getAvailableBalanceByPaymentType(paymentType),
+                    )}
+                  </p>
+                )}
 
                 <input
                   type="number"
