@@ -36,6 +36,36 @@ const menuSections = [
     items: [],
   },
   {
+  title: "Reservations",
+  icon: Hotel,
+  items: [
+    {
+      label: "Dashboard",
+      href: "/reservations",
+      icon: Hotel,
+      moduleKey: "reservation_management",
+    },
+    {
+      label: "Board",
+      href: "/reservations/board",
+      icon: CalendarDays,
+      moduleKey: "reservation_management",
+    },
+    {
+      label: "Ledger",
+      href: "/reservations/ledger",
+      icon: ClipboardList,
+      moduleKey: "reservation_management",
+    },
+    {
+      label: "Analytics",
+      href: "/reservations/analytics",
+      icon: BarChart3,
+      moduleKey: "reservation_management",
+    },
+  ],
+},
+  {
     title: "Audit",
     icon: ShieldCheck,
     items: [
