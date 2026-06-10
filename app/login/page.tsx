@@ -50,14 +50,12 @@ type CompanyUser = {
 export default function LoginPage() {
   const router = useRouter();
 
-  /// STATES
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  /// DATA
   const employeeSessionKey = "opscore_current_employee";
   const employeeIdKey = "opscore_current_employee_id";
   const employeeNameKey = "opscore_current_employee_name";
@@ -67,22 +65,8 @@ export default function LoginPage() {
   const companyIdKey = "opscore_current_company_id";
   const roleIdKey = "opscore_current_role_id";
 
-  /// HELPERS
   const normalize = (value: string) => value.trim().toLowerCase();
 
-  const clearSession = async () => {
-    localStorage.removeItem(employeeSessionKey);
-    localStorage.removeItem(employeeIdKey);
-    localStorage.removeItem(employeeNameKey);
-    localStorage.removeItem(currentUserKey);
-    localStorage.removeItem(systemUserIdKey);
-    localStorage.removeItem(mustChangePasswordKey);
-    localStorage.removeItem(companyIdKey);
-    localStorage.removeItem(roleIdKey);
-    await supabase.auth.signOut();
-  };
-
-  /// EFFECTS
   useEffect(() => {
     const currentEmployeeId = localStorage.getItem(employeeIdKey);
     const mustChangePassword = localStorage.getItem(mustChangePasswordKey);
@@ -97,7 +81,6 @@ export default function LoginPage() {
     }
   }, [router]);
 
-  /// FUNCTIONS
   const login = async () => {
     if (isLoading) return;
 
@@ -119,7 +102,6 @@ export default function LoginPage() {
       });
 
     if (authError || !authData.user) {
-      console.log("AUTH LOGIN ERROR:", authError?.message);
       setIsLoading(false);
       setErrorMessage("Invalid email or password.");
       return;
@@ -134,22 +116,14 @@ export default function LoginPage() {
       .limit(1)
       .maybeSingle();
 
-    if (userError) {
-      console.log("SYSTEM USER ERROR:", userError.message);
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("Login failed. Please try again.");
-      return;
-    }
-
-    const systemUser = userData as SystemUser | null;
-
-    if (!systemUser) {
+    if (userError || !userData) {
       await supabase.auth.signOut();
       setIsLoading(false);
       setErrorMessage("No OPSCORE user profile linked to this account.");
       return;
     }
+
+    const systemUser = userData as SystemUser;
 
     if (!systemUser.is_active) {
       await supabase.auth.signOut();
@@ -165,7 +139,6 @@ export default function LoginPage() {
       .maybeSingle();
 
     if (employeeError || !employeeData) {
-      console.log("EMPLOYEE ERROR:", employeeError?.message);
       await supabase.auth.signOut();
       setIsLoading(false);
       setErrorMessage("Employee profile not found. Contact administrator.");
@@ -191,7 +164,6 @@ export default function LoginPage() {
       .maybeSingle();
 
     if (companyUserError || !companyUserData) {
-      console.log("COMPANY USER ERROR:", companyUserError?.message);
       await supabase.auth.signOut();
       setIsLoading(false);
       setErrorMessage("No active company access found for this user.");
@@ -241,7 +213,7 @@ export default function LoginPage() {
         name: employeeName,
         username: systemUser.username,
         email: authData.user.email || employee.email || null,
-      })
+      }),
     );
 
     await supabase
@@ -265,96 +237,115 @@ export default function LoginPage() {
     login();
   };
 
-  /// UI
   return (
     <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
       <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.14),transparent_30%)]" />
-        <div className="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-400/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.24),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.16),transparent_32%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-blue-950/40 to-transparent" />
 
-        <section className="relative grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/50 backdrop-blur xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="relative hidden min-h-[720px] overflow-hidden border-r border-slate-800 bg-slate-900/70 p-10 xl:block">
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),transparent_40%),linear-gradient(315deg,rgba(34,197,94,0.08),transparent_40%)]" />
+        <section className="relative grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-blue-500/20 bg-slate-950/95 shadow-2xl shadow-black/60 backdrop-blur xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="relative hidden min-h-[720px] overflow-hidden border-r border-blue-500/20 bg-slate-900/70 p-10 xl:block">
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(37,99,235,0.24),transparent_42%),linear-gradient(315deg,rgba(14,165,233,0.12),transparent_38%)]" />
+            <div className="absolute bottom-0 left-0 right-0 h-48 bg-[radial-gradient(circle_at_bottom,rgba(59,130,246,0.25),transparent_65%)]" />
 
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div>
-                <img
-                  src="/images/vincent-logo.png"
-                  alt="Vincent Resort Hotel"
-                  className="h-50 w-auto object-contain"
-                />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/10 text-blue-300">
+                    <Hotel size={30} />
+                  </div>
 
-                <h2 className="mt-3 text-3xl font-black text-white">
-                  Hotel Operations & Financial Solutions
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.28em] text-blue-300">
+                      OPSCORE V3
+                    </p>
+                    <h1 className="text-2xl font-black text-white">
+                      Vincent Resort Hotel
+                    </h1>
+                  </div>
+                </div>
+
+                <h2 className="mt-12 text-5xl font-black leading-tight tracking-tight text-white">
+                  Business Operations
+                  <span className="block text-blue-400">Command Center</span>
                 </h2>
 
                 <p className="mt-5 max-w-xl text-base leading-7 text-slate-400">
-                  OPSCORE V3 Pilot access is secured by Supabase Auth,
-                  company membership, system roles, and employee records.
+                  Centralized access for workforce, payroll, finance,
+                  approvals, apartment operations, and audit control.
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FeatureCard
-                  icon={<Users size={20} />}
-                  title="Workforce Management"
-                  description="Scheduling, attendance, leave, and employee records."
+                  icon={<Users size={22} />}
+                  title="Workforce"
+                  description="Employees, schedules, attendance, and leave."
                 />
 
                 <FeatureCard
-                  icon={<Wallet size={20} />}
-                  title="Financial Oversight"
-                  description="Track revenue, expenses, payroll, and cash accountability."
+                  icon={<Wallet size={22} />}
+                  title="Finance"
+                  description="Cash drawer, bills, room sales, and reports."
                 />
 
                 <FeatureCard
-                  icon={<ShieldCheck size={20} />}
-                  title="Approval Management"
-                  description="Controlled approval center, approval controls, and assigned approvers."
+                  icon={<ShieldCheck size={22} />}
+                  title="Approvals"
+                  description="Controlled requests with clear accountability."
                 />
 
                 <FeatureCard
-                  icon={<BarChart3 size={20} />}
-                  title="Audit & Performance"
-                  description="Monitor access, actions, operational risks, and staff performance."
+                  icon={<BarChart3 size={22} />}
+                  title="Audit"
+                  description="Logs, database health, and business controls."
                 />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 rounded-3xl border border-blue-500/20 bg-slate-950/70 p-4">
+                <div>
+                  <p className="text-2xl font-black text-blue-300">1</p>
+                  <p className="text-xs text-slate-400">Platform</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-blue-300">100%</p>
+                  <p className="text-xs text-slate-400">Controlled Access</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-blue-300">Pilot</p>
+                  <p className="text-xs text-slate-400">Ready</p>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="relative p-6 sm:p-10 xl:p-12">
-            <div className="mx-auto flex min-h-[600px] max-w-md flex-col justify-center">
-              <div className="mb-8 xl:hidden">
-                <div className="inline-flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-amber-300">
-                  <Hotel size={22} />
-                  <span className="text-sm font-black tracking-wide">
-                    Vincent Resort Hotel
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.28em] text-amber-400">
-                  OPSCORE V3 Pilot
+            <div className="mx-auto flex min-h-[620px] max-w-md flex-col justify-center">
+              <div className="mb-8">
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-blue-300">
+                  Secure Login
                 </p>
-                <h2 className="mt-3 text-4xl font-black">Welcome back</h2>
+
+                <h2 className="mt-3 text-4xl font-black tracking-tight text-white">
+                  Welcome back
+                </h2>
+
                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                  Sign in using your OPSCORE email and temporary password.
+                  Sign in to access the OPSCORE operations dashboard.
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
                     Email
                   </label>
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-amber-400">
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-blue-400">
                     <UserCheck size={18} className="text-slate-500" />
                     <input
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      placeholder="ex. princess.cancel@vincent.local"
+                      placeholder="Enter OPSCORE email"
                       autoComplete="email"
                       className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
                     />
@@ -365,7 +356,7 @@ export default function LoginPage() {
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
                     Password
                   </label>
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-amber-400">
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-blue-400">
                     <LockKeyhole size={18} className="text-slate-500" />
                     <input
                       value={password}
@@ -395,17 +386,17 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-amber-400/10 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isLoading ? "Checking access..." : "Sign In"}
                   {!isLoading && <ArrowRight size={18} />}
                 </button>
               </form>
 
-              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                <div className="text-center text-xs text-white/50">
+              <div className="mt-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                <div className="text-center text-xs text-blue-100/70">
                   <p>Need access? Contact the system administrator.</p>
-                  <p className="mt-1 font-semibold text-white/80">
+                  <p className="mt-1 font-semibold text-blue-100">
                     Powered by OPSCORE · Developed & Designed by Jherome Antazo
                   </p>
                 </div>
@@ -428,14 +419,14 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+    <div className="rounded-2xl border border-blue-500/20 bg-slate-950/70 p-5">
       <div className="flex items-start gap-4">
-        <div className="rounded-xl bg-amber-400/10 p-3 text-amber-300">
+        <div className="rounded-xl bg-blue-500/10 p-3 text-blue-300">
           {icon}
         </div>
 
         <div>
-          <h3 className="font-black">{title}</h3>
+          <h3 className="font-black text-white">{title}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">
             {description}
           </p>
