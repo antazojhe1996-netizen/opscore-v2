@@ -116,9 +116,9 @@ export default function DatabaseHealthPage() {
   };
 
   const getSeverityStyle = (severity: "good" | "warning" | "critical") => {
-    if (severity === "good") return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
-    if (severity === "warning") return "border-amber-500/20 bg-amber-500/10 text-amber-300";
-    return "border-red-500/20 bg-red-500/10 text-red-300";
+    if (severity === "good") return "border-blue-500/20 bg-blue-500/10 text-blue-200";
+    if (severity === "warning") return "border-blue-500/20 bg-blue-500/10 text-blue-200";
+    return "border-blue-500/20 bg-blue-500/10 text-blue-200";
   };
 
   const getHealthStatus = (score: number): HealthStatus => {
@@ -128,9 +128,9 @@ export default function DatabaseHealthPage() {
   };
 
   const getHealthStyle = (status: HealthStatus) => {
-    if (status === "Healthy") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
-    if (status === "Warning") return "border-amber-500/30 bg-amber-500/10 text-amber-300";
-    return "border-red-500/30 bg-red-500/10 text-red-300";
+    if (status === "Healthy") return "border-blue-500/30 bg-blue-500/10 text-blue-200";
+    if (status === "Warning") return "border-blue-500/30 bg-blue-500/10 text-blue-200";
+    return "border-blue-500/30 bg-blue-500/10 text-blue-200";
   };
 
   /// CALCULATIONS
@@ -395,14 +395,14 @@ export default function DatabaseHealthPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20 lg:p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
               OPSCORE Admin
             </p>
 
-            <h1 className="mt-2 text-4xl font-black">Database Health Check</h1>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Database Health Check</h1>
 
             <p className="mt-2 text-slate-400">
               Review duplicates, missing fields, invalid statuses, orphan records, and risky data before live deployment.
@@ -444,7 +444,7 @@ export default function DatabaseHealthPage() {
 
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <div className="mb-4 flex items-center gap-3">
-            <AlertTriangle className="text-amber-400" size={26} />
+            <AlertTriangle className="text-blue-300" size={26} />
 
             <div>
               <h2 className="text-2xl font-black">Issue Checklist</h2>
@@ -471,7 +471,7 @@ export default function DatabaseHealthPage() {
                   <tr key={`${check.module}-${check.label}`} className="border-t border-slate-800 hover:bg-slate-800/40">
                     <td className="px-4 py-3 font-bold text-white">{check.module}</td>
                     <td className="px-4 py-3 text-slate-300">{check.label}</td>
-                    <td className={check.count > 0 ? "px-4 py-3 text-right font-bold text-red-400" : "px-4 py-3 text-right font-bold text-emerald-400"}>
+                    <td className={check.count > 0 ? "px-4 py-3 text-right font-bold text-blue-300" : "px-4 py-3 text-right font-bold text-blue-300"}>
                       {check.count}
                     </td>
                     <td className="px-4 py-3">
@@ -567,8 +567,8 @@ export default function DatabaseHealthPage() {
           />
         </section>
 
-        <section className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6">
-          <h2 className="text-xl font-black text-amber-300">Deployment Data Standard</h2>
+        <section className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
+          <h2 className="text-xl font-black text-blue-200">Deployment Data Standard</h2>
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StandardBox title="Employee Status" values={["active", "inactive", "resigned", "terminated"]} />
@@ -617,17 +617,17 @@ function SummaryCard({
     <div
       className={`rounded-2xl border p-6 ${
         danger
-          ? "border-red-500/20 bg-red-500/10"
+          ? "border-blue-500/20 bg-blue-500/10"
           : warning
-            ? "border-amber-500/20 bg-amber-500/10"
+            ? "border-blue-500/20 bg-blue-500/10"
             : good
-              ? "border-emerald-500/20 bg-emerald-500/10"
+              ? "border-blue-500/20 bg-blue-500/10"
               : "border-slate-800 bg-slate-900"
       }`}
     >
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-400">{title}</p>
-        <div className="rounded-full bg-slate-800 p-3 text-amber-400">
+        <div className="rounded-full bg-slate-800 p-3 text-blue-300">
           {icon}
         </div>
       </div>
@@ -644,8 +644,8 @@ function ModuleHealthCard({ module }: any) {
     <div
       className={`rounded-2xl border p-5 ${
         clean
-          ? "border-emerald-500/20 bg-emerald-500/10"
-          : "border-amber-500/20 bg-amber-500/10"
+          ? "border-blue-500/20 bg-blue-500/10"
+          : "border-blue-500/20 bg-blue-500/10"
       }`}
     >
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -656,7 +656,7 @@ function ModuleHealthCard({ module }: any) {
           </h3>
         </div>
 
-        <div className="rounded-full bg-slate-950/60 p-3 text-amber-300">
+        <div className="rounded-full bg-slate-950/60 p-3 text-blue-200">
           {module.icon}
         </div>
       </div>
@@ -695,7 +695,7 @@ function DetailPanel({
             </div>
           ))
         ) : (
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-6 text-center text-sm text-emerald-300">
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-6 text-center text-sm text-blue-200">
             <CheckCircle2 className="mx-auto mb-2" size={24} />
             {empty}
           </div>

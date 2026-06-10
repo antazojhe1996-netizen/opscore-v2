@@ -625,6 +625,13 @@ export default function CashManagementPage() {
     .filter((item) => (item.payment_type || "Cash") === "Terminal")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
+  const drawerDisplayName = activeDrawer?.holder_name || currentDrawerHolderName || "Cashier";
+
+  const drawerFirstName =
+    String(drawerDisplayName || "Cashier").trim().split(" ")[0] || "Cashier";
+
+  const onlineBankingTotal = gcashTotal + bankTotal + terminalTotal;
+
   /// CALCULATIONS - DRAWER HISTORY CASH-ONLY LOGIC
   const getDrawerCashSummary = (drawer: any) => {
     const drawerMovements = movements.filter(
@@ -2863,22 +2870,29 @@ export default function CashManagementPage() {
         <Sidebar />
 
         <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-          <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+          <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
-                  Finance Workbench
-                </p>
-                <h1 className="mt-2 text-2xl font-black tracking-tight text-white">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
                   Cash Management
+                </p>
+
+                <h1 className="mt-1 text-3xl font-black tracking-tight text-white">
+                  Hello {drawerFirstName}
                 </h1>
-                <p className="mt-1 max-w-4xl text-sm leading-6 text-slate-400">
-                  Open drawers, record cash movements, submit money-out
-                  requests, close remittances, and audit drawer history.
+
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
+                  {activeDrawer
+                    ? `${drawerDisplayName} is assigned to the active drawer. Monitor cash on hand first, then review online banking collections.`
+                    : "No active drawer. Open a drawer before releasing or receiving physical cash."}
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-blue-200">
+                  {activeDrawer ? "Drawer Open" : "Drawer Closed"}
+                </div>
+
                 {canManageDrawerForOthers && (
                   <button
                     onClick={() => setShowDrawerHolderSettings(true)}
@@ -2920,21 +2934,10 @@ export default function CashManagementPage() {
 
           <section className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <WorkbenchMetric
-              title="Drawer"
-              value={
-                activeDrawer ? activeDrawer.holder_name : "No active drawer"
-              }
-              subtitle={
-                activeDrawer
-                  ? "Open drawer holder"
-                  : "Open a drawer to release cash"
-              }
-              status={activeDrawer ? "OPEN" : "CLOSED"}
-            />
-            <WorkbenchMetric
               title="Cash On Hand"
               value={formatMoney(cashOnHand)}
-              subtitle="After cash out and remittance"
+              subtitle="Physical cash only after cash out and remittance"
+              status="FIRST CARD"
             />
             <WorkbenchMetric
               title="Cash In / Out"
@@ -2950,6 +2953,13 @@ export default function CashManagementPage() {
                 ).length
               }
               subtitle="Money-out approval queue"
+            />
+            <WorkbenchMetric
+              title="Online Banking"
+              value={formatMoney(onlineBankingTotal)}
+              subtitle={`GCash ${formatMoney(gcashTotal)} • Bank ${formatMoney(
+                bankTotal,
+              )} • Terminal ${formatMoney(terminalTotal)}`}
             />
           </section>
 

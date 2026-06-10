@@ -1071,657 +1071,498 @@ export default function ExpensesPage() {
   return (
     <PageGuard moduleKey="expenses">
       <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+        <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <div className="mb-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-            Finance Ledger
-          </p>
-          <h1 className="mt-2 text-3xl font-bold">Expenses Ledger</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Manage operating expenses, source controls, employee advances, imports, and payroll-linked finance records in one controlled ledger.
-          </p>
-        </div>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard
-            title="This Month Expenses"
-            value={formatCurrency(thisMonthExpenses)}
-            color="text-slate-300"
-          />
-
-          <SummaryCard
-            title="Manual Expenses"
-            value={formatCurrency(manualExpenseTotal)}
-            color="text-blue-300"
-          />
-
-          <SummaryCard
-            title="Cash Drawer Releases"
-            value={formatCurrency(cashDrawerExpenseTotal)}
-            color="text-blue-300"
-          />
-
-          <SummaryCard
-            title="Employee Advances"
-            value={formatCurrency(cashAdvanceTotal)}
-            color="text-blue-300"
-          />
-
-          <SummaryCard
-            title="Payroll Release"
-            value={formatCurrency(payrollReleaseTotal)}
-            color="text-blue-300"
-          />
-        </section>
-
-        {unlinkedCashAdvanceTotal > 0 && (
-          <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
-            <h2 className="text-lg font-black text-blue-300">
-              Cash Advance Payroll Link Warning
-            </h2>
-            <p className="mt-1 text-sm text-blue-100/80">
-              {formatCurrency(unlinkedCashAdvanceTotal)} cash advance expense is not linked to payroll deduction.
-              Check employee and payroll period before payroll generation.
-            </p>
-          </section>
-        )}
-
-        {cashAdvanceTotal > 0 && (
-          <section className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
-            <h2 className="text-lg font-black text-blue-300">
-              Employee Advances / Payroll Receivables
-            </h2>
-            <p className="mt-1 text-sm text-blue-100/80">
-              {formatCurrency(cashAdvanceTotal)} payroll-linked cash advance is excluded from operating expenses to avoid inflating reports. These records remain linked to employee balances and payroll deduction.
-            </p>
-          </section>
-        )}
-
-        {!canCreateExpenses && (
-          <section className="mb-6 rounded-2xl border border-slate-700 bg-slate-900 p-5 text-sm text-slate-300">
-            View-only access: you can review and export the expense ledger, but creating, importing, and deleting expenses are disabled for this role.
-          </section>
-        )}
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
-          <section className="self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="text-xl font-bold">Manual Expense Entry</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Use this for admin/accounting entries. Cash Advance will create an employee balance, but will not affect any cash drawer.
-            </p>
-
-            <div className="mt-5 space-y-4">
-              <input
-                type="date"
-                value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)}
-                style={{ colorScheme: "dark" }}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
-
-              <select
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
-                  setSubcategory("");
-                  if (e.target.value.toLowerCase().includes("cash advance")) {
-                    setDeductToPayroll("Yes");
-                  }
-                }}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select expense category</option>
-                {categories.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              {subcategoryOptions.length > 0 && (
-                <select
-                  value={subcategory}
-                  onChange={(e) => setSubcategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                >
-                  <option value="">Select subcategory</option>
-                  {subcategoryOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {isCashAdvance && (
-                <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
-                  <p className="mb-3 text-sm font-bold text-blue-300">
-                    Employee Cash Advance
-                  </p>
-
-                  <div className="space-y-3">
-                    <select
-                      value={selectedEmployeeId}
-                      onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                    >
-                      <option value="">Select employee</option>
-                      {employees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.first_name} {employee.last_name} —{" "}
-                          {employee.department}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={deductToPayroll}
-                      onChange={(e) => setDeductToPayroll(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                    >
-                      <option value="Yes">Deduct to payroll</option>
-                      <option value="No">Record expense only</option>
-                    </select>
-
-                    {deductToPayroll === "Yes" && (
-                      <div className={`rounded-xl border p-3 ${
-                        getPayrollPeriodCoveringDate(expenseDate)
-                          ? "border-emerald-500/30 bg-emerald-500/10"
-                          : "border-blue-500/20 bg-blue-500/10"
-                      }`}>
-                        <p className={`text-xs font-black ${
-                          getPayrollPeriodCoveringDate(expenseDate) ? "text-emerald-300" : "text-blue-300"
-                        }`}>
-                          {getPayrollPeriodCoveringDate(expenseDate)
-                            ? "Auto Linked by Expense Date"
-                            : "No Payroll Period for Expense Date"}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-300">
-                          {getPayrollPeriodCoveringDate(expenseDate)
-                            ? `${getPayrollPeriodCoveringDate(expenseDate)?.period_name || "Payroll Period"} (${getPayrollPeriodCoveringDate(expenseDate)?.start_date} to ${getPayrollPeriodCoveringDate(expenseDate)?.end_date})`
-                            : "Create or reopen the cutoff that covers the selected date. No manual cutoff selection needed here."}
-                        </p>
-                      </div>
-                    )}
-
-                    <p className="text-xs text-slate-400">
-                      If enabled, this auto-links to the current payroll. Payroll Register will deduct it on the next Generate Payroll.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <select
-                value={expenseArea}
-                onChange={(e) => setExpenseArea(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select expense area</option>
-                {expenseAreas.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={
-                  isCashAdvance
-                    ? "Example: Cash advance released by front desk"
-                    : "Description"
-                }
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
-
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select source / supplier</option>
-                {expenseSources.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Amount"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
-
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Select payment method</option>
-                {paymentMethods.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              <textarea
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                rows={3}
-                placeholder="Optional remarks..."
-                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
-
-              {canCreateExpenses ? (
-                <button
-                  onClick={addExpense}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500"
-                >
-                  Save Manual Expense
-                </button>
-              ) : (
-                <div className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
-                  You have view-only access. Manual expense creation is disabled.
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 xl:p-8">
+          <div className="mx-auto w-full max-w-[1800px]">
+            <header className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Official Expense Ledger</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Operating expenses only. Payroll-linked cash advances are excluded from this ledger and tracked separately as employee receivables.
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
+                  Finance Workbench
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+                  Expense Ledger
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
+                  Record operating expenses, track source controls, manage employee advances, import records, and export finance-ready reports.
                 </p>
               </div>
 
-              <button
-                onClick={exportExpenses}
-                className="w-fit rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
-              >
-                Export Excel
-              </button>
-            </div>
-
-            <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search ledger..."
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              />
-
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="ALL">All Sources</option>
-                <option value="Manual Entry">Manual Entry</option>
-                <option value="Cash Drawer">Cash Drawer</option>
-                <option value="Payroll Release">Payroll Release</option>
-                <option value="Expense Request">Expense Request</option>
-                <option value="Imported">Imported</option>
-              </select>
-
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="ALL">All Categories</option>
-                {categories.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={departmentFilter}
-                onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="ALL">All Areas</option>
-                {expenseAreas.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="max-h-[640px] max-w-full overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1380px] table-fixed border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-950">
-                  <tr className="border-b border-slate-800 text-left text-slate-400">
-                    {[
-                      ["expense_date", "Date", "w-[120px]"],
-                      ["department", "Area", "w-[140px]"],
-                      ["category", "Category", "w-[160px]"],
-                      ["subcategory", "Subcategory", "w-[160px]"],
-                      ["employee_name", "Employee", "w-[180px]"],
-                      ["description", "Description", "w-[260px]"],
-                      ["amount", "Amount", "w-[130px]"],
-                      ["source", "Source", "w-[150px]"],
-                      ["payment_method", "Payment", "w-[130px]"],
-                    ].map(([key, label, width]) => (
-                      <th
-                        key={key}
-                        onClick={() => requestSort(key)}
-                        className={`${width} cursor-pointer whitespace-nowrap px-4 py-3 hover:bg-slate-800 hover:text-white`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span>{label}</span>
-                          <span className="text-xs text-slate-500">
-                            {sortIcon(key)}
-                          </span>
-                        </div>
-                      </th>
-                    ))}
-
-                    <th className="w-[150px] whitespace-nowrap px-4 py-3">
-                      Payroll
-                    </th>
-                    <th className="w-[100px] whitespace-nowrap px-4 py-3">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {sortedExpenses.map((expense) => {
-                    const sourceType = getExpenseSourceType(expense);
-
-                    return (
-                      <tr
-                        key={expense.id}
-                        className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
-                      >
-                        <td className="whitespace-nowrap px-4 py-3">
-                          {expense.expense_date}
-                        </td>
-
-                        <td className="truncate px-4 py-3">
-                          {expense.department || "-"}
-                        </td>
-
-                        <td className="truncate px-4 py-3">
-                          {expense.category || "-"}
-                        </td>
-
-                        <td className="truncate px-4 py-3">
-                          {expense.subcategory || "-"}
-                        </td>
-
-                        <td className="truncate px-4 py-3">
-                          {expense.employee_name || "-"}
-                        </td>
-
-                        <td className="break-words px-4 py-3">
-                          <p>{expense.description || "-"}</p>
-                          {expense.remarks && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {expense.remarks}
-                            </p>
-                          )}
-                          {getReferenceLabel(expense) && (
-                            <p className="mt-1 text-xs text-slate-600">
-                              {getReferenceLabel(expense)}
-                            </p>
-                          )}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                          {formatCurrency(expense.amount)}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getSourceBadgeStyle(
-                              sourceType
-                            )}`}
-                          >
-                            {sourceType}
-                          </span>
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          {expense.payment_method || "-"}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1">
-                            {getPayrollBadge(expense) || "-"}
-                            {expense.deduct_to_payroll && (
-                              <span className="text-xs text-slate-500">
-                                {getPayrollSourceLabel(expense)}
-                              </span>
-                            )}
-                            {expense.payroll_period_id && (
-                              <span className="text-xs text-slate-500">
-                                Cutoff: {getPayrollPeriodLabel(getLinkedPayrollPeriod(expense))}
-                              </span>
-                            )}
-                            {expense.employee_balance_id && (
-                              <span className="break-all text-xs text-slate-600">
-                                Balance ID: {expense.employee_balance_id}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          {canDeleteExpenses ? (
-                            <button
-                              onClick={() => voidExpense(expense)}
-                              className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold hover:bg-slate-600"
-                            >
-                              Void
-                            </button>
-                          ) : (
-                            <span className="text-xs text-slate-500">View only</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {sortedExpenses.length === 0 && (
-                    <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-500">
-                        No expenses found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
-
-        <section className="mt-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <h2 className="mb-4 text-xl font-bold">Monthly Expenses by Category</h2>
-
-          <div className="max-w-full overflow-x-auto rounded-xl border border-slate-800">
-            <table className="min-w-[1400px] border-collapse text-sm">
-              <thead className="bg-slate-950">
-                <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-950 px-4 py-3">
-                    Month
-                  </th>
-
-                  {categories.map((cat) => (
-                    <th key={cat} className="whitespace-nowrap px-4 py-3">
-                      {cat}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {monthlyCategorySummary.map((row) => (
-                  <tr
-                    key={row.month}
-                    className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
-                  >
-                    <td className="sticky left-0 z-10 whitespace-nowrap bg-slate-900 px-4 py-3 font-semibold">
-                      {row.month}
-                    </td>
-
-                    {categories.map((cat) => (
-                      <td key={cat} className="whitespace-nowrap px-4 py-3">
-                        {formatCurrency(row[cat])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-
-                <tr className="border-t border-slate-700 bg-slate-950 text-white">
-                  <td className="sticky left-0 z-20 whitespace-nowrap bg-slate-950 px-4 py-3 font-bold">
-                    Total
-                  </td>
-
-                  {categories.map((cat) => {
-                    const total = monthlyCategorySummary.reduce(
-                      (sum, row) => sum + Number(row[cat] || 0),
-                      0
-                    );
-
-                    return (
-                      <td key={cat} className="whitespace-nowrap px-4 py-3 font-bold">
-                        {formatCurrency(total)}
-                      </td>
-                    );
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {canCreateExpenses ? (
-          <section className="mt-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Import Expenses</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Upload Excel or CSV, review preview, then save to the ledger.
-              </p>
-            </div>
-
-            {importPreview.length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={cancelImport}
-                  className="rounded-lg bg-slate-600 px-3 py-2 text-xs font-semibold hover:bg-slate-500"
+                  onClick={exportExpenses}
+                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500"
                 >
-                  Cancel
+                  Export Excel
                 </button>
-
-                <button
-                  onClick={saveImportedExpenses}
-                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold hover:bg-blue-500"
-                >
-                  Save Import
-                </button>
-              </div>
-            )}
-          </div>
-
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleImportFile}
-            className="mb-4 w-fit rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"
-          />
-
-          <div className="h-[520px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[920px] table-fixed border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-950">
-                <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="w-[120px] px-4 py-3">Date</th>
-                  <th className="w-[160px] px-4 py-3">Category</th>
-                  <th className="w-[160px] px-4 py-3">Area</th>
-                  <th className="w-[220px] px-4 py-3">Description</th>
-                  <th className="w-[160px] px-4 py-3">Source</th>
-                  <th className="w-[140px] px-4 py-3">Amount</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {importPreview.map((expense, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-slate-800/70 text-slate-200"
-                  >
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {expense.expense_date}
-                    </td>
-
-                    <td className="truncate px-4 py-3">
-                      {expense.category || "-"}
-                    </td>
-
-                    <td className="truncate px-4 py-3">
-                      {expense.department || "-"}
-                    </td>
-
-                    <td className="break-words px-4 py-3">
-                      {expense.description || "-"}
-                    </td>
-
-                    <td className="truncate px-4 py-3">
-                      {expense.source || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                      {formatCurrency(expense.amount)}
-                    </td>
-                  </tr>
-                ))}
-
-                {importPreview.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="h-[450px] text-center text-slate-500">
-                      Upload Excel/CSV to preview expenses.
-                    </td>
-                  </tr>
+                {canCreateExpenses && (
+                  <label className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800">
+                    Import File
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleImportFile}
+                      className="hidden"
+                    />
+                  </label>
                 )}
-              </tbody>
-            </table>
+              </div>
+            </header>
+
+            {!canCreateExpenses && (
+              <section className="mb-5 rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
+                View-only access: you can review and export the expense ledger, but creating, importing, and deleting expenses are disabled for this role.
+              </section>
+            )}
+
+            <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <MetricCard title="This Month" value={formatCurrency(thisMonthExpenses)} />
+              <MetricCard title="Today" value={formatCurrency(todayExpenses)} />
+              <MetricCard title="Employee Advances" value={formatCurrency(cashAdvanceTotal)} />
+              <MetricCard title="Unlinked Advances" value={formatCurrency(unlinkedCashAdvanceTotal)} danger={unlinkedCashAdvanceTotal > 0} />
+            </section>
+
+            {(unlinkedCashAdvanceTotal > 0 || cashAdvanceTotal > 0) && (
+              <section className="mb-5 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                {unlinkedCashAdvanceTotal > 0 && (
+                  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                    <p className="text-sm font-black text-blue-200">Cash Advance Payroll Link Warning</p>
+                    <p className="mt-1 text-sm leading-6 text-blue-100/80">
+                      {formatCurrency(unlinkedCashAdvanceTotal)} cash advance expense is not linked to payroll deduction. Check employee and payroll period before payroll generation.
+                    </p>
+                  </div>
+                )}
+
+                {cashAdvanceTotal > 0 && (
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                    <p className="text-sm font-black text-slate-200">Employee Advances / Payroll Receivables</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      {formatCurrency(cashAdvanceTotal)} payroll-linked cash advance is excluded from operating expenses to avoid inflating reports.
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+              <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg xl:p-5">
+                <div className="mb-4 flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+                  <div>
+                    <h2 className="text-xl font-black text-white">Official Expense Ledger</h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Operating expenses only. Payroll-linked cash advances are tracked separately as employee receivables.
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-400">
+                    Showing <span className="text-blue-300">{sortedExpenses.length}</span> of <span className="text-blue-300">{operatingExpenses.length}</span>
+                  </div>
+                </div>
+
+                <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search ledger..."
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  />
+
+                  <select
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="ALL">All Sources</option>
+                    <option value="Manual Entry">Manual Entry</option>
+                    <option value="Cash Drawer">Cash Drawer</option>
+                    <option value="Payroll Release">Payroll Release</option>
+                    <option value="Expense Request">Expense Request</option>
+                    <option value="Imported">Imported</option>
+                  </select>
+
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="ALL">All Categories</option>
+                    {categories.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={departmentFilter}
+                    onChange={(e) => setDepartmentFilter(e.target.value)}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="ALL">All Areas</option>
+                    {expenseAreas.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="max-h-[720px] max-w-full overflow-auto rounded-xl border border-slate-800">
+                  <table className="w-full min-w-[1380px] table-fixed border-collapse text-sm">
+                    <thead className="sticky top-0 z-10 bg-slate-950">
+                      <tr className="border-b border-slate-800 text-left text-slate-400">
+                        {[
+                          ["expense_date", "Date", "w-[120px]"],
+                          ["department", "Area", "w-[140px]"],
+                          ["category", "Category", "w-[160px]"],
+                          ["subcategory", "Subcategory", "w-[160px]"],
+                          ["employee_name", "Employee", "w-[180px]"],
+                          ["description", "Description", "w-[260px]"],
+                          ["amount", "Amount", "w-[130px]"],
+                          ["source", "Source", "w-[150px]"],
+                          ["payment_method", "Payment", "w-[130px]"],
+                        ].map(([key, label, width]) => (
+                          <th
+                            key={key}
+                            onClick={() => requestSort(key)}
+                            className={`${width} cursor-pointer whitespace-nowrap px-4 py-3 hover:bg-slate-800 hover:text-white`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{label}</span>
+                              <span className="text-xs text-slate-500">{sortIcon(key)}</span>
+                            </div>
+                          </th>
+                        ))}
+                        <th className="w-[160px] whitespace-nowrap px-4 py-3">Payroll</th>
+                        <th className="w-[100px] whitespace-nowrap px-4 py-3">Actions</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {sortedExpenses.map((expense) => {
+                        const sourceType = getExpenseSourceType(expense);
+
+                        return (
+                          <tr key={expense.id} className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30">
+                            <td className="whitespace-nowrap px-4 py-3">{expense.expense_date}</td>
+                            <td className="truncate px-4 py-3">{expense.department || "-"}</td>
+                            <td className="truncate px-4 py-3">{expense.category || "-"}</td>
+                            <td className="truncate px-4 py-3">{expense.subcategory || "-"}</td>
+                            <td className="truncate px-4 py-3">{expense.employee_name || "-"}</td>
+                            <td className="break-words px-4 py-3">
+                              <p>{expense.description || "-"}</p>
+                              {expense.remarks && <p className="mt-1 text-xs text-slate-500">{expense.remarks}</p>}
+                              {getReferenceLabel(expense) && <p className="mt-1 text-xs text-slate-600">{getReferenceLabel(expense)}</p>}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 font-black text-white">{formatCurrency(expense.amount)}</td>
+                            <td className="whitespace-nowrap px-4 py-3">
+                              <span className={`rounded-full px-3 py-1 text-xs font-bold ${getSourceBadgeStyle(sourceType)}`}>
+                                {sourceType}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3">{expense.payment_method || "-"}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col gap-1">
+                                {getPayrollBadge(expense) || "-"}
+                                {expense.deduct_to_payroll && <span className="text-xs text-slate-500">{getPayrollSourceLabel(expense)}</span>}
+                                {expense.payroll_period_id && <span className="text-xs text-slate-500">Cutoff: {getPayrollPeriodLabel(getLinkedPayrollPeriod(expense))}</span>}
+                                {expense.employee_balance_id && <span className="break-all text-xs text-slate-600">Balance ID: {expense.employee_balance_id}</span>}
+                              </div>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3">
+                              {canDeleteExpenses ? (
+                                <button
+                                  onClick={() => voidExpense(expense)}
+                                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-bold text-slate-300 hover:bg-slate-800"
+                                >
+                                  Void
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-500">View only</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {sortedExpenses.length === 0 && (
+                        <tr>
+                          <td colSpan={11} className="py-12 text-center text-slate-500">No expenses found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <aside className="space-y-5">
+                <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg xl:p-5">
+                  <h2 className="text-lg font-black text-white">Manual Expense Entry</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    Use this for admin/accounting entries. Cash Advance creates an employee balance when payroll deduction is enabled.
+                  </p>
+
+                  <div className="mt-4 space-y-3">
+                    <input
+                      type="date"
+                      value={expenseDate}
+                      onChange={(e) => setExpenseDate(e.target.value)}
+                      style={{ colorScheme: "dark" }}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    />
+
+                    <select
+                      value={category}
+                      onChange={(e) => {
+                        setCategory(e.target.value);
+                        setSubcategory("");
+                        if (e.target.value.toLowerCase().includes("cash advance")) setDeductToPayroll("Yes");
+                      }}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    >
+                      <option value="">Select expense category</option>
+                      {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+
+                    {subcategoryOptions.length > 0 && (
+                      <select
+                        value={subcategory}
+                        onChange={(e) => setSubcategory(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                      >
+                        <option value="">Select subcategory</option>
+                        {subcategoryOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                    )}
+
+                    {isCashAdvance && (
+                      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                        <p className="mb-3 text-sm font-black text-blue-200">Employee Cash Advance</p>
+                        <div className="space-y-3">
+                          <select
+                            value={selectedEmployeeId}
+                            onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                          >
+                            <option value="">Select employee</option>
+                            {employees.map((employee) => (
+                              <option key={employee.id} value={employee.id}>
+                                {employee.first_name} {employee.last_name} — {employee.department}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            value={deductToPayroll}
+                            onChange={(e) => setDeductToPayroll(e.target.value)}
+                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                          >
+                            <option value="Yes">Deduct to payroll</option>
+                            <option value="No">Record expense only</option>
+                          </select>
+
+                          {deductToPayroll === "Yes" && (
+                            <div className={`rounded-xl border p-3 ${
+                              getPayrollPeriodCoveringDate(expenseDate)
+                                ? "border-emerald-500/30 bg-emerald-500/10"
+                                : "border-blue-500/20 bg-blue-500/10"
+                            }`}>
+                              <p className={`text-xs font-black ${
+                                getPayrollPeriodCoveringDate(expenseDate) ? "text-emerald-300" : "text-blue-300"
+                              }`}>
+                                {getPayrollPeriodCoveringDate(expenseDate) ? "Auto Linked by Expense Date" : "No Payroll Period for Expense Date"}
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-slate-300">
+                                {getPayrollPeriodCoveringDate(expenseDate)
+                                  ? `${getPayrollPeriodCoveringDate(expenseDate)?.period_name || "Payroll Period"} (${getPayrollPeriodCoveringDate(expenseDate)?.start_date} to ${getPayrollPeriodCoveringDate(expenseDate)?.end_date})`
+                                  : "Create or reopen the cutoff that covers the selected date. No manual cutoff selection needed here."}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <select
+                      value={expenseArea}
+                      onChange={(e) => setExpenseArea(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    >
+                      <option value="">Select expense area</option>
+                      {expenseAreas.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+
+                    <input
+                      type="text"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder={isCashAdvance ? "Example: Cash advance released by front desk" : "Description"}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    />
+
+                    <select
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    >
+                      <option value="">Select source / supplier</option>
+                      {expenseSources.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="Amount"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    />
+
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    >
+                      <option value="">Select payment method</option>
+                      {paymentMethods.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+
+                    <textarea
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      rows={3}
+                      placeholder="Optional remarks..."
+                      className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                    />
+
+                    {canCreateExpenses ? (
+                      <button
+                        onClick={addExpense}
+                        className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-500"
+                      >
+                        Save Manual Expense
+                      </button>
+                    ) : (
+                      <div className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
+                        You have view-only access. Manual expense creation is disabled.
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg xl:p-5">
+                  <h2 className="text-lg font-black text-white">Source Summary</h2>
+                  <div className="mt-4 space-y-3">
+                    <SourceLine label="Manual Entry" value={formatCurrency(manualExpenseTotal)} />
+                    <SourceLine label="Cash Drawer" value={formatCurrency(cashDrawerExpenseTotal)} />
+                    <SourceLine label="Imported" value={formatCurrency(importedExpenseTotal)} />
+                    <SourceLine label="Payroll Release" value={formatCurrency(payrollReleaseTotal)} />
+                    <SourceLine label="Linked Advances" value={formatCurrency(linkedCashAdvanceTotal)} />
+                  </div>
+                </section>
+              </aside>
+            </section>
+
+            <section className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+              <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg xl:p-5">
+                <h2 className="text-xl font-black text-white">Monthly Expenses by Category</h2>
+                <p className="mt-1 text-sm text-slate-400">Finance export view aligned by month and category.</p>
+
+                <div className="mt-4 max-h-[520px] max-w-full overflow-auto rounded-xl border border-slate-800">
+                  <table className="min-w-[1400px] border-collapse text-sm">
+                    <thead className="sticky top-0 z-10 bg-slate-950">
+                      <tr className="border-b border-slate-800 text-left text-slate-400">
+                        <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-950 px-4 py-3">Month</th>
+                        {categories.map((cat) => <th key={cat} className="whitespace-nowrap px-4 py-3">{cat}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyCategorySummary.map((row) => (
+                        <tr key={row.month} className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30">
+                          <td className="sticky left-0 z-10 whitespace-nowrap bg-slate-900 px-4 py-3 font-semibold">{row.month}</td>
+                          {categories.map((cat) => <td key={cat} className="whitespace-nowrap px-4 py-3">{formatCurrency(row[cat])}</td>)}
+                        </tr>
+                      ))}
+                      <tr className="border-t border-slate-700 bg-slate-950 text-white">
+                        <td className="sticky left-0 z-20 whitespace-nowrap bg-slate-950 px-4 py-3 font-bold">Total</td>
+                        {categories.map((cat) => {
+                          const total = monthlyCategorySummary.reduce((sum, row) => sum + Number(row[cat] || 0), 0);
+                          return <td key={cat} className="whitespace-nowrap px-4 py-3 font-bold">{formatCurrency(total)}</td>;
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg xl:p-5">
+                <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-xl font-black text-white">Import Preview</h2>
+                    <p className="mt-1 text-sm text-slate-400">Upload Excel/CSV from the top action button, review preview, then save.</p>
+                  </div>
+
+                  {importPreview.length > 0 && canCreateExpenses && (
+                    <div className="flex gap-2">
+                      <button onClick={cancelImport} className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600">Cancel</button>
+                      <button onClick={saveImportedExpenses} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold hover:bg-blue-500">Save Import</button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-[520px] overflow-auto rounded-xl border border-slate-800">
+                  <table className="w-full min-w-[920px] table-fixed border-collapse text-sm">
+                    <thead className="sticky top-0 z-10 bg-slate-950">
+                      <tr className="border-b border-slate-800 text-left text-slate-400">
+                        <th className="w-[120px] px-4 py-3">Date</th>
+                        <th className="w-[160px] px-4 py-3">Category</th>
+                        <th className="w-[160px] px-4 py-3">Area</th>
+                        <th className="w-[220px] px-4 py-3">Description</th>
+                        <th className="w-[160px] px-4 py-3">Source</th>
+                        <th className="w-[140px] px-4 py-3">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.map((expense, index) => (
+                        <tr key={index} className="border-b border-slate-800/70 text-slate-200">
+                          <td className="whitespace-nowrap px-4 py-3">{expense.expense_date}</td>
+                          <td className="truncate px-4 py-3">{expense.category || "-"}</td>
+                          <td className="truncate px-4 py-3">{expense.department || "-"}</td>
+                          <td className="break-words px-4 py-3">{expense.description || "-"}</td>
+                          <td className="truncate px-4 py-3">{expense.source || "-"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 font-semibold">{formatCurrency(expense.amount)}</td>
+                        </tr>
+                      ))}
+
+                      {importPreview.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="h-[450px] text-center text-slate-500">
+                            {canCreateExpenses ? "Upload Excel/CSV to preview expenses." : "Import is disabled for view-only roles."}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </section>
           </div>
-          </section>
-        ) : (
-          <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-400">
-            <h2 className="text-xl font-bold text-white">Import Expenses</h2>
-            <p className="mt-2">Import is disabled for view-only roles.</p>
-          </section>
-        )}
-      </main>
+        </main>
       </div>
     </PageGuard>
   );
 }
 
-/// COMPONENT - SUMMARY CARD
-function SummaryCard({ title, value, color = "text-blue-300" }: any) {
+function MetricCard({ title, value, danger = false }: any) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
-      <h2 className={`mt-3 break-words text-2xl font-black ${color}`}>
-        {value}
-      </h2>
+    <div className={`rounded-2xl border p-4 shadow-lg ${danger ? "border-red-500/20 bg-red-500/10" : "border-slate-800 bg-slate-900"}`}>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{title}</p>
+      <h2 className={`mt-2 break-words text-2xl font-black ${danger ? "text-red-300" : "text-white"}`}>{value}</h2>
+    </div>
+  );
+}
+
+function SourceLine({ label, value }: any) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+      <p className="text-xs font-bold text-slate-400">{label}</p>
+      <p className="text-sm font-black text-slate-100">{value}</p>
     </div>
   );
 }

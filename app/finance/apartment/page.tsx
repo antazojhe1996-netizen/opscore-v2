@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, Banknote, Brain, Building2, CheckCircle2, ClipboardList, Home, ShieldAlert, TrendingUp, Users, Wallet } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
@@ -355,6 +356,28 @@ export default function ApartmentDashboardPage() {
                   {recommendedActions[0] || "Maintain apartment monitoring and review collections regularly."}
                 </p>
               </div>
+
+              <div className="mt-4 rounded-2xl border border-blue-200/20 bg-slate-950/55 p-4 shadow-lg shadow-black/10">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-100/70">
+                  Daily Workbench Actions
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <Link
+                    href="/finance/apartment/billing"
+                    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
+                  >
+                    Create / Review Bills
+                  </Link>
+
+                  <Link
+                    href="/finance/apartment/payments"
+                    className="rounded-xl border border-blue-300/25 bg-slate-950/80 px-5 py-3 text-sm font-black text-blue-100 transition hover:bg-slate-900"
+                  >
+                    Record Payments
+                  </Link>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/30 backdrop-blur">
@@ -572,6 +595,35 @@ export default function ApartmentDashboardPage() {
               ))}
             </div>
           </IntelligenceCard>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-4 lg:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
+                Apartment Workbench Actions
+              </p>
+              <h2 className="mt-1 text-xl font-black text-white">Billing and Collection Shortcuts</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Use these actions for daily apartment billing and tenant payment posting.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/finance/apartment/billing"
+                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500"
+              >
+                Create / Review Bills
+              </Link>
+              <Link
+                href="/finance/apartment/payments"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800"
+              >
+                Record Payments
+              </Link>
+            </div>
+          </div>
         </section>
 
         <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 lg:p-6">

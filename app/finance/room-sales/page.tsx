@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
@@ -58,7 +59,7 @@ export default function RoomSalesPage() {
           .replaceAll("₱", "")
           .replaceAll(",", "")
           .replaceAll("PHP", "")
-          .trim()
+          .trim(),
       ) || 0
     );
   };
@@ -68,7 +69,7 @@ export default function RoomSalesPage() {
 
     for (const target of possibleKeys) {
       const foundKey = keys.find(
-        (key) => key.toLowerCase().trim() === target.toLowerCase().trim()
+        (key) => key.toLowerCase().trim() === target.toLowerCase().trim(),
       );
 
       if (foundKey) return row[foundKey];
@@ -99,7 +100,7 @@ export default function RoomSalesPage() {
       if (!parsed) return null;
 
       return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(
-        parsed.d
+        parsed.d,
       ).padStart(2, "0")}`;
     }
 
@@ -118,17 +119,17 @@ export default function RoomSalesPage() {
 
     const totalSales = activeRows.reduce(
       (sum, item) => sum + toNumber(item.total_sales),
-      0
+      0,
     );
 
     const cancelledSales = cancelledRows.reduce(
       (sum, item) => sum + toNumber(item.total_sales),
-      0
+      0,
     );
 
     const amountPaid = activeRows.reduce(
       (sum, item) => sum + toNumber(item.amount_paid),
-      0
+      0,
     );
 
     const unpaidBalance = activeRows.reduce((sum, item) => {
@@ -164,28 +165,28 @@ export default function RoomSalesPage() {
       return {
         reservation_number: String(reservationNumber),
         guest_name: String(
-          getValue(row, ["Guest Name", "Guest", "Name", "Customer"]) || ""
+          getValue(row, ["Guest Name", "Guest", "Name", "Customer"]) || "",
         ),
         room: String(
-          getValue(row, ["Room", "Room Number", "Accommodation"]) || ""
+          getValue(row, ["Room", "Room Number", "Accommodation"]) || "",
         ),
         room_type: normalizeRoomType(
-          getValue(row, ["Room Type", "Accommodation Type", "Room Category"])
+          getValue(row, ["Room Type", "Accommodation Type", "Room Category"]),
         ),
         check_in: normalizeDate(
-          getValue(row, ["Check In", "Check-in", "Arrival", "Start Date"])
+          getValue(row, ["Check In", "Check-in", "Arrival", "Start Date"]),
         ),
         check_out: normalizeDate(
-          getValue(row, ["Check Out", "Check-out", "Departure", "End Date"])
+          getValue(row, ["Check Out", "Check-out", "Departure", "End Date"]),
         ),
         nights: toNumber(getValue(row, ["Nights", "Night"])),
         booking_source: String(
           getValue(row, ["Booking Source", "Source", "Channel", "Origin"]) ||
-            "Unknown"
+            "Unknown",
         ),
         status: String(
           getValue(row, ["Status", "Reservation Status", "Booking Status"]) ||
-            ""
+            "",
         ),
         total_sales: toNumber(
           getValue(row, [
@@ -194,10 +195,10 @@ export default function RoomSalesPage() {
             "Total Sales",
             "Reservation Total",
             "Amount",
-          ])
+          ]),
         ),
         amount_paid: toNumber(
-          getValue(row, ["Amount Paid", "Paid", "Payments", "Total Paid"])
+          getValue(row, ["Amount Paid", "Paid", "Payments", "Total Paid"]),
         ),
         unpaid_balance: toNumber(
           getValue(row, [
@@ -205,7 +206,7 @@ export default function RoomSalesPage() {
             "Balance",
             "Unpaid Balance",
             "Amount Due",
-          ])
+          ]),
         ),
       };
     });
@@ -217,7 +218,7 @@ export default function RoomSalesPage() {
     description: string,
     newValue?: any,
     severity: "info" | "warning" | "critical" = "info",
-    oldValue?: any
+    oldValue?: any,
   ) => {
     const { error } = await supabase.from(AUDIT_TABLE).insert({
       module: "Hotel Sales",
@@ -274,11 +275,17 @@ export default function RoomSalesPage() {
 
   const hasPermission = (
     moduleKey: string,
-    field: "can_view" | "can_create" | "can_edit" | "can_delete" | "can_approve" | "can_release"
+    field:
+      | "can_view"
+      | "can_create"
+      | "can_edit"
+      | "can_delete"
+      | "can_approve"
+      | "can_release",
   ) => {
     return permissions.some(
       (permission) =>
-        permission.module_key === moduleKey && permission[field] === true
+        permission.module_key === moduleKey && permission[field] === true,
     );
   };
 
@@ -292,30 +299,30 @@ export default function RoomSalesPage() {
     });
 
     const invalidDateRows = rows.filter(
-      (row) => !row.check_in && !row.check_out
+      (row) => !row.check_in && !row.check_out,
     ).length;
 
     const zeroTotalRows = rows.filter(
-      (row) => toNumber(row.total_sales) === 0
+      (row) => toNumber(row.total_sales) === 0,
     ).length;
 
     const duplicateReservationRows = Object.values(duplicateMap).reduce(
       (sum, count) => (count > 1 ? sum + count : sum),
-      0
+      0,
     );
 
     const cancelledRows = rows.filter((row) =>
-      isCancelledReservation(row)
+      isCancelledReservation(row),
     ).length;
 
     const negativeBalanceRows = rows.filter(
-      (row) => toNumber(row.unpaid_balance) < 0
+      (row) => toNumber(row.unpaid_balance) < 0,
     ).length;
 
     const activeRows = rows.filter((row) => !isCancelledReservation(row));
     const activeTotalSales = activeRows.reduce(
       (sum, row) => sum + toNumber(row.total_sales),
-      0
+      0,
     );
 
     return {
@@ -457,7 +464,7 @@ export default function RoomSalesPage() {
 
     XLSX.writeFile(
       workbook,
-      `hotel-sales-${timeFilter}-${new Date().toISOString().split("T")[0]}.xlsx`
+      `hotel-sales-${timeFilter}-${new Date().toISOString().split("T")[0]}.xlsx`,
     );
 
     await createAuditEntry("EXPORT_EXCEL", "Exported hotel sales Excel report", {
@@ -472,7 +479,7 @@ export default function RoomSalesPage() {
   };
 
   const handlePreviewExcel = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     if (!canImportSales) {
       alert("Access denied. You do not have permission to import hotel sales data.");
@@ -508,11 +515,11 @@ export default function RoomSalesPage() {
               fileName: file.name,
               validation,
             },
-            "warning"
+            "warning",
           );
 
           alert(
-            "Import validation failed. File has no active sales total or no readable reservation rows."
+            "Import validation failed. File has no active sales total or no readable reservation rows.",
           );
           setImporting(false);
           if (fileInputRef.current) fileInputRef.current.value = "";
@@ -527,7 +534,7 @@ export default function RoomSalesPage() {
               fileName: file.name,
               validation,
             },
-            "warning"
+            "warning",
           );
         }
 
@@ -561,7 +568,7 @@ export default function RoomSalesPage() {
         "IMPORT_VALIDATION_FAILED",
         `Hotel sales confirm import blocked: ${previewFileName}`,
         { fileName: previewFileName, validation },
-        "warning"
+        "warning",
       );
       alert("Import blocked. No active sales total found in preview.");
       return;
@@ -570,7 +577,7 @@ export default function RoomSalesPage() {
     const hasExistingData = sales.length > 0;
     const shouldReplace = hasExistingData
       ? window.confirm(
-          `Existing hotel sales data detected (${sales.length} rows).\n\nOK = Replace existing data before import\nCancel = Append new import to existing data`
+          `Existing hotel sales data detected (${sales.length} rows).\n\nOK = Replace existing data before import\nCancel = Append new import to existing data`,
         )
       : false;
 
@@ -582,11 +589,11 @@ export default function RoomSalesPage() {
     const confirmMessage = `${shouldReplace ? "Replace and import" : "Import"} ${
       previewRows.length
     } reservations?\n\nActive Sales: ${peso(
-      previewSummary.totalSales
+      previewSummary.totalSales,
     )}\nAmount Paid: ${peso(previewSummary.amountPaid)}\nCollectible Balance: ${peso(
-      previewSummary.unpaidBalance
+      previewSummary.unpaidBalance,
     )}\nCancelled Excluded: ${previewSummary.cancelledReservations} reservations worth ${peso(
-      previewSummary.cancelledSales
+      previewSummary.cancelledSales,
     )}`;
 
     if (!window.confirm(confirmMessage)) return;
@@ -620,7 +627,7 @@ export default function RoomSalesPage() {
         {
           previousRows: sales.length,
           previousSummary: oldSummary,
-        }
+        },
       );
     }
 
@@ -641,7 +648,7 @@ export default function RoomSalesPage() {
             failedBatchEnd: i + batch.length,
             error,
           },
-          "critical"
+          "critical",
         );
 
         alert(`Import failed at rows ${i + 1} to ${i + batch.length}.`);
@@ -663,7 +670,7 @@ export default function RoomSalesPage() {
         cancelledSales: previewSummary.cancelledSales,
         validation,
       },
-      shouldReplace ? "warning" : "info"
+      shouldReplace ? "warning" : "info",
     );
 
     setPreviewRows([]);
@@ -688,10 +695,10 @@ export default function RoomSalesPage() {
 
     const confirmed = window.confirm(
       `Delete all hotel sales records?\n\nRows: ${sales.length}\nActive Sales: ${peso(
-        oldSummary.totalSales
+        oldSummary.totalSales,
       )}\nAmount Paid: ${peso(oldSummary.amountPaid)}\nCollectible Balance: ${peso(
-        oldSummary.unpaidBalance
-      )}\n\nThis will only clear the hotel sales import table.`
+        oldSummary.unpaidBalance,
+      )}\n\nThis will only clear the hotel sales import table.`,
     );
 
     if (!confirmed) return;
@@ -711,7 +718,7 @@ export default function RoomSalesPage() {
         "Failed to clear all hotel sales records",
         { error },
         "critical",
-        { previousRows: sales.length, previousSummary: oldSummary }
+        { previousRows: sales.length, previousSummary: oldSummary },
       );
 
       alert("Failed to clear hotel sales data. Check console error.");
@@ -727,7 +734,7 @@ export default function RoomSalesPage() {
       {
         previousRows: sales.length,
         previousSummary: oldSummary,
-      }
+      },
     );
 
     setSales([]);
@@ -752,166 +759,193 @@ export default function RoomSalesPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <section className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-sm font-bold text-yellow-400">
-              Finance / Hotel Sales
-            </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={handlePreviewExcel}
+          className="hidden"
+        />
 
-            <h1 className="mt-2 text-3xl font-black">
-              Hotel Sales Dashboard
-            </h1>
+        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20 lg:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
+                Finance / Room Sales
+              </p>
 
-            <p className="mt-2 text-sm text-slate-400">
-              Monitor room sales, amount paid, unpaid balances, and reservations
-              from Cloudbeds export.
-            </p>
-          </div>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+                Room Sales Workbench
+              </h1>
 
-          <div className="flex flex-col items-end gap-3">
-            <div className="flex rounded-xl border border-slate-700 bg-slate-900 p-1">
-              {(["today", "month", "year", "all"] as TimeFilter[]).map(
-                (filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setTimeFilter(filter)}
-                    className={`rounded-lg px-4 py-2 text-sm font-bold ${
-                      timeFilter === filter
-                        ? "bg-yellow-400 text-slate-950"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {filter === "today"
-                      ? "Today"
-                      : filter === "month"
-                      ? "This Month"
-                      : filter === "year"
-                      ? "This Year"
-                      : "All Time"}
-                  </button>
-                )
-              )}
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                Cloudbeds reservation ledger for import preview, validation,
+                export, and finance review.
+              </p>
             </div>
 
-            <div className="flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handlePreviewExcel}
-                className="hidden"
-              />
-
-              {canImportSales && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={importing}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-50"
-                >
-                  {importing ? "Reading..." : "Preview Import"}
-                </button>
-              )}
-
-              <button
-                onClick={exportExcel}
-                disabled={loading || filteredSales.length === 0}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
-              >
-                Export Excel
-              </button>
-
-              {canDeleteSales && (
-                <button
-                  onClick={clearHotelSalesData}
-                  disabled={loading || importing || sales.length === 0}
-                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50"
-                >
-                  Clear Data
-                </button>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {previewRows.length > 0 && (
-          <section className="mb-7 rounded-xl border border-yellow-500/40 bg-yellow-950/20 p-6">
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-black text-yellow-300">
-                  Import Preview
-                </h2>
-                <p className="mt-1 text-sm text-yellow-100">
-                  File: {previewFileName}. Verify totals before importing.
-                </p>
+            <div className="flex flex-col gap-3 xl:items-end">
+              <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-950 p-1">
+                {(["today", "month", "year", "all"] as TimeFilter[]).map(
+                  (filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => setTimeFilter(filter)}
+                      className={
+                        timeFilter === filter
+                          ? "rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white"
+                          : "rounded-xl px-4 py-2 text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white"
+                      }
+                    >
+                      {filter === "today"
+                        ? "Today"
+                        : filter === "month"
+                          ? "Month"
+                          : filter === "year"
+                            ? "Year"
+                            : "All"}
+                    </button>
+                  ),
+                )}
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={cancelPreview}
-                  disabled={importing}
-                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-
+              <div className="flex flex-wrap gap-2">
                 {canImportSales && (
                   <button
-                    onClick={confirmImport}
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={importing}
-                    className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
                   >
-                    {importing ? "Importing..." : "Confirm Import"}
+                    {importing ? "Reading..." : "Preview Import"}
+                  </button>
+                )}
+
+                <button
+                  onClick={exportExcel}
+                  disabled={loading || filteredSales.length === 0}
+                  className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-black text-blue-100 hover:bg-blue-500/20 disabled:opacity-50"
+                >
+                  Export Excel
+                </button>
+
+                {canDeleteSales && (
+                  <button
+                    onClick={clearHotelSalesData}
+                    disabled={loading || importing || sales.length === 0}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    Clear Data
                   </button>
                 )}
               </div>
             </div>
+          </div>
+        </section>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <SummaryCard
-                title="Preview Reservations"
-                value={String(previewSummary.reservations)}
-              />
-              <SummaryCard
-                title="Preview Total Sales"
-                value={peso(previewSummary.totalSales)}
-              />
-              <SummaryCard
-                title="Preview Amount Paid"
-                value={peso(previewSummary.amountPaid)}
-              />
-              <SummaryCard
-                title="Preview Collectible"
-                value={peso(previewSummary.unpaidBalance)}
-                danger
-              />
+        <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Active Sales"
+            value={peso(summary.totalSales)}
+            subtitle="Cancelled excluded"
+          />
+          <MetricCard
+            title="Amount Paid"
+            value={peso(summary.amountPaid)}
+            subtitle="Actual collection"
+          />
+          <MetricCard
+            title="Collectible Balance"
+            value={peso(summary.unpaidBalance)}
+            subtitle={`${summary.unpaidRooms} reservation(s)`}
+            emphasized={summary.unpaidBalance > 0}
+          />
+          <MetricCard
+            title="Active Reservations"
+            value={String(summary.reservations)}
+            subtitle={`${summary.cancelledReservations} cancelled excluded`}
+          />
+        </section>
+
+        {previewRows.length > 0 && (
+          <section className="mb-6 overflow-hidden rounded-3xl border border-blue-300/20 bg-slate-900 shadow-xl shadow-black/20">
+            <div className="border-b border-slate-800 bg-blue-500/10 p-5 lg:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
+                    Import Preview
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-white">
+                    Review Cloudbeds File
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    File: <span className="font-semibold text-blue-100">{previewFileName}</span>
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={cancelPreview}
+                    disabled={importing}
+                    className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  {canImportSales && (
+                    <button
+                      onClick={confirmImport}
+                      disabled={importing}
+                      className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {importing ? "Importing..." : "Confirm Import"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <MetricCard
+                  title="Preview Rows"
+                  value={String(previewSummary.reservations)}
+                  subtitle="Active reservations"
+                />
+                <MetricCard
+                  title="Preview Sales"
+                  value={peso(previewSummary.totalSales)}
+                  subtitle="Active sales"
+                />
+                <MetricCard
+                  title="Preview Paid"
+                  value={peso(previewSummary.amountPaid)}
+                  subtitle="Collection"
+                />
+                <MetricCard
+                  title="Preview Collectible"
+                  value={peso(previewSummary.unpaidBalance)}
+                  subtitle="Balance due"
+                  emphasized={previewSummary.unpaidBalance > 0}
+                />
+              </div>
+
+              {(() => {
+                const validation = getImportValidation(previewRows);
+
+                return (
+                  <div className="mt-4 grid grid-cols-1 gap-2 text-xs md:grid-cols-4">
+                    <InfoPill label="Cancelled excluded" value={validation.cancelledRows} />
+                    <InfoPill label="Negative credits" value={validation.negativeBalanceRows} />
+                    <InfoPill label="Missing dates" value={validation.invalidDateRows} />
+                    <InfoPill label="Duplicate IDs" value={validation.duplicateReservationRows} />
+                  </div>
+                );
+              })()}
             </div>
 
-            {(() => {
-              const validation = getImportValidation(previewRows);
-
-              return (
-                <div className="mt-4 grid grid-cols-1 gap-3 text-xs md:grid-cols-4">
-                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
-                    Cancelled excluded: {validation.cancelledRows}
-                  </div>
-                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
-                    Negative credits: {validation.negativeBalanceRows}
-                  </div>
-                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
-                    Missing dates: {validation.invalidDateRows}
-                  </div>
-                  <div className="rounded-lg border border-yellow-500/20 bg-slate-950 p-3 text-yellow-100">
-                    Duplicate IDs: {validation.duplicateReservationRows}
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div className="mt-5 max-h-64 overflow-auto rounded-xl border border-yellow-500/20">
+            <div className="max-h-72 overflow-auto">
               <table className="w-full min-w-[1000px] text-left text-xs">
-                <thead className="bg-slate-950 text-yellow-200">
-                  <tr>
+                <thead className="sticky top-0 bg-slate-950 text-slate-400">
+                  <tr className="border-b border-slate-800">
                     <th className="p-3">Reservation</th>
                     <th>Guest</th>
                     <th>Room</th>
@@ -928,21 +962,19 @@ export default function RoomSalesPage() {
                   {previewRows.slice(0, 20).map((item, index) => (
                     <tr
                       key={`${item.reservation_number}-${index}`}
-                      className="border-t border-yellow-500/10 text-slate-200"
+                      className="border-b border-slate-800 text-slate-200 hover:bg-slate-950/50"
                     >
-                      <td className="p-3">{item.reservation_number}</td>
-                      <td>{item.guest_name}</td>
-                      <td>{item.room}</td>
-                      <td>{item.room_type}</td>
-                      <td>{item.booking_source}</td>
-                      <td>{item.status}</td>
-                      <td className="text-right">
-                        {peso(toNumber(item.total_sales))}
+                      <td className="p-3 font-semibold text-white">
+                        {item.reservation_number || "-"}
                       </td>
-                      <td className="text-right">
-                        {peso(toNumber(item.amount_paid))}
-                      </td>
-                      <td className="pr-3 text-right">
+                      <td>{item.guest_name || "-"}</td>
+                      <td>{item.room || "-"}</td>
+                      <td>{item.room_type || "-"}</td>
+                      <td>{item.booking_source || "-"}</td>
+                      <td>{item.status || "-"}</td>
+                      <td className="text-right">{peso(toNumber(item.total_sales))}</td>
+                      <td className="text-right">{peso(toNumber(item.amount_paid))}</td>
+                      <td className="pr-3 text-right font-bold text-blue-200">
                         {peso(toNumber(item.unpaid_balance))}
                       </td>
                     </tr>
@@ -952,7 +984,7 @@ export default function RoomSalesPage() {
             </div>
 
             {previewRows.length > 20 && (
-              <p className="mt-3 text-xs text-yellow-100">
+              <p className="border-t border-slate-800 px-5 py-3 text-xs text-slate-500">
                 Showing first 20 rows only. Full import will include all{" "}
                 {previewRows.length} rows.
               </p>
@@ -960,47 +992,116 @@ export default function RoomSalesPage() {
           </section>
         )}
 
-        <section className="mb-7 grid grid-cols-1 gap-5 md:grid-cols-4">
-          <SummaryCard title="Active Sales" value={peso(summary.totalSales)} />
-          <SummaryCard title="Amount Paid" value={peso(summary.amountPaid)} />
-          <SummaryCard
-            title="Collectible Balance"
-            value={peso(summary.unpaidBalance)}
-            danger
-          />
-          <SummaryCard
-            title="Active Reservations"
-            value={String(summary.reservations)}
-          />
+        {(summary.unpaidRooms > 0 || summary.cancelledReservations > 0) && (
+          <section className="mb-6 grid grid-cols-1 gap-3 xl:grid-cols-2">
+            {summary.unpaidRooms > 0 && (
+              <NoticeCard
+                title="Collectible Rooms Review"
+                text={`There are ${summary.unpaidRooms} active reservation(s) with collectible balance. Cancelled reservations and negative credits are excluded.`}
+              />
+            )}
+
+            {summary.cancelledReservations > 0 && (
+              <NoticeCard
+                title="Cancelled Reservations Excluded"
+                text={`${summary.cancelledReservations} cancelled reservation(s) worth ${peso(
+                  summary.cancelledSales,
+                )} are excluded from Active Sales, room type totals, and booking source totals.`}
+              />
+            )}
+          </section>
+        )}
+
+        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20 lg:p-6">
+          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
+                Reservation Ledger
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-white">
+                Room Sales Records
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Table-first workbench view. Export includes the full filtered dataset.
+              </p>
+            </div>
+
+            <div className="rounded-full border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-400">
+              Showing {Math.min(filteredSales.length, DISPLAY_LIMIT)} of{" "}
+              {filteredSales.length} record(s)
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="w-full min-w-[1120px] text-left text-sm">
+              <thead className="bg-slate-950 text-xs uppercase tracking-[0.12em] text-slate-500">
+                <tr>
+                  <th className="p-4">Reservation</th>
+                  <th>Guest</th>
+                  <th>Room</th>
+                  <th>Room Type</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th className="text-right">Total</th>
+                  <th className="text-right">Paid</th>
+                  <th className="pr-4 text-right">Balance</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredSales.slice(0, DISPLAY_LIMIT).map((item, index) => {
+                  const balance = toNumber(item.unpaid_balance);
+                  const cancelled = isCancelledReservation(item);
+
+                  return (
+                    <tr
+                      key={item.id || item.reservation_number || index}
+                      className="border-t border-slate-800 text-slate-200 hover:bg-slate-950/50"
+                    >
+                      <td className="p-4 font-semibold text-white">
+                        {item.reservation_number || "-"}
+                      </td>
+                      <td>{item.guest_name || "-"}</td>
+                      <td>{item.room || "-"}</td>
+                      <td>{item.room_type || "-"}</td>
+                      <td>{item.booking_source || "-"}</td>
+                      <td>
+                        <span
+                          className={
+                            cancelled
+                              ? "rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs font-bold text-slate-400"
+                              : "rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-200"
+                          }
+                        >
+                          {item.status || "Active"}
+                        </span>
+                      </td>
+                      <td className="text-right">{peso(toNumber(item.total_sales))}</td>
+                      <td className="text-right">{peso(toNumber(item.amount_paid))}</td>
+                      <td className="pr-4 text-right font-black text-blue-200">
+                        {peso(Math.max(balance, 0))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {filteredSales.length === 0 && <EmptyState />}
+          </div>
+
+          {filteredSales.length > DISPLAY_LIMIT && (
+            <p className="mt-3 text-xs text-slate-500">
+              Showing first {DISPLAY_LIMIT} rows only. Export Excel still includes
+              all {filteredSales.length} records.
+            </p>
+          )}
         </section>
-
-        {summary.unpaidRooms > 0 && (
-          <section className="mb-7 rounded-xl border border-red-800 bg-red-950/30 p-6">
-            <h2 className="text-xl font-black text-red-200">
-              Collectible Rooms Alert
-            </h2>
-            <p className="mt-3 text-sm font-semibold text-red-100">
-              There are {summary.unpaidRooms} active reservations with collectible
-              balance. Cancelled reservations and negative credits are excluded.
-            </p>
-          </section>
-        )}
-
-        {summary.cancelledReservations > 0 && (
-          <section className="mb-7 rounded-xl border border-yellow-700 bg-yellow-950/20 p-6">
-            <h2 className="text-xl font-black text-yellow-200">
-              Cancelled Reservations Excluded
-            </h2>
-            <p className="mt-3 text-sm font-semibold text-yellow-100">
-              {summary.cancelledReservations} cancelled reservations worth {peso(summary.cancelledSales)} are excluded from Active Sales, room type totals, and booking source totals.
-            </p>
-          </section>
-        )}
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Panel title="Sales by Room Type">
             {salesByRoomType.length === 0 ? (
-              <EmptyState />
+              <EmptyState compact />
             ) : (
               salesByRoomType.map(([name, amount]) => (
                 <ListRow key={name} name={name} value={peso(amount)} />
@@ -1010,7 +1111,7 @@ export default function RoomSalesPage() {
 
           <Panel title="Sales by Booking Source">
             {salesByBookingSource.length === 0 ? (
-              <EmptyState />
+              <EmptyState compact />
             ) : (
               salesByBookingSource.map(([name, amount]) => (
                 <ListRow key={name} name={name} value={peso(amount)} />
@@ -1018,98 +1119,49 @@ export default function RoomSalesPage() {
             )}
           </Panel>
         </section>
-
-        <section className="mt-7 rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="mb-4 text-xl font-black">Reservation Records</h2>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-left text-sm">
-              <thead className="text-slate-400">
-                <tr className="border-b border-slate-800">
-                  <th className="py-3">Reservation</th>
-                  <th>Guest</th>
-                  <th>Room</th>
-                  <th>Room Type</th>
-                  <th>Source</th>
-                  <th>Status</th>
-                  <th className="text-right">Total</th>
-                  <th className="text-right">Paid</th>
-                  <th className="text-right">Balance</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredSales.slice(0, DISPLAY_LIMIT).map((item, index) => (
-                  <tr
-                    key={item.id || item.reservation_number || index}
-                    className="border-b border-slate-800 text-slate-200"
-                  >
-                    <td className="py-3">{item.reservation_number || "-"}</td>
-                    <td>{item.guest_name || "-"}</td>
-                    <td>{item.room || "-"}</td>
-                    <td>{item.room_type || "-"}</td>
-                    <td>{item.booking_source || "-"}</td>
-                    <td>{item.status || "-"}</td>
-                    <td className="text-right">
-                      {peso(toNumber(item.total_sales))}
-                    </td>
-                    <td className="text-right">
-                      {peso(toNumber(item.amount_paid))}
-                    </td>
-                    <td
-                      className={`text-right font-bold ${
-                        toNumber(item.unpaid_balance) > 0
-                          ? "text-red-400"
-                          : "text-emerald-400"
-                      }`}
-                    >
-                      {peso(toNumber(item.unpaid_balance))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredSales.length > DISPLAY_LIMIT && (
-            <p className="mt-3 text-xs text-slate-400">
-              Showing first {DISPLAY_LIMIT} rows only. Export Excel still includes
-              all {filteredSales.length} records.
-            </p>
-          )}
-
-          {filteredSales.length === 0 && <EmptyState />}
-        </section>
       </main>
     </div>
   );
 }
 
-function SummaryCard({
+function MetricCard({
   title,
   value,
-  danger = false,
+  subtitle,
+  emphasized = false,
 }: {
   title: string;
   value: string;
-  danger?: boolean;
+  subtitle?: string;
+  emphasized?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-xl border p-5 ${
-        danger
-          ? "border-red-800 bg-red-950/30"
-          : "border-slate-800 bg-slate-900"
-      }`}
-    >
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2
-        className={`mt-3 text-2xl font-black ${
-          danger ? "text-red-400" : "text-white"
-        }`}
-      >
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg shadow-black/10">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <h2 className={emphasized ? "mt-2 text-2xl font-black text-blue-200" : "mt-2 text-2xl font-black text-white"}>
         {value}
       </h2>
+      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+    </div>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-blue-300/20 bg-slate-950 px-3 py-2 text-blue-100">
+      <span className="text-slate-500">{label}:</span>{" "}
+      <span className="font-black text-blue-200">{value}</span>
+    </div>
+  );
+}
+
+function NoticeCard({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+      <h2 className="text-lg font-black text-blue-100">{title}</h2>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{text}</p>
     </div>
   );
 }
@@ -1122,8 +1174,11 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <h2 className="mb-5 text-xl font-black">{title}</h2>
+    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20 lg:p-6">
+      <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
+        Breakdown
+      </p>
+      <h2 className="mt-1 mb-5 text-xl font-black text-white">{title}</h2>
       <div className="space-y-3">{children}</div>
     </div>
   );
@@ -1131,16 +1186,22 @@ function Panel({
 
 function ListRow({ name, value }: { name: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-4 py-3">
-      <p className="font-semibold text-white">{name}</p>
-      <p className="font-black text-emerald-400">{value}</p>
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3">
+      <p className="min-w-0 truncate font-semibold text-white">{name}</p>
+      <p className="shrink-0 font-black text-blue-200">{value}</p>
     </div>
   );
 }
 
-function EmptyState() {
+function EmptyState({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">
+    <div
+      className={
+        compact
+          ? "rounded-2xl border border-dashed border-slate-700 p-5 text-center text-sm text-slate-500"
+          : "p-8 text-center text-sm text-slate-500"
+      }
+    >
       No hotel sales records found.
     </div>
   );

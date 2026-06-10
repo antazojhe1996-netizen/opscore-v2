@@ -189,7 +189,7 @@ export default function RestaurantImportPage() {
     severity: "info" | "warning" | "critical" = "info",
   ) => {
     const { error } = await supabase.from(AUDIT_TABLE).insert({
-      module: "Restaurant Sales",
+      module: "Restaurant Sales Workbench",
       action,
       description,
       severity,
@@ -572,12 +572,12 @@ export default function RestaurantImportPage() {
       <main className="min-w-0 flex-1 space-y-6 overflow-x-hidden p-6">
         <div className="flex flex-col gap-4 border-b border-slate-800 pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-              Finance Import
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+              Finance Workbench
             </p>
             <h1 className="mt-2 text-3xl font-bold">Restaurant Sales</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Import Poster POS sales export, validate totals, and audit every import/export action.
+              Import, validate, review, export, and audit Poster POS restaurant sales records.
             </p>
           </div>
 
@@ -644,13 +644,13 @@ export default function RestaurantImportPage() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="text-xl font-bold">Upload Poster Export</h2>
+            <h2 className="text-xl font-bold">Poster POS Import Panel</h2>
             <p className="mt-2 text-sm text-slate-400">
               Upload Excel or CSV file from Poster POS. Preview first, then append/update or replace.
             </p>
 
             {!canCreate && (
-              <div className="mt-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+              <div className="mt-4 rounded-xl border border-blue-500/20 bg-yellow-500/10 p-4 text-sm text-blue-100">
                 View-only access. Import and replace actions are disabled for your role.
               </div>
             )}
@@ -700,7 +700,7 @@ export default function RestaurantImportPage() {
                 disabled={!canDelete}
                 className={`rounded-lg px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 ${
                   importMode === "replace"
-                    ? "bg-yellow-400 text-slate-950"
+                    ? "bg-blue-600 text-white"
                     : "bg-slate-900 text-slate-400 hover:text-white"
                 }`}
               >
@@ -808,9 +808,9 @@ export default function RestaurantImportPage() {
         </div>
 
         {invalidRows.length > 0 && (
-          <section className="rounded-2xl border border-yellow-700 bg-yellow-950/20 p-5">
-            <h2 className="text-xl font-black text-yellow-200">Import Validation Warning</h2>
-            <p className="mt-2 text-sm text-yellow-100">
+          <section className="rounded-2xl border border-blue-700 bg-blue-950/20 p-5">
+            <h2 className="text-xl font-black text-blue-200">Import Validation Warning</h2>
+            <p className="mt-2 text-sm text-blue-100">
               {invalidRows.length} row(s) were skipped because the date was missing or invalid.
             </p>
           </section>
@@ -819,7 +819,7 @@ export default function RestaurantImportPage() {
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
           <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-xl font-bold">Imported Restaurant Sales</h2>
+              <h2 className="text-xl font-bold">Restaurant Sales Ledger</h2>
               <p className="text-sm text-slate-400">
                 Saved daily sales records from Supabase.
               </p>
@@ -909,12 +909,12 @@ function SummaryCard({
         success
           ? "border-emerald-500/20 bg-emerald-500/10"
           : warning
-            ? "border-amber-500/20 bg-amber-500/10"
+            ? "border-blue-500/20 bg-blue-500/10"
             : "border-slate-800 bg-slate-900"
       }`}
     >
       <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-3 text-3xl font-bold ${success ? "text-emerald-400" : warning ? "text-amber-400" : "text-white"}`}>
+      <h2 className={`mt-3 text-3xl font-bold ${success ? "text-emerald-400" : warning ? "text-blue-300" : "text-white"}`}>
         {value}
       </h2>
       {subtitle && <p className="mt-2 text-xs text-slate-500">{subtitle}</p>}

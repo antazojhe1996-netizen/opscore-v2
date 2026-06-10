@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -32,6 +33,35 @@ export default function FinancePage() {
     "Review pending finance approvals before cash release.",
     "Verify today’s revenue posting from rooms, restaurant, and apartment collections.",
     "Check unreconciled cash accountability and liquidation status.",
+  ];
+
+  const workbenchActions = [
+    {
+      title: "Cash Management",
+      description: "Open drawer, cash movements, remittance, and accountability.",
+      href: "/finance/cash-management",
+      primary: true,
+    },
+    {
+      title: "Expenses Ledger",
+      description: "Record, review, export, and void operating expenses.",
+      href: "/finance/expenses",
+    },
+    {
+      title: "Apartment Operations",
+      description: "Review apartment collections, exposure, billing, and payments.",
+      href: "/finance/apartment",
+    },
+    {
+      title: "Payroll Manager",
+      description: "Review release control, partial balances, and payroll status.",
+      href: "/payroll-manager",
+    },
+    {
+      title: "Decision Center",
+      description: "Review approvals before releasing cash or payroll actions.",
+      href: "/approval-center",
+    },
   ];
 
   return (
@@ -132,6 +162,58 @@ export default function FinancePage() {
               status="Action Queue"
               warning
             />
+          </section>
+
+          {/* WORKBENCH ACTIONS */}
+          <section className="mt-8 rounded-[1.75rem] border border-blue-300/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/20 sm:p-6">
+            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
+                  Financial Workbench Actions
+                </p>
+                <h2 className="mt-2 text-2xl font-black text-white">
+                  Open Daily Finance Workflows
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                  Use these shortcuts for daily finance operations while this page remains the executive overview.
+                </p>
+              </div>
+
+              <div className="rounded-full border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-blue-200/70">
+                Workbench Layer
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+              {workbenchActions.map((item) => (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  className={`group rounded-2xl border p-4 transition ${
+                    item.primary
+                      ? "border-blue-400/30 bg-blue-600 text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500"
+                      : "border-slate-800 bg-slate-950/60 text-slate-200 hover:border-blue-300/20 hover:bg-slate-900"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-black">{item.title}</h3>
+                      <p
+                        className={`mt-2 text-xs leading-5 ${
+                          item.primary ? "text-blue-50/80" : "text-slate-500"
+                        }`}
+                      >
+                        {item.description}
+                      </p>
+                    </div>
+                    <ArrowUpRight
+                      size={16}
+                      className={item.primary ? "text-white" : "text-blue-300"}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
           </section>
 
           {/* INTELLIGENCE */}

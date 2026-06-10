@@ -20,6 +20,8 @@ export default function ApartmentBillingPage() {
   const [internetAmount, setInternetAmount] = useState("");
   const [otherAmount, setOtherAmount] = useState("");
   const [saving, setSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   /// FUNCTIONS
   const formatMoney = (value: any) =>
@@ -309,6 +311,22 @@ export default function ApartmentBillingPage() {
   const totalPaid = bills.reduce((sum, bill) => sum + getTotalPaid(bill), 0);
   const totalBalance = totalBills - totalPaid;
 
+  const overdueBills = bills.filter((bill) => getBillStatus(bill) === "OVERDUE");
+  const unpaidBills = bills.filter((bill) => ["UNPAID", "PARTIAL", "OVERDUE"].includes(getBillStatus(bill)));
+
+  const filteredBills = useMemo(() => {
+    return bills.filter((bill) => {
+      const status = getBillStatus(bill);
+      const searchable = `${getUnitName(bill.unit_id)} ${getTenantName(bill.unit_id)} ${bill.bill_month} ${bill.due_date} ${status}`.toLowerCase();
+
+      const matchesSearch = searchable.includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "ALL" || status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [bills, units, searchTerm, statusFilter]);
+
+
   /// EFFECTS
   useEffect(() => {
     getData();
@@ -319,215 +337,270 @@ export default function ApartmentBillingPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="flex-1 space-y-6 p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-              Apartment Module
-            </p>
-
-            <h1 className="mt-2 text-3xl font-bold">Apartment Billing</h1>
-
-            <p className="mt-1 text-sm text-slate-400">
-              Create monthly apartment bills for rent, utilities, and other charges.
-            </p>
-          </div>
-
-          <Link
-            href="/finance/apartment"
-            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
-          >
-            ← Back to Dashboard
-          </Link>
-        </div>
-
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SummaryCard title="Total Billed" value={formatMoney(totalBills)} />
-          <SummaryCard title="Total Paid" value={formatMoney(totalPaid)} color="text-emerald-400" />
-          <SummaryCard title="Total Balance" value={formatMoney(totalBalance)} color="text-red-400" />
-        </section>
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="mb-4 text-xl font-bold">Create Bill</h2>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 xl:p-8">
+        <div className="mx-auto w-full max-w-[1700px]">
+          <section className="mb-5 flex flex-col gap-4 border-b border-slate-800 pb-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <label className="text-sm text-slate-400">Unit</label>
-              <select
-                value={unitId}
-                onChange={(e) => setUnitId(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
+                Apartment Operations
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+                Apartment Billing
+              </h1>
+              <p className="mt-1 max-w-3xl text-sm text-slate-400">
+                Create tenant bills, review billing status, and protect paid collection records.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/finance/apartment"
+                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-800"
               >
-                <option value="">Select unit</option>
-                {activeUnits.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.unit_name} {unit.tenant_name ? `- ${unit.tenant_name}` : ""}
-                  </option>
-                ))}
-              </select>
+                Back to Apartment Center
+              </Link>
+              <a
+                href="#create-bill"
+                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500"
+              >
+                Create Bill
+              </a>
             </div>
+          </section>
 
-            <div>
-              <label className="text-sm text-slate-400">Bill Month</label>
-              <input
-                type="month"
-                value={billMonth}
-                onChange={(e) => setBillMonth(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
-              />
+          <section className="sticky top-0 z-30 mb-5 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 shadow-xl shadow-black/20 backdrop-blur">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(240px,1fr)_180px]">
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search unit, tenant, month, due date..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                />
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="UNPAID">Unpaid</option>
+                  <option value="PARTIAL">Partial</option>
+                  <option value="OVERDUE">Overdue</option>
+                  <option value="PAID">Paid</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <CompactMetric label="Billed" value={formatMoney(totalBills)} />
+                <CompactMetric label="Paid" value={formatMoney(totalPaid)} />
+                <CompactMetric label="Balance" value={formatMoney(totalBalance)} danger={totalBalance > 0} />
+                <CompactMetric label="Overdue" value={overdueBills.length} danger={overdueBills.length > 0} />
+              </div>
             </div>
+          </section>
 
-            <div>
-              <label className="text-sm text-slate-400">Due Date</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
-              />
-            </div>
+          <section className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900">
+              <div className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-white">Billing Queue</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {filteredBills.length} bill{filteredBills.length === 1 ? "" : "s"} shown. Paid bills are locked from deletion.
+                  </p>
+                </div>
 
-            <AmountInput label="Rent" value={rentAmount} setValue={setRentAmount} />
-            <AmountInput label="Electric" value={electricAmount} setValue={setElectricAmount} />
-            <AmountInput label="Water" value={waterAmount} setValue={setWaterAmount} />
-            <AmountInput label="Internet" value={internetAmount} setValue={setInternetAmount} />
-            <AmountInput label="Other Charges" value={otherAmount} setValue={setOtherAmount} />
-          </div>
+                <div className="flex flex-wrap gap-2 text-xs font-bold">
+                  <button
+                    onClick={() => setStatusFilter("UNPAID")}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-slate-300 hover:bg-slate-800"
+                  >
+                    Unpaid
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter("OVERDUE")}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-slate-300 hover:bg-slate-800"
+                  >
+                    Overdue
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter("ALL")}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-slate-300 hover:bg-slate-800"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
 
-          <div className="mt-5 flex justify-end">
-            <button
-              onClick={saveBill}
-              disabled={saving}
-              className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Bill"}
-            </button>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="mb-4 text-xl font-bold">Billing History</h2>
-
-          <div className="overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1200px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Unit</th>
-                  <th className="px-4 py-3">Tenant</th>
-                  <th className="px-4 py-3">Month</th>
-                  <th className="px-4 py-3 text-right">Rent</th>
-                  <th className="px-4 py-3 text-right">Electric</th>
-                  <th className="px-4 py-3 text-right">Water</th>
-                  <th className="px-4 py-3 text-right">Internet</th>
-                  <th className="px-4 py-3 text-right">Other</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3 text-right">Paid</th>
-                  <th className="px-4 py-3 text-right">Balance</th>
-                  <th className="px-4 py-3">Due Date</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-center">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {bills.map((bill) => {
-                  const paid = getTotalPaid(bill);
-                  const balance = getBalance(bill);
-                  const status = getBillStatus(bill);
-                  const hasPayment = paid > 0;
-
-                  return (
-                    <tr
-                      key={bill.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
-                    >
-                      <td className="px-4 py-3 font-bold">
-                        {getUnitName(bill.unit_id)}
-                      </td>
-
-                      <td className="px-4 py-3 text-slate-300">
-                        {getTenantName(bill.unit_id)}
-                      </td>
-
-                      <td className="px-4 py-3">{bill.bill_month}</td>
-
-                      <td className="px-4 py-3 text-right">
-                        {formatMoney(bill.rent_amount)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right">
-                        {formatMoney(bill.electric_amount)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right">
-                        {formatMoney(bill.water_amount)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right">
-                        {formatMoney(bill.internet_amount)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right">
-                        {formatMoney(bill.other_amount)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right font-bold text-amber-400">
-                        {formatMoney(getTotalBill(bill))}
-                      </td>
-
-                      <td className="px-4 py-3 text-right text-emerald-400">
-                        {formatMoney(paid)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right text-red-400">
-                        {formatMoney(balance)}
-                      </td>
-
-                      <td className="px-4 py-3">{bill.due_date}</td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                            status
-                          )}`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => deleteBill(bill)}
-                          disabled={hasPayment}
-                          title={
-                            hasPayment
-                              ? "Delete disabled because this bill already has payment."
-                              : "Delete bill"
-                          }
-                          className="rounded-lg border border-red-500/40 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500 disabled:hover:bg-transparent"
-                        >
-                          {hasPayment ? "Locked" : "Delete"}
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1250px] text-sm">
+                  <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Unit / Tenant</th>
+                      <th className="px-4 py-3">Month</th>
+                      <th className="px-4 py-3 text-right">Rent</th>
+                      <th className="px-4 py-3 text-right">Electric</th>
+                      <th className="px-4 py-3 text-right">Water</th>
+                      <th className="px-4 py-3 text-right">Internet</th>
+                      <th className="px-4 py-3 text-right">Other</th>
+                      <th className="px-4 py-3 text-right">Total</th>
+                      <th className="px-4 py-3 text-right">Paid</th>
+                      <th className="px-4 py-3 text-right">Balance</th>
+                      <th className="px-4 py-3">Due</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
-                  );
-                })}
+                  </thead>
 
-                {bills.length === 0 && (
-                  <tr>
-                    <td colSpan={14} className="px-4 py-12 text-center text-slate-500">
-                      No apartment bills yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  <tbody>
+                    {filteredBills.map((bill) => {
+                      const paid = getTotalPaid(bill);
+                      const balance = getBalance(bill);
+                      const total = getTotalBill(bill);
+                      const status = getBillStatus(bill);
+                      const hasPayment = paid > 0;
 
-          <p className="mt-3 text-xs text-slate-500">
-            Bills with recorded payments are locked to protect collection records.
-          </p>
-        </section>
+                      return (
+                        <tr key={bill.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                          <td className="px-4 py-3 align-top">
+                            <p className="font-black text-white">{getUnitName(bill.unit_id)}</p>
+                            <p className="mt-1 text-xs text-slate-500">{getTenantName(bill.unit_id)}</p>
+                          </td>
+                          <td className="px-4 py-3 align-top text-slate-300">{bill.bill_month}</td>
+                          <td className="px-4 py-3 text-right align-top text-slate-300">{formatMoney(bill.rent_amount)}</td>
+                          <td className="px-4 py-3 text-right align-top text-slate-300">{formatMoney(bill.electric_amount)}</td>
+                          <td className="px-4 py-3 text-right align-top text-slate-300">{formatMoney(bill.water_amount)}</td>
+                          <td className="px-4 py-3 text-right align-top text-slate-300">{formatMoney(bill.internet_amount)}</td>
+                          <td className="px-4 py-3 text-right align-top text-slate-300">{formatMoney(bill.other_amount)}</td>
+                          <td className="px-4 py-3 text-right align-top font-black text-white">{formatMoney(total)}</td>
+                          <td className="px-4 py-3 text-right align-top font-bold text-slate-200">{formatMoney(paid)}</td>
+                          <td className={balance > 0 ? "px-4 py-3 text-right align-top font-black text-red-300" : "px-4 py-3 text-right align-top font-black text-emerald-300"}>
+                            {formatMoney(balance)}
+                          </td>
+                          <td className="px-4 py-3 align-top text-slate-300">{bill.due_date}</td>
+                          <td className="px-4 py-3 align-top">
+                            <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(status)}`}>
+                              {status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right align-top">
+                            <button
+                              onClick={() => deleteBill(bill)}
+                              disabled={hasPayment}
+                              title={hasPayment ? "Delete disabled because payment is recorded." : "Delete bill"}
+                              className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500 disabled:hover:bg-transparent"
+                            >
+                              {hasPayment ? "Locked" : "Delete"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {filteredBills.length === 0 && (
+                      <tr>
+                        <td colSpan={13} className="px-4 py-14 text-center text-slate-500">
+                          No apartment bills found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <aside className="space-y-5">
+              <section id="create-bill" className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <div className="mb-4">
+                  <h2 className="text-lg font-black text-white">Create Bill</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Rent, utilities, and other charges are saved as one billing record.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Field label="Unit">
+                    <select
+                      value={unitId}
+                      onChange={(e) => setUnitId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    >
+                      <option value="">Select unit</option>
+                      {activeUnits.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.unit_name} {unit.tenant_name ? `- ${unit.tenant_name}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Bill Month">
+                      <input
+                        type="month"
+                        value={billMonth}
+                        onChange={(e) => setBillMonth(e.target.value)}
+                        style={{ colorScheme: "dark" }}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      />
+                    </Field>
+
+                    <Field label="Due Date">
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        style={{ colorScheme: "dark" }}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <AmountInput label="Rent" value={rentAmount} setValue={setRentAmount} />
+                    <AmountInput label="Electric" value={electricAmount} setValue={setElectricAmount} />
+                    <AmountInput label="Water" value={waterAmount} setValue={setWaterAmount} />
+                    <AmountInput label="Internet" value={internetAmount} setValue={setInternetAmount} />
+                  </div>
+
+                  <AmountInput label="Other Charges" value={otherAmount} setValue={setOtherAmount} />
+
+                  <div className="grid grid-cols-[1fr_auto] gap-3 pt-2">
+                    <MiniStat
+                      title="Bill Total"
+                      value={formatMoney(
+                        Number(rentAmount || 0) +
+                          Number(electricAmount || 0) +
+                          Number(waterAmount || 0) +
+                          Number(internetAmount || 0) +
+                          Number(otherAmount || 0)
+                      )}
+                    />
+                    <button
+                      onClick={saveBill}
+                      disabled={saving}
+                      className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <h2 className="text-lg font-black text-white">Collection Snapshot</h2>
+                <div className="mt-4 grid grid-cols-1 gap-3">
+                  <MiniStat title="Open Balance" value={formatMoney(totalBalance)} danger={totalBalance > 0} />
+                  <MiniStat title="Unpaid / Partial / Overdue" value={unpaidBills.length} danger={unpaidBills.length > 0} />
+                  <MiniStat title="Active Billable Units" value={activeUnits.length} />
+                </div>
+                <p className="mt-4 rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs leading-5 text-slate-500">
+                  Bills with recorded payments are locked to protect collection records and audit history.
+                </p>
+              </section>
+            </aside>
+          </section>
+        </div>
       </main>
     </div>
   );
@@ -535,24 +608,41 @@ export default function ApartmentBillingPage() {
 
 function AmountInput({ label, value, setValue }: any) {
   return (
-    <div>
-      <label className="text-sm text-slate-400">{label}</label>
+    <Field label={label}>
       <input
         type="number"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="0.00"
-        className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none"
+        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
       />
+    </Field>
+  );
+}
+
+function CompactMetric({ label, value, danger }: any) {
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${danger ? "border-red-500/20 bg-red-500/10" : "border-slate-800 bg-slate-900"}`}>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={danger ? "mt-1 text-sm font-black text-red-300" : "mt-1 text-sm font-black text-white"}>{value}</p>
     </div>
   );
 }
 
-function SummaryCard({ title, value, color = "text-white" }: any) {
+function Field({ label, children }: any) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-3 text-3xl font-bold ${color}`}>{value}</h2>
+    <div>
+      <label className="mb-1 block text-sm font-semibold text-slate-300">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function MiniStat({ title, value, danger }: any) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-xs text-slate-500">{title}</p>
+      <h3 className={danger ? "mt-1 text-lg font-black text-red-300" : "mt-1 text-lg font-black text-white"}>{value}</h3>
     </div>
   );
 }

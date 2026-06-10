@@ -120,19 +120,19 @@ export default function AuditCenterPage() {
 
   const getLevelClass = (level: AuditLevel) => {
     if (level === "Excellent" || level === "Good") {
-      return "border-green-500/30 bg-green-500/10 text-green-300";
+      return "border-blue-500/30 bg-blue-500/10 text-blue-200";
     }
 
     if (level === "Needs Attention") {
-      return "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+      return "border-blue-500/30 bg-blue-500/10 text-blue-200";
     }
 
-    return "border-red-500/30 bg-red-500/10 text-red-300";
+    return "border-blue-500/30 bg-blue-500/10 text-blue-200";
   };
 
   const getSeverityClass = (severity: AuditIssue["severity"]) => {
-    if (severity === "high") return "border-red-500/30 bg-red-500/10 text-red-300";
-    if (severity === "medium") return "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+    if (severity === "high") return "border-blue-500/30 bg-blue-500/10 text-blue-200";
+    if (severity === "medium") return "border-blue-500/30 bg-blue-500/10 text-blue-200";
     return "border-blue-500/30 bg-blue-500/10 text-blue-300";
   };
 
@@ -577,14 +577,14 @@ export default function AuditCenterPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <section className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20 lg:p-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
               OPSCORE Audit Center
             </p>
 
-            <h1 className="mt-2 text-4xl font-black">Operations Audit</h1>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Operations Audit</h1>
 
             <p className="mt-2 max-w-4xl text-sm text-slate-400">
               One-page control check for finance, sales, workforce, payroll, and operations risk.
@@ -643,7 +643,7 @@ export default function AuditCenterPage() {
         <section className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <div className="mb-5 flex items-center gap-3">
-              <ShieldAlert className="text-amber-400" size={28} />
+              <ShieldAlert className="text-blue-300" size={28} />
 
               <div>
                 <h2 className="text-2xl font-black">Needs Attention</h2>
@@ -659,12 +659,12 @@ export default function AuditCenterPage() {
                   <IssueCard key={`${issue.area}-${issue.title}-${index}`} issue={issue} />
                 ))
               ) : (
-                <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-6 text-green-300">
+                <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6 text-blue-200">
                   <div className="flex items-center gap-3">
                     <CheckCircle2 size={24} />
                     <div>
                       <h3 className="font-black">No major issue detected.</h3>
-                      <p className="mt-1 text-sm text-green-200">
+                      <p className="mt-1 text-sm text-blue-100">
                         Current audit checks are clean.
                       </p>
                     </div>
@@ -674,13 +674,13 @@ export default function AuditCenterPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-6">
+          <section className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
             <div className="mb-5 flex items-center gap-3">
-              <Brain className="text-cyan-300" size={28} />
+              <Brain className="text-blue-200" size={28} />
 
               <div>
                 <h2 className="text-2xl font-black text-white">Audit Summary</h2>
-                <p className="text-sm text-cyan-100/80">Owner view</p>
+                <p className="text-sm text-blue-100/80">Owner view</p>
               </div>
             </div>
 
@@ -701,7 +701,7 @@ export default function AuditCenterPage() {
                 <div className="space-y-2">
                   {audit.immediateActions.map((issue, index) => (
                     <div key={`${issue.title}-${index}`} className="rounded-xl bg-slate-900 p-3">
-                      <p className="text-sm font-bold text-red-300">{issue.action}</p>
+                      <p className="text-sm font-bold text-blue-200">{issue.action}</p>
                       <p className="mt-1 text-xs text-slate-400">{issue.title}</p>
                     </div>
                   ))}
@@ -715,7 +715,7 @@ export default function AuditCenterPage() {
 
             <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
               <p className="flex items-center gap-2 text-sm font-bold text-slate-200">
-                <AlertTriangle size={16} className="text-amber-400" /> Audit V1 note
+                <AlertTriangle size={16} className="text-blue-300" /> Audit V1 note
               </p>
               <p className="mt-2 text-sm text-slate-400">
                 This page reads existing modules only. No new database table needed.
@@ -733,10 +733,10 @@ function ScoreCard({ card }: { card: ScoreCardData }) {
 
   const colorClass =
     card.score >= 85
-      ? "border-green-500/20 bg-green-500/10 text-green-300"
+      ? "border-blue-500/20 bg-blue-500/10 text-blue-200"
       : card.score >= 70
-      ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
-      : "border-red-500/20 bg-red-500/10 text-red-300";
+      ? "border-blue-500/20 bg-blue-500/10 text-blue-200"
+      : "border-blue-500/20 bg-blue-500/10 text-blue-200";
 
   return (
     <div className={`rounded-2xl border p-5 ${colorClass}`}>
@@ -763,12 +763,12 @@ function MiniStat({ title, value, danger }: { title: string; value: any; danger?
     <div
       className={`rounded-2xl border p-5 ${
         danger
-          ? "border-red-500/20 bg-red-500/10"
+          ? "border-blue-500/20 bg-blue-500/10"
           : "border-slate-800 bg-slate-900"
       }`}
     >
       <p className="text-sm text-slate-400">{title}</p>
-      <h3 className={`mt-2 text-2xl font-black ${danger ? "text-red-300" : "text-white"}`}>
+      <h3 className={`mt-2 text-2xl font-black ${danger ? "text-blue-200" : "text-white"}`}>
         {value}
       </h3>
     </div>
@@ -778,9 +778,9 @@ function MiniStat({ title, value, danger }: { title: string; value: any; danger?
 function IssueCard({ issue }: { issue: AuditIssue }) {
   const severityClass =
     issue.severity === "high"
-      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
       : issue.severity === "medium"
-      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+      ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
       : "border-blue-500/30 bg-blue-500/10 text-blue-300";
 
   return (

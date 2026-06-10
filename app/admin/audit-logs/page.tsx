@@ -59,8 +59,8 @@ export default function AuditLogsPage() {
   };
 
   const getSeverityStyle = (severity: Severity) => {
-    if (severity === "critical") return "bg-red-500/10 text-red-400 border-red-500/30";
-    if (severity === "warning") return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+    if (severity === "critical") return "bg-blue-500/10 text-blue-300 border-blue-500/30";
+    if (severity === "warning") return "bg-blue-500/10 text-blue-300 border-blue-500/30";
     return "bg-blue-500/10 text-blue-400 border-blue-500/30";
   };
 
@@ -68,15 +68,15 @@ export default function AuditLogsPage() {
     const value = String(action || "").toLowerCase();
 
     if (value.includes("delete") || value.includes("void") || value.includes("cancel")) {
-      return "text-red-400";
+      return "text-blue-300";
     }
 
     if (value.includes("update") || value.includes("edit")) {
-      return "text-amber-400";
+      return "text-blue-300";
     }
 
     if (value.includes("create") || value.includes("insert") || value.includes("record")) {
-      return "text-emerald-400";
+      return "text-blue-300";
     }
 
     return "text-slate-300";
@@ -162,14 +162,14 @@ export default function AuditLogsPage() {
     <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20 lg:p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
               OPSCORE Admin
             </p>
 
-            <h1 className="mt-2 text-4xl font-black">Audit Logs</h1>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Audit Logs</h1>
 
             <p className="mt-2 text-slate-400">
               Track sensitive actions across finance, payroll, employees, apartment, cash drawer, and system settings.
@@ -196,28 +196,28 @@ export default function AuditLogsPage() {
             title="Users Active Today"
             value={uniqueUsersToday}
             icon={<UserCheck size={22} />}
-            color="text-emerald-400"
+            color="text-blue-300"
           />
 
           <SummaryCard
             title="Warning Logs"
             value={warningLogs.length}
             icon={<AlertTriangle size={22} />}
-            color="text-amber-400"
+            color="text-blue-300"
           />
 
           <SummaryCard
             title="Critical Logs"
             value={criticalLogs.length}
             icon={<ShieldCheck size={22} />}
-            color="text-red-400"
+            color="text-blue-300"
           />
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
             <div className="mb-4 flex items-center gap-3">
-              <Database className="text-amber-400" size={26} />
+              <Database className="text-blue-300" size={26} />
 
               <div>
                 <h2 className="text-2xl font-black">Audit Trail</h2>
@@ -326,17 +326,17 @@ export default function AuditLogsPage() {
           </div>
 
           <aside className="space-y-6">
-            <section className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6">
+            <section className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
               <div className="flex items-center gap-3">
-                <ShieldCheck className="text-red-400" size={24} />
+                <ShieldCheck className="text-blue-300" size={24} />
                 <h2 className="text-xl font-black text-white">Critical Changes</h2>
               </div>
 
               <div className="mt-5 space-y-3">
                 {recentCritical.length > 0 ? (
                   recentCritical.map((log) => (
-                    <div key={log.id} className="rounded-xl border border-red-500/20 bg-slate-950/60 p-4">
-                      <p className="text-sm font-bold text-red-300">
+                    <div key={log.id} className="rounded-xl border border-blue-500/20 bg-slate-950/60 p-4">
+                      <p className="text-sm font-bold text-blue-200">
                         {log.action || "Critical Action"}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
@@ -348,7 +348,7 @@ export default function AuditLogsPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-5 text-sm text-emerald-300">
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-5 text-sm text-blue-200">
                     No critical changes found.
                   </div>
                 )}
@@ -357,7 +357,7 @@ export default function AuditLogsPage() {
 
             <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
               <div className="flex items-center gap-3">
-                <Eye className="text-amber-400" size={24} />
+                <Eye className="text-blue-300" size={24} />
                 <h2 className="text-xl font-black">Audit Standard</h2>
               </div>
 
@@ -373,9 +373,9 @@ export default function AuditLogsPage() {
           </aside>
         </section>
 
-        <section className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6">
-          <h2 className="text-xl font-black text-amber-300">Next Step</h2>
-          <p className="mt-2 text-sm text-amber-100">
+        <section className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
+          <h2 className="text-xl font-black text-blue-200">Next Step</h2>
+          <p className="mt-2 text-sm text-blue-100">
             After this page is working, create the audit_logs table in Supabase, then add an audit helper so sensitive actions automatically create logs.
           </p>
 
@@ -417,7 +417,7 @@ function SummaryCard({
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-400">{title}</p>
-        <div className="rounded-full bg-slate-800 p-3 text-amber-400">
+        <div className="rounded-full bg-slate-800 p-3 text-blue-300">
           {icon}
         </div>
       </div>
