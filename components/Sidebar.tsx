@@ -370,7 +370,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="hidden h-screen w-64 shrink-0 overflow-hidden border-r border-slate-800 bg-slate-950/95 text-white lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">
+<aside className="flex h-screen w-64 shrink-0 overflow-hidden border-r border-slate-800 bg-slate-950/95 px-4 py-4 text-white sticky top-0 z-[9999] flex-col">
       <div className="shrink-0 px-4 pb-3 pt-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-4 shadow-lg shadow-black/20">
           <p className="truncate text-base font-black text-blue-300">● OPSCORE</p>
