@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
 import { ChefHat } from "lucide-react";
+import { ReceiptText } from "lucide-react";
 
 const menuSections = [
   {
@@ -177,6 +178,12 @@ const menuSections = [
   label: "Production Queue",
   href: "/pos/production",
   icon: ChefHat,
+  moduleKey: "pos_terminal",
+},
+{
+  label: "Transactions",
+  href: "/pos/transactions",
+  icon: ReceiptText,
   moduleKey: "pos_terminal",
 },
       {

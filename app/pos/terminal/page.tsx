@@ -79,6 +79,7 @@ type Category = {
   short_name: string | null;
   icon: string | null;
   sort_order: number | null;
+  requires_production: boolean;
 };
 
 type Product = {
@@ -104,6 +105,7 @@ type CartItem = {
   price: number;
   qty: number;
   production_area: string | null;
+  requires_production: boolean;
 };
 
 type Employee = {
@@ -400,7 +402,7 @@ export default function POSTerminalPage() {
       supabase
         .from("pos_categories")
         .select(
-          "id, name, category_code, production_area, production_station_id, menu_group_id, short_name, icon, sort_order",
+          "id, name, category_code, production_area, production_station_id, menu_group_id, short_name, icon, sort_order, requires_production",
         )
         .eq("status", "active")
         .order("sort_order", { ascending: true }),
@@ -432,7 +434,8 @@ export default function POSTerminalPage() {
             menu_group_id,
             short_name,
             icon,
-            sort_order
+            sort_order,
+            requires_production
           )
         `,
         )
@@ -600,6 +603,12 @@ export default function POSTerminalPage() {
     return null;
   };
 
+  const getRequiresProduction = (product: Product) => {
+    if (!enableProductionRouting) return false;
+
+    return product.category?.requires_production !== false;
+  };
+
   const getProductVisual = (product: Product) => {
     if (product.category?.icon) return product.category.icon;
 
@@ -630,7 +639,10 @@ export default function POSTerminalPage() {
           name: product.name,
           price: Number(product.price || 0),
           qty: 1,
-          production_area: getProductionCode(product),
+          production_area: getRequiresProduction(product)
+            ? getProductionCode(product)
+            : null,
+          requires_production: getRequiresProduction(product),
         },
       ];
     });
@@ -670,6 +682,9 @@ export default function POSTerminalPage() {
 
   const grandTotal = subtotal + serviceCharge;
   const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+  const productionRequiredCount = cart.filter(
+    (item) => item.requires_production,
+  ).length;
 
   const submitOrder = async () => {
     setOrderMessage("");
@@ -694,6 +709,11 @@ export default function POSTerminalPage() {
       return;
     }
 
+    if (!selectedPaymentMethod) {
+      setOrderMessage("Select payment method.");
+      return;
+    }
+
     setOrderLoading(true);
 
     const { data: orderData, error: orderError } = await supabase
@@ -709,8 +729,13 @@ export default function POSTerminalPage() {
         subtotal,
         service_charge: serviceCharge,
         total_amount: grandTotal,
+        payment_method: selectedPaymentMethod.code,
+        payment_method_name: selectedPaymentMethod.name,
         payment_status: "UNPAID",
-        production_status: enableProductionRouting ? "PENDING" : "NOT_REQUIRED",
+        production_status:
+          enableProductionRouting && productionRequiredCount > 0
+            ? "PENDING"
+            : "COMPLETED",
         status: "OPEN",
       })
       .select("id")
@@ -730,8 +755,11 @@ export default function POSTerminalPage() {
       qty: item.qty,
       price: item.price,
       total: item.price * item.qty,
-      production_area: item.production_area,
-      production_status: enableProductionRouting ? "PENDING" : "NOT_REQUIRED",
+      production_area: item.requires_production ? item.production_area : null,
+      production_status:
+        enableProductionRouting && item.requires_production
+          ? "PENDING"
+          : "COMPLETED",
     }));
 
     const { error: itemsError } = await supabase
