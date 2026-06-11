@@ -32,6 +32,7 @@ type Category = {
   id: string;
   name: string;
   category_code: string | null;
+  production_area: string | null;
 };
 
 type Product = {
@@ -51,6 +52,7 @@ type Product = {
     id: string;
     name: string;
     category_code: string | null;
+    production_area: string | null;
   } | null;
 };
 
@@ -60,6 +62,23 @@ type CartItem = {
   name: string;
   price: number;
   qty: number;
+  production_area: string;
+};
+
+type Employee = {
+  id: string;
+  company_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+type PosSession = {
+  id: string;
+  company_id: string | null;
+  opened_by: string | null;
+  opening_cash: number;
+  status: "OPEN" | "CLOSED";
+  opened_at: string;
 };
 
 type MenuMode = "food" | "bar" | "coffee" | "promo";
@@ -197,7 +216,16 @@ const getProductVisual = (productName: string, categoryName: string) => {
 
 export default function POSTerminalPage() {
   const [loading, setLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [activeSession, setActiveSession] = useState<PosSession | null>(null);
+  const [cashierName, setCashierName] = useState("Cashier");
+
+  const [sessionPin, setSessionPin] = useState("");
+  const [sessionOpeningCash, setSessionOpeningCash] = useState("");
+  const [sessionMessage, setSessionMessage] = useState("");
+  const [sessionActionLoading, setSessionActionLoading] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -208,18 +236,124 @@ export default function POSTerminalPage() {
   const [showSearch, setShowSearch] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
 
   const companyId =
     typeof window !== "undefined"
       ? localStorage.getItem("opscore_current_company_id")
       : null;
 
+  useEffect(() => {
+    checkActiveSession();
+  }, []);
+
+  useEffect(() => {
+    if (activeSession) {
+      loadTerminalData();
+    }
+  }, [activeSession]);
+
+  const checkActiveSession = async () => {
+    setSessionLoading(true);
+
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("pos_sessions")
+      .select("*")
+      .eq("status", "OPEN")
+      .order("opened_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (sessionError || !sessionData) {
+      setActiveSession(null);
+      setSessionLoading(false);
+      setLoading(false);
+      return;
+    }
+
+    const session = sessionData as PosSession;
+    setActiveSession(session);
+
+    if (session.opened_by) {
+      const { data: employeeData } = await supabase
+        .from("employees")
+        .select("first_name, last_name")
+        .eq("id", session.opened_by)
+        .maybeSingle();
+
+      if (employeeData) {
+        const fullName =
+          `${employeeData.first_name || ""} ${employeeData.last_name || ""}`.trim();
+
+        setCashierName(fullName || "Cashier");
+      }
+    }
+
+    setSessionLoading(false);
+  };
+
+  const startTerminalSession = async () => {
+    setSessionMessage("");
+
+    if (!sessionPin.trim()) {
+      setSessionMessage("Enter cashier PIN.");
+      return;
+    }
+
+    if (!sessionOpeningCash.trim()) {
+      setSessionMessage("Enter opening cash.");
+      return;
+    }
+
+    setSessionActionLoading(true);
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, company_id, first_name, last_name")
+      .eq("can_access_pos", true)
+      .eq("pos_pin", sessionPin.trim())
+      .maybeSingle();
+
+    if (employeeError || !employee) {
+      setSessionActionLoading(false);
+      setSessionMessage("Invalid PIN or cashier has no POS access.");
+      return;
+    }
+
+    const cashier = employee as Employee;
+
+    const { error: insertError } = await supabase.from("pos_sessions").insert({
+      company_id: cashier.company_id,
+      opened_by: cashier.id,
+      opening_cash: Number(sessionOpeningCash),
+      status: "OPEN",
+    });
+
+    if (insertError) {
+      setSessionActionLoading(false);
+      setSessionMessage(insertError.message);
+      return;
+    }
+
+    setCashierName(
+      `${cashier.first_name || ""} ${cashier.last_name || ""}`.trim() ||
+        "Cashier",
+    );
+
+    setSessionPin("");
+    setSessionOpeningCash("");
+
+    await checkActiveSession();
+    setSessionActionLoading(false);
+  };
+
   const loadTerminalData = async () => {
     setLoading(true);
 
     let categoryQuery = supabase
       .from("pos_categories")
-      .select("id, name, category_code")
+      .select("id, name, category_code, production_area")
       .eq("status", "active")
       .order("name", { ascending: true });
 
@@ -254,7 +388,8 @@ export default function POSTerminalPage() {
         category:pos_categories (
           id,
           name,
-          category_code
+          category_code,
+          production_area
         )
       `,
       )
@@ -273,13 +408,10 @@ export default function POSTerminalPage() {
       return;
     }
 
-setCategories((categoryData || []) as unknown as Category[]);
-setProducts((productData || []) as unknown as Product[]);    setLoading(false);
+    setCategories((categoryData || []) as unknown as Category[]);
+    setProducts((productData || []) as unknown as Product[]);
+    setLoading(false);
   };
-
-  useEffect(() => {
-    loadTerminalData();
-  }, []);
 
   const sortedCategories = useMemo(() => {
     return [...categories].sort((a, b) => {
@@ -361,6 +493,7 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
           name: product.name,
           price: Number(product.price || 0),
           qty: 1,
+          production_area: product.category?.production_area || "KITCHEN",
         },
       ];
     });
@@ -382,6 +515,72 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
         )
         .filter((item) => item.qty > 0),
     );
+  };
+
+  const submitOrder = async () => {
+    setOrderMessage("");
+
+    if (!activeSession) {
+      setOrderMessage("No active cashier session.");
+      return;
+    }
+
+    if (cart.length === 0) {
+      setOrderMessage("Cart is empty.");
+      return;
+    }
+
+    setOrderLoading(true);
+
+    const { data: orderData, error: orderError } = await supabase
+      .from("pos_orders")
+      .insert({
+        company_id: activeSession.company_id,
+        session_id: activeSession.id,
+        cashier_id: activeSession.opened_by,
+        table_no: "TABLE 4",
+        order_type: "DINE_IN",
+        subtotal,
+        service_charge: serviceCharge,
+        total_amount: grandTotal,
+        payment_status: "UNPAID",
+        production_status: "PENDING",
+        status: "OPEN",
+      })
+      .select("id")
+      .single();
+
+    if (orderError || !orderData) {
+      setOrderLoading(false);
+      setOrderMessage(orderError?.message || "Failed to create order.");
+      return;
+    }
+
+    const orderItems = cart.map((item) => ({
+      company_id: activeSession.company_id,
+      order_id: orderData.id,
+      menu_item_id: item.id,
+      item_name: item.name,
+      qty: item.qty,
+      price: item.price,
+      total: item.price * item.qty,
+      production_area: item.production_area,
+      production_status: "PENDING",
+    }));
+
+    const { error: itemsError } = await supabase
+      .from("pos_order_items")
+      .insert(orderItems);
+
+    if (itemsError) {
+      setOrderLoading(false);
+      setOrderMessage(itemsError.message);
+      return;
+    }
+
+    setCart([]);
+    setOrderMessage("Order submitted.");
+    setOrderLoading(false);
   };
 
   const clearCart = () => {
@@ -447,6 +646,77 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
     },
   ];
 
+  if (sessionLoading) {
+    return (
+      <PageGuard moduleKey="pos_terminal">
+        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+          <div className="rounded-3xl border border-blue-300/10 bg-slate-900 p-8 text-center">
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-300">
+              OPSCORE POS
+            </p>
+            <h1 className="mt-3 text-2xl font-black">Checking Session...</h1>
+          </div>
+        </div>
+      </PageGuard>
+    );
+  }
+
+  if (!activeSession) {
+    return (
+      <PageGuard moduleKey="pos_terminal">
+        <div className="flex min-h-screen bg-slate-950 text-white">
+          <Sidebar />
+
+          <main className="flex flex-1 items-center justify-center p-6">
+            <div className="w-full max-w-md rounded-[2rem] border border-blue-300/10 bg-slate-900 p-8 shadow-2xl shadow-black/40">
+              <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-300">
+                OPSCORE POS
+              </p>
+
+              <h1 className="mt-3 text-3xl font-black">Cashier Login</h1>
+
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Enter cashier PIN and opening cash to unlock POS terminal.
+              </p>
+
+              {sessionMessage && (
+                <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm font-bold text-amber-200">
+                  {sessionMessage}
+                </div>
+              )}
+
+              <div className="mt-6 space-y-4">
+                <input
+                  type="password"
+                  value={sessionPin}
+                  onChange={(e) => setSessionPin(e.target.value)}
+                  placeholder="Cashier PIN"
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-white outline-none focus:border-blue-300"
+                />
+
+                <input
+                  type="number"
+                  value={sessionOpeningCash}
+                  onChange={(e) => setSessionOpeningCash(e.target.value)}
+                  placeholder="Opening cash"
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-white outline-none focus:border-blue-300"
+                />
+
+                <button
+                  onClick={startTerminalSession}
+                  disabled={sessionActionLoading}
+                  className="w-full rounded-2xl bg-blue-600 px-4 py-4 font-black text-white hover:bg-blue-500 disabled:opacity-40"
+                >
+                  Login & Start POS
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </PageGuard>
+    );
+  }
+
   return (
     <PageGuard moduleKey="pos_terminal">
       <div className="min-h-screen bg-[#05080d] text-white">
@@ -486,24 +756,13 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
                   TABLE 4
                 </button>
 
-                <div className="min-w-0">
-                  {showSearch ? (
-                    <div className="relative">
-                      <Search
-                        size={15}
-                        className="absolute left-3 top-3 text-slate-500"
-                      />
-                      <input
-                        autoFocus
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Search item..."
-                        className="h-10 w-full rounded-xl bg-[#0d1219] px-3 pl-9 text-xs font-semibold text-white outline-none ring-1 ring-white/15 transition placeholder:text-slate-500 focus:ring-amber-400/50"
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-10" />
-                  )}
+                <div className="min-w-0 rounded-xl bg-emerald-500/10 px-3 py-2 ring-1 ring-emerald-400/20">
+                  <p className="truncate text-[11px] font-black uppercase tracking-wide text-emerald-300">
+                    Cashier: {cashierName}
+                  </p>
+                  <p className="truncate text-[10px] font-semibold text-slate-400">
+                    Opened {new Date(activeSession.opened_at).toLocaleString()}
+                  </p>
                 </div>
 
                 <button
@@ -530,6 +789,21 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
                   <RefreshCw size={17} />
                 </button>
               </div>
+
+              {showSearch && (
+                <div className="mb-1.5">
+                  <div className="relative">
+                    <Search size={15} className="absolute left-3 top-3 text-slate-500" />
+                    <input
+                      autoFocus
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search item..."
+                      className="h-10 w-full rounded-xl bg-[#0d1219] px-3 pl-9 text-xs font-semibold text-white outline-none ring-1 ring-white/15 transition placeholder:text-slate-500 focus:ring-amber-400/50"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="mb-1.5 grid grid-cols-4 gap-1.5">
                 {mainModes.map((mode) => (
@@ -650,34 +924,22 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
                   Quick Cash
                 </button>
 
-                <button
-                  disabled
-                  className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d1219] text-[11px] font-black text-slate-400 ring-1 ring-white/10"
-                >
+                <button disabled className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d1219] text-[11px] font-black text-slate-400 ring-1 ring-white/10">
                   <CreditCard size={15} />
                   Drawer
                 </button>
 
-                <button
-                  disabled
-                  className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d1219] text-[11px] font-black text-slate-400 ring-1 ring-white/10"
-                >
+                <button disabled className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d1219] text-[11px] font-black text-slate-400 ring-1 ring-white/10">
                   <Clock3 size={15} />
                   Hold
                 </button>
 
-                <button
-                  disabled
-                  className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d1219] text-[11px] font-black text-slate-400 ring-1 ring-white/10"
-                >
+                <button disabled className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d1219] text-[11px] font-black text-slate-400 ring-1 ring-white/10">
                   <Undo2 size={15} />
                   Recall
                 </button>
 
-                <button
-                  disabled
-                  className="flex h-10 items-center justify-center gap-2 rounded-xl bg-red-500/10 text-[11px] font-black text-red-400 ring-1 ring-red-400/25"
-                >
+                <button disabled className="flex h-10 items-center justify-center gap-2 rounded-xl bg-red-500/10 text-[11px] font-black text-red-400 ring-1 ring-red-400/25">
                   <Trash2 size={15} />
                   Void
                 </button>
@@ -779,23 +1041,23 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
                 </div>
 
                 <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
-                  <button
-                    disabled
-                    className="flex h-9 items-center justify-between rounded-xl bg-[#101620] px-3 text-left text-[11px] font-black text-slate-400 ring-1 ring-white/10"
-                  >
+                  <button disabled className="flex h-9 items-center justify-between rounded-xl bg-[#101620] px-3 text-left text-[11px] font-black text-slate-400 ring-1 ring-white/10">
                     <span>Actions</span>
                     <span className="text-[11px] text-slate-500">
                       Disc / Promo / Notes
                     </span>
                   </button>
 
-                  <button
-                    disabled
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10 text-red-300 ring-1 ring-red-400/20"
-                  >
+                  <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10 text-red-300 ring-1 ring-red-400/20">
                     <Trash2 size={15} />
                   </button>
                 </div>
+
+                {orderMessage && (
+                  <div className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold text-emerald-200">
+                    {orderMessage}
+                  </div>
+                )}
 
                 <div className="mt-2 grid grid-cols-4 gap-2">
                   <button className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-[11px] font-black text-white shadow-lg shadow-emerald-950/30">
@@ -820,12 +1082,13 @@ setProducts((productData || []) as unknown as Product[]);    setLoading(false);
                 </div>
 
                 <button
-                  disabled={cart.length === 0}
+                  onClick={submitOrder}
+                  disabled={cart.length === 0 || orderLoading}
                   className="mt-2 h-14 w-full rounded-xl bg-amber-500 text-[15px] font-black tracking-wide text-black shadow-xl shadow-amber-950/40 transition hover:bg-amber-400 disabled:bg-amber-500/45 disabled:text-black/70"
                 >
                   <span className="flex items-center justify-center gap-2">
                     <ChefHat size={20} />
-                    SEND TO KITCHEN
+                    {orderLoading ? "SUBMITTING..." : "SUBMIT ORDER"}
                   </span>
                 </button>
               </div>

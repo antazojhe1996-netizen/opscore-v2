@@ -145,12 +145,21 @@ const menuSections = [
         icon: UserCheck,
         moduleKey: "pos_sessions",
       },
+
+    
       {
         label: "Sales",
         href: "/pos/sales",
         icon: BadgeDollarSign,
         moduleKey: "pos_sales",
       },
+      {
+  label: "Cashiers",
+  href: "/pos/cashiers",
+  icon: UserCheck,
+  moduleKey: "pos_cashiers",
+},
+
       {
         label: "Categories",
         href: "/pos/categories",
@@ -163,6 +172,7 @@ const menuSections = [
         icon: Package,
         moduleKey: "pos_menu_items",
       },
+      
     ],
   },
   {
