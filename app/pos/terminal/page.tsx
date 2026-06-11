@@ -2,10 +2,12 @@
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import {
+  Banknote,
   ChefHat,
   Clock3,
   CreditCard,
@@ -15,6 +17,7 @@ import {
   RefreshCw,
   Search,
   ShoppingBag,
+  Tag,
   Trash2,
   Undo2,
   X,
@@ -166,6 +169,8 @@ const getPaymentButtonClass = (code: string, active: boolean) => {
 };
 
 export default function POSTerminalPage() {
+  const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -195,17 +200,33 @@ export default function POSTerminalPage() {
   const [selectedTableId, setSelectedTableId] = useState("");
   const [selectedPaymentMethodCode, setSelectedPaymentMethodCode] =
     useState("");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [amountPaid, setAmountPaid] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [showOrderTagModal, setShowOrderTagModal] = useState(false);
+  const [orderTag, setOrderTag] = useState("");
+  const [parkActionType, setParkActionType] = useState<"KITCHEN" | "PARK">("PARK");
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
+  const [loadedParkedOrderId, setLoadedParkedOrderId] = useState<string | null>(
+    null,
+  );
+  const [loadedParkedOrderTag, setLoadedParkedOrderTag] = useState("");
 
   const companyId =
     typeof window !== "undefined"
       ? localStorage.getItem("opscore_current_company_id")
       : null;
+
+  const goToParkedOrders = () => {
+    if (typeof window !== "undefined") {
+      window.location.href = `${window.location.origin}/pos/parked-orders`;
+    }
+  };
 
   useEffect(() => {
     checkActiveSession();
@@ -216,6 +237,17 @@ export default function POSTerminalPage() {
       loadTerminalData();
     }
   }, [activeSession]);
+
+  useEffect(() => {
+    if (!activeSession || loading) return;
+
+    const parkedOrderId = localStorage.getItem("opscore_open_parked_order_id");
+    const parkedOrderTag = localStorage.getItem("opscore_open_parked_order_tag");
+
+    if (!parkedOrderId) return;
+
+    loadParkedOrderToCart(parkedOrderId, parkedOrderTag || "");
+  }, [activeSession, loading]);
 
   const applyCompanyFilter = (query: any) => {
     if (!companyId) return query.is("company_id", null);
@@ -609,6 +641,68 @@ export default function POSTerminalPage() {
     return product.category?.requires_production !== false;
   };
 
+  const loadParkedOrderToCart = async (orderId: string, tag: string) => {
+    setOrderMessage("");
+
+    const { data: orderData, error: orderError } = await supabase
+      .from("pos_orders")
+      .select("id, order_tag, order_type, table_no, status, payment_status")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (orderError || !orderData) {
+      localStorage.removeItem("opscore_open_parked_order_id");
+      localStorage.removeItem("opscore_open_parked_order_tag");
+      setOrderMessage(orderError?.message || "Parked order not found.");
+      return;
+    }
+
+    if (orderData.status !== "PARKED") {
+      localStorage.removeItem("opscore_open_parked_order_id");
+      localStorage.removeItem("opscore_open_parked_order_tag");
+      setOrderMessage("This order is no longer parked.");
+      return;
+    }
+
+    const { data: itemData, error: itemError } = await supabase
+      .from("pos_order_items")
+      .select(
+        "menu_item_id, item_name, qty, price, production_area, production_status",
+      )
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: true });
+
+    if (itemError) {
+      setOrderMessage(itemError.message);
+      return;
+    }
+
+    const loadedItems: CartItem[] = (itemData || []).map((item: any) => ({
+      id: item.menu_item_id,
+      item_code: null,
+      name: item.item_name,
+      price: Number(item.price || 0),
+      qty: Number(item.qty || 0),
+      production_area: item.production_area || null,
+      requires_production: item.production_status !== "COMPLETED",
+    }));
+
+    setCart(loadedItems);
+    setLoadedParkedOrderId(orderId);
+    setLoadedParkedOrderTag(orderData.order_tag || tag || "");
+
+    if (orderData.order_type) {
+      setSelectedOrderTypeCode(orderData.order_type);
+    }
+
+    localStorage.removeItem("opscore_open_parked_order_id");
+    localStorage.removeItem("opscore_open_parked_order_tag");
+
+    setOrderMessage(
+      `Loaded parked order ${orderData.order_tag || tag || orderId.slice(0, 8)}.`,
+    );
+  };
+
   const getProductVisual = (product: Product) => {
     if (product.category?.icon) return product.category.icon;
 
@@ -666,8 +760,24 @@ export default function POSTerminalPage() {
     );
   };
 
+  const resetPaymentState = () => {
+    setShowPaymentModal(false);
+    setAmountPaid("");
+    setPaymentReference("");
+  };
+
+  const resetOrderTagState = () => {
+    setShowOrderTagModal(false);
+    setOrderTag("");
+    setParkActionType("PARK");
+  };
+
   const clearCart = () => {
     setCart([]);
+    resetPaymentState();
+    resetOrderTagState();
+    setLoadedParkedOrderId(null);
+    setLoadedParkedOrderTag("");
   };
 
   const subtotal = cart.reduce(
@@ -686,7 +796,281 @@ export default function POSTerminalPage() {
     (item) => item.requires_production,
   ).length;
 
-  const submitOrder = async () => {
+  const hasProductionItems = productionRequiredCount > 0;
+
+  const amountPaidValue = Number(amountPaid || 0);
+  const changeAmount =
+    amountPaidValue > grandTotal ? amountPaidValue - grandTotal : 0;
+  const canConfirmPayment =
+    Boolean(selectedPaymentMethod) && amountPaidValue >= grandTotal;
+
+  const openOrderTagModal = (actionType: "KITCHEN" | "PARK") => {
+    setOrderMessage("");
+
+    if (!activeSession) {
+      setOrderMessage("No active cashier session.");
+      return;
+    }
+
+    if (cart.length === 0) {
+      setOrderMessage("Cart is empty.");
+      return;
+    }
+
+    if (!selectedOrderType) {
+      setOrderMessage("Select order type.");
+      return;
+    }
+
+    if (actionType === "KITCHEN" && !hasProductionItems) {
+      setOrderMessage("No production items found. Use Park Order.");
+      return;
+    }
+
+    setParkActionType(actionType);
+    setOrderTag(loadedParkedOrderTag || "");
+    setShowOrderTagModal(true);
+  };
+
+  const saveParkedOrder = async () => {
+    setOrderMessage("");
+
+    const cleanTag = orderTag.trim().toUpperCase();
+
+    if (!cleanTag) {
+      setOrderMessage("Enter order tag.");
+      return;
+    }
+
+    if (!activeSession) {
+      setOrderMessage("No active cashier session.");
+      return;
+    }
+
+    if (cart.length === 0) {
+      setOrderMessage("Cart is empty.");
+      return;
+    }
+
+    if (!selectedOrderType) {
+      setOrderMessage("Select order type.");
+      return;
+    }
+
+    setOrderLoading(true);
+
+    if (loadedParkedOrderId) {
+      const { error: updateOrderError } = await supabase
+        .from("pos_orders")
+        .update({
+          order_tag: cleanTag,
+          subtotal,
+          service_charge: serviceCharge,
+          total_amount: grandTotal,
+          payment_status: "UNPAID",
+          production_status:
+            enableProductionRouting && productionRequiredCount > 0
+              ? "PENDING"
+              : "COMPLETED",
+          status: "PARKED",
+        })
+        .eq("id", loadedParkedOrderId);
+
+      if (updateOrderError) {
+        setOrderLoading(false);
+        setOrderMessage(updateOrderError.message);
+        return;
+      }
+
+      const { error: deleteItemsError } = await supabase
+        .from("pos_order_items")
+        .delete()
+        .eq("order_id", loadedParkedOrderId);
+
+      if (deleteItemsError) {
+        setOrderLoading(false);
+        setOrderMessage(deleteItemsError.message);
+        return;
+      }
+
+      const refreshedItems = cart.map((item) => ({
+        company_id: activeSession.company_id,
+        order_id: loadedParkedOrderId,
+        menu_item_id: item.id,
+        item_name: item.name,
+        qty: item.qty,
+        price: item.price,
+        total: item.price * item.qty,
+        production_area: item.requires_production ? item.production_area : null,
+        production_status:
+          enableProductionRouting && item.requires_production
+            ? "PENDING"
+            : "COMPLETED",
+      }));
+
+      const { error: insertItemsError } = await supabase
+        .from("pos_order_items")
+        .insert(refreshedItems);
+
+      if (insertItemsError) {
+        setOrderLoading(false);
+        setOrderMessage(insertItemsError.message);
+        return;
+      }
+
+      setCart([]);
+      resetOrderTagState();
+      setLoadedParkedOrderId(null);
+      setLoadedParkedOrderTag("");
+      setOrderLoading(false);
+      goToParkedOrders();
+      return;
+    }
+
+    const duplicateQuery = supabase
+      .from("pos_orders")
+      .select("id")
+      .eq("order_tag", cleanTag)
+      .eq("status", "PARKED")
+      .eq("payment_status", "UNPAID")
+      .limit(1);
+
+    const scopedDuplicateQuery = activeSession.company_id
+      ? duplicateQuery.eq("company_id", activeSession.company_id)
+      : duplicateQuery.is("company_id", null);
+
+    const { data: duplicateOrders, error: duplicateError } =
+      await scopedDuplicateQuery;
+
+    if (duplicateError) {
+      setOrderLoading(false);
+      setOrderMessage(duplicateError.message);
+      return;
+    }
+
+    if ((duplicateOrders || []).length > 0) {
+      setOrderLoading(false);
+      setOrderMessage(`Order tag "${cleanTag}" is already queued.`);
+      return;
+    }
+
+    const { data: orderData, error: orderError } = await supabase
+      .from("pos_orders")
+      .insert({
+        company_id: activeSession.company_id,
+        session_id: activeSession.id,
+        cashier_id: activeSession.opened_by,
+        order_tag: cleanTag,
+        table_no: enableTableTracking
+          ? selectedTable?.table_name || null
+          : null,
+        order_type: selectedOrderType.code,
+        subtotal,
+        service_charge: serviceCharge,
+        total_amount: grandTotal,
+        amount_paid: 0,
+        change_amount: 0,
+        payment_status: "UNPAID",
+        production_status:
+          enableProductionRouting && productionRequiredCount > 0
+            ? "PENDING"
+            : "COMPLETED",
+        status: "PARKED",
+      })
+      .select("id")
+      .single();
+
+    if (orderError || !orderData) {
+      setOrderLoading(false);
+      setOrderMessage(orderError?.message || "Failed to park order.");
+      return;
+    }
+
+    const orderItems = cart.map((item) => ({
+      company_id: activeSession.company_id,
+      order_id: orderData.id,
+      menu_item_id: item.id,
+      item_name: item.name,
+      qty: item.qty,
+      price: item.price,
+      total: item.price * item.qty,
+      production_area: item.requires_production ? item.production_area : null,
+      production_status:
+        enableProductionRouting && item.requires_production
+          ? "PENDING"
+          : "COMPLETED",
+    }));
+
+    const { error: itemsError } = await supabase
+      .from("pos_order_items")
+      .insert(orderItems);
+
+    if (itemsError) {
+      setOrderLoading(false);
+      setOrderMessage(itemsError.message);
+      return;
+    }
+
+    setCart([]);
+    resetOrderTagState();
+    setLoadedParkedOrderId(null);
+    setLoadedParkedOrderTag("");
+
+    setOrderLoading(false);
+    goToParkedOrders();
+  };
+
+  const openPaymentModal = () => {
+    setOrderMessage("");
+
+    if (!activeSession) {
+      setOrderMessage("No active cashier session.");
+      return;
+    }
+
+    if (cart.length === 0) {
+      setOrderMessage("Cart is empty.");
+      return;
+    }
+
+    if (!selectedOrderType) {
+      setOrderMessage("Select order type.");
+      return;
+    }
+
+    if (enableTableTracking && requireTableForDineIn && !selectedTable) {
+      setOrderMessage("Select table before payment.");
+      return;
+    }
+
+    const defaultPayment =
+      selectedPaymentMethodCode || paymentMethods[0]?.code || "";
+
+    setSelectedPaymentMethodCode(defaultPayment);
+    setAmountPaid("");
+    setPaymentReference("");
+    setShowPaymentModal(true);
+  };
+
+  const addQuickAmount = (value: number) => {
+    setAmountPaid((current) => String(Number(current || 0) + value));
+  };
+
+  const setExactAmount = () => {
+    setAmountPaid(String(Number(grandTotal || 0).toFixed(2)));
+  };
+
+  const pressKeypad = (key: string) => {
+    setAmountPaid((current) => {
+      if (key === "C") return "";
+      if (key === "BACK") return current.slice(0, -1);
+      if (key === "." && current.includes(".")) return current;
+      if (key === "." && !current) return "0.";
+      return `${current}${key}`;
+    });
+  };
+
+  const confirmPayment = async (printAfterSave = false) => {
     setOrderMessage("");
 
     if (!activeSession) {
@@ -714,6 +1098,11 @@ export default function POSTerminalPage() {
       return;
     }
 
+    if (amountPaidValue < grandTotal) {
+      setOrderMessage("Insufficient payment amount.");
+      return;
+    }
+
     setOrderLoading(true);
 
     const { data: orderData, error: orderError } = await supabase
@@ -731,12 +1120,15 @@ export default function POSTerminalPage() {
         total_amount: grandTotal,
         payment_method: selectedPaymentMethod.code,
         payment_method_name: selectedPaymentMethod.name,
-        payment_status: "UNPAID",
+        amount_paid: amountPaidValue,
+        change_amount: changeAmount,
+        payment_reference: paymentReference.trim() || null,
+        payment_status: "PAID",
         production_status:
           enableProductionRouting && productionRequiredCount > 0
             ? "PENDING"
             : "COMPLETED",
-        status: "OPEN",
+        status: "COMPLETED",
       })
       .select("id")
       .single();
@@ -772,8 +1164,13 @@ export default function POSTerminalPage() {
       return;
     }
 
+    if (printAfterSave) {
+      window.print();
+    }
+
     setCart([]);
-    setOrderMessage("Order submitted.");
+    resetPaymentState();
+    setOrderMessage("Payment confirmed.");
     setOrderLoading(false);
   };
 
@@ -871,7 +1268,7 @@ export default function POSTerminalPage() {
             <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl bg-[#070b10] p-2 shadow-2xl shadow-black/50 ring-1 ring-white/10">
               <div className="mb-1.5 flex items-center gap-3 border-b border-white/10 pb-1.5">
                 <div className="min-w-[210px] border-r border-white/20 pr-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                     Cashier
                   </p>
                   <p className="truncate text-[18px] font-black leading-tight text-white">
@@ -952,7 +1349,7 @@ export default function POSTerminalPage() {
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Search item..."
-                      className="h-10 w-full rounded-xl bg-[#0d1219] px-3 pl-9 text-xs font-semibold text-white outline-none ring-1 ring-white/15 transition placeholder:text-slate-500 focus:ring-amber-400/50"
+                      className="h-10 w-full rounded-xl bg-[#0d1219] px-3 pl-9 text-[11px] font-semibold text-white outline-none ring-1 ring-white/15 transition placeholder:text-slate-500 focus:ring-amber-400/50"
                     />
                   </div>
                 </div>
@@ -1054,7 +1451,7 @@ export default function POSTerminalPage() {
                             )}
                         </div>
 
-                        <div className="flex min-h-[50px] flex-col justify-between px-2 py-1.5">
+                        <div className="flex min-h-[42px] flex-col justify-between px-2 py-1.5">
                           <p className="line-clamp-2 min-h-[29px] text-[12px] font-black leading-[14px] tracking-[-0.02em] text-white">
                             {product.name}
                           </p>
@@ -1094,8 +1491,8 @@ export default function POSTerminalPage() {
                 </button>
 
                 <button
-                  disabled={!enableRecallOrders}
-                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-transparent text-[13px] font-black text-slate-300 transition hover:border-white/30 hover:bg-white/5 disabled:opacity-40"
+                  onClick={goToParkedOrders}
+                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-amber-400/35 bg-amber-500/10 text-[13px] font-black text-amber-200 transition hover:border-amber-300/60 hover:bg-amber-500/20 active:scale-[0.98]"
                 >
                   <Undo2 size={15} />
                   Recall
@@ -1112,14 +1509,16 @@ export default function POSTerminalPage() {
             </section>
 
             <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl bg-[#0b1017] shadow-2xl shadow-black/50 ring-1 ring-white/10">
-              <div className="shrink-0 border-b border-white/10 px-3 py-1.5">
+              <div className="shrink-0 border-b border-white/10 px-3 py-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <ReceiptText size={14} className="text-amber-300" />
                     <p className="truncate text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">
-                      {enableTableTracking
-                        ? selectedTable?.table_name || "No Table"
-                        : selectedOrderType?.name || "Order"}
+                      {loadedParkedOrderTag
+                        ? `RECALL: ${loadedParkedOrderTag}`
+                        : enableTableTracking
+                          ? selectedTable?.table_name || "No Table"
+                          : selectedOrderType?.name || "Order"}
                     </p>
                     <span className="shrink-0 rounded-full bg-white/5 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-500 ring-1 ring-white/10">
                       {totalItems} item(s)
@@ -1143,7 +1542,7 @@ export default function POSTerminalPage() {
                     <p className="text-sm font-black uppercase tracking-wide text-slate-300">
                       Ready for Order
                     </p>
-                    <p className="mt-2 max-w-[180px] text-xs font-semibold leading-5 text-slate-500">
+                    <p className="mt-2 max-w-[180px] text-[11px] font-semibold leading-5 text-slate-500">
                       Tap a menu item to start transaction.
                     </p>
                   </div>
@@ -1188,7 +1587,7 @@ export default function POSTerminalPage() {
               </div>
 
               <div className="shrink-0 p-1.5 ring-1 ring-white/10">
-                <div className="rounded-xl bg-[#101620] px-3 py-1.5 ring-1 ring-white/10">
+                <div className="rounded-xl bg-[#101620] px-3 py-1 ring-1 ring-white/10">
                   <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-400">
                     <span className="truncate">Subtotal: {peso(subtotal)}</span>
                     <span className="shrink-0">SC: {peso(serviceCharge)}</span>
@@ -1224,12 +1623,229 @@ export default function POSTerminalPage() {
                   </div>
                 )}
 
-                <div className="mt-1 grid grid-cols-2 gap-1.5">
+                {hasProductionItems ? (
+                  <button
+                    onClick={() => openOrderTagModal("KITCHEN")}
+                    disabled={cart.length === 0 || orderLoading}
+                    className="mt-1.5 h-16 w-full rounded-xl bg-[#f5c400] text-[18px] font-black tracking-wide text-black shadow-xl shadow-yellow-950/40 transition hover:bg-[#ffd21f] active:scale-[0.99] disabled:bg-[#f5c400]/45 disabled:text-black/70"
+                  >
+                    <span className="flex items-center justify-center gap-2">
+                      <ChefHat size={21} />
+                      SEND TO KITCHEN
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => openOrderTagModal("PARK")}
+                    disabled={cart.length === 0 || orderLoading}
+                    className="mt-1.5 h-16 w-full rounded-xl bg-[#f5c400] text-[20px] font-black tracking-wide text-black shadow-xl shadow-yellow-950/40 transition hover:bg-[#ffd21f] active:scale-[0.99] disabled:bg-[#f5c400]/45 disabled:text-black/70"
+                  >
+                    <span className="flex items-center justify-center gap-2">
+                      <Tag size={21} />
+                      PARK ORDER
+                    </span>
+                  </button>
+                )}
+              </div>
+            </aside>
+          </section>
+        </main>
+
+        {showOrderTagModal && (
+          <div className="fixed inset-0 z-[10055] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-[#080d14] p-6 shadow-2xl shadow-black">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#f5c400]">
+                    {parkActionType === "KITCHEN"
+                      ? "Send To Kitchen"
+                      : "Park Order"}
+                  </p>
+
+                  <h2 className="mt-2 text-3xl font-black text-white">
+                    Order Tag
+                  </h2>
+
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+                    Enter a unique tag so cashier can find this order later.
+                    Example: Pool, Australian, Kubo, Blue Shirt.
+                  </p>
+                </div>
+
+                <button
+                  onClick={resetOrderTagState}
+                  disabled={orderLoading}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-5 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  Order Tag
+                </label>
+
+                <input
+                  autoFocus
+                  value={orderTag}
+                  onChange={(event) => setOrderTag(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && orderTag.trim()) {
+                      saveParkedOrder();
+                    }
+                  }}
+                  placeholder="UNIQUE TAG: POOL / AUSTRALIAN / KUBO"
+                  className="mt-2 h-14 w-full rounded-xl border border-white/10 bg-[#05080d] px-4 text-xl font-black uppercase text-white outline-none placeholder:text-slate-700 focus:border-amber-300/50"
+                />
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {["POOL", "KUBO", "BAR", "TAKEOUT", "GROUP", "VIP"].map(
+                    (tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => setOrderTag(tag)}
+                        className="h-10 rounded-xl bg-white/5 text-xs font-black uppercase text-slate-300 ring-1 ring-white/10 transition hover:bg-white/10"
+                      >
+                        {tag}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={saveParkedOrder}
+                disabled={!orderTag.trim() || orderLoading}
+                className="mt-5 h-14 w-full rounded-xl bg-[#f5c400] text-base font-black uppercase tracking-wide text-black shadow-xl shadow-yellow-950/30 transition hover:bg-[#ffd21f] disabled:bg-[#f5c400]/40 disabled:text-black/50"
+              >
+                {orderLoading
+                  ? "Saving..."
+                  : parkActionType === "KITCHEN"
+                    ? "Save + Send To Kitchen"
+                    : "Save Parked Order"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showPaymentModal && (
+          <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="grid h-[72vh] w-full max-w-5xl grid-cols-[minmax(0,1fr)_390px] overflow-hidden rounded-3xl border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
+              <section className="flex min-h-0 flex-col border-r border-white/10 p-4">
+                <div className="mb-1.5 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#f5c400]">
+                      Payment
+                    </p>
+                    <h2 className="mt-0.5 text-lg font-black tracking-tight text-white">
+                      Order Summary
+                    </h2>
+                  </div>
+
+                  <button
+                    onClick={resetPaymentState}
+                    disabled={orderLoading}
+                    className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="mb-1.5 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 ring-1 ring-white/10">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-white">
+                    {selectedOrderType?.name || "Order"}
+                  </p>
+                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    {totalItems} item(s)
+                  </p>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  <div className="h-full overflow-y-auto divide-y divide-white/10">
+                    {cart.slice(0, 4).map((item) => (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-1"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[11px] font-black text-white">
+                            {item.name}
+                          </p>
+                          <p className="mt-0.5 text-[9px] font-semibold text-slate-500">
+                            {item.qty} × {peso(item.price)}
+                          </p>
+                        </div>
+
+                        <p className="text-[11px] font-black text-emerald-200">
+                          {peso(item.price * item.qty)}
+                        </p>
+                      </div>
+                    ))}
+
+                    {cart.length > 8 && (
+                      <div className="px-3 py-2 text-xs font-black text-slate-500">
+                        + {cart.length - 4} more item(s)
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-1.5 shrink-0 overflow-hidden rounded-xl bg-[#101620] ring-1 ring-white/10">
+                  <div className="space-y-0.5 px-3 py-1 text-[11px] font-semibold">
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span>Subtotal</span>
+                      <span className="text-white">{peso(subtotal)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span>Service Charge</span>
+                      <span className="text-white">{peso(serviceCharge)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-dashed border-white/15 pt-1.5">
+                      <span className="text-xs font-black uppercase text-white">
+                        Total
+                      </span>
+                      <span className="text-lg font-black text-[#f5c400]">
+                        {peso(grandTotal)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 border-t border-white/10">
+                    <div className="px-3 py-1">
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                        Paid
+                      </p>
+                      <p className="mt-0.5 text-base font-black text-white">
+                        {peso(amountPaidValue)}
+                      </p>
+                    </div>
+
+                    <div className="border-l border-white/10 px-3 py-1">
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                        Change
+                      </p>
+                      <p className="mt-0.5 text-base font-black text-emerald-200">
+                        {peso(changeAmount)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="flex min-h-0 flex-col p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  Payment Method
+                </p>
+
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                   {paymentMethods.map((method) => (
                     <button
                       key={method.id}
                       onClick={() => setSelectedPaymentMethodCode(method.code)}
-                      className={`flex h-12 items-center justify-center gap-2 rounded-xl text-[13px] font-black uppercase shadow-lg ring-1 transition active:scale-[0.98] ${getPaymentButtonClass(
+                      className={`flex h-9 items-center justify-center gap-2 rounded-xl text-xs font-black uppercase shadow-lg ring-1 transition active:scale-[0.98] ${getPaymentButtonClass(
                         method.code,
                         selectedPaymentMethodCode === method.code,
                       )}`}
@@ -1240,20 +1856,93 @@ export default function POSTerminalPage() {
                   ))}
                 </div>
 
-                <button
-                  onClick={submitOrder}
-                  disabled={cart.length === 0 || orderLoading}
-                  className="mt-1.5 h-14 w-full rounded-xl bg-[#f5c400] text-[18px] font-black tracking-wide text-black shadow-xl shadow-yellow-950/40 transition hover:bg-[#ffd21f] active:scale-[0.99] disabled:bg-[#f5c400]/45 disabled:text-black/70"
-                >
-                  <span className="flex items-center justify-center gap-2">
-                    <ChefHat size={18} />
-                    {orderLoading ? "SUBMITTING..." : "SUBMIT ORDER"}
-                  </span>
-                </button>
-              </div>
-            </aside>
-          </section>
-        </main>
+                <div className="mt-2 rounded-xl bg-black/20 p-2 ring-1 ring-white/10">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Amount Paid
+                  </p>
+
+                  <div className="mt-1.5 flex h-10 items-center justify-between rounded-xl bg-[#05080d] px-4 ring-1 ring-white/10">
+                    <span className="text-xl font-black text-slate-400">₱</span>
+                    <p className="text-right text-lg font-black tracking-tight text-white">
+                      {Number(amountPaidValue || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="mt-1.5 grid grid-cols-5 gap-1">
+                    <button
+                      onClick={setExactAmount}
+                      className="h-8 rounded-lg bg-emerald-500/20 text-[11px] font-black text-emerald-200 ring-1 ring-emerald-400/25 transition active:scale-[0.98]"
+                    >
+                      EXACT
+                    </button>
+
+                    {[500, 1000, 2000, 5000].map((amount) => (
+                      <button
+                        key={amount}
+                        onClick={() => addQuickAmount(amount)}
+                        className="h-8 rounded-lg bg-white/5 text-xs font-black text-white ring-1 ring-white/10 transition hover:bg-white/10 active:scale-[0.98]"
+                      >
+                        ₱{amount.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-1.5 grid grid-cols-3 gap-1">
+                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "BACK"].map(
+                      (key) => (
+                        <button
+                          key={key}
+                          onClick={() => pressKeypad(key)}
+                          className={`h-9 rounded-lg text-lg font-black ring-1 transition active:scale-[0.98] ${
+                            key === "C"
+                              ? "bg-red-500/15 text-red-300 ring-red-400/25"
+                              : key === "BACK"
+                                ? "bg-white/5 text-slate-300 ring-white/10"
+                                : "bg-[#151c26] text-white ring-white/10 hover:bg-[#1d2633]"
+                          }`}
+                        >
+                          {key === "BACK" ? "←" : key}
+                        </button>
+                      ),
+                    )}
+                  </div>
+
+                  <div className="mt-2">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Reference No. Optional
+                    </p>
+                    <input
+                      value={paymentReference}
+                      onChange={(event) => setPaymentReference(event.target.value)}
+                      placeholder="GCash / Card reference"
+                      className="mt-1 h-8 w-full rounded-lg border border-white/10 bg-[#05080d] px-3 text-[11px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-amber-300/50"
+                    />
+                  </div>
+
+                  {amountPaidValue > 0 && amountPaidValue < grandTotal && (
+                    <div className="mt-2 rounded-xl border border-red-400/20 bg-red-500/10 p-2 text-xs font-bold text-red-200">
+                      Insufficient payment.
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-auto pt-2">
+                  <button
+                    onClick={() => confirmPayment(true)}
+                    disabled={!canConfirmPayment || orderLoading}
+                    className="h-11 w-full rounded-xl bg-[#f5c400] text-base font-black uppercase tracking-wide text-black shadow-xl shadow-yellow-950/30 transition hover:bg-[#ffd21f] disabled:bg-[#f5c400]/40 disabled:text-black/50"
+                  >
+                    {orderLoading ? "Saving..." : "Pay + Print Receipt"}
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        )}
+
       </div>
     </PageGuard>
   );
