@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
+import { ChefHat } from "lucide-react";
 
 const menuSections = [
   {
@@ -172,6 +173,18 @@ const menuSections = [
         icon: Package,
         moduleKey: "pos_menu_items",
       },
+      {
+  label: "Production Queue",
+  href: "/pos/production",
+  icon: ChefHat,
+  moduleKey: "pos_terminal",
+},
+      {
+  label: "Settings",
+  href: "/pos/settings",
+  icon: Settings,
+  moduleKey: "pos_settings",
+},
       
     ],
   },
