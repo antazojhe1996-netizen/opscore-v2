@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BadgeDollarSign,
   BarChart3,
   Building2,
   CalendarDays,
@@ -16,9 +17,12 @@ import {
   KeyRound,
   LayoutDashboard,
   Menu,
+  Package,
   Receipt,
   Settings,
   ShieldCheck,
+  ShoppingCart,
+  Store,
   User,
   UserCheck,
   Users,
@@ -36,35 +40,35 @@ const menuSections = [
     items: [],
   },
   {
-  title: "Reservations",
-  icon: Hotel,
-  items: [
-    {
-      label: "Dashboard",
-      href: "/reservations",
-      icon: Hotel,
-      moduleKey: "dashboard"
-    },
-    {
-      label: "Board",
-      href: "/reservations/board",
-      icon: CalendarDays,
-      moduleKey: "dashboard"
-    },
-    {
-      label: "Ledger",
-      href: "/reservations/ledger",
-      icon: ClipboardList,
-      moduleKey: "dashboard"
-    },
-    {
-      label: "Analytics",
-      href: "/reservations/analytics",
-      icon: BarChart3,
-      moduleKey: "dashboard"
-    },
-  ],
-},
+    title: "Reservations",
+    icon: Hotel,
+    items: [
+      {
+        label: "Dashboard",
+        href: "/reservations",
+        icon: Hotel,
+        moduleKey: "dashboard",
+      },
+      {
+        label: "Board",
+        href: "/reservations/board",
+        icon: CalendarDays,
+        moduleKey: "dashboard",
+      },
+      {
+        label: "Ledger",
+        href: "/reservations/ledger",
+        icon: ClipboardList,
+        moduleKey: "dashboard",
+      },
+      {
+        label: "Analytics",
+        href: "/reservations/analytics",
+        icon: BarChart3,
+        moduleKey: "dashboard",
+      },
+    ],
+  },
   {
     title: "Audit",
     icon: ShieldCheck,
@@ -110,6 +114,54 @@ const menuSections = [
         href: "/finance/restaurant-import",
         icon: Receipt,
         moduleKey: "restaurant_sales",
+      },
+    ],
+  },
+  {
+    title: "POS",
+    icon: ShoppingCart,
+    items: [
+      {
+        label: "POS Dashboard",
+        href: "/pos",
+        icon: BarChart3,
+        moduleKey: "pos_dashboard",
+      },
+      {
+        label: "Terminal",
+        href: "/pos/terminal",
+        icon: Store,
+        moduleKey: "pos_terminal",
+      },
+      {
+        label: "Orders",
+        href: "/pos/orders",
+        icon: Receipt,
+        moduleKey: "pos_orders",
+      },
+      {
+        label: "Sessions",
+        href: "/pos/sessions",
+        icon: UserCheck,
+        moduleKey: "pos_sessions",
+      },
+      {
+        label: "Sales",
+        href: "/pos/sales",
+        icon: BadgeDollarSign,
+        moduleKey: "pos_sales",
+      },
+      {
+        label: "Categories",
+        href: "/pos/categories",
+        icon: ClipboardList,
+        moduleKey: "pos_categories",
+      },
+      {
+        label: "Menu Items",
+        href: "/pos/menu-items",
+        icon: Package,
+        moduleKey: "pos_menu_items",
       },
     ],
   },
@@ -330,17 +382,17 @@ const menuSections = [
     ],
   },
   {
-  title: "Reports",
-  icon: FileText,
-  items: [
-    {
-      label: "Reports Center",
-      href: "/finance/reports",
-      icon: BarChart3,
-      moduleKey: "reports_center",
-    },
-  ],
-},
+    title: "Reports",
+    icon: FileText,
+    items: [
+      {
+        label: "Reports Center",
+        href: "/finance/reports",
+        icon: BarChart3,
+        moduleKey: "reports_center",
+      },
+    ],
+  },
   {
     title: "System",
     icon: Settings,
@@ -423,8 +475,10 @@ export default function Sidebar() {
 
   const getStoredCurrentUser = () => {
     if (typeof window === "undefined") return null;
+
     const savedUser = localStorage.getItem("opscore_current_user");
     if (!savedUser) return null;
+
     try {
       return JSON.parse(savedUser);
     } catch {
@@ -434,6 +488,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
+
     setFallbackEmployeeName(
       localStorage.getItem("opscore_current_employee_name") || "No user loaded",
     );
@@ -458,6 +513,7 @@ export default function Sidebar() {
     setLoadingAccess(true);
 
     const storedUser = getStoredCurrentUser();
+
     const currentEmployeeId =
       typeof window !== "undefined"
         ? localStorage.getItem("opscore_current_employee_id")
@@ -532,6 +588,7 @@ export default function Sidebar() {
         localStorage.getItem("opscore_current_employee_name") ||
           "No user loaded",
       );
+
       getCurrentUserPermissions();
       getPendingApprovals();
     };
@@ -570,10 +627,12 @@ export default function Sidebar() {
   };
 
   const currentPath = normalizePath(pathname || "/");
+
   const isExactActive = (href: string) => normalizePath(href) === currentPath;
 
   const isChildActive = (href: string) => {
     const normalizedHref = normalizePath(href);
+
     return (
       currentPath === normalizedHref ||
       currentPath.startsWith(`${normalizedHref}/`)
@@ -582,6 +641,7 @@ export default function Sidebar() {
 
   const isSectionActive = (section: any) => {
     if (section.href) return isExactActive(section.href);
+
     return section.items?.some((item: any) => isChildActive(item.href));
   };
 
@@ -593,6 +653,7 @@ export default function Sidebar() {
     currentEmployee?.department || currentEmployee?.position || "OPSCORE User";
 
   const employeeNo = currentEmployee?.employee_no || currentEmployee?.id || "-";
+
   const portalActive = isExactActive("/employee-portal");
 
   const logout = async () => {
@@ -624,6 +685,7 @@ export default function Sidebar() {
       );
 
       if (visibleItems.length === 0) return null;
+
       return { ...section, items: visibleItems };
     })
     .filter(Boolean);
@@ -678,6 +740,7 @@ export default function Sidebar() {
               >
                 <Icon size={15} />
               </span>
+
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
             </Link>
           );
@@ -708,7 +771,10 @@ export default function Sidebar() {
                 >
                   <Icon size={15} />
                 </span>
-                <span className="min-w-0 flex-1 truncate">{section.title}</span>
+
+                <span className="min-w-0 flex-1 truncate">
+                  {section.title}
+                </span>
 
                 {section.title === "Approvals" && pendingApprovals > 0 && (
                   <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
@@ -718,7 +784,9 @@ export default function Sidebar() {
 
                 <ChevronRight
                   size={13}
-                  className={`shrink-0 opacity-60 transition ${expanded ? "rotate-90" : ""}`}
+                  className={`shrink-0 opacity-60 transition ${
+                    expanded ? "rotate-90" : ""
+                  }`}
                 />
               </button>
 
@@ -740,9 +808,9 @@ export default function Sidebar() {
                         }`}
                       >
                         <ItemIcon size={13} />
-                        <span className="flex-1">
-  {item.label}
-</span>
+
+                        <span className="flex-1">{item.label}</span>
+
                         {item.href === "/manager/approval-center" &&
                           pendingApprovals > 0 && (
                             <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
@@ -776,6 +844,7 @@ export default function Sidebar() {
               >
                 <Icon size={15} />
               </span>
+
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
 
               {section.title === "Approvals" && pendingApprovals > 0 && (
@@ -825,9 +894,11 @@ export default function Sidebar() {
                       >
                         <ItemIcon size={14} />
                       </span>
+
                       <span className="min-w-0 flex-1 whitespace-normal leading-4">
                         {item.label}
                       </span>
+
                       {item.href === "/manager/approval-center" &&
                         pendingApprovals > 0 && (
                           <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
@@ -856,9 +927,11 @@ export default function Sidebar() {
       <div className="shrink-0 px-3 pb-4 pt-4">
         <div className="relative overflow-hidden rounded-[1.35rem] border border-blue-300/15 bg-gradient-to-br from-[#111a31] via-[#0d1629] to-[#070d19] px-4 py-4 shadow-2xl shadow-black/25">
           <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-blue-400/15 blur-2xl" />
+
           <p className="relative truncate text-[13px] font-black tracking-wide text-blue-100">
             VINCENT RESORT HOTEL
           </p>
+
           <p className="relative mt-1 truncate text-[11px] text-slate-500">
             Powered by OPSCORE Intelligence
           </p>
@@ -868,12 +941,15 @@ export default function Sidebar() {
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/80">
             Executive Session
           </p>
+
           <p className="mt-2 truncate text-sm font-black text-white">
             {employeeName}
           </p>
+
           <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-300">
             {currentRoleName}
           </p>
+
           <p className="mt-0.5 truncate text-[11px] text-slate-500">
             {employeeDepartment} • #{employeeNo}
           </p>
@@ -932,6 +1008,7 @@ export default function Sidebar() {
             onClick={() => setMobileOpen(false)}
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
           />
+
           <aside className="relative z-[10002] h-full w-[86vw] max-w-[330px] overflow-hidden border-r border-blue-300/15 bg-[#070d19] text-white shadow-2xl shadow-black">
             <button
               type="button"
@@ -941,6 +1018,7 @@ export default function Sidebar() {
             >
               <X size={16} />
             </button>
+
             {sidebarContent(true)}
           </aside>
         </div>
