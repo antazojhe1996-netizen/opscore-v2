@@ -448,10 +448,36 @@ export default function ExecutiveDashboardPage() {
     loadDashboardData();
   }, []);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setChartReady(true), 150);
-    return () => window.clearTimeout(timer);
-  }, []);
+ useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const employeeName =
+    localStorage.getItem("opscore_current_employee_name") ||
+    localStorage.getItem("opscore_current_role_name");
+
+  const storedUser = localStorage.getItem("opscore_current_user");
+
+  if (employeeName) {
+    setLoggedInUser(employeeName);
+    return;
+  }
+
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+
+      setLoggedInUser(
+        parsedUser.employee_name ||
+          parsedUser.full_name ||
+          parsedUser.name ||
+          parsedUser.email ||
+          "User",
+      );
+    } catch {
+      setLoggedInUser("User");
+    }
+  }
+}, []);
 
   /// FINANCE CALCULATIONS
   const hotelRowsInRange = hotelReservations.filter((row) =>
@@ -1498,7 +1524,7 @@ export default function ExecutiveDashboardPage() {
   const currentHour = new Date().getHours();
   const executiveGreeting =
     currentHour < 12 ? "Good Morning" : currentHour < 18 ? "Good Afternoon" : "Good Evening";
-  const ownerDisplayName = "Annabelle";
+const [loggedInUser, setLoggedInUser] = useState("User");
   const operationMood =
     businessStatus === "Stable"
       ? "Vincent Resort is operating normally today."
@@ -1565,10 +1591,10 @@ export default function ExecutiveDashboardPage() {
               <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-100/80">
                 OPSCORE Hospitality Intelligence
               </p>
-
-              <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-6xl">
-                {executiveGreeting}, {ownerDisplayName}
-              </h1>
+<h1 className="mt-4 max-w-5xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-[4.5rem] xl:leading-[0.95]">
+  {executiveGreeting},{" "}
+  <span className="whitespace-nowrap">{loggedInUser}</span>
+</h1>
 
               <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-200">
                 {operationMood}
