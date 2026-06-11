@@ -563,7 +563,7 @@ export default function POSMenuItemsPage() {
     const lines = text
       .split(/\r?\n/)
       .map((line) => line.trim())
-      .filter(Boolean);
+      .filter(Boolean) as any[];
 
     if (lines.length < 2) return [];
 
@@ -885,8 +885,8 @@ export default function POSMenuItemsPage() {
             updated_at: new Date().toISOString(),
           };
         })
-        .filter(Boolean);
-
+        .filter(Boolean) as any[];
+        
       if (payloads.length === 0) {
         alert(
           `No valid items to import.\nNo name: ${skippedNoName}\nNo category match: ${skippedNoCategory}\nDuplicates: ${skippedDuplicate}`,

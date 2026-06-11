@@ -273,9 +273,8 @@ export default function POSTerminalPage() {
       return;
     }
 
-    setCategories((categoryData || []) as Category[]);
-    setProducts((productData || []) as Product[]);
-    setLoading(false);
+setCategories((categoryData || []) as unknown as Category[]);
+setProducts((productData || []) as unknown as Product[]);    setLoading(false);
   };
 
   useEffect(() => {

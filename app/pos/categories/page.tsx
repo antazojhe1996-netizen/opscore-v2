@@ -409,7 +409,12 @@ export default function POSMenuItemsPage() {
     const lines = text
       .split(/\r?\n/)
       .map((line) => line.trim())
-      .filter(Boolean);
+      .filter(
+  (
+    payload,
+  ): payload is NonNullable<typeof payload> =>
+    payload !== null,
+);
 
     if (lines.length < 2) return [];
 
@@ -608,7 +613,7 @@ export default function POSMenuItemsPage() {
         return;
       }
 
-      const { error } = await supabase.from("pos_menu_items").insert(payloads);
+      const { error } = await supabase.from("pos_menu_items").insert(payloads as any[]);
 
       if (error) {
         alert(error.message);
