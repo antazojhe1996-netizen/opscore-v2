@@ -1583,13 +1583,14 @@ const [loggedInUser, setLoggedInUser] = useState("User");
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-[#07111f] text-white">
+    <div className="flex min-h-screen bg-[#050B14] text-white">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-300/20 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-5 shadow-2xl shadow-blue-950/30 lg:p-7">
+        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-300/25 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-5 shadow-2xl shadow-blue-950/40 lg:p-7">
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/10 to-transparent" />
 
           <div className="relative grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_520px]">
             <div className="min-w-0">
@@ -1686,7 +1687,7 @@ const [loggedInUser, setLoggedInUser] = useState("User");
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/80">
-                    Business Health
+                    OPSCORE Health Score
                   </p>
                   <h2 className="mt-2 text-5xl font-black text-white">
                     {businessHealthScore}
@@ -1696,10 +1697,10 @@ const [loggedInUser, setLoggedInUser] = useState("User");
                   </p>
                 </div>
 
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-blue-300/20 bg-blue-300/10">
+                <div className="relative flex h-36 w-36 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-300/10 shadow-2xl shadow-cyan-950/40">
                   <div className="absolute inset-2 rounded-full border border-blue-300/20" />
                   <div className="text-center">
-                    <p className="text-3xl font-black text-white">{businessHealthScore}</p>
+                    <p className="text-5xl font-black text-white">{businessHealthScore}</p>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200/70">/100</p>
                   </div>
                 </div>
@@ -1791,6 +1792,78 @@ const [loggedInUser, setLoggedInUser] = useState("User");
           </div>
         </section>
 
+        {/* ATTENTION REQUIRED */}
+        <section className="mb-6 overflow-hidden rounded-[2rem] border border-orange-400/25 bg-gradient-to-r from-orange-500/15 via-red-500/10 to-slate-950 p-5 shadow-2xl shadow-orange-950/20 lg:p-6">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/10 to-transparent" />
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-orange-200">
+                <AlertTriangle size={18} /> Attention Required
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white">
+                Management items that need review first.
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-300">
+                OPSCORE is surfacing the highest-risk items from attendance, cash, receivables, payroll, and bills.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm font-black text-white">
+              {criticalAlerts.length} Alert(s) · {recommendations.length} Action(s)
+            </div>
+          </div>
+
+          <div className="relative mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-4 shadow-lg shadow-red-950/10">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-200">
+                Attendance Issues
+              </p>
+              <p className="mt-2 text-4xl font-black tracking-tight text-white">
+                {attendanceIssueRows.length}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Absences, late, undertime, or missing out
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-orange-400/25 bg-orange-500/10 p-4 shadow-lg shadow-orange-950/10">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-200">
+                Cash Variances
+              </p>
+              <p className="mt-2 text-4xl font-black tracking-tight text-white">
+                {varianceDrawerCount}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {formatPeso(totalVariance)} variance detected
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-blue-400/25 bg-blue-500/10 p-4 shadow-lg shadow-blue-950/10">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200">
+                Receivables
+              </p>
+              <p className="mt-2 text-4xl font-black tracking-tight text-white">
+                {formatPeso(expectedCollections)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Guest balance + apartment receivables
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4 shadow-lg shadow-emerald-950/10">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200">
+                Payroll Release
+              </p>
+              <p className="mt-2 text-4xl font-black tracking-tight text-white">
+                {formatPeso(pendingPayrollReleaseAmount)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Approved or waiting for release
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <KpiCard
             icon={<Wallet size={22} />}
@@ -1849,8 +1922,9 @@ const [loggedInUser, setLoggedInUser] = useState("User");
           />
         </section>
 
-        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 lg:p-6">
-          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-400/20 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/10 lg:p-6">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/5 to-transparent" />
+          <div className="relative mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
                 Financial Trend
@@ -1871,7 +1945,7 @@ const [loggedInUser, setLoggedInUser] = useState("User");
             </div>
           </div>
 
-          <div className="h-[260px] min-h-[260px] min-w-0 sm:h-[320px]">
+          <div className="relative h-[260px] min-h-[260px] min-w-0 sm:h-[320px]">
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
@@ -1946,13 +2020,13 @@ const [loggedInUser, setLoggedInUser] = useState("User");
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-stretch">
             <div>
               <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-blue-200">
-                <Brain size={18} /> AI Executive Briefing
+                <Brain size={18} /> OPSCORE Intelligence
               </p>
               <h2 className="mt-2 text-2xl font-black text-white">
                 {businessStatus === "Stable" ? "Business performance is under control." : businessStatus === "Watchlist" ? "Business is stable, but needs review." : "Immediate management attention is recommended."}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                OPSCORE summarized the current operating position based on cash, revenue, payroll, receivables, and occupancy signals.
+                OPSCORE summarized the current operating position through Insights, Recommendations, Alerts, Forecast, and Health Score signals.
               </p>
 
               <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -1962,7 +2036,7 @@ const [loggedInUser, setLoggedInUser] = useState("User");
                     className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
                   >
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
-                      Insight {index + 1}
+                      OPSCORE Insight {index + 1}
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
                       {item}
@@ -2117,7 +2191,7 @@ const [loggedInUser, setLoggedInUser] = useState("User");
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-4">
           <a
             href="/manager/approval-center"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
           >
             <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
               Approvals
@@ -2130,7 +2204,7 @@ const [loggedInUser, setLoggedInUser] = useState("User");
 
           <a
             href="/finance/payroll/manager"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
           >
             <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
               Payroll
@@ -2143,7 +2217,7 @@ const [loggedInUser, setLoggedInUser] = useState("User");
 
           <a
             href="/finance/cash-management"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
           >
             <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
               Cash
@@ -2156,7 +2230,7 @@ const [loggedInUser, setLoggedInUser] = useState("User");
 
           <a
             href="/finance/expenses"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500/50 hover:bg-slate-800/70"
+            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
           >
             <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
               Finance
@@ -2211,27 +2285,44 @@ function KpiCard({
   success?: boolean;
   danger?: boolean;
 }) {
+  const accentClass = danger
+    ? "border-red-400/20 bg-red-500/10 text-red-200"
+    : success
+      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+      : "border-blue-400/20 bg-blue-500/10 text-blue-200";
+
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-xl bg-blue-500/10 p-3 text-blue-300">
+    <div className="relative min-h-44 overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-b from-slate-800 to-slate-950 p-5 shadow-xl shadow-black/20">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-blue-400/10 blur-2xl" />
+
+      <div className="relative mb-4 flex items-center gap-3">
+        <div className={`rounded-2xl border p-3 ${accentClass}`}>
           {icon}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm text-slate-400">{title}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+              {title}
+            </p>
             <MetricHelp formula={formula} source={source} />
           </div>
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold">{value}</h2>
+      <h2 className="relative text-4xl font-black tracking-tight text-white">
+        {value}
+      </h2>
 
-      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+      {subtitle && (
+        <p className="relative mt-2 text-xs font-semibold text-slate-400">
+          {subtitle}
+        </p>
+      )}
 
       {formula && (
-        <p className="mt-3 border-t border-white/10 pt-3 text-[11px] leading-4 text-slate-400">
+        <p className="relative mt-4 border-t border-white/10 pt-3 text-[11px] leading-4 text-slate-400">
           {formula}
         </p>
       )}
@@ -2256,8 +2347,9 @@ function InsightCard({
   const detailRows = rows.slice(2);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-500/10 shadow-2xl shadow-blue-950/20">
-      <div className="p-5">
+    <div className="relative overflow-hidden rounded-[2rem] border border-blue-400/20 bg-gradient-to-b from-blue-500/10 to-slate-950 shadow-2xl shadow-blue-950/20">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/10 to-transparent" />
+      <div className="relative p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-blue-400/10 p-3 text-blue-300">{icon}</div>

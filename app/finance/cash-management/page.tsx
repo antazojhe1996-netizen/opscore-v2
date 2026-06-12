@@ -437,9 +437,9 @@ export default function CashManagementPage() {
   const getApprovalStatusStyle = (status: string) => {
     const normalized = String(status || "").toUpperCase();
 
-    if (normalized === "APPROVED") return "bg-blue-500/10 text-blue-300";
-    if (normalized === "REJECTED") return "bg-blue-500/10 text-blue-300";
-    if (normalized === "PENDING") return "bg-blue-500/10 text-blue-300";
+    if (normalized === "APPROVED") return "bg-blue-500/15 text-blue-200";
+    if (normalized === "REJECTED") return "bg-blue-500/15 text-blue-200";
+    if (normalized === "PENDING") return "bg-blue-500/15 text-blue-200";
     if (normalized === "CANCELLED") return "bg-slate-700 text-slate-300";
 
     return "bg-slate-700 text-slate-300";
@@ -789,6 +789,85 @@ export default function CashManagementPage() {
     today,
   ]);
 
+  const totalLiquidFunds = cashOnHand + onlineBankingTotal;
+
+  const pendingCashApprovalCount = cashApprovalRequests.filter(
+    (request) => String(request.status || "").toUpperCase() === "PENDING",
+  ).length;
+
+  const closedDrawerVarianceRows = filteredDrawers
+    .map((drawer) => {
+      const summary = getDrawerCashSummary(drawer);
+      return {
+        drawer,
+        holder: drawer.holder_name || "Cash Holder",
+        variance: Number(summary.variance || 0),
+        status: String(drawer.status || "").toUpperCase(),
+      };
+    })
+    .filter((item) => item.status === "CLOSED" && Math.abs(item.variance) > 0)
+    .sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance));
+
+  const cashHealthScore = Math.max(
+    0,
+    100 -
+      (!activeDrawer ? 10 : 0) -
+      (cashOnHand <= 0 ? 18 : 0) -
+      (pendingCashApprovalCount > 0 ? 12 : 0) -
+      (closedDrawerVarianceRows.length > 0 ? 18 : 0) -
+      (totalLiquidFunds <= 0 ? 25 : 0),
+  );
+
+  const cashWatchStatus =
+    cashHealthScore >= 85
+      ? "Healthy"
+      : cashHealthScore >= 70
+        ? "Watch"
+        : "Needs Attention";
+
+  const cashWatchTone =
+    cashHealthScore >= 85
+      ? "text-emerald-300"
+      : cashHealthScore >= 70
+        ? "text-orange-300"
+        : "text-red-300";
+
+  const cashWatchAlerts = [
+    ...(!activeDrawer ? ["No active cash drawer is open."] : []),
+    ...(activeDrawer ? [`${drawerDisplayName} has an open drawer.`] : []),
+    ...(cashOnHand <= 0 ? ["Physical cash balance is zero or negative."] : []),
+    ...(pendingCashApprovalCount > 0
+      ? [`${pendingCashApprovalCount} cash approval request(s) pending.`]
+      : []),
+    ...(closedDrawerVarianceRows.length > 0
+      ? [
+          `${closedDrawerVarianceRows.length} closed drawer(s) have variance in current history filter.`,
+        ]
+      : []),
+    ...(onlineBankingTotal > cashOnHand && onlineBankingTotal > 0
+      ? ["Most available funds are in GCash/Bank/Terminal channels."]
+      : []),
+  ];
+
+  const cashWatchRecommendations = [
+    ...(cashOnHand > 20000
+      ? ["Deposit excess physical cash or remit to management before end of shift."]
+      : []),
+    ...(pendingCashApprovalCount > 0
+      ? ["Review pending money-out approvals before releasing additional funds."]
+      : []),
+    ...(activeDrawer ? ["Close and print the drawer report once cash count is verified."] : []),
+    ...(!activeDrawer ? ["Open the correct drawer before accepting or releasing physical cash."] : []),
+    ...(closedDrawerVarianceRows.length > 0
+      ? ["Review drawer variance reports and confirm remittance amounts."]
+      : []),
+    ...(onlineBankingTotal > 0
+      ? ["Reconcile GCash, Bank, and Terminal balances against proof of payment."]
+      : []),
+  ].slice(0, 5);
+
+
+
   /// FUNCTIONS - FORMATTERS
   const formatMoney = (value: any) => {
     return `₱${Number(value || 0).toLocaleString("en-PH", {
@@ -803,18 +882,18 @@ export default function CashManagementPage() {
   };
 
   const getMovementStyle = (type: string) => {
-    if (type === "Opening Float") return "bg-blue-500/10 text-blue-400";
-    if (type === "Cash In") return "bg-blue-500/10 text-blue-300";
-    if (type === "Cash Out") return "bg-blue-500/10 text-blue-300";
-    if (type === "Remittance") return "bg-blue-500/10 text-blue-300";
-    if (type === "Adjustment") return "bg-blue-500/10 text-blue-300";
+    if (type === "Opening Float") return "bg-cyan-500/15 text-cyan-200";
+    if (type === "Cash In") return "bg-blue-500/15 text-blue-200";
+    if (type === "Cash Out") return "bg-blue-500/15 text-blue-200";
+    if (type === "Remittance") return "bg-blue-500/15 text-blue-200";
+    if (type === "Adjustment") return "bg-blue-500/15 text-blue-200";
     return "bg-slate-700 text-slate-300";
   };
 
   const getPaymentStyle = (payment: string) => {
-    if (payment === "Cash") return "bg-blue-500/10 text-blue-300";
-    if (payment === "GCash") return "bg-blue-500/10 text-blue-300";
-    if (payment === "Bank") return "bg-blue-500/10 text-blue-400";
+    if (payment === "Cash") return "bg-blue-500/15 text-blue-200";
+    if (payment === "GCash") return "bg-blue-500/15 text-blue-200";
+    if (payment === "Bank") return "bg-cyan-500/15 text-cyan-200";
     if (payment === "Terminal") return "bg-sky-500/10 text-sky-400";
     return "bg-slate-700 text-slate-300";
   };
@@ -2938,110 +3017,161 @@ export default function CashManagementPage() {
   /// UI
   return (
     <PageGuard moduleKey="cash_management">
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#07111f] text-white">
         <Sidebar />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-          <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
-                  Cash Management
-                </p>
-
-                <h1 className="mt-1 text-3xl font-black tracking-tight text-white">
-                  Hello {drawerFirstName}
-                </h1>
-
-                <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
-                  {activeDrawer
-                    ? `${drawerDisplayName} is assigned to the active drawer. Monitor cash on hand first, then review online banking collections.`
-                    : "No active drawer. Open a drawer before releasing or receiving physical cash."}
-                </p>
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#07111f] p-4 text-white sm:p-5 lg:p-6">
+          {/* SYSTEM HEADER - WORKBENCH NOT DASHBOARD */}
+          <section className="mb-4 rounded-[1.4rem] border border-slate-800 bg-[#08101d] px-4 py-3 shadow-xl shadow-black/20">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <div className="h-8 w-1 rounded-full bg-gradient-to-b from-blue-400 to-cyan-300" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-blue-300">
+                    OPSCORE Finance Workbench
+                  </p>
+                  <h1 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">
+                    Cash Management
+                  </h1>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-blue-200">
-                  {activeDrawer ? "Drawer Open" : "Drawer Closed"}
-                </div>
-
-                {canManageDrawerForOthers && (
-                  <button
-                    onClick={() => setShowDrawerHolderSettings(true)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
-                  >
-                    Holder Settings
-                  </button>
-                )}
-
-                {activeDrawer && (
-                  <button
-                    onClick={() => printDrawerReport(activeDrawer)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
-                  >
-                    Print Report
-                  </button>
-                )}
-
-                {!activeDrawer && (
-                  <button
-                    onClick={() => setShowOpenDrawer(true)}
-                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
-                  >
-                    Open Drawer
-                  </button>
-                )}
-
-                {activeDrawer && (
-                  <button
-                    onClick={() => setShowCloseDrawer(true)}
-                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
-                  >
-                    Close Drawer
-                  </button>
-                )}
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:min-w-[620px]">
+                <CompactTopMetric label="Cash on Hand" value={formatMoney(cashOnHand)} tone={cashOnHand <= 0 ? "red" : "blue"} />
+                <CompactTopMetric label="Cash In / Out" value={`${formatMoney(cashInTotal)} / ${formatMoney(cashOutTotal)}`} tone="emerald" />
+                <CompactTopMetric label="Online Banking" value={formatMoney(onlineBankingTotal)} tone="cyan" />
+                <CompactTopMetric label="Variance" value={closedDrawerVarianceRows[0] ? formatMoney(closedDrawerVarianceRows[0].variance) : formatMoney(0)} tone={closedDrawerVarianceRows.length > 0 ? "red" : "orange"} />
               </div>
             </div>
           </section>
 
-          <section className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <WorkbenchMetric
-              title="Cash On Hand"
-              value={formatMoney(cashOnHand)}
-              subtitle="Physical cash only after cash out and remittance"
-              status="FIRST CARD"
-            />
-            <WorkbenchMetric
-              title="Cash In / Out"
-              value={`${formatMoney(cashInTotal)} / ${formatMoney(cashOutTotal)}`}
-              subtitle="Current drawer cash movement"
-            />
-            <WorkbenchMetric
-              title="Pending Requests"
-              value={
-                cashApprovalRequests.filter(
-                  (request) =>
-                    String(request.status || "").toUpperCase() === "PENDING",
-                ).length
-              }
-              subtitle="Money-out approval queue"
-            />
-            <WorkbenchMetric
-              title="Online Banking"
-              value={formatMoney(onlineBankingTotal)}
-              subtitle={`GCash ${formatMoney(gcashTotal)} • Bank ${formatMoney(
-                bankTotal,
-              )} • Terminal ${formatMoney(terminalTotal)}`}
-            />
+          {/* ACTIVE DRAWER - PRIMARY WORK AREA */}
+          <section className="mb-4 overflow-hidden rounded-[1.6rem] border border-blue-400/20 bg-gradient-to-r from-slate-950 via-[#0b1728] to-slate-950 shadow-2xl shadow-blue-950/20">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="relative min-w-0 p-4 sm:p-5">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/10 to-transparent" />
+                <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-blue-300/25 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-200">
+                        Active Drawer
+                      </span>
+                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${activeDrawer ? "border-emerald-300/25 bg-emerald-500/10 text-emerald-200" : "border-orange-300/25 bg-orange-500/10 text-orange-200"}`}>
+                        {activeDrawer ? "Open" : "No Drawer"}
+                      </span>
+                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${cashWatchTone} border-white/10 bg-white/[0.05]`}>
+                        Cash Watch: {cashWatchStatus}
+                      </span>
+                    </div>
+
+                    <h2 className="mt-3 truncate text-3xl font-black tracking-tight text-white lg:text-4xl">
+                      {activeDrawer ? drawerDisplayName : "Open a drawer to start"}
+                    </h2>
+                    <p className="mt-2 text-sm font-semibold text-slate-400">
+                      {activeDrawer
+                        ? `Opened ${formatDateTime(activeDrawer.opened_at)} • ${activeDrawer.remarks || "Cash drawer is ready for transactions."}`
+                        : "Physical cash transactions require an active drawer. Online payment releases remain balance-guarded by payment type."}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[560px]">
+                    <MiniBalance label="Cash" value={formatMoney(cashOnHand)} tone="blue" />
+                    <MiniBalance label="GCash" value={formatMoney(gcashTotal)} tone="emerald" />
+                    <MiniBalance label="Bank" value={formatMoney(bankTotal)} tone="cyan" />
+                    <MiniBalance label="Terminal" value={formatMoney(terminalTotal)} tone="orange" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-blue-300/10 bg-slate-950/70 p-4 xl:border-l xl:border-t-0">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setShowOpenDrawer(true)}
+                    disabled={Boolean(activeDrawer)}
+                    className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-200 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Open
+                  </button>
+                  <button
+                    onClick={() => setShowCloseDrawer(true)}
+                    disabled={!activeDrawer}
+                    className="rounded-xl border border-orange-400/25 bg-orange-500/10 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-orange-200 hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Close
+                  </button>
+                  {activeDrawer && (
+                    <button
+                      onClick={() => printDrawerReport(activeDrawer)}
+                      className="col-span-2 rounded-xl border border-blue-400/25 bg-blue-500/10 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-blue-200 hover:bg-blue-500/20"
+                    >
+                      Print Drawer Report
+                    </button>
+                  )}
+                  {canManageDrawerForOthers && (
+                    <button
+                      onClick={() => setShowDrawerHolderSettings(true)}
+                      className="col-span-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-200 hover:bg-white/10"
+                    >
+                      Drawer Holder Settings
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </section>
 
-          <section className="sticky top-0 z-20 mb-4 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 backdrop-blur">
+          {/* FAST ACTION STRIP */}
+          <section className="mb-4 rounded-[1.4rem] border border-slate-800 bg-slate-950/80 p-3 shadow-xl shadow-black/10">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:min-w-[740px]">
+                <FastSignal label="Pending Approvals" value={pendingCashApprovalCount} tone={pendingCashApprovalCount > 0 ? "orange" : "blue"} />
+                <FastSignal label="Cash In" value={formatMoney(cashInTotal)} tone="emerald" />
+                <FastSignal label="Cash Out" value={formatMoney(cashOutTotal)} tone="red" />
+                <FastSignal label="Remitted" value={formatMoney(remittanceTotal)} tone="cyan" />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setMovementType("Cash In");
+                    setSource(sourceOptions[0] || "");
+                    setPaymentType("Cash");
+                  }}
+                  className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/20"
+                >
+                  + Cash In
+                </button>
+                <button
+                  onClick={() => {
+                    setMovementType("Cash Out");
+                    setSource("Expense Release");
+                    setPaymentType("Cash");
+                  }}
+                  className="rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-2 text-xs font-black text-red-200 hover:bg-red-500/20"
+                >
+                  - Cash Out
+                </button>
+                <button
+                  onClick={() => {
+                    setMovementType("Remittance");
+                    setSource("Remittance");
+                    setPaymentType("Cash");
+                  }}
+                  className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 text-xs font-black text-cyan-200 hover:bg-cyan-500/20"
+                >
+                  Remittance
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="sticky top-0 z-20 mb-4 rounded-[1.5rem] border border-blue-300/15 bg-slate-950/90 p-3 shadow-xl shadow-blue-950/10 backdrop-blur">
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
               <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
                 <select
                   value={ledgerDateScope}
                   onChange={(e) => setLedgerDateScope(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   <option value="TODAY">Today</option>
                   <option value="CUSTOM">Selected Date</option>
@@ -3054,7 +3184,7 @@ export default function CashManagementPage() {
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
                     style={{ colorScheme: "dark" }}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                   />
                 ) : (
                   <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
@@ -3065,7 +3195,7 @@ export default function CashManagementPage() {
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   <option value="ALL">All Movement Types</option>
                   {movementTypes.map((item) => (
@@ -3077,7 +3207,7 @@ export default function CashManagementPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search ledger..."
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 />
               </div>
 
@@ -3088,7 +3218,7 @@ export default function CashManagementPage() {
                     setSource(sourceOptions[0] || "");
                     setPaymentType("Cash");
                   }}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-400 hover:from-blue-500 hover:to-cyan-400/10 hover:text-white"
                 >
                   Cash In
                 </button>
@@ -3098,7 +3228,7 @@ export default function CashManagementPage() {
                     setSource("Expense Release");
                     setPaymentType("Cash");
                   }}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-400 hover:from-blue-500 hover:to-cyan-400/10 hover:text-white"
                 >
                   Cash Out
                 </button>
@@ -3108,7 +3238,7 @@ export default function CashManagementPage() {
                     setSource("Remittance");
                     setPaymentType("Cash");
                   }}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-500 hover:text-white"
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-400 hover:from-blue-500 hover:to-cyan-400/10 hover:text-white"
                 >
                   Remittance
                 </button>
@@ -3117,8 +3247,11 @@ export default function CashManagementPage() {
           </section>
 
           <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[430px_minmax(0,1fr)]">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-              <h2 className="text-xl font-bold">Add Cash Movement</h2>
+            <section className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
+              <div className="mb-4 border-b border-emerald-400/15 pb-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-300">Movement Workbench</p>
+                <h2 className="mt-1 text-xl font-black text-white">Record Cash Movement</h2>
+              </div>
 
               <div className="mt-5 space-y-4">
                 <input
@@ -3126,7 +3259,7 @@ export default function CashManagementPage() {
                   value={businessDate}
                   onChange={(e) => setBusinessDate(e.target.value)}
                   style={{ colorScheme: "dark" }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 />
 
                 <select
@@ -3161,7 +3294,7 @@ export default function CashManagementPage() {
                       setSource("Expense Release");
                     }
                   }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   {movementTypes
                     .filter((type) => type !== "Remittance")
@@ -3173,7 +3306,7 @@ export default function CashManagementPage() {
                 <select
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   {sourceOptions.length === 0 && (
                     <option value="">No active cash sources found</option>
@@ -3188,7 +3321,7 @@ export default function CashManagementPage() {
                 <select
                   value={paymentType}
                   onChange={(e) => setPaymentType(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   {paymentTypes.map((item) => (
                     <option
@@ -3214,7 +3347,7 @@ export default function CashManagementPage() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Amount"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 />
 
                 {movementType === "Remittance" && (
@@ -3236,7 +3369,7 @@ export default function CashManagementPage() {
                     className={`rounded-2xl border p-4 ${
                       isCashAdvanceCashOut
                         ? "border-blue-500/20 bg-blue-500/10"
-                        : "border-red-500/20 bg-blue-500/10"
+                        : "border-red-500/25 bg-red-500/10"
                     }`}
                   >
                     <p
@@ -3257,7 +3390,7 @@ export default function CashManagementPage() {
                             setCashAdvanceEmployeeId(e.target.value)
                           }
                           autoComplete="off"
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                         >
                           <option value="">Select employee</option>
                           {cashAdvanceEmployeeOptions.map((employee) => {
@@ -3310,7 +3443,7 @@ export default function CashManagementPage() {
                             setCashAdvancePurpose(e.target.value)
                           }
                           placeholder="Purpose / reason (optional)"
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                         />
 
                         <p className="text-xs leading-5 text-blue-200">
@@ -3328,7 +3461,7 @@ export default function CashManagementPage() {
                             setExpenseCategory(e.target.value);
                             setExpenseSubcategory("");
                           }}
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                         >
                           <option value="">Select expense category</option>
                           {expenseCategoryOptions.map((item) => (
@@ -3342,7 +3475,7 @@ export default function CashManagementPage() {
                             onChange={(e) =>
                               setExpenseSubcategory(e.target.value)
                             }
-                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                            className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                           >
                             <option value="">Select expense subcategory</option>
                             {expenseSubcategoryOptions.map((item) => (
@@ -3354,7 +3487,7 @@ export default function CashManagementPage() {
                         <select
                           value={expenseDepartment}
                           onChange={(e) => setExpenseDepartment(e.target.value)}
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                         >
                           <option value="">Select department / area</option>
                           {expenseDepartments.map((item) => (
@@ -3368,7 +3501,7 @@ export default function CashManagementPage() {
                             setExpenseDescription(e.target.value)
                           }
                           placeholder="Expense description / purpose"
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                         />
 
                         <input
@@ -3377,7 +3510,7 @@ export default function CashManagementPage() {
                           placeholder="Released to / received by"
                           list="employee-name-list"
                           autoComplete="off"
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                         />
 
                         <p className="text-xs leading-5 text-blue-200">
@@ -3403,7 +3536,7 @@ export default function CashManagementPage() {
                       }
                       list="employee-name-list"
                       autoComplete="off"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                      className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                     />
                   )}
 
@@ -3422,7 +3555,7 @@ export default function CashManagementPage() {
                       }
                       list="employee-name-list"
                       autoComplete="off"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                      className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                     />
                   )}
 
@@ -3431,7 +3564,7 @@ export default function CashManagementPage() {
                   readOnly
                   placeholder="Encoded by"
                   autoComplete="off"
-                  className="w-full cursor-not-allowed rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-400 outline-none"
+                  className="w-full cursor-not-allowed rounded-xl border border-blue-300/15 bg-slate-950/80/70 px-3 py-2 text-sm text-slate-400 outline-none"
                 />
 
                 <datalist id="employee-name-list">
@@ -3449,13 +3582,13 @@ export default function CashManagementPage() {
                   onChange={(e) => setRemarks(e.target.value)}
                   rows={3}
                   placeholder="Remarks / reference / purpose"
-                  className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 />
 
                 <button
                   onClick={saveMovement}
                   disabled={isSaving}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 shadow-lg shadow-blue-950/30 px-4 py-3 text-sm font-semibold hover:from-blue-500 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSaving
                     ? "Saving..."
@@ -3468,14 +3601,17 @@ export default function CashManagementPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-              <h2 className="text-xl font-bold">Cash Movement Ledger</h2>
+            <section className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
+              <div className="mb-4 border-b border-orange-400/15 pb-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-orange-300">Live Ledger</p>
+                <h2 className="mt-1 text-xl font-black text-white">Cash Movement Ledger</h2>
+              </div>
 
               <div className="my-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <select
                   value={paymentFilter}
                   onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   <option value="ALL">All Payment Types</option>
                   {paymentTypes.map((item) => (
@@ -3486,7 +3622,7 @@ export default function CashManagementPage() {
                 <select
                   value={holderFilter}
                   onChange={(e) => setHolderFilter(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   <option value="AUTO">Active Drawer Holder</option>
                   <option value="ALL">All Holders</option>
@@ -3600,7 +3736,7 @@ export default function CashManagementPage() {
             </section>
           </div>
 
-          <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+          <section className="mb-6 rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold">
@@ -3709,10 +3845,11 @@ export default function CashManagementPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
+          <section className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Drawer History</h2>
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-300">Drawer Control</p>
+                <h2 className="mt-1 text-xl font-black text-white">Drawer History</h2>
                 <p className="mt-1 text-xs text-slate-400">
                   Uses cash-only drawer logic. Bank, GCash, and Terminal
                   payments are excluded from expected cash.
@@ -3723,7 +3860,7 @@ export default function CashManagementPage() {
                 <select
                   value={historyDateScope}
                   onChange={(e) => setHistoryDateScope(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   <option value="TODAY">Today</option>
                   <option value="ALL">All History</option>
@@ -3736,7 +3873,7 @@ export default function CashManagementPage() {
                     value={historyDateFilter}
                     onChange={(e) => setHistoryDateFilter(e.target.value)}
                     style={{ colorScheme: "dark" }}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                   />
                 ) : (
                   <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
@@ -3747,7 +3884,7 @@ export default function CashManagementPage() {
                 <select
                   value={historyHolderFilter}
                   onChange={(e) => setHistoryHolderFilter(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   <option value="ALL">All Holders</option>
                   {validEmployeeOptions.map((employee) => (
@@ -3763,7 +3900,7 @@ export default function CashManagementPage() {
                 <select
                   value={historyStatusFilter}
                   onChange={(e) => setHistoryStatusFilter(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 >
                   <option value="ALL">All Status</option>
                   <option value="OPEN">Open</option>
@@ -3863,7 +4000,7 @@ export default function CashManagementPage() {
                                   )?.to_person || "-",
                               })
                             }
-                            className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:bg-blue-500"
+                            className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:from-blue-500 hover:to-cyan-400"
                           >
                             Print PDF
                           </button>
@@ -3886,6 +4023,51 @@ export default function CashManagementPage() {
               </table>
             </div>
           </section>
+
+
+          {/* FLOATING OPSCORE BRAIN - ASSISTANT ONLY */}
+          <div className="group fixed bottom-6 right-6 z-50">
+            <button
+              className={`relative flex h-14 w-14 items-center justify-center rounded-full border shadow-2xl backdrop-blur ${
+                cashHealthScore < 70
+                  ? "animate-pulse border-red-300/40 bg-red-500/25 text-red-100 shadow-red-950/40"
+                  : cashHealthScore < 85
+                    ? "border-orange-300/40 bg-orange-500/25 text-orange-100 shadow-orange-950/40"
+                    : "border-cyan-300/40 bg-cyan-500/20 text-cyan-100 shadow-cyan-950/40"
+              }`}
+              title="OPSCORE Cash Watch"
+            >
+              <span className="text-2xl">🧠</span>
+            </button>
+
+            <div className="pointer-events-none absolute bottom-16 right-0 w-80 translate-y-2 rounded-2xl border border-cyan-300/20 bg-slate-950/95 p-4 opacity-0 shadow-2xl shadow-black/40 backdrop-blur transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">
+                  OPSCORE Cash Watch
+                </p>
+                <span className={`text-xs font-black uppercase ${cashWatchTone}`}>
+                  {cashWatchStatus}
+                </span>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {(cashWatchAlerts.length > 0 ? cashWatchAlerts : ["No urgent cash control alerts."]).slice(0, 3).map((item, index) => (
+                  <p key={`cash-watch-alert-${index}`} className="rounded-xl border border-white/10 bg-white/[0.05] p-3 text-xs font-semibold leading-5 text-slate-200">
+                    {item}
+                  </p>
+                ))}
+              </div>
+
+              <div className="mt-3 rounded-xl border border-blue-300/15 bg-blue-500/10 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200/80">
+                  Recommendation
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-100">
+                  {cashWatchRecommendations[0] || "Continue monitoring drawer movements and remittance accuracy."}
+                </p>
+              </div>
+            </div>
+          </div>
 
           {showDrawerHolderSettings && (
             <Modal
@@ -3910,7 +4092,7 @@ export default function CashManagementPage() {
                   value={drawerHolderSearch}
                   onChange={(e) => setDrawerHolderSearch(e.target.value)}
                   placeholder="Search employee, department, or position..."
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                 />
 
                 <div className="flex flex-wrap gap-2">
@@ -3995,7 +4177,7 @@ export default function CashManagementPage() {
                 value={drawerHolder}
                 onChange={(e) => setDrawerHolder(e.target.value)}
                 disabled={!canManageDrawerForOthers}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="">Select authorized drawer holder</option>
                 {allowedOpenDrawerHolderOptions.map((employee) => (
@@ -4031,7 +4213,7 @@ export default function CashManagementPage() {
                 value={openingFloat}
                 onChange={(e) => setOpeningFloat(e.target.value)}
                 placeholder="Opening float"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
               />
 
               <textarea
@@ -4039,7 +4221,7 @@ export default function CashManagementPage() {
                 onChange={(e) => setDrawerRemarks(e.target.value)}
                 rows={3}
                 placeholder="Opening remarks"
-                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
               />
 
               <button
@@ -4051,7 +4233,7 @@ export default function CashManagementPage() {
                   (!canManageDrawerForOthers &&
                     drawerHolder !== currentDrawerHolderName)
                 }
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 shadow-lg shadow-blue-950/30 px-4 py-3 text-sm font-bold hover:from-blue-500 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSaving ? "Opening..." : "Open Drawer"}
               </button>
@@ -4075,7 +4257,7 @@ export default function CashManagementPage() {
                 value={actualClosingCash}
                 onChange={(e) => setActualClosingCash(e.target.value)}
                 placeholder="Actual cash counted before remittance"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
               />
 
               <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
@@ -4094,7 +4276,7 @@ export default function CashManagementPage() {
                     value={closingRemittanceAmount}
                     onChange={(e) => setClosingRemittanceAmount(e.target.value)}
                     placeholder="Remittance amount"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                   />
 
                   <input
@@ -4105,7 +4287,7 @@ export default function CashManagementPage() {
                     placeholder="Received by"
                     list="employee-name-list"
                     autoComplete="off"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                   />
 
                   <textarea
@@ -4115,11 +4297,11 @@ export default function CashManagementPage() {
                     }
                     rows={2}
                     placeholder="Remittance remarks / reference"
-                    className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                    className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
                   />
 
                   <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
-                    <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+                    <div className="rounded-xl border border-blue-300/15 bg-slate-950/80 p-3">
                       <p className="text-slate-500">
                         Remaining after remittance
                       </p>
@@ -4130,7 +4312,7 @@ export default function CashManagementPage() {
                         )}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+                    <div className="rounded-xl border border-blue-300/15 bg-slate-950/80 p-3">
                       <p className="text-slate-500">
                         Variance before remittance
                       </p>
@@ -4151,7 +4333,7 @@ export default function CashManagementPage() {
                 onChange={(e) => setCloseRemarks(e.target.value)}
                 rows={3}
                 placeholder="Closing remarks / variance explanation"
-                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
               />
 
               <button
@@ -4169,21 +4351,130 @@ export default function CashManagementPage() {
   );
 }
 
-function WorkbenchMetric({ title, value, subtitle, status }: any) {
+
+function CompactTopMetric({ label, value, tone = "blue" }: any) {
+  const toneMap: Record<string, string> = {
+    blue: "border-blue-400/20 bg-blue-500/10 text-blue-200",
+    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
+    cyan: "border-cyan-400/20 bg-cyan-500/10 text-cyan-200",
+    orange: "border-orange-400/20 bg-orange-500/10 text-orange-200",
+    red: "border-red-400/20 bg-red-500/10 text-red-200",
+  };
+
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className={`min-w-0 rounded-xl border px-3 py-2 ${toneMap[tone] || toneMap.blue}`}>
+      <p className="truncate text-[9px] font-black uppercase tracking-[0.18em] opacity-80">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function MiniBalance({ label, value, tone = "blue" }: any) {
+  const toneMap: Record<string, string> = {
+    blue: "border-blue-400/20 bg-blue-500/10 text-blue-200",
+    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
+    cyan: "border-cyan-400/20 bg-cyan-500/10 text-cyan-200",
+    orange: "border-orange-400/20 bg-orange-500/10 text-orange-200",
+  };
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl border p-3 ${toneMap[tone] || toneMap.blue}`}>
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+      <p className="relative text-[10px] font-black uppercase tracking-[0.18em] opacity-75">
+        {label}
+      </p>
+      <p className="relative mt-1 truncate text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function FastSignal({ label, value, tone = "blue" }: any) {
+  const toneMap: Record<string, string> = {
+    blue: "border-blue-400/20 bg-blue-500/10 text-blue-200",
+    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
+    cyan: "border-cyan-400/20 bg-cyan-500/10 text-cyan-200",
+    orange: "border-orange-400/20 bg-orange-500/10 text-orange-200",
+    red: "border-red-400/20 bg-red-500/10 text-red-200",
+  };
+
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${toneMap[tone] || toneMap.blue}`}>
+      <p className="text-[9px] font-black uppercase tracking-[0.18em] opacity-75">{label}</p>
+      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function WorkbenchMetric({
+  title,
+  value,
+  subtitle,
+  status,
+  tone = "blue",
+}: any) {
+  const toneMap: Record<string, any> = {
+    blue: {
+      border: "border-blue-400/20",
+      bg: "from-blue-500/15 via-slate-900 to-slate-950",
+      text: "text-blue-200",
+      glow: "bg-blue-400/20",
+      pill: "border-blue-300/20 bg-blue-500/10 text-blue-200",
+    },
+    emerald: {
+      border: "border-emerald-400/20",
+      bg: "from-emerald-500/15 via-slate-900 to-slate-950",
+      text: "text-emerald-200",
+      glow: "bg-emerald-400/20",
+      pill: "border-emerald-300/20 bg-emerald-500/10 text-emerald-200",
+    },
+    cyan: {
+      border: "border-cyan-400/20",
+      bg: "from-cyan-500/15 via-slate-900 to-slate-950",
+      text: "text-cyan-200",
+      glow: "bg-cyan-400/20",
+      pill: "border-cyan-300/20 bg-cyan-500/10 text-cyan-200",
+    },
+    orange: {
+      border: "border-orange-400/20",
+      bg: "from-orange-500/15 via-slate-900 to-slate-950",
+      text: "text-orange-200",
+      glow: "bg-orange-400/20",
+      pill: "border-orange-300/20 bg-orange-500/10 text-orange-200",
+    },
+    red: {
+      border: "border-red-400/20",
+      bg: "from-red-500/15 via-slate-900 to-slate-950",
+      text: "text-red-200",
+      glow: "bg-red-400/20",
+      pill: "border-red-300/20 bg-red-500/10 text-red-200",
+    },
+  };
+
+  const style = toneMap[tone] || toneMap.blue;
+
+  return (
+    <div
+      className={`relative overflow-hidden rounded-[1.6rem] border ${style.border} bg-gradient-to-br ${style.bg} p-5 shadow-xl shadow-black/20`}
+    >
+      <div className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full ${style.glow} blur-3xl`} />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+          <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${style.text}`}>
             {title}
           </p>
-          <p className="mt-2 truncate text-xl font-black text-white">{value}</p>
+          <p className="mt-3 break-words text-3xl font-black tracking-tight text-white">
+            {value}
+          </p>
           {subtitle && (
-            <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">{subtitle}</p>
           )}
         </div>
         {status && (
-          <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-black text-slate-300">
+          <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${style.pill}`}>
             {status}
           </span>
         )}
@@ -4194,9 +4485,12 @@ function WorkbenchMetric({ title, value, subtitle, status }: any) {
 
 function SummaryCard({ title, value, color }: any) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>
+    <div className="relative overflow-hidden rounded-[1.6rem] border border-blue-300/10 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+      <p className="relative text-xs font-black uppercase tracking-[0.18em] text-blue-200/80">
+        {title}
+      </p>
+      <h2 className={`relative mt-3 break-words text-3xl font-black tracking-tight ${color}`}>
         {value}
       </h2>
     </div>
@@ -4205,19 +4499,21 @@ function SummaryCard({ title, value, color }: any) {
 
 function Modal({ title, children, onClose }: any) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[1.75rem] border border-blue-300/15 bg-gradient-to-b from-slate-900 to-slate-950 p-6 shadow-2xl shadow-blue-950/30">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/10 to-transparent" />
+
+        <div className="relative mb-5 flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-black tracking-tight text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="rounded-lg bg-slate-700 px-3 py-1 text-sm hover:bg-slate-600"
+            className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-300 hover:border-blue-400 hover:bg-blue-500/10 hover:text-white"
           >
             Close
           </button>
         </div>
 
-        <div className="space-y-4">{children}</div>
+        <div className="relative space-y-4">{children}</div>
       </div>
     </div>
   );
