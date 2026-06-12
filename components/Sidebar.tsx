@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   BarChart3,
   Building2,
   CalendarDays,
@@ -17,491 +18,232 @@ import {
   KeyRound,
   LayoutDashboard,
   Megaphone,
-  Sparkles,
   Menu,
+  Package,
   Receipt,
   Settings,
   ShieldCheck,
   ShoppingCart,
+  Sparkles,
   Store,
-  User,
-  UserCheck,
   Users,
   Wallet,
   Wrench,
   X,
 } from "lucide-react";
-import { supabase } from "@/app/lib/supabase";
-
 
 const menuSections = [
   {
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    moduleKey: "dashboard",
     items: [],
   },
-
   {
     title: "Workforce",
     icon: Users,
     items: [
-      { label: "Employee 201", href: "/employees", icon: FileText, moduleKey: "employees" },
-      { label: "Scheduling", href: "/scheduling", icon: CalendarDays, moduleKey: "scheduling" },
-      { label: "Leave Management", href: "/leave-management", icon: ClipboardList, moduleKey: "leave_management" },
-      { label: "Employee Portal", href: "/employee-portal", icon: User, moduleKey: "employees" },
-      { label: "Workforce Dashboard", href: "/workforce", icon: Users, moduleKey: "workforce" },
+      { label: "Employee 201", href: "/employees", icon: FileText },
+      { label: "Scheduling", href: "/scheduling", icon: CalendarDays },
+      { label: "Leave Management", href: "/leave-management", icon: ClipboardList },
+      { label: "Employee Portal", href: "/employee-portal", icon: Users },
+      { label: "Workforce Dashboard", href: "/workforce", icon: Users },
     ],
   },
-
   {
     title: "Payroll",
     icon: FileText,
     items: [
-      { label: "Attendance Audit", href: "/finance/payroll/attendance", icon: Clock, moduleKey: "attendance" },
-      { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText, moduleKey: "payroll_register" },
-      { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet, moduleKey: "payroll_manager" },
-      { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt, moduleKey: "payslips" },
-      { label: "Employee Balances", href: "/finance/payroll/employee-balances", icon: Wallet, moduleKey: "employee_balances" },
-      { label: "Release History", href: "/finance/payroll/history", icon: BarChart3, moduleKey: "release_history" },
-      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "payroll_settings" },
+      { label: "Attendance Audit", href: "/finance/payroll/attendance", icon: Clock },
+      { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText },
+      { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet },
+      { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt },
+      { label: "Employee Balances", href: "/finance/payroll/employee-balances", icon: Wallet },
+      { label: "Release History", href: "/finance/payroll/history", icon: BarChart3 },
+      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings },
     ],
   },
-
   {
     title: "Sales",
     icon: Hotel,
     items: [
-{ label: "Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "finance_dashboard" },
-      { label: "Apartment", href: "/finance/apartment", icon: Building2, moduleKey: "apartment_sales" },
-      { label: "Restaurant Sales", href: "/finance/restaurant-import", icon: Receipt, moduleKey: "restaurant_sales" },
+      { label: "Room Sales", href: "/finance/room-sales", icon: Hotel },
+      { label: "Apartment", href: "/finance/apartment", icon: Building2 },
+      { label: "Restaurant Sales", href: "/finance/restaurant-import", icon: Receipt },
     ],
   },
-
   {
     title: "Finance",
     icon: Wallet,
     items: [
-      { label: "Finance Dashboard", href: "/finance", icon: BarChart3, moduleKey: "finance_dashboard" },
-      { label: "Expenses", href: "/finance/expenses", icon: Receipt, moduleKey: "expenses" },
-      { label: "Expense Requests", href: "/finance/expense-requests", icon: ClipboardList, moduleKey: "expense_requests" },
-      { label: "Bills", href: "/finance/bills", icon: ClipboardList, moduleKey: "bills_monitoring" },
-      { label: "Cash Management", href: "/finance/cash-management", icon: Wallet, moduleKey: "cash_management" },
-      { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "finance_settings" },
+      { label: "Finance Dashboard", href: "/finance", icon: BarChart3 },
+      { label: "Expenses", href: "/finance/expenses", icon: Receipt },
+      { label: "Expense Requests", href: "/finance/expense-requests", icon: ClipboardList },
+      { label: "Bills", href: "/finance/bills", icon: ClipboardList },
+      { label: "Cash Management", href: "/finance/cash-management", icon: Wallet },
+      { label: "Finance Settings", href: "/finance/settings", icon: Settings },
     ],
   },
-
   {
     title: "Approvals",
     icon: ShieldCheck,
+    badge: "2",
     items: [
-      { label: "Approval Center", href: "/manager/approval-center", icon: ClipboardList, moduleKey: "approval_center" },
-      { label: "Controls", href: "/settings/approval-controls", icon: ShieldCheck, moduleKey: "approval_controls" },
-      { label: "Assignments", href: "/settings/approval-assignments", icon: UserCheck, moduleKey: "approval_assignments" },
+      { label: "Approval Center", href: "/manager/approval-center", icon: ClipboardList },
+      { label: "Controls", href: "/settings/approval-controls", icon: ShieldCheck },
+      { label: "Assignments", href: "/settings/approval-assignments", icon: Users },
     ],
   },
-
   {
     title: "Audit",
     icon: ShieldCheck,
     items: [
-      { label: "Operations Audit", href: "/audit", icon: ShieldCheck, moduleKey: "audit_center" },
-      { label: "Audit Trail", href: "/admin/audit-logs", icon: ClipboardList, moduleKey: "activity_logs" },
-      { label: "Database Health", href: "/admin/database-health", icon: Database, moduleKey: "database_health" },
+      { label: "Operations Audit", href: "/audit", icon: ShieldCheck },
+      { label: "Audit Trail", href: "/admin/audit-logs", icon: ClipboardList },
+      { label: "Database Health", href: "/admin/database-health", icon: Database },
     ],
   },
-
   {
     title: "Reservations",
     icon: Hotel,
     items: [
-      { label: "Dashboard", href: "/reservations", icon: Hotel, moduleKey: "dashboard", comingSoon: true },
-      { label: "Board", href: "/reservations/board", icon: CalendarDays, moduleKey: "dashboard", comingSoon: true },
-      { label: "Ledger", href: "/reservations/ledger", icon: ClipboardList, moduleKey: "dashboard", comingSoon: true },
-      { label: "Analytics", href: "/reservations/analytics", icon: BarChart3, moduleKey: "dashboard", comingSoon: true },
+      { label: "Dashboard", href: "/reservations", icon: Hotel, soon: true },
+      { label: "Board", href: "/reservations/board", icon: CalendarDays, soon: true },
+      { label: "Ledger", href: "/reservations/ledger", icon: ClipboardList, soon: true },
+      { label: "Analytics", href: "/reservations/analytics", icon: BarChart3, soon: true },
     ],
   },
-
   {
     title: "Marketing",
     icon: Megaphone,
     items: [
-      { label: "Marketing Center", href: "/marketing", icon: Megaphone, moduleKey: "dashboard", comingSoon: true },
+      { label: "Marketing Center", href: "/marketing", icon: Megaphone, soon: true },
     ],
   },
-
   {
     title: "POS",
     icon: ShoppingCart,
     items: [
-      { label: "POS Dashboard", href: "/pos", icon: BarChart3, moduleKey: "pos_dashboard", comingSoon: true },
-      { label: "POS Terminal", href: "/pos/terminal", icon: Store, moduleKey: "pos_terminal", comingSoon: true },
-      { label: "Parked Orders", href: "/pos/parked-orders", icon: ClipboardList, moduleKey: "pos_parked_orders", comingSoon: true },
-      { label: "Production Queue", href: "/pos/production", icon: ChefHat, moduleKey: "pos_production", comingSoon: true },
-      { label: "POS Transactions", href: "/pos/transactions", icon: Receipt, moduleKey: "pos_transactions", comingSoon: true },
-      { label: "POS Reports", href: "/pos/reports", icon: BarChart3, moduleKey: "pos_reports", comingSoon: true },
+      { label: "POS Dashboard", href: "/pos", icon: BarChart3, soon: true },
+      { label: "POS Terminal", href: "/pos/terminal", icon: Store, soon: true },
+      { label: "Parked Orders", href: "/pos/parked-orders", icon: ClipboardList, soon: true },
+      { label: "Production Queue", href: "/pos/production", icon: ChefHat, soon: true },
+      { label: "POS Transactions", href: "/pos/transactions", icon: Receipt, soon: true },
+      { label: "POS Reports", href: "/pos/reports", icon: BarChart3, soon: true },
     ],
   },
-
   {
     title: "Maintenance",
     icon: Wrench,
     items: [
-      { label: "Maintenance Tracker", href: "/maintenance-tracker", icon: Wrench, moduleKey: "dashboard", comingSoon: true },
+      { label: "Maintenance Tracker", href: "/maintenance-tracker", icon: Wrench, soon: true },
     ],
   },
-
   {
     title: "HR Settings",
     icon: Users,
     items: [
-      { label: "Departments", href: "/settings/departments", icon: Users, moduleKey: "departments_settings" },
-      { label: "Positions", href: "/settings/positions", icon: Users, moduleKey: "positions_settings" },
-      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList, moduleKey: "employment_settings" },
-      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList, moduleKey: "employment_settings" },
-      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList, moduleKey: "leave_settings" },
-      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "leave_settings" },
+      { label: "Departments", href: "/settings/departments", icon: Users },
+      { label: "Positions", href: "/settings/positions", icon: Users },
+      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList },
+      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList },
+      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList },
+      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList },
     ],
   },
-
   {
     title: "System",
     icon: Settings,
     items: [
-      { label: "General Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
-      { label: "Property Settings", href: "/settings/property", icon: Hotel, moduleKey: "property_settings" },
-      { label: "User Credentials", href: "/settings/user-credentials", icon: KeyRound, moduleKey: "user_credentials" },
-      { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck, moduleKey: "user_roles" },
-      { label: "Backup", href: "/backup", icon: Database, moduleKey: "backup_restore" },
-      { label: "Shift Settings", href: "/settings/shifts", icon: Clock, moduleKey: "shift_settings" },
-      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "hc_rules" },
+      { label: "General Settings", href: "/settings", icon: Settings },
+      { label: "Property Settings", href: "/settings/property", icon: Hotel },
+      { label: "User Credentials", href: "/settings/user-credentials", icon: KeyRound },
+      { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck },
+      { label: "Backup", href: "/backup", icon: Database },
+      { label: "Shift Settings", href: "/settings/shifts", icon: Clock },
+      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3 },
     ],
   },
-
   {
     title: "Future Tools",
     icon: Sparkles,
     items: [
-      { label: "Forecasting", href: "/forecasting", icon: BarChart3, moduleKey: "forecasting", comingSoon: true },
-      { label: "Performance", href: "/performance", icon: BarChart3, moduleKey: "performance", comingSoon: true },
-      { label: "Reports Center", href: "/finance/reports", icon: FileText, moduleKey: "reports_center", comingSoon: true },
+      { label: "Forecasting", href: "/forecasting", icon: BarChart3, soon: true },
+      { label: "Performance", href: "/performance", icon: BarChart3, soon: true },
+      { label: "Reports Center", href: "/finance/reports", icon: FileText, soon: true },
     ],
   },
 ];
 
-
 export default function Sidebar() {
   const pathname = usePathname();
-
-  const [mounted, setMounted] = useState(false);
-  const [permissions, setPermissions] = useState<any[]>([]);
-  const [loadingAccess, setLoadingAccess] = useState(true);
-  const [pendingApprovals, setPendingApprovals] = useState(0);
-  const [currentEmployee, setCurrentEmployee] = useState<any>(null);
-  const [currentRoleName, setCurrentRoleName] = useState("Employee");
-  const [fallbackEmployeeName, setFallbackEmployeeName] = useState("No user loaded");
-  const [openSection, setOpenSection] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openMobileSection, setOpenMobileSection] = useState<string | null>(null);
 
-  useEffect(() => setMounted(true), []);
-
-  const getStoredCurrentUser = () => {
-    if (typeof window === "undefined") return null;
-
-    const savedUser = localStorage.getItem("opscore_current_user");
-    if (!savedUser) return null;
-
-    try {
-      return JSON.parse(savedUser);
-    } catch {
-      return null;
-    }
-  };
-
-  useEffect(() => {
-    if (!mounted || typeof window === "undefined") return;
-
-    setFallbackEmployeeName(
-      localStorage.getItem("opscore_current_employee_name") || "No user loaded",
-    );
-  }, [mounted]);
-
-  const getPendingApprovals = async () => {
-    const { count, error } = await supabase
-      .from("approval_requests")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "PENDING");
-
-    if (error) {
-      console.log("GET PENDING APPROVALS ERROR:", error.message);
-      setPendingApprovals(0);
-      return;
-    }
-
-    setPendingApprovals(count || 0);
-  };
-
-  const getCurrentUserPermissions = async () => {
-    setLoadingAccess(true);
-
-    const storedUser = getStoredCurrentUser();
-
-    const currentEmployeeId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_employee_id")
-        : null;
-
-    const localRoleId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_role_id")
-        : null;
-
-    const currentRoleId = localRoleId || storedUser?.role_id || null;
-
-    if (!currentEmployeeId || !currentRoleId) {
-      const savedRoleName =
-        typeof window !== "undefined"
-          ? localStorage.getItem("opscore_current_role_name")
-          : null;
-
-      setCurrentEmployee(null);
-      setCurrentRoleName(savedRoleName || "Employee");
-      setPermissions([]);
-      setLoadingAccess(false);
-      await getPendingApprovals();
-      return;
-    }
-
-    const { data: employee, error: employeeError } = await supabase
-      .from("employees")
-      .select("id, employee_no, first_name, last_name, department, position")
-      .eq("id", currentEmployeeId)
-      .maybeSingle();
-
-    if (employeeError || !employee) {
-      setCurrentEmployee(null);
-      setCurrentRoleName("Employee");
-      setPermissions([]);
-      setLoadingAccess(false);
-      await getPendingApprovals();
-      return;
-    }
-
-    setCurrentEmployee(employee);
-
-    const { data: roleData } = await supabase
-      .from("system_roles")
-      .select("role_name")
-      .eq("id", currentRoleId)
-      .maybeSingle();
-
-    setCurrentRoleName(roleData?.role_name || employee.position || "Employee");
-
-    const { data: rolePermissions, error: permissionError } = await supabase
-      .from("role_permissions")
-      .select("*")
-      .eq("role_id", currentRoleId);
-
-    if (permissionError) {
-      console.log("GET SIDEBAR PERMISSIONS ERROR:", permissionError.message);
-      setPermissions([]);
-      setLoadingAccess(false);
-      await getPendingApprovals();
-      return;
-    }
-
-    setPermissions(rolePermissions || []);
-    setLoadingAccess(false);
-    await getPendingApprovals();
-  };
-
-  useEffect(() => {
-    if (!mounted || typeof window === "undefined") return;
-
-    getCurrentUserPermissions();
-
-    const handleStorageChange = () => {
-      setFallbackEmployeeName(
-        localStorage.getItem("opscore_current_employee_name") || "No user loaded",
-      );
-      getCurrentUserPermissions();
-      getPendingApprovals();
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-
-    const interval = window.setInterval(() => {
-      getPendingApprovals();
-    }, 15000);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.clearInterval(interval);
-    };
-  }, [mounted]);
-
-  const canView = (moduleKey: string, comingSoon?: boolean) => {
-    if (comingSoon) return true;
-    if (moduleKey === "always_allow") return true;
-
-    const roleText = String(currentRoleName || "").toLowerCase();
-
-    // Super Admin / Admin should always see the full OPSCORE navigation.
-    if (roleText.includes("super admin") || roleText.includes("admin")) return true;
-
-    // Safety fallback: never let the sidebar go blank if localStorage,
-    // role_permissions, or Vercel cache is temporarily out of sync.
-    // PageGuard still protects the actual pages. This only prevents users
-    // from losing navigation during demos or deployment refreshes.
-    if (!loadingAccess && permissions.length === 0) return true;
-
-    return permissions.some(
-      (permission) =>
-        String(permission.module_key) === String(moduleKey) &&
-        permission.can_view === true,
-    );
-  };
-
-  const normalizePath = (value: string) => {
-    if (value.length > 1 && value.endsWith("/")) return value.slice(0, -1);
-    return value;
-  };
+  const normalizePath = (value: string) =>
+    value.length > 1 && value.endsWith("/") ? value.slice(0, -1) : value;
 
   const currentPath = normalizePath(pathname || "/");
 
-  const isExactActive = (href: string) => normalizePath(href) === currentPath;
-
-  const isChildActive = (href: string) => {
-    const normalizedHref = normalizePath(href);
-    return currentPath === normalizedHref || currentPath.startsWith(`${normalizedHref}/`);
+  const isActive = (href: string) => {
+    const path = normalizePath(href);
+    return currentPath === path || currentPath.startsWith(`${path}/`);
   };
 
   const isSectionActive = (section: any) => {
-    if (section.href) return isExactActive(section.href);
-    return section.items?.some((item: any) => isChildActive(item.href));
+    if (section.href) return isActive(section.href);
+    return section.items?.some((item: any) => isActive(item.href));
   };
 
-  const employeeName = currentEmployee
-    ? `${currentEmployee.first_name || ""} ${currentEmployee.last_name || ""}`.trim()
-    : fallbackEmployeeName;
-
-  const portalActive = isExactActive("/employee-portal");
-
-  const logout = async () => {
-    if (typeof window === "undefined") return;
-
-    await supabase.auth.signOut();
-
-    localStorage.removeItem("opscore_current_employee");
-    localStorage.removeItem("opscore_current_employee_id");
-    localStorage.removeItem("opscore_current_employee_name");
-    localStorage.removeItem("opscore_current_user");
-    localStorage.removeItem("opscore_current_system_user_id");
-    localStorage.removeItem("opscore_must_change_password");
-    localStorage.removeItem("opscore_current_company_id");
-    localStorage.removeItem("opscore_current_role_id");
-    localStorage.removeItem("opscore_current_role_name");
-
-    window.location.href = "/login";
-  };
-
-  const visibleSections = menuSections
-    .map((section: any) => {
-      if (section.href) return canView(section.moduleKey) ? section : null;
-
-      const visibleItems = section.items.filter((item: any) =>
-        canView(item.moduleKey, item.comingSoon),
-      );
-
-      if (visibleItems.length === 0) return null;
-
-      return { ...section, items: visibleItems };
-    })
-    .filter(Boolean);
-
-  useEffect(() => {
-    if (!mounted || visibleSections.length === 0) return;
-
-    const activeSection = visibleSections.find(
-      (section: any) => !section.href && isSectionActive(section),
-    );
-
-    if (activeSection) setOpenSection(activeSection.title);
-  }, [mounted, pathname, loadingAccess]);
-
-  useEffect(() => setMobileOpen(false), [pathname]);
-
-  if (!mounted) return null;
-
-  const renderComingSoonBadge = () => (
+  const SoonBadge = () => (
     <span className="shrink-0 rounded-full border border-amber-300/20 bg-amber-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-amber-200">
       Soon
     </span>
   );
 
-  const renderMenuItem = (section: any, item: any, isMobile = false) => {
-    const ItemIcon = item.icon;
-    const itemActive = isExactActive(item.href);
+  const renderFlyoutItem = (section: any, item: any) => {
+    const Icon = item.icon;
+    const active = isActive(item.href);
 
     return (
       <Link
-        key={`${section.title}-${item.href}-${item.label}`}
+        key={`${section.title}-${item.href}`}
         href={item.href}
-        title={item.label}
-        className={`flex w-full items-center ${
-          isMobile ? "gap-2.5 px-3 py-2 text-[11px]" : "gap-2.5 px-2.5 py-2 text-[11px]"
-        } rounded-xl border font-semibold transition ${
-          itemActive
+        className={[
+          "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-[11px] font-semibold transition-all duration-200",
+          active
             ? "border-blue-300/20 bg-blue-600 text-white shadow-lg shadow-blue-600/10"
-            : isMobile
-              ? "border-transparent text-slate-400 hover:bg-blue-500/10 hover:text-white"
-              : "border-transparent text-slate-300 hover:border-blue-300/10 hover:bg-blue-500/10 hover:text-white"
-        }`}
+            : "border-transparent text-slate-300 hover:border-blue-300/10 hover:bg-blue-500/10 hover:text-white",
+        ].join(" ")}
       >
-        <span className={`rounded-lg p-1.5 ${itemActive ? "bg-white/10" : "bg-slate-900/70"}`}>
-          <ItemIcon size={isMobile ? 13 : 14} />
+        <span className={active ? "rounded-lg bg-white/10 p-1.5" : "rounded-lg bg-slate-900/70 p-1.5"}>
+          <Icon size={14} />
         </span>
-
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
-
-        {item.comingSoon && renderComingSoonBadge()}
-
-        {item.href === "/manager/approval-center" && pendingApprovals > 0 && (
-          <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
-            {pendingApprovals}
-          </span>
-        )}
+        {item.soon && <SoonBadge />}
       </Link>
     );
   };
 
-  const renderMenuSections = (isMobile = false) => (
-    <nav
-      className={
-        isMobile
-          ? "min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4"
-          : "min-h-0 flex-1 space-y-0.5 overflow-visible px-2.5 pb-4"
-      }
-    >
-      {visibleSections.map((section: any) => {
+  const renderDesktopSections = () => (
+    <nav className="min-h-0 flex-1 space-y-0.5 overflow-visible px-2.5 pb-4">
+      {menuSections.map((section: any) => {
         const Icon = section.icon;
+        const sectionActive = isSectionActive(section);
 
         if (section.href) {
-          const active = isExactActive(section.href);
-
           return (
             <Link
               key={section.title}
               href={section.href}
-              title={section.title}
-              className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-[11px] font-bold transition ${
-                active
+              className={[
+                "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-[11px] font-bold transition-all duration-200",
+                sectionActive
                   ? "border-blue-300/20 bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                  : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white"
-              }`}
+                  : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white",
+              ].join(" ")}
             >
-              <span className={`rounded-xl p-1.5 ${active ? "bg-white/10" : "bg-slate-900/60"}`}>
+              <span className={sectionActive ? "rounded-xl bg-white/10 p-1.5" : "rounded-xl bg-slate-900/60 p-1.5"}>
                 <Icon size={15} />
               </span>
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
@@ -509,77 +251,29 @@ export default function Sidebar() {
           );
         }
 
-        const sectionActive = isSectionActive(section);
-        const expanded = openSection === section.title;
-
-        if (isMobile) {
-          return (
-            <div key={section.title} className="space-y-1">
-              <button
-                type="button"
-                title={section.title}
-                onClick={() => setOpenSection(expanded ? null : section.title)}
-                className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[11px] font-bold transition ${
-                  sectionActive || expanded
-                    ? "border-blue-300/20 bg-white/[0.06] text-blue-100 shadow-lg shadow-black/10"
-                    : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white"
-                }`}
-              >
-                <span className={`rounded-xl p-1.5 ${sectionActive || expanded ? "bg-blue-500/15" : "bg-slate-900/60"}`}>
-                  <Icon size={15} />
-                </span>
-
-                <span className="min-w-0 flex-1 truncate">{section.title}</span>
-
-                {section.title === "Approvals" && pendingApprovals > 0 && (
-                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
-                    {pendingApprovals}
-                  </span>
-                )}
-
-                {section.title === "Coming Soon" && renderComingSoonBadge()}
-
-                <ChevronRight
-                  size={13}
-                  className={`shrink-0 opacity-60 transition ${expanded ? "rotate-90" : ""}`}
-                />
-              </button>
-
-              {expanded && (
-                <div className="ml-5 space-y-1 border-l border-blue-300/10 pl-2">
-                  {section.items.map((item: any) => renderMenuItem(section, item, true))}
-                </div>
-              )}
-            </div>
-          );
-        }
-
         return (
           <div key={section.title} className="group relative">
             <button
               type="button"
-              title={section.title}
-              className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[11px] font-bold transition ${
+              className={[
+                "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[11px] font-bold transition-all duration-200",
                 sectionActive
                   ? "border-blue-300/20 bg-white/[0.06] text-blue-100 shadow-lg shadow-black/10"
-                  : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white"
-              }`}
+                  : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white",
+              ].join(" ")}
             >
-              <span className={`rounded-xl p-1.5 ${sectionActive ? "bg-blue-500/15" : "bg-slate-900/60"}`}>
+              <span className={sectionActive ? "rounded-xl bg-blue-500/15 p-1.5" : "rounded-xl bg-slate-900/60 p-1.5"}>
                 <Icon size={15} />
               </span>
-
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
 
-              {section.title === "Approvals" && pendingApprovals > 0 && (
+              {section.badge && (
                 <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
-                  {pendingApprovals}
+                  {section.badge}
                 </span>
               )}
 
-              {section.title === "Coming Soon" && renderComingSoonBadge()}
-
-              <ChevronRight size={13} className="shrink-0 opacity-60 transition group-hover:translate-x-0.5" />
+              <ChevronRight size={13} className="shrink-0 opacity-60 transition-all duration-200 group-hover:translate-x-0.5" />
             </button>
 
             <div className="pointer-events-none absolute left-full top-0 h-full w-4" />
@@ -589,92 +283,104 @@ export default function Sidebar() {
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                   {section.title}
                 </p>
-                <p className="mt-1 text-sm font-black text-white">
-                  {section.title === "Coming Soon" ? "Upcoming modules" : "Open module"}
-                </p>
+                <p className="mt-1 text-sm font-black text-white">Open module</p>
               </div>
 
               <div className="max-h-[58vh] space-y-1 overflow-y-auto pr-1">
-                {section.items.map((item: any) => renderMenuItem(section, item))}
+                {section.items.map((item: any) => renderFlyoutItem(section, item))}
               </div>
             </div>
           </div>
         );
       })}
-
-      {visibleSections.length === 0 && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
-          No access assigned.
-        </div>
-      )}
     </nav>
   );
 
-  const sidebarContent = (isMobile = false) => (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 px-3 pb-3 pt-3">
-        <div className="rounded-2xl border border-slate-200/10 bg-[#0b1220] px-3 py-3 shadow-xl shadow-black/20">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-300/15 bg-blue-600 text-[13px] font-black text-white shadow-lg shadow-blue-950/30">
-              O
-            </div>
+  const renderMobileSections = () => (
+    <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
+      {menuSections.map((section: any) => {
+        const Icon = section.icon;
+        const sectionActive = isSectionActive(section);
+        const expanded = openMobileSection === section.title;
 
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black tracking-tight text-white">
-                OPSCORE
-              </p>
-              <p className="truncate text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                Enterprise Suite
-              </p>
-            </div>
+        if (section.href) {
+          return (
+            <Link
+              key={section.title}
+              href={section.href}
+              onClick={() => setMobileOpen(false)}
+              className={[
+                "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-[11px] font-bold transition-all duration-200",
+                sectionActive
+                  ? "border-blue-300/20 bg-blue-600 text-white"
+                  : "border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-white",
+              ].join(" ")}
+            >
+              <Icon size={15} />
+              <span className="min-w-0 flex-1 truncate">{section.title}</span>
+            </Link>
+          );
+        }
+
+        return (
+          <div key={section.title} className="space-y-1">
+            <button
+              type="button"
+              onClick={() => setOpenMobileSection(expanded ? null : section.title)}
+              className={[
+                "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[11px] font-bold transition-all duration-200",
+                sectionActive || expanded
+                  ? "border-blue-300/20 bg-white/[0.06] text-blue-100"
+                  : "border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-white",
+              ].join(" ")}
+            >
+              <Icon size={15} />
+              <span className="min-w-0 flex-1 truncate">{section.title}</span>
+              <ChevronRight size={13} className={expanded ? "rotate-90 transition" : "transition"} />
+            </button>
+
+            {expanded && (
+              <div className="ml-5 space-y-1 border-l border-blue-300/10 pl-2">
+                {section.items.map((item: any) => {
+                  const ItemIcon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold text-slate-300 hover:bg-blue-500/10 hover:text-white"
+                    >
+                      <ItemIcon size={13} />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.soon && <SoonBadge />}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </nav>
+  );
+
+  const LogoBlock = () => (
+    <div className="shrink-0 px-3 pb-3 pt-3">
+      <div className="rounded-2xl border border-slate-200/10 bg-[#0b1220] px-3 py-3 shadow-xl shadow-black/20">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-300/15 bg-blue-600 text-[13px] font-black text-white shadow-lg shadow-blue-950/30">
+            O
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black tracking-tight text-white">
+              OPSCORE
+            </p>
+            <p className="truncate text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              Enterprise Suite
+            </p>
           </div>
         </div>
-
-        <div className="mt-2 rounded-2xl border border-slate-200/10 bg-white/[0.03] px-3 py-2.5 shadow-lg shadow-black/10">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-300">
-              <User size={14} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-black text-white">{employeeName}</p>
-              <p className="truncate text-[10px] font-semibold text-slate-500">
-                {currentRoleName}
-              </p>
-            </div>
-          </div>
-
-          <Link
-            href="/employee-portal"
-            title="My Portal"
-            className={`mt-2 flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] font-bold transition ${
-              portalActive
-                ? "border border-blue-300/20 bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                : "border border-slate-800 bg-slate-950/70 text-slate-300 hover:border-blue-300/20 hover:bg-blue-500/10 hover:text-white"
-            }`}
-          >
-            <User size={13} />
-            <span className="min-w-0 flex-1 truncate">My Portal</span>
-            <ChevronRight size={12} />
-          </Link>
-        </div>
-      </div>
-
-      {loadingAccess ? (
-        <div className="mx-3 rounded-xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-400">
-          Loading access...
-        </div>
-      ) : (
-        renderMenuSections(isMobile)
-      )}
-
-      <div className="shrink-0 px-3 pb-3 pt-2">
-        <button
-          onClick={logout}
-          className="w-full rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-[11px] font-black text-red-200 transition hover:bg-red-500/20"
-        >
-          Logout
-        </button>
       </div>
     </div>
   );
@@ -699,7 +405,7 @@ export default function Sidebar() {
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
           />
 
-          <aside className="relative z-[10002] h-full w-[86vw] max-w-[310px] overflow-hidden border-r border-blue-300/15 bg-[#070d19] text-white shadow-2xl shadow-black">
+          <aside className="relative z-[10002] flex h-full w-[86vw] max-w-[310px] flex-col overflow-hidden border-r border-blue-300/15 bg-[#070d19] text-white shadow-2xl shadow-black">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
@@ -709,13 +415,15 @@ export default function Sidebar() {
               <X size={16} />
             </button>
 
-            {sidebarContent(true)}
+            <LogoBlock />
+            {renderMobileSections()}
           </aside>
         </div>
       )}
 
       <aside className="hidden h-screen w-[220px] shrink-0 overflow-visible border-r border-slate-200/10 bg-[#070d19]/95 text-white shadow-xl shadow-black/20 backdrop-blur lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">
-        {sidebarContent(false)}
+        <LogoBlock />
+        {renderDesktopSections()}
       </aside>
     </>
   );

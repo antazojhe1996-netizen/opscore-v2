@@ -3,12 +3,10 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
   Banknote,
   Brain,
   DollarSign,
   Hotel,
-  Info,
   Receipt,
   ShieldAlert,
   TrendingUp,
@@ -26,6 +24,7 @@ import {
   YAxis,
 } from "recharts";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 
 type RangeType = "daily" | "weekly" | "monthly" | "yearly";
@@ -36,6 +35,7 @@ export default function ExecutiveDashboardPage() {
   const [customFromDate, setCustomFromDate] = useState("");
   const [customToDate, setCustomToDate] = useState("");
   const [useCustomRange, setUseCustomRange] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState("User");
 
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
   const [hotelReservations, setHotelReservations] = useState<any[]>([]);
@@ -446,36 +446,36 @@ export default function ExecutiveDashboardPage() {
     loadDashboardData();
   }, []);
 
- useEffect(() => {
-  if (typeof window === "undefined") return;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
-  const employeeName =
-    localStorage.getItem("opscore_current_employee_name") ||
-    localStorage.getItem("opscore_current_role_name");
+    const employeeName =
+      localStorage.getItem("opscore_current_employee_name") ||
+      localStorage.getItem("opscore_current_role_name");
 
-  const storedUser = localStorage.getItem("opscore_current_user");
+    const storedUser = localStorage.getItem("opscore_current_user");
 
-  if (employeeName) {
-    setLoggedInUser(employeeName);
-    return;
-  }
-
-  if (storedUser) {
-    try {
-      const parsedUser = JSON.parse(storedUser);
-
-      setLoggedInUser(
-        parsedUser.employee_name ||
-          parsedUser.full_name ||
-          parsedUser.name ||
-          parsedUser.email ||
-          "User",
-      );
-    } catch {
-      setLoggedInUser("User");
+    if (employeeName) {
+      setLoggedInUser(employeeName);
+      return;
     }
-  }
-}, []);
+
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+
+        setLoggedInUser(
+          parsedUser.employee_name ||
+            parsedUser.full_name ||
+            parsedUser.name ||
+            parsedUser.email ||
+            "User",
+        );
+      } catch {
+        setLoggedInUser("User");
+      }
+    }
+  }, []);
 
   /// FINANCE CALCULATIONS
   const hotelRowsInRange = hotelReservations.filter((row) =>
@@ -483,7 +483,9 @@ export default function ExecutiveDashboardPage() {
   );
 
   const isCancelledReservation = (row: any) =>
-    String(row.status || "").toLowerCase().includes("cancel");
+    String(row.status || "")
+      .toLowerCase()
+      .includes("cancel");
 
   const getHotelGrossValue = (row: any) =>
     Number(
@@ -532,14 +534,19 @@ export default function ExecutiveDashboardPage() {
   // Gross Revenue = active hotel sales + restaurant sales + apartment collections.
   // Collected Revenue = actual collected hotel payments + restaurant sales + apartment collections.
   // Net Position uses collected revenue, not gross revenue.
-  const grossOperatingSales = grossRoomSales + restaurantRevenue + apartmentRevenue;
+  const grossOperatingSales =
+    grossRoomSales + restaurantRevenue + apartmentRevenue;
   const collectedOperatingRevenue =
     collectedRoomRevenue + restaurantRevenue + apartmentRevenue;
   const totalRevenue = collectedOperatingRevenue;
 
   const isExcludedFromOperatingExpenses = (row: any) => {
-    const category = String(row.category || row.expense_category || "").toLowerCase();
-    const description = String(row.description || row.remarks || "").toLowerCase();
+    const category = String(
+      row.category || row.expense_category || "",
+    ).toLowerCase();
+    const description = String(
+      row.description || row.remarks || "",
+    ).toLowerCase();
     const source = String(row.source || "").toLowerCase();
 
     return (
@@ -769,7 +776,8 @@ export default function ExecutiveDashboardPage() {
           (row.payment_type || "Cash") === "Cash" &&
           (row.movement_type === "Opening Float" ||
             row.movement_type === "Cash In" ||
-            (row.movement_type === "Adjustment" && Number(row.amount || 0) > 0)),
+            (row.movement_type === "Adjustment" &&
+              Number(row.amount || 0) > 0)),
       )
       .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
@@ -780,7 +788,8 @@ export default function ExecutiveDashboardPage() {
           (row.movement_type === "Cash Out" ||
             row.source === "Bank Deposit" ||
             row.source === "Owner Withdrawal" ||
-            (row.movement_type === "Adjustment" && Number(row.amount || 0) < 0)),
+            (row.movement_type === "Adjustment" &&
+              Number(row.amount || 0) < 0)),
       )
       .reduce((sum, row) => sum + Math.abs(Number(row.amount || 0)), 0);
 
@@ -825,7 +834,11 @@ export default function ExecutiveDashboardPage() {
 
   const unremittedCash = Math.max(movementBasedCash, 0);
   const cashAccountedFor =
-    operationalCashOut + totalRemitted + bankDepositTotal + ownerWithdrawalTotal + cashAvailable;
+    operationalCashOut +
+    totalRemitted +
+    bankDepositTotal +
+    ownerWithdrawalTotal +
+    cashAvailable;
   const cashAccountabilityVariance = cashMovementCashIn - cashAccountedFor;
 
   const expenseReleasedFromDrawer = cashMovementRows
@@ -951,7 +964,9 @@ export default function ExecutiveDashboardPage() {
   const cancelledGuestReservations = cancelledHotelRowsInRange.length;
 
   const averagePaidPerReservation =
-    filteredReservations.length > 0 ? roomRevenue / filteredReservations.length : 0;
+    filteredReservations.length > 0
+      ? roomRevenue / filteredReservations.length
+      : 0;
 
   const expectedCollections = outstandingGuestBalance + apartmentReceivables;
 
@@ -978,13 +993,6 @@ export default function ExecutiveDashboardPage() {
       : cashRunway > 0 && cashRunway <= 7
         ? "Watch"
         : "Safe";
-
-  const cashFlowStyle =
-    cashFlowStatus === "Critical"
-      ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-      : cashFlowStatus === "Watch"
-        ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-        : "border-blue-500/20 bg-blue-500/10 text-blue-300";
 
   const payrollRatio =
     totalRevenue > 0 ? Math.round((payrollTotal / totalRevenue) * 100) : 0;
@@ -1098,7 +1106,6 @@ export default function ExecutiveDashboardPage() {
       ? Math.round((topRevenueSource.value / totalRevenue) * 100)
       : 0;
 
-
   /// CULPRIT FINDER CALCULATIONS
   const getEmployeeDisplayName = (row: any) =>
     String(
@@ -1113,7 +1120,9 @@ export default function ExecutiveDashboardPage() {
   const getPayrollCostValue = (row: any) => getPayrollDashboardValue(row);
 
   const getPayrollOtValue = (row: any) =>
-    Number(row.ot_pay || row.overtime_pay || row.total_ot_pay || row.ot_amount || 0);
+    Number(
+      row.ot_pay || row.overtime_pay || row.total_ot_pay || row.ot_amount || 0,
+    );
 
   const payrollCulpritRows = Object.values(
     payrollRows
@@ -1161,7 +1170,9 @@ export default function ExecutiveDashboardPage() {
           };
         }
 
-        acc[key].amount += Number(balance.remaining_balance || balance.amount || 0);
+        acc[key].amount += Number(
+          balance.remaining_balance || balance.amount || 0,
+        );
         acc[key].records += 1;
         return acc;
       }, {}),
@@ -1173,7 +1184,8 @@ export default function ExecutiveDashboardPage() {
     .map((row) => ({
       guest: row.guest_name || row.guest || row.name || "Unknown Guest",
       room: row.room || row.room_number || "-",
-      reservation: row.reservation_number || row.reservation_no || row.id || "-",
+      reservation:
+        row.reservation_number || row.reservation_no || row.id || "-",
       balance: getHotelBalanceValue(row),
     }))
     .filter((row) => row.balance > 0)
@@ -1236,7 +1248,9 @@ export default function ExecutiveDashboardPage() {
       ? [`Unremitted cash still visible: ${formatPeso(unremittedCash)}.`]
       : []),
     ...(Math.abs(cashAccountabilityVariance) > 1
-      ? [`Cash accountability variance needs review: ${formatPeso(cashAccountabilityVariance)}.`]
+      ? [
+          `Cash accountability variance needs review: ${formatPeso(cashAccountabilityVariance)}.`,
+        ]
       : []),
     ...(apartmentReceivables > 0
       ? [`Apartment receivables: ${formatPeso(apartmentReceivables)}.`]
@@ -1334,7 +1348,9 @@ export default function ExecutiveDashboardPage() {
       ? ["Follow up open cash drawers before end-of-day reporting."]
       : []),
     ...(unremittedCash > 0
-      ? ["Confirm remittance or bank deposit for any unremitted cash before closing finance reports."]
+      ? [
+          "Confirm remittance or bank deposit for any unremitted cash before closing finance reports.",
+        ]
       : []),
     ...(payrollNeedsRegeneration.length > 0
       ? [
@@ -1414,13 +1430,6 @@ export default function ExecutiveDashboardPage() {
       : businessHealthScore >= 70
         ? "Watchlist"
         : "Critical";
-
-  const statusStyle =
-    businessStatus === "Stable"
-      ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-      : businessStatus === "Watchlist"
-        ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-        : "border-blue-500/20 bg-blue-500/10 text-blue-300";
 
   const getChartGroup = (dateString: string) => {
     const date = new Date(`${dateString}T00:00:00`);
@@ -1533,34 +1542,50 @@ export default function ExecutiveDashboardPage() {
     customToDate,
   ]);
 
-
-
   const currentHour = new Date().getHours();
   const executiveGreeting =
-    currentHour < 12 ? "Good Morning" : currentHour < 18 ? "Good Afternoon" : "Good Evening";
-const [loggedInUser, setLoggedInUser] = useState("User");
+    currentHour < 12
+      ? "Good Morning"
+      : currentHour < 18
+        ? "Good Afternoon"
+        : "Good Evening";
   const operationMood =
     businessStatus === "Stable"
       ? "Vincent Resort is operating normally today."
       : businessStatus === "Watchlist"
         ? "Vincent Resort is stable, with a few items needing review."
         : "Vincent Resort needs management attention today.";
-  const revenueMood = collectedOperatingRevenue > 0 ? "Revenue is active" : "Revenue data is pending";
-  const cashMood = cashAvailable > 0 ? "cash position is visible" : "cash position needs drawer update";
+  const revenueMood =
+    collectedOperatingRevenue > 0
+      ? "Revenue is active"
+      : "Revenue data is pending";
+  const cashMood =
+    cashAvailable > 0
+      ? "cash position is visible"
+      : "cash position needs drawer update";
   const payrollMood =
     payrollStatus === "Healthy"
       ? "payroll is within normal range"
       : payrollStatus === "Watch"
         ? "payroll needs monitoring"
         : "payroll exposure is high";
-  const ownerAction = recommendations[0] || "Review cash position daily before approving expenses.";
+  const ownerAction =
+    recommendations[0] ||
+    "Review cash position daily before approving expenses.";
 
   const todayArrivals = activeHotelRowsInRange.filter(
-    (row) => String(row.check_in || row.arrival_date || row.date || "").slice(0, 10) === todayKey,
+    (row) =>
+      String(row.check_in || row.arrival_date || row.date || "").slice(
+        0,
+        10,
+      ) === todayKey,
   ).length;
 
   const todayDepartures = activeHotelRowsInRange.filter(
-    (row) => String(row.check_out || row.departure_date || row.checkout_date || "").slice(0, 10) === todayKey,
+    (row) =>
+      String(
+        row.check_out || row.departure_date || row.checkout_date || "",
+      ).slice(0, 10) === todayKey,
   ).length;
 
   const occupancyMood =
@@ -1576,674 +1601,549 @@ const [loggedInUser, setLoggedInUser] = useState("User");
     `Payroll status is ${payrollStatus.toLowerCase()} at ${payrollRatio}% of collected revenue.`,
     `${occupancyMood}: ${occupancyToday}% occupancy with ${roomsSoldToday} room(s) sold.`,
     ...(expectedCollections > 0
-      ? [`Collections need follow-up: ${formatPeso(expectedCollections)} collectible receivables.`]
+      ? [
+          `Collections need follow-up: ${formatPeso(expectedCollections)} collectible receivables.`,
+        ]
       : ["No major collectible balance pressure detected."]),
   ];
 
 
+  const primaryRisk =
+    criticalAlerts[0] ||
+    (businessStatus === "Stable"
+      ? "No major executive risk detected."
+      : "Review the highest-risk operational item.");
+
+  const primaryRiskValue =
+    outstandingGuestBalance > 0
+      ? formatPeso(outstandingGuestBalance)
+      : apartmentReceivables > 0
+        ? formatPeso(apartmentReceivables)
+        : Math.abs(totalVariance) > 0
+          ? formatPeso(totalVariance)
+          : businessStatus;
+
+  const compactAlerts = criticalAlerts.slice(0, 5);
+
   /// UI
   return (
-    <div className="flex min-h-screen bg-[#050B14] text-white">
-      <Sidebar />
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+<Sidebar />
+      <TopNavbar breadcrumb="EXECUTIVE / DASHBOARD" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-300/25 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-5 shadow-2xl shadow-blue-950/40 lg:p-7">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/10 to-transparent" />
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+        <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              EXECUTIVE
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+              Executive Dashboard
+            </h1>
+            <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+              {executiveGreeting}, {loggedInUser}. Review revenue, cash,
+              payroll, occupancy, collections, and operational risk in one
+              management view.
+            </p>
+          </div>
 
-          <div className="relative grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_520px]">
-            <div className="min-w-0">
-              <div className="mb-6 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-blue-100">
-                  Owner Executive Suite
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[11px] font-bold text-slate-200">
-                  {getActiveRangeLabel()}
-                </span>
-              </div>
+          <div className="flex flex-wrap items-end gap-2 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+            <label className="min-w-[145px]">
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Range
+              </span>
+              <select
+                value={rangeType}
+                onChange={(event) => {
+                  setRangeType(event.target.value as RangeType);
+                  setUseCustomRange(false);
+                }}
+                className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </label>
 
-              <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-100/80">
-                OPSCORE Hospitality Intelligence
-              </p>
-<h1 className="mt-4 max-w-5xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-[4.5rem] xl:leading-[0.95]">
-  {executiveGreeting},{" "}
-  <span className="whitespace-nowrap">{loggedInUser}</span>
-</h1>
+            <label className="min-w-[155px]">
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                From
+              </span>
+              <input
+                type="date"
+                value={customFromDate}
+                onChange={(event) => setCustomFromDate(event.target.value)}
+                className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              />
+            </label>
 
-              <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-200">
-                {operationMood}
-              </p>
+            <label className="min-w-[155px]">
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                To
+              </span>
+              <input
+                type="date"
+                value={customToDate}
+                onChange={(event) => setCustomToDate(event.target.value)}
+                className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              />
+            </label>
 
-              <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
-                    Occupancy
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-white">{occupancyMood}</p>
-                  <p className="mt-1 text-3xl font-black text-blue-100">
-                    {occupancyToday}%
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {roomsSoldToday}/{availableRoomsToday} rooms sold
-                  </p>
-                </div>
+            <button
+              type="button"
+              onClick={applyCustomRange}
+              className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+            >
+              Apply
+            </button>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
-                    Revenue
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-white">{revenueMood}</p>
-                  <p className="mt-1 text-3xl font-black text-blue-100">
-                    {formatPeso(collectedOperatingRevenue)}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Collected revenue
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
-                    Cash Position
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-white">{cashMood}</p>
-                  <p className="mt-1 text-3xl font-black text-blue-100">
-                    {formatPeso(cashAvailable)}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Verified cash control
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-                <div className="rounded-2xl border border-blue-200/20 bg-blue-300/10 p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-100/80">
-                    Recommended action
-                  </p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
-                    {ownerAction}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-center">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Arrivals</p>
-                    <p className="mt-1 text-2xl font-black text-white">{todayArrivals}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Departures</p>
-                    <p className="mt-1 text-2xl font-black text-white">{todayDepartures}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Payroll</p>
-                    <p className="mt-1 text-2xl font-black text-white">{payrollRatio}%</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/30 backdrop-blur">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/80">
-                    OPSCORE Health Score
-                  </p>
-                  <h2 className="mt-2 text-5xl font-black text-white">
-                    {businessHealthScore}
-                  </h2>
-                  <p className="mt-1 text-sm font-black uppercase tracking-[0.22em] text-blue-200">
-                    {businessStatus}
-                  </p>
-                </div>
-
-                <div className="relative flex h-36 w-36 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-300/10 shadow-2xl shadow-cyan-950/40">
-                  <div className="absolute inset-2 rounded-full border border-blue-300/20" />
-                  <div className="text-center">
-                    <p className="text-5xl font-black text-white">{businessHealthScore}</p>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200/70">/100</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-300 to-cyan-200"
-                  style={{ width: `${Math.min(Math.max(businessHealthScore, 0), 100)}%` }}
-                />
-              </div>
-
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                    Alerts
-                  </p>
-                  <p className="mt-1 text-3xl font-black text-white">{criticalAlerts.length}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                    Actions
-                  </p>
-                  <p className="mt-1 text-3xl font-black text-white">{recommendations.length}</p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-3">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {(["daily", "weekly", "monthly", "yearly"] as RangeType[]).map(
-                    (range) => (
-                      <button
-                        key={range}
-                        onClick={() => {
-                          setUseCustomRange(false);
-                          setRangeType(range);
-                        }}
-                        className={
-                          !useCustomRange && rangeType === range
-                            ? "rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
-                            : "rounded-xl border border-slate-800 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-slate-900"
-                        }
-                      >
-                        {range === "daily"
-                          ? "Day"
-                          : range === "weekly"
-                            ? "Week"
-                            : range === "monthly"
-                              ? "Month"
-                              : "Year"}
-                      </button>
-                    ),
-                  )}
-                </div>
-
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr]">
-                  <input
-                    type="date"
-                    value={customFromDate}
-                    onChange={(e) => setCustomFromDate(e.target.value)}
-                    className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
-                  />
-
-                  <input
-                    type="date"
-                    value={customToDate}
-                    onChange={(e) => setCustomToDate(e.target.value)}
-                    className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none [color-scheme:dark]"
-                  />
-                </div>
-
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={applyCustomRange}
-                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
-                  >
-                    Apply Range
-                  </button>
-
-                  <button
-                    onClick={resetToLatestRange}
-                    className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:bg-slate-800"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={resetToLatestRange}
+              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+            >
+              Latest
+            </button>
           </div>
         </section>
 
-        {/* ATTENTION REQUIRED */}
-        <section className="mb-6 overflow-hidden rounded-[2rem] border border-orange-400/25 bg-gradient-to-r from-orange-500/15 via-red-500/10 to-slate-950 p-5 shadow-2xl shadow-orange-950/20 lg:p-6">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/10 to-transparent" />
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-orange-200">
-                <AlertTriangle size={18} /> Attention Required
-              </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                Management items that need review first.
-              </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-300">
-                OPSCORE is surfacing the highest-risk items from attendance, cash, receivables, payroll, and bills.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm font-black text-white">
-              {criticalAlerts.length} Alert(s) · {recommendations.length} Action(s)
-            </div>
-          </div>
-
-          <div className="relative mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-4 shadow-lg shadow-red-950/10">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-200">
-                Attendance Issues
-              </p>
-              <p className="mt-2 text-4xl font-black tracking-tight text-white">
-                {attendanceIssueRows.length}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Absences, late, undertime, or missing out
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-orange-400/25 bg-orange-500/10 p-4 shadow-lg shadow-orange-950/10">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-200">
-                Cash Variances
-              </p>
-              <p className="mt-2 text-4xl font-black tracking-tight text-white">
-                {varianceDrawerCount}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                {formatPeso(totalVariance)} variance detected
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-blue-400/25 bg-blue-500/10 p-4 shadow-lg shadow-blue-950/10">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200">
-                Receivables
-              </p>
-              <p className="mt-2 text-4xl font-black tracking-tight text-white">
-                {formatPeso(expectedCollections)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Guest balance + apartment receivables
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4 shadow-lg shadow-emerald-950/10">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200">
-                Payroll Release
-              </p>
-              <p className="mt-2 text-4xl font-black tracking-tight text-white">
-                {formatPeso(pendingPayrollReleaseAmount)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Approved or waiting for release
-              </p>
-            </div>
+        <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={getStatusBadgeClass(businessStatus)}>
+              {businessStatus}
+            </span>
+            <span className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 shadow-sm">
+              {getActiveRangeLabel()}
+            </span>
           </div>
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <KpiCard
-            icon={<Wallet size={22} />}
-            title="Verified Cash"
-            value={formatPeso(cashAvailable)}
-            danger={cashAvailable <= 0}
-            success={cashAvailable > 0}
-            subtitle={openDrawers.length > 0 ? "Open drawer live cash" : "Latest closed drawer cash"}
-            formula="Open drawer live cash or latest closed drawer actual cash. Revenue net position is excluded."
-          />
-
-          <KpiCard
-            icon={<Hotel size={22} />}
-            title="Gross Revenue"
-            value={formatPeso(grossOperatingSales)}
-            success
-            subtitle="Active sales"
-            formula="Hotel active sales + restaurant sales + apartment collections."
-          />
-
-          <KpiCard
-            icon={<DollarSign size={22} />}
+            icon={<TrendingUp size={20} />}
             title="Collected Revenue"
             value={formatPeso(collectedOperatingRevenue)}
-            success
-            subtitle="Actual collections"
-            formula="Hotel collections + restaurant sales + apartment collections."
+            subtitle={`Gross operating sales: ${formatPeso(grossOperatingSales)}`}
           />
-
           <KpiCard
-            icon={<Receipt size={22} />}
-            title="Expenses + Payroll"
-            value={formatPeso(totalExpenses + payrollTotal)}
-            danger
-            subtitle={`Payroll ${payrollRatio}%`}
-            formula="Operating expenses plus payroll. Payroll/cash advance expense rows are excluded to prevent double count."
+            icon={<Wallet size={20} />}
+            title="Verified Cash"
+            value={formatPeso(cashAvailable)}
+            subtitle={`${openDrawers.length} open drawer(s), ${varianceDrawerCount} variance item(s)`}
           />
-
           <KpiCard
-            icon={<ShieldAlert size={22} />}
-            title="Receivables"
-            value={formatPeso(expectedCollections)}
-            danger={expectedCollections > 0}
-            subtitle="Collectible balance"
-            formula="Hotel collectible balance + apartment receivables. Negative credits/refunds are excluded."
+            icon={<Receipt size={20} />}
+            title="Net Position"
+            value={formatPeso(netPosition)}
+            subtitle={`${profitMargin}% profit margin`}
+            tone={netPosition < 0 ? "danger" : "success"}
           />
-
           <KpiCard
-            icon={<Brain size={22} />}
-            title="Health Score"
-            value={`${businessHealthScore}/100`}
-            success={businessHealthScore >= 85}
-            danger={businessHealthScore < 70}
-            subtitle={businessStatus}
-            formula="Weighted score from finance, operations, and collections risk."
+            icon={<Hotel size={20} />}
+            title="Occupancy"
+            value={`${occupancyToday}%`}
+            subtitle={`${roomsSoldToday}/${availableRoomsToday} rooms sold today`}
+            tone={occupancyToday < 40 ? "warning" : "info"}
           />
         </section>
 
-        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-400/20 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/10 lg:p-6">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/5 to-transparent" />
-          <div className="relative mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <section className="mb-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-                Financial Trend
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Trend
               </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                Revenue, Expense & Cash Position
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Revenue, Expenses, Cash
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Executive trend for revenue, expenses, verified cash, and net position.
-              </p>
             </div>
-
-            <div className="rounded-full border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-400">
-              Net Position:{" "}
-              <span className={netPosition < 0 ? "text-red-300" : "text-blue-300"}>
-                {formatPeso(netPosition)}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-700">
+                Hero View
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                {getActiveRangeLabel()}
               </span>
             </div>
           </div>
-
-          <div className="relative h-[260px] min-h-[260px] min-w-0 sm:h-[320px]">
+          <div className="h-[360px] p-6">
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  key={`${rangeType}-${useCustomRange}-${customFromDate}-${customToDate}`}
-                  data={trendData}
-                  margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="label" stroke="#94a3b8" />
-                  <YAxis
-                    stroke="#94a3b8"
-                    width={52}
-                    tickFormatter={(value) => `₱${Number(value) / 1000}k`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#020617",
-                      border: "1px solid #334155",
-                      borderRadius: "12px",
-                      color: "#fff",
-                    }}
-                    formatter={(value: any) => formatPeso(Number(value))}
-                  />
-                  <Legend verticalAlign="top" height={28} />
+                <AreaChart data={trendData}>
+                  <defs>
+                    <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0f172a" stopOpacity={0.16} />
+                      <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="expenseFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#64748b" stopOpacity={0.08} />
+                      <stop offset="95%" stopColor="#64748b" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} />
+                  <Tooltip formatter={(value: any) => formatPeso(Number(value || 0))} />
+                  <Legend />
                   <Area
                     type="monotone"
                     dataKey="revenue"
-                    name="Revenue"
-                    stroke="#60a5fa"
-                    strokeWidth={3}
-                    fill="#60a5fa"
-                    fillOpacity={0.18}
+                    stroke="#0f172a"
+                    fill="url(#revenueFill)"
+                    strokeWidth={2}
                   />
                   <Area
                     type="monotone"
                     dataKey="expenses"
-                    name="Expenses + Payroll"
-                    stroke="#94a3b8"
-                    strokeWidth={3}
-                    fill="#94a3b8"
-                    fillOpacity={0.12}
+                    stroke="#64748b"
+                    fill="url(#expenseFill)"
+                    strokeWidth={2}
                   />
                   <Area
                     type="monotone"
                     dataKey="cash"
-                    name="Verified Cash"
-                    stroke="#38bdf8"
-                    strokeWidth={3}
-                    fill="#38bdf8"
-                    fillOpacity={0.15}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="profit"
-                    name="Net Position"
-                    stroke="#67e8f9"
-                    strokeWidth={3}
-                    fill="#67e8f9"
-                    fillOpacity={0.12}
+                    stroke="#94a3b8"
+                    fill="transparent"
+                    strokeWidth={2}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-800 text-sm text-slate-500">
-                No financial data found for selected range.
-              </div>
+              <EmptyState
+                title="No trend data found"
+                helper="Load revenue, expense, payroll, or cash drawer rows to activate this chart."
+              />
             )}
           </div>
         </section>
 
-        <section className="mb-6 overflow-hidden rounded-3xl border border-blue-300/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/20 lg:p-6">
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-stretch">
-            <div>
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-blue-200">
-                <Brain size={18} /> OPSCORE Intelligence
+        <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                OPSCORE Intelligence
               </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                {businessStatus === "Stable" ? "Business performance is under control." : businessStatus === "Watchlist" ? "Business is stable, but needs review." : "Immediate management attention is recommended."}
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Executive Briefing
               </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                OPSCORE summarized the current operating position through Insights, Recommendations, Alerts, Forecast, and Health Score signals.
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                {operationMood}
               </p>
-
-              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                {executiveBriefingPoints.slice(0, 4).map((item, index) => (
-                  <div
-                    key={index}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
-                  >
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
-                      OPSCORE Insight {index + 1}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
-                      {item}
-                    </p>
-                  </div>
-                ))}
-              </div>
             </div>
 
-            <div className="rounded-3xl border border-blue-300/20 bg-slate-950/70 p-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/70">
-                Owner Action Center
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Prioritized shortcuts for the most important executive workflows.
-              </p>
+            <div className="p-6">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[220px_1fr_1fr]">
+                  <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
+                      <Brain size={18} />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                        Health Score
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <p className="text-3xl font-black tracking-tight text-slate-950">
+                          {businessHealthScore}
+                        </p>
+                        <span className={getStatusBadgeClass(businessStatus)}>
+                          {businessStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="mt-5 space-y-3">
-                <a
-                  href="/manager/approval-center"
-                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
-                >
-                  Review Approvals →
-                </a>
-                <a
-                  href="/finance/payroll/manager"
-                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
-                >
-                  Open Payroll Manager →
-                </a>
-                <a
-                  href="/finance/cash-management"
-                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
-                >
-                  Review Cash Position →
-                </a>
-                <a
-                  href="/finance/expenses"
-                  className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
-                >
-                  Review Expenses →
-                </a>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Primary Risk
+                    </p>
+                    <h3 className="mt-2 text-xl font-black text-slate-950">
+                      {primaryRiskValue}
+                    </h3>
+                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-700">
+                      {primaryRisk}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Top Action
+                    </p>
+                    <h3 className="mt-2 text-xl font-black text-slate-950">
+                      Management Priority
+                    </h3>
+                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-700">
+                      {ownerAction}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                  <MiniMetric label="Finance" value={financeScore} />
+                  <MiniMetric label="Ops" value={operationsScore} />
+                  <MiniMetric label="Collect" value={collectionsScore} />
+                  <MiniMetric label="Arrivals" value={todayArrivals} />
+                  <MiniMetric label="Departures" value={todayDepartures} />
+                  <MiniMetric label="Payroll" value={`${payrollRatio}%`} />
+                </div>
+
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Compact Alerts
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+                    {compactAlerts.length > 0 ? (
+                      compactAlerts.map((item, index) => (
+                        <div
+                          key={`compact-alert-${index}`}
+                          className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-700"
+                        >
+                          <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                          <span>{item}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                        No critical alerts found for the selected range.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Quick Control
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Risk Snapshot
+              </h2>
+            </div>
+            <div className="space-y-3 p-6">
+              <SnapshotRow
+                label="Cash Flow"
+                value={cashFlowStatus}
+                tone={
+                  cashFlowStatus === "Critical"
+                    ? "danger"
+                    : cashFlowStatus === "Watch"
+                      ? "warning"
+                      : "success"
+                }
+              />
+              <SnapshotRow
+                label="Payroll Status"
+                value={payrollStatus}
+                tone={
+                  payrollStatus === "High Risk"
+                    ? "danger"
+                    : payrollStatus === "Watch"
+                      ? "warning"
+                      : "success"
+                }
+              />
+              <SnapshotRow
+                label="Guest Balances"
+                value={formatPeso(outstandingGuestBalance)}
+                tone={outstandingGuestBalance > 0 ? "warning" : "success"}
+              />
+              <SnapshotRow
+                label="Apartment Receivables"
+                value={formatPeso(apartmentReceivables)}
+                tone={apartmentReceivables > 0 ? "warning" : "success"}
+              />
+              <SnapshotRow
+                label="Drawer Variance"
+                value={formatPeso(totalVariance)}
+                tone={Math.abs(totalVariance) > 0 ? "danger" : "success"}
+              />
+              <SnapshotRow
+                label="Upcoming Bills"
+                value={formatPeso(upcomingBillsTotal)}
+                tone={upcomingBillsTotal > 0 ? "info" : "success"}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Profitability
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Department Profit Centers
+              </h2>
+            </div>
+            <div className="overflow-auto">
+              <table className="w-full min-w-[720px]">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4">Department</th>
+                    <th className="px-6 py-4">Revenue</th>
+                    <th className="px-6 py-4">Allocated Expense</th>
+                    <th className="px-6 py-4">Profit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {departmentProfitability.map((row) => (
+                    <tr
+                      key={row.name}
+                      className="transition-all duration-200 hover:bg-slate-50"
+                    >
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {row.name}
+                      </td>
+                      <td className="px-6 py-4">{formatPeso(row.revenue)}</td>
+                      <td className="px-6 py-4">
+                        {formatPeso(row.allocatedExpenses)}
+                      </td>
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {formatPeso(row.profit)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Collections
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Revenue and Receivables
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
+              <MiniMetric label="Rooms Revenue" value={formatPeso(roomRevenue)} />
+              <MiniMetric label="Restaurant" value={formatPeso(restaurantRevenue)} />
+              <MiniMetric label="Apartment" value={formatPeso(apartmentRevenue)} />
+              <MiniMetric label="Recoverable" value={formatPeso(recoverableCash)} />
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 md:col-span-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Collection Pressure
+                </p>
+                <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  {formatPeso(expectedCollections)}
+                </p>
+                <p className="mt-2 text-sm font-medium text-slate-500">
+                  Guest balances and apartment receivables requiring follow-up.
+                </p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
-          <InsightCard
-            icon={<Wallet size={22} />}
-            title="Cash Control"
-            status={Math.abs(cashAccountabilityVariance) <= 1 ? "Balanced" : "Review"}
-            statusClass="border-blue-500/20 bg-blue-500/10 text-blue-300"
-            rows={[
-              {
-                label: "Cash In",
-                value: formatPeso(cashMovementCashIn),
-                formula: "Opening float + cash collections",
-              },
-              {
-                label: "Remitted",
-                value: formatPeso(totalRemitted),
-                formula: "Cash transferred out through remittance process",
-              },
-              {
-                label: "Cash Out",
-                value: formatPeso(operationalCashOut),
-                formula: "Expenses and cash advances",
-              },
-              {
-                label: "Bank / Owner",
-                value: formatPeso(bankDepositTotal + ownerWithdrawalTotal),
-                formula: "Bank deposit + owner withdrawal",
-              },
-              {
-                label: "Variance",
-                value: formatPeso(cashAccountabilityVariance),
-                formula: "Cash in minus accounted cash",
-              },
-            ]}
+        <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
+            icon={<DollarSign size={20} />}
+            title="Rooms Revenue"
+            value={formatPeso(roomRevenue)}
+            subtitle={`Unpaid guest balance: ${formatPeso(outstandingGuestBalance)}`}
           />
-
-          <InsightCard
-            icon={<Hotel size={22} />}
-            title="Revenue Control"
-            status={topRevenueSource.name || "Review"}
-            statusClass="border-blue-500/20 bg-blue-500/10 text-blue-300"
-            rows={[
-              {
-                label: "Top Source",
-                value: `${topRevenueSource.name} (${topRevenueShare}%)`,
-                formula: "Biggest income source in selected range",
-              },
-              {
-                label: "Rooms",
-                value: formatPeso(grossRoomSales),
-                formula: "Active/non-cancelled hotel sales from room-sales import",
-              },
-              {
-                label: "Restaurant",
-                value: formatPeso(restaurantRevenue),
-                formula: "Restaurant sales",
-              },
-              {
-                label: "Apartment",
-                value: formatPeso(apartmentRevenue),
-                formula: "Apartment collections",
-              },
-              {
-                label: "Cancelled Gross",
-                value: formatPeso(cancelledGrossRoomSales),
-                formula: "Cancelled reservation totals excluded from gross hotel sales",
-              },
-            ]}
+          <KpiCard
+            icon={<Banknote size={20} />}
+            title="Restaurant Revenue"
+            value={formatPeso(restaurantRevenue)}
+            subtitle={`Top source share: ${topRevenueShare}%`}
           />
-
-          <InsightCard
-            icon={<Users size={22} />}
-            title="People & Payroll"
-            status={payrollStatus}
-            statusClass="border-blue-500/20 bg-blue-500/10 text-blue-300"
-            rows={[
-              {
-                label: "For Release",
-                value: formatPeso(pendingPayrollReleaseAmount),
-                formula: "Approved payroll not yet released",
-              },
-              {
-                label: "Attendance Issues",
-                value: String(attendanceIssueRows.length),
-                formula: "Absences, late, undertime, or missing time-out entries",
-              },
-              {
-                label: "Cash Advances",
-                value: formatPeso(outstandingCashAdvances),
-                formula: "Active employee cash advance balances",
-              },
-              {
-                label: "Needs Regeneration",
-                value: String(payrollNeedsRegeneration.length),
-                formula: "Cutoffs changed after generation",
-              },
-              {
-                label: "Payroll Ratio",
-                value: `${payrollRatio}%`,
-                formula: "Payroll divided by total collected revenue",
-              },
-            ]}
+          <KpiCard
+            icon={<Users size={20} />}
+            title="Payroll Exposure"
+            value={formatPeso(payrollTotal)}
+            subtitle={`${payrollRatio}% of collected revenue`}
+            tone={
+              payrollRatio >= 50
+                ? "danger"
+                : payrollRatio >= 40
+                  ? "warning"
+                  : "success"
+            }
+          />
+          <KpiCard
+            icon={<ShieldAlert size={20} />}
+            title="Recoverable Cash"
+            value={formatPeso(recoverableCash)}
+            subtitle="Receivables plus cash variance recovery"
+            tone="info"
           />
         </section>
 
-        <section className="grid grid-cols-1 gap-5 xl:grid-cols-4">
-          <a
-            href="/manager/approval-center"
-            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
-              Approvals
-            </p>
-            <h3 className="mt-2 text-xl font-black">Approval Center</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Review leave, cash, expense, and operations approval queues.
-            </p>
-          </a>
+        <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <TableCard
+            title="Payroll Cost Watchlist"
+            label="People Risk"
+            headers={["Employee", "Department", "Payroll", "OT"]}
+            rows={payrollCulpritRows.map((row: any) => [
+              row.employeeName,
+              row.department,
+              formatPeso(row.payrollCost),
+              formatPeso(row.otCost),
+            ])}
+          />
+          <TableCard
+            title="Cash Advance Watchlist"
+            label="Balance Risk"
+            headers={["Employee", "Department", "Amount", "Records"]}
+            rows={cashAdvanceWatchlist.map((row: any) => [
+              row.employeeName,
+              row.department,
+              formatPeso(row.amount),
+              row.records,
+            ])}
+          />
+          <TableCard
+            title="Uncollected Guest Balances"
+            label="Collections"
+            headers={["Guest", "Room", "Reservation", "Balance"]}
+            rows={uncollectedGuestRows.map((row: any) => [
+              row.guest,
+              row.room,
+              row.reservation,
+              formatPeso(row.balance),
+            ])}
+          />
+        </section>
 
-          <a
-            href="/finance/payroll/manager"
-            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
-              Payroll
-            </p>
-            <h3 className="mt-2 text-xl font-black">Payroll Manager</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Release payroll, audit history, and review remaining balances.
-            </p>
-          </a>
-
-          <a
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ActionCard
             href="/finance/cash-management"
-            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
-              Cash
-            </p>
-            <h3 className="mt-2 text-xl font-black">Cash Management</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Open drawers, record movements, close shifts, and print reports.
-            </p>
-          </a>
-
-          <a
+            label="Cash"
+            title="Cash Management"
+            description="Open drawers, record movements, close shifts, and review variance."
+          />
+          <ActionCard
             href="/finance/expenses"
-            className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/10 transition hover:border-blue-400/50 hover:bg-slate-800/70"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
-              Finance
-            </p>
-            <h3 className="mt-2 text-xl font-black">Expenses Ledger</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Review operating expenses, advances, and export ledger data.
-            </p>
-          </a>
+            label="Finance"
+            title="Expense Ledger"
+            description="Review operating expenses and export ledger records."
+          />
+          <ActionCard
+            href="/payroll"
+            label="Payroll"
+            title="Payroll Manager"
+            description="Review payroll exposure, cutoffs, approvals, and release status."
+          />
+          <ActionCard
+            href="/manager/approval-center"
+            label="Approvals"
+            title="Approval Center"
+            description="Review requests through the locked OPSCORE workflow pattern."
+          />
         </section>
       </main>
     </div>
   );
+
 }
 
 function recommendationFallback(
@@ -2266,218 +2166,118 @@ function recommendationFallback(
   return ["Review cash position daily before approving expenses."];
 }
 
+type Tone = "success" | "warning" | "danger" | "info" | "neutral";
+
+function getToneBadgeClass(tone: Tone) {
+  if (tone === "success")
+    return "inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700";
+  if (tone === "warning")
+    return "inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-700";
+  if (tone === "danger")
+    return "inline-flex rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-red-700";
+  if (tone === "info")
+    return "inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700";
+  return "inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-700";
+}
+
+function getStatusBadgeClass(status: string) {
+  const value = String(status || "").toLowerCase();
+  if (
+    ["stable", "safe", "healthy", "paid", "approved", "active"].some((word) =>
+      value.includes(word),
+    )
+  )
+    return getToneBadgeClass("success");
+  if (
+    ["watch", "pending", "partial", "warning"].some((word) =>
+      value.includes(word),
+    )
+  )
+    return getToneBadgeClass("warning");
+  if (
+    ["critical", "risk", "overdue", "danger", "rejected"].some((word) =>
+      value.includes(word),
+    )
+  )
+    return getToneBadgeClass("danger");
+  return getToneBadgeClass("neutral");
+}
+
 function KpiCard({
   icon,
   title,
   value,
   subtitle,
-  formula,
-  source,
-  success,
-  danger,
+  tone = "neutral",
 }: {
   icon: React.ReactNode;
   title: string;
-  value: any;
+  value: React.ReactNode;
   subtitle?: string;
-  formula?: string;
-  source?: string;
-  success?: boolean;
-  danger?: boolean;
+  tone?: Tone;
 }) {
-  const accentClass = danger
-    ? "border-red-400/20 bg-red-500/10 text-red-200"
-    : success
-      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
-      : "border-blue-400/20 bg-blue-500/10 text-blue-200";
-
   return (
-    <div className="relative min-h-44 overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-b from-slate-800 to-slate-950 p-5 shadow-xl shadow-black/20">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-blue-400/10 blur-2xl" />
-
-      <div className="relative mb-4 flex items-center gap-3">
-        <div className={`rounded-2xl border p-3 ${accentClass}`}>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
           {icon}
         </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-              {title}
-            </p>
-            <MetricHelp formula={formula} source={source} />
-          </div>
-        </div>
+        <span className={getToneBadgeClass(tone)}>{tone}</span>
       </div>
-
-      <h2 className="relative text-4xl font-black tracking-tight text-white">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">
         {value}
-      </h2>
-
-      {subtitle && (
-        <p className="relative mt-2 text-xs font-semibold text-slate-400">
-          {subtitle}
-        </p>
-      )}
-
-      {formula && (
-        <p className="relative mt-4 border-t border-white/10 pt-3 text-[11px] leading-4 text-slate-400">
-          {formula}
-        </p>
-      )}
+      </p>
+      {subtitle ? (
+        <p className="mt-2 text-sm font-medium text-slate-500">{subtitle}</p>
+      ) : null}
     </div>
   );
 }
 
-function InsightCard({
-  icon,
-  title,
-  status,
-  statusClass,
-  rows,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  status: string;
-  statusClass: string;
-  rows: { label: string; value: string; formula?: string; source?: string }[];
-}) {
-  const featuredRows = rows.slice(0, 2);
-  const detailRows = rows.slice(2);
-
-  return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-blue-400/20 bg-gradient-to-b from-blue-500/10 to-slate-950 shadow-2xl shadow-blue-950/20">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/10 to-transparent" />
-      <div className="relative p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-blue-400/10 p-3 text-blue-300">{icon}</div>
-            <div>
-              <h2 className="text-xl font-black text-white">{title}</h2>
-              <p className="mt-0.5 text-xs text-slate-400">
-                Executive summary
-              </p>
-            </div>
-          </div>
-
-          <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-xs font-black text-blue-200">
-            {status}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {featuredRows.map((row) => (
-            <div key={row.label} className="rounded-2xl border border-blue-400/10 bg-slate-950/60 p-4">
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                  {row.label}
-                </p>
-                <MetricHelp formula={row.formula} source={row.source} />
-              </div>
-              <p className="mt-2 text-2xl font-black text-white">{row.value}</p>
-              {row.formula && (
-                <p className="mt-2 text-[11px] leading-4 text-slate-400">
-                  {row.formula}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {detailRows.length > 0 && (
-          <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
-            {detailRows.map((row) => (
-              <div
-                key={row.label}
-                className="flex items-center justify-between gap-3 rounded-xl border border-blue-400/10 bg-slate-950/40 px-3 py-2.5"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <p className="truncate text-sm text-slate-300">{row.label}</p>
-                  <MetricHelp formula={row.formula} source={row.source} />
-                </div>
-                <p className="shrink-0 text-sm font-black text-white">
-                  {row.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RevenueCard({
-  title,
-  value,
-  total,
-  formula,
-  source,
-}: {
-  title: string;
-  value: number;
-  total: number;
-  formula?: string;
-  source?: string;
-}) {
-  const share = total > 0 ? Math.round((value / total) * 100) : 0;
-
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-xl font-black">{title} Revenue</h2>
-        <MetricHelp formula={formula} source={source} />
-      </div>
-
-      <div className="mt-5 space-y-3">
-        <MiniRow
-          label="Revenue"
-          value={`₱${value.toLocaleString("en-PH")}`}
-          formula={formula}
-          source={source}
-        />
-
-        <MiniRow
-          label="Contribution"
-          value={`${share}%`}
-          formula="Share of total revenue"
-        />
-      </div>
-    </div>
-  );
-}
-
-function MiniRow({
+function MiniMetric({
   label,
   value,
-  formula,
-  source,
 }: {
   label: string;
-  value: string;
-  formula?: string;
-  source?: string;
+  value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-slate-400">{label}</p>
-          <MetricHelp formula={formula} source={source} />
-        </div>
-
-        <p className="font-black">{value}</p>
-      </div>
-
-      {formula && (
-        <p className="mt-1 text-[11px] leading-4 text-slate-500">{formula}</p>
-      )}
+    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
 }
 
-function BriefingBox({
+function SnapshotRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone: Tone;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.99]"
+    >
+      <p className="text-sm font-semibold text-slate-700">{label}</p>
+      <div className="flex items-center gap-2">
+        <span className={getToneBadgeClass(tone)}>{value}</span>
+        <span className="text-sm font-black text-slate-400">→</span>
+      </div>
+    </button>
+  );
+}
+
+function BriefingCard({
   title,
   items,
   empty,
@@ -2487,76 +2287,139 @@ function BriefingBox({
   empty: string;
 }) {
   return (
-    <div className="rounded-xl bg-slate-950/60 p-3">
-      <p className="mb-2 text-sm font-bold text-white">{title}</p>
-
-      {items.length > 0 ? (
-        <div className="space-y-1">
-          {items.slice(0, 5).map((item, index) => (
-            <p key={index} className="text-[13px] leading-5">
-              • {item}
-            </p>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[13px] leading-5">{empty}</p>
-      )}
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <div className="mt-4 space-y-2">
+        {items.length > 0 ? (
+          items.slice(0, 6).map((item, index) => (
+            <div
+              key={`${title}-${index}`}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-700"
+            >
+              {item}
+            </div>
+          ))
+        ) : (
+          <EmptyState title="No records found" helper={empty} compact />
+        )}
+      </div>
     </div>
   );
 }
 
-function MiniStat({
+function TableCard({
   title,
-  value,
-  danger,
-  formula,
-  source,
+  label,
+  headers,
+  rows,
 }: {
   title: string;
-  value: any;
-  danger?: boolean;
-  formula?: string;
-  source?: string;
+  label: string;
+  headers: string[];
+  rows: React.ReactNode[][];
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <div className="flex items-center gap-2">
-        <p className="text-xs text-slate-500">{title}</p>
-        <MetricHelp formula={formula} source={source} />
+    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="border-b border-slate-100 px-6 py-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          {label}
+        </p>
+        <h2 className="mt-1 text-xl font-black text-slate-950">{title}</h2>
       </div>
-
-      <h3
-        className={
-          danger
-            ? "mt-1 text-xl font-black text-red-400"
-            : "mt-1 text-xl font-black text-white"
-        }
-      >
-        {value}
-      </h3>
-
-      {formula && (
-        <p className="mt-1 text-[11px] leading-4 text-slate-500">{formula}</p>
+      {rows.length > 0 ? (
+        <div className="overflow-auto">
+          <table className="w-full min-w-[560px]">
+            <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+              <tr>
+                {headers.map((header) => (
+                  <th key={header} className="px-6 py-4">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+              {rows.map((row, index) => (
+                <tr
+                  key={index}
+                  className="transition-all duration-200 hover:bg-slate-50"
+                >
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={cellIndex}
+                      className={
+                        cellIndex === 0
+                          ? "px-6 py-4 font-black text-slate-950"
+                          : "px-6 py-4"
+                      }
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState
+          title="No records found"
+          helper="No matching rows in the selected range."
+        />
       )}
     </div>
   );
 }
 
-function MetricHelp({
-  formula,
-  source,
+function ActionCard({
+  href,
+  label,
+  title,
+  description,
 }: {
-  formula?: string;
-  source?: string;
+  href: string;
+  label: string;
+  title: string;
+  description: string;
 }) {
-  if (!formula && !source) return null;
-
   return (
-    <span
-      title={formula || ""}
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-400"
+    <a
+      href={href}
+      className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-md active:scale-[0.99]"
     >
-      <Info size={12} />
-    </span>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+            {label}
+          </p>
+          <h3 className="mt-2 text-xl font-black text-slate-950">{title}</h3>
+        </div>
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-black text-slate-500 transition-all duration-200 group-hover:border-slate-300 group-hover:bg-slate-50 group-hover:text-slate-950">
+          →
+        </span>
+      </div>
+      <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
+        {description}
+      </p>
+    </a>
+  );
+}
+
+function EmptyState({
+  title,
+  helper,
+  compact = false,
+}: {
+  title: string;
+  helper: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "py-6 text-center" : "py-14 text-center"}>
+      <p className="text-sm font-black text-slate-950">{title}</p>
+      <p className="mt-1 text-sm font-medium text-slate-500">{helper}</p>
+    </div>
   );
 }

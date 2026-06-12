@@ -19,6 +19,7 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import { canAccessPage } from "@/app/lib/pageAccess";
+import TopNavbar from "@/components/TopNavbar";
 
 export default function PayrollManagerPage() {
   /// STATES

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Sidebar from "@/components/SidebarV41";
+import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import TopNavbar from "@/components/TopNavbar";
 
 const CASH_DRAWER_REQUEST_TYPES = [
   "CASH_DRAWER_OUT",
@@ -1529,7 +1530,7 @@ export default function ApprovalCenterPage() {
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
-        <ApprovalTopNavbar />
+        <TopNavbar breadcrumb="APPROVALS / APPROVAL CENTER" />
 
         <div className="px-4 pb-6 pt-20 sm:px-6 lg:px-7">
           {/* PAGE HEADER */}
