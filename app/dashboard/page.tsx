@@ -52,8 +52,6 @@ export default function ExecutiveDashboardPage() {
   const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
   const [attendanceEntries, setAttendanceEntries] = useState<any[]>([]);
   const [allocationRules, setAllocationRules] = useState<any[]>([]);
-  const [chartReady, setChartReady] = useState(false);
-
   const todayKey = new Date().toISOString().slice(0, 10);
 
   /// HELPERS
@@ -1424,16 +1422,32 @@ export default function ExecutiveDashboardPage() {
         ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
         : "border-blue-500/20 bg-blue-500/10 text-blue-300";
 
-  const getChartLabel = (dateString: string) => {
+  const getChartGroup = (dateString: string) => {
     const date = new Date(`${dateString}T00:00:00`);
 
     if (rangeType === "yearly") {
-      return date.toLocaleDateString("en-US", { month: "short" });
+      return dateString.slice(0, 7);
     }
 
     if (rangeType === "monthly") {
-      return `Week ${Math.ceil(date.getDate() / 7)}`;
+      const weekNumber = Math.ceil(date.getDate() / 7);
+      return `${dateString.slice(0, 7)}-W${weekNumber}`;
     }
+
+    return dateString;
+  };
+
+  const getChartLabel = (groupKey: string) => {
+    if (rangeType === "yearly") {
+      const date = new Date(`${groupKey}-01T00:00:00`);
+      return date.toLocaleDateString("en-US", { month: "short" });
+    }
+
+    if (rangeType === "monthly" && groupKey.includes("-W")) {
+      return `Week ${groupKey.split("-W")[1]}`;
+    }
+
+    const date = new Date(`${groupKey}T00:00:00`);
 
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -1460,7 +1474,7 @@ export default function ExecutiveDashboardPage() {
     ) => {
       if (!date || !isWithinRange(date)) return;
 
-      const groupKey = rangeType === "yearly" ? date.slice(0, 7) : date;
+      const groupKey = getChartGroup(date);
 
       if (!map[groupKey]) {
         map[groupKey] = {
@@ -1475,8 +1489,8 @@ export default function ExecutiveDashboardPage() {
       map[groupKey][type] += Number(amount || 0);
     };
 
-    hotelReservations.forEach((row) =>
-      addToMap(getDateValue(row), "revenue", Number(row.amount_paid || 0)),
+    activeHotelRowsInRange.forEach((row) =>
+      addToMap(getDateValue(row), "revenue", getHotelPaidValue(row)),
     );
 
     restaurantSales.forEach((row) =>
@@ -1487,12 +1501,12 @@ export default function ExecutiveDashboardPage() {
       addToMap(getDateValue(row), "revenue", getAmountValue(row)),
     );
 
-    expenses.forEach((row) =>
+    operatingExpenseRows.forEach((row) =>
       addToMap(getDateValue(row), "expenses", getAmountValue(row)),
     );
 
     payrollRows.forEach((row) =>
-      addToMap(getDateValue(row), "expenses", getAmountValue(row)),
+      addToMap(getDateValue(row), "expenses", getPayrollDashboardValue(row)),
     );
 
     cashDrawers.forEach((row) =>
@@ -1507,10 +1521,10 @@ export default function ExecutiveDashboardPage() {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [
-    hotelReservations,
+    activeHotelRowsInRange,
     restaurantSales,
     apartmentPayments,
-    expenses,
+    operatingExpenseRows,
     payrollRows,
     cashDrawers,
     rangeType,
@@ -1858,9 +1872,10 @@ const [loggedInUser, setLoggedInUser] = useState("User");
           </div>
 
           <div className="h-[260px] min-h-[260px] min-w-0 sm:h-[320px]">
-            {chartReady && trendData.length > 0 ? (
+            {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
+                  key={`${rangeType}-${useCustomRange}-${customFromDate}-${customToDate}`}
                   data={trendData}
                   margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
                 >
