@@ -1854,36 +1854,34 @@ export default function EmployeePortalPage() {
   }, [currentUser, isAssignedApprover]);
 
   /// UI
-  // Operational Portal Workbench: action-first, compact sections, minimal dashboard styling.
+  // OPSCORE V1.3 Vincent mobile app shell: full-width violet header, floating shift card, large attendance buttons, app-style quick actions.
   return (
-    <main className="min-h-screen bg-[#07111f] text-white">
+    <main className="min-h-screen bg-white text-slate-900">
       {menuOpen && (
         <button
           aria-label="Close employee portal menu"
           onClick={() => setMenuOpen(false)}
-          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-sm"
         />
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y-auto border-r border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/30 transition-transform duration-300 ${
+        className={`fixed left-0 top-0 z-40 h-dvh w-80 max-w-[86vw] transform overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl transition-transform duration-300 ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="overflow-hidden rounded-3xl border border-blue-400/20 bg-gradient-to-br from-blue-600/20 via-slate-900 to-slate-950 p-5 shadow-xl shadow-blue-950/20">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-200/80">
-            OPSCORE
-          </p>
+        <div className="overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-600 p-5 text-white shadow-xl shadow-violet-200/70">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-100">VINCENT</p>
           <div className="mt-4 flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-500/20 text-lg font-black text-blue-100">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/30 bg-white/20 text-lg font-black text-white shadow-sm">
               {firstName.slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-xl font-black">{employeeName}</h2>
-              <p className="mt-1 truncate text-sm text-slate-300">{employeeDepartment}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-violet-100">{employeeDepartment}</p>
             </div>
           </div>
-          <p className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-slate-300">
+          <p className="mt-4 rounded-xl border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white">
             Employee #{employeeNumber}
           </p>
         </div>
@@ -1896,13 +1894,13 @@ export default function EmployeePortalPage() {
               <button
                 key={item.key}
                 onClick={() => openTab(item.key)}
-                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
+                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${
                   active
-                    ? "border border-blue-400/30 bg-blue-500/15 text-blue-100 shadow-lg shadow-blue-950/20"
-                    : "border border-slate-800 bg-slate-900/80 text-slate-300 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+                    ? "border border-violet-200 bg-violet-50 text-violet-700 shadow-sm"
+                    : "border border-slate-200 bg-white/80 text-slate-700 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
                 }`}
               >
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-950/70 text-sm font-black tracking-wider">{item.icon}</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-sm font-black tracking-wider">{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             );
@@ -1911,1188 +1909,505 @@ export default function EmployeePortalPage() {
 
         <button
           onClick={logout}
-          className="mt-5 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
+          className="mt-5 w-full rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 hover:bg-red-100"
         >
           Logout
         </button>
       </aside>
 
-      <section className="mx-auto max-w-6xl p-3 pb-8 sm:p-5">
-        <header className="sticky top-0 z-20 -mx-3 mb-5 border-b border-blue-950/40 bg-[#07111f]/95 px-3 py-3 backdrop-blur sm:-mx-5 sm:px-5">
-          <div className="flex items-center justify-between gap-3">
+      <section className="mx-auto min-h-screen max-w-md bg-white pb-28 shadow-2xl shadow-slate-950/10 sm:max-w-6xl sm:pb-10">
+        <header className="relative overflow-hidden rounded-b-[2.25rem] bg-gradient-to-br from-violet-950 via-violet-700 to-indigo-600 px-5 pb-24 pt-10 text-white shadow-xl shadow-violet-200/70">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-5 h-56 w-56 rounded-full bg-fuchsia-300/20 blur-2xl" />
+          <div className="pointer-events-none absolute bottom-8 right-0 h-40 w-40 rounded-full bg-blue-300/20 blur-2xl" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-white/10 [clip-path:polygon(0_45%,45%_100%,100%_40%,100%_100%,0_100%)]" />
+          <div className="pointer-events-none absolute right-20 top-28 grid grid-cols-5 gap-2 opacity-20">
+            {Array.from({ length: 25 }).map((_, index) => (
+              <span key={`header-dot-${index}`} className="h-1.5 w-1.5 rounded-full bg-white" />
+            ))}
+          </div>
+
+          <div className="relative flex items-center justify-between gap-3">
             <button
               onClick={() => setMenuOpen(true)}
-              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-lg font-black text-blue-200 hover:border-blue-500/30"
+              aria-label="Open employee menu"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/25 bg-white/15 text-2xl font-black text-white shadow-sm backdrop-blur transition-all duration-200 hover:bg-white/20 active:scale-[0.98]"
             >
               ☰
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-black uppercase tracking-[0.22em] text-blue-300/80">
-                {greeting}, {firstName}
-              </p>
-              <h1 className="truncate text-lg font-black sm:text-2xl">
-                {portalMenuItems.find((item) => item.key === activeTab)?.label || "Home"}
-              </h1>
+              <p className="truncate text-[10px] font-black uppercase tracking-[0.28em] text-violet-100">VINCENT RESORT HOTEL</p>
+              <h1 className="mt-1 truncate text-lg font-black tracking-tight text-white">Employee Portal</h1>
             </div>
 
-            <div className="hidden rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-right text-xs sm:block">
-              <p className="font-black text-white">{currentTimeLabel}</p>
-              <p className="text-slate-500">PH Time</p>
+            <button
+              onClick={() => openTab("announcements")}
+              aria-label="Open announcements"
+              className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/25 bg-white/15 text-lg font-black text-white shadow-sm backdrop-blur transition-all duration-200 hover:bg-white/20 active:scale-[0.98]"
+            >
+              !
+              {portalNotifications.length > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-md">
+                  {Math.min(portalNotifications.length, 9)}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => openTab("profile")}
+              aria-label="Open profile"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/30 bg-white/20 text-base font-black text-white shadow-sm backdrop-blur transition-all duration-200 hover:bg-white/25 active:scale-[0.98]"
+            >
+              {firstName.slice(0, 1).toUpperCase()}
+            </button>
+          </div>
+
+          <div className="relative mt-10 flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-lg font-bold text-violet-100">{greeting},</p>
+              <h2 className="mt-1 truncate text-4xl font-black tracking-tight text-white">{firstName}</h2>
+              <p className="mt-2 max-w-[190px] text-sm font-medium leading-5 text-violet-100">
+                Here&apos;s what&apos;s happening today.
+              </p>
+            </div>
+
+            <div className="shrink-0 rounded-3xl border border-white/25 bg-white/15 px-4 py-4 text-right shadow-sm backdrop-blur">
+              <p className="text-3xl font-black text-white">{currentTimeLabel}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-100">PH Time</p>
             </div>
           </div>
         </header>
 
         {activeTab === "home" && (
-          <div className="space-y-5">
-            <section className="overflow-hidden rounded-3xl border border-blue-400/20 bg-gradient-to-br from-blue-600/20 via-slate-900 to-slate-950 p-5 shadow-xl shadow-blue-950/20">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch lg:justify-between">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-200/80">
-                    Employee Portal
-                  </p>
-                  <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl">
-                    {greeting}, {firstName}
-                  </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100/70">
-                    Start your shift, check today&apos;s schedule, review updates, and keep your attendance clean.
-                  </p>
-
-                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-100/60">Today</p>
-                      <p className="mt-1 text-lg font-black text-white">{formatDate(today)}</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-100/60">Shift</p>
-                      <p className="mt-1 truncate text-lg font-black text-white">{todayShiftLabel}</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-100/60">Time</p>
-                      <p className="mt-1 truncate text-lg font-black text-white">{todayShiftTimeLabel}</p>
-                    </div>
+          <div className="-mt-16 space-y-5 px-5">
+            <section className="relative z-10 rounded-[1.75rem] border border-violet-100 bg-white p-4 shadow-xl shadow-violet-100/80">
+              <div className="grid grid-cols-2 divide-x divide-slate-100">
+                <div className="flex items-center gap-2 pr-3">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-xl font-black text-violet-700">◷</div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">Today&apos;s Shift</p>
+                    <p className="mt-1 text-[15px] font-bold leading-tight text-slate-950 line-clamp-2">{todayShiftLabel}</p>
+                    <p className="mt-1 text-[12px] font-medium leading-tight text-slate-500">{todayShiftTimeLabel}</p>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-white/10 bg-slate-950/55 p-4 lg:w-[360px]">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Quick Attendance</p>
-                      <h3 className="mt-1 text-xl font-black text-white">Time In / Time Out</h3>
-                    </div>
-                    <StatusBadge status={todayAttendance?.status || "Not timed in"} />
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <button
-                      onClick={handleTimeIn}
-                      disabled={loading || !!todayAttendance?.time_in || !currentUser}
-                      className="rounded-2xl bg-emerald-500 px-4 py-4 text-sm font-black text-white shadow-lg shadow-emerald-950/30 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Time In
-                    </button>
-
-                    <button
-                      onClick={handleTimeOut}
-                      disabled={
-                        loading ||
-                        !todayAttendance?.time_in ||
-                        !!todayAttendance?.time_out
-                      }
-                      className="rounded-2xl bg-blue-600 px-4 py-4 text-sm font-black text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Time Out
-                    </button>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <Info label="Time In" value={formatTime(todayAttendance?.time_in)} />
-                    <Info label="Time Out" value={formatTime(todayAttendance?.time_out)} />
-                    <Info label="Late" value={`${todayAttendance?.late_minutes ?? 0}m`} />
-                    <Info label="PH Time" value={currentTimeLabel} />
+                <div className="flex items-center gap-2 pl-3">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-xl font-black text-violet-700">✓</div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">Status</p>
+                    <p className="mt-1 text-[15px] font-bold leading-tight text-emerald-700 line-clamp-2">{todayAttendance?.status || "Not Timed In"}</p>
+                    <p className="mt-1 text-[12px] font-medium leading-tight text-slate-500">
+                      {formatTime(todayAttendance?.time_in)} - {formatTime(todayAttendance?.time_out)}
+                    </p>
                   </div>
                 </div>
               </div>
             </section>
 
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_0.9fr]">
-              <TodayScheduleCard
-                schedule={schedule}
-                formatTime={formatTime}
-                onScheduleClick={() => openTab("schedule")}
-              />
+            <section className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleTimeIn}
+                disabled={loading || !!todayAttendance?.time_in || !currentUser}
+                className="min-h-[88px] rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 px-4 py-4 text-left text-white shadow-xl shadow-emerald-200 transition-all duration-200 hover:from-emerald-500 hover:to-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="block text-3xl leading-none">◷</span>
+                <span className="mt-3 block text-lg font-black">TIME IN</span>
+                <span className="block text-xs font-medium text-emerald-50">
+                  {todayAttendance?.time_in ? formatTime(todayAttendance.time_in) : "Tap to time in"}
+                </span>
+              </button>
 
-              <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-black">Today&apos;s Updates</h2>
-                    <p className="mt-1 text-sm text-slate-400">Important items for your shift.</p>
-                  </div>
-                  <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-200">
-                    {portalNotifications.length}
-                  </span>
-                </div>
+              <button
+                onClick={handleTimeOut}
+                disabled={loading || !todayAttendance?.time_in || !!todayAttendance?.time_out}
+                className="min-h-[88px] rounded-3xl bg-gradient-to-br from-violet-400 to-violet-700 px-4 py-4 text-left text-white shadow-xl shadow-violet-200 transition-all duration-200 hover:from-violet-500 hover:to-violet-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="block text-3xl leading-none">◴</span>
+                <span className="mt-3 block text-lg font-black">TIME OUT</span>
+                <span className="block text-xs font-medium text-violet-50">
+                  {todayAttendance?.time_out ? formatTime(todayAttendance.time_out) : "Tap to time out"}
+                </span>
+              </button>
+            </section>
 
-                <div className="mt-4 space-y-2">
-                  {portalNotifications.slice(0, 5).map((message, index) => (
-                    <div
-                      key={`${message}-${index}`}
-                      className="flex gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-200"
-                    >
-                      <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-500/10 text-[10px] font-black text-blue-300">
-                        {index + 1}
-                      </span>
-                      <span>{message}</span>
-                    </div>
-                  ))}
+            <MobileSectionHeader title="Quick Actions" action="View All ›" onClick={() => openTab("profile")} />
+
+            <section className="grid grid-cols-4 gap-2 sm:gap-3">
+              <MobileActionCard label="Payslip" icon="▣" tone="violet" onClick={() => openTab("payslip")} />
+              <MobileActionCard label="Leave" icon="↗" tone="emerald" onClick={() => openTab("leave")} />
+              <MobileActionCard label="Attendance" icon="✓" tone="blue" onClick={() => openTab("attendance")} />
+              <MobileActionCard label="Cash Advance" icon="₱" tone="amber" onClick={() => openTab("cashadvance")} />
+            </section>
+
+            <MobileSectionHeader title="Leave Credits" action="View All ›" onClick={() => openTab("leave")} />
+
+            <section className="grid grid-cols-3 gap-3">
+              {(leaveCredits.length > 0
+                ? leaveCredits.slice(0, 3)
+                : [
+                    { leave_type: "Vacation Leave", remaining_credits: 0 },
+                    { leave_type: "Sick Leave", remaining_credits: 0 },
+                    { leave_type: "Emergency Leave", remaining_credits: 0 },
+                  ]
+              ).map((credit, index) => (
+                <LeaveCreditMiniCard
+                  key={`${credit.leave_type}-${index}`}
+                  index={index}
+                  title={credit.leave_type || "Leave"}
+                  value={Number(credit.remaining_credits || 0)}
+                />
+              ))}
+            </section>
+
+            <MobileSectionHeader title="Announcements" action="View All ›" onClick={() => openTab("announcements")} />
+
+            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white text-2xl shadow-sm">!</div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-slate-950">{announcements[0]?.title || "No announcements yet"}</p>
+                  <p className="mt-1 truncate text-sm font-medium text-slate-500">
+                    {announcements[0]?.message || announcements[0]?.body || "Latest company updates will appear here."}
+                  </p>
                 </div>
-              </section>
-            </div>
+                <span className="rounded-full bg-amber-400 px-3 py-1 text-[11px] font-bold text-white">New</span>
+              </div>
+            </section>
+
+            <MobileSectionHeader title="Upcoming Schedule" action="View Calendar ›" onClick={() => openTab("schedule")} />
+
+            <section className="pb-2">
+              <button
+                onClick={() => openTab("schedule")}
+                className="flex w-full items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:border-violet-200 hover:bg-violet-50 active:scale-[0.98]"
+              >
+                <div className="overflow-hidden rounded-2xl border border-violet-200 bg-white text-center shadow-sm">
+                  <p className="bg-violet-600 px-4 py-1 text-[10px] font-black uppercase text-white">
+                    {new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { month: "short" })}
+                  </p>
+                  <p className="px-4 py-1 text-3xl font-black text-violet-700">{new Date(`${today}T00:00:00`).getDate()}</p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-lg font-bold text-slate-950">{todayShiftLabel}</p>
+                  <p className="mt-1 truncate text-sm font-medium text-slate-500">{todayShiftTimeLabel}</p>
+                </div>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                  {todayAttendance?.status || "Today"}
+                </span>
+              </button>
+            </section>
           </div>
         )}
 
         {activeTab === "schedule" && (
-          <div className="space-y-5">
-            <TodayScheduleCard
-              schedule={schedule}
-              formatTime={formatTime}
-              onScheduleClick={() => {}}
-            />
-
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <h2 className="text-lg font-black">This Week</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Your published schedule for the current week.
-              </p>
-
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
-                {weeklySchedules.map((item) => {
-                  const isToday = item.day === today;
-
-                  return (
-                    <div
-                      key={item.day}
-                      className={`rounded-2xl border p-4 transition ${
-                        isToday
-                          ? "border-blue-500/40 bg-blue-500/10 shadow-lg shadow-blue-950/20"
-                          : "border-slate-800 bg-slate-950 hover:border-slate-700"
-                      }`}
-                    >
-                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-                        {formatWeekday(item.day)}
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-slate-300">
-                        {formatDate(item.day)}
-                      </p>
-                      <p
-                        className={`mt-3 text-lg font-black ${
-                          item.shift === "OFF" ? "text-slate-500" : "text-slate-300"
-                        }`}
-                      >
-                        {item.shift}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {formatTime(item.scheduled_in)} - {formatTime(item.scheduled_out)}
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Schedule" title="My Weekly Schedule">
+              <div className="space-y-3">
+                {weeklySchedules.map((item) => (
+                  <div key={item.day} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div>
+                      <p className="text-sm font-bold text-slate-950">{formatWeekday(item.day)}, {formatDate(item.day)}</p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        {item.shift === "OFF" ? "Rest day" : `${formatTime(item.scheduled_in)} - ${formatTime(item.scheduled_out)}`}
                       </p>
                     </div>
-                  );
-                })}
+                    <StatusBadge status={item.shift} />
+                  </div>
+                ))}
+                {weeklySchedules.length === 0 && <EmptyStateInline title="No schedule loaded" helper="Your weekly schedule will appear here once published." />}
               </div>
-            </section>
+            </PortalCard>
           </div>
         )}
 
         {activeTab === "attendance" && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="text-lg font-black">Attendance History</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Your latest attendance entries from the last 30 days.
-            </p>
-
-            <div className="mt-4 max-h-[70vh] overflow-auto rounded-2xl border border-slate-800">
-              <table className="w-full min-w-[920px] text-sm">
-                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Schedule</th>
-                    <th className="px-4 py-3">Time In</th>
-                    <th className="px-4 py-3">Time Out</th>
-                    <th className="px-4 py-3 text-right">Late</th>
-                    <th className="px-4 py-3 text-right">Undertime</th>
-                    <th className="px-4 py-3 text-right">OT</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {attendanceHistory.map((entry) => (
-                    <tr key={entry.id || entry.attendance_date} className="border-t border-slate-800">
-                      <td className="px-4 py-3 font-bold">
-                        {formatDate(entry.attendance_date)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-bold text-slate-300">
-                          {entry.scheduled_shift || "-"}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {formatTime(entry.scheduled_in)} - {formatTime(entry.scheduled_out)}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">{formatTime(entry.time_in)}</td>
-                      <td className="px-4 py-3">{formatTime(entry.time_out)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-red-300">{entry.late_minutes || 0}m</td>
-                      <td className="px-4 py-3 text-right font-bold text-red-300">{entry.undertime_minutes || 0}m</td>
-                      <td className="px-4 py-3 text-right font-bold text-emerald-300">{entry.ot_minutes || 0}m</td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={entry.status || "Pending"} />
-                      </td>
-                    </tr>
-                  ))}
-
-                  {attendanceHistory.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
-                        No attendance history yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {activeTab === "performance" && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-black">Attendance Performance</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Based on your latest attendance records.
-                </p>
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Performance" title="Attendance Summary">
+              <div className="grid grid-cols-2 gap-3">
+                <MiniMetric label="Score" value={`${attendanceScore}%`} helper={attendanceScoreLabel} />
+                <MiniMetric label="Present" value={presentCount} helper="Last 30 days" />
+                <MiniMetric label="Late" value={lateCount} helper="Records" />
+                <MiniMetric label="Absent" value={absentCount} helper="Records" />
               </div>
+            </PortalCard>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 px-6 py-5">
-                <p className="text-xs uppercase tracking-widest text-slate-500">Score</p>
-                <p className="text-3xl font-black text-slate-300">{attendanceScore}</p>
-                <p className="text-sm font-bold text-slate-400">{attendanceScoreLabel}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Info label="Present" value={presentCount} />
-              <Info label="Late" value={lateCount} />
-              <Info label="Undertime" value={undertimeCount} />
-              <Info label="Absent" value={absentCount} />
-            </div>
-          </section>
-        )}
-
-        {activeTab === "leave" && (
-          <div className="space-y-5">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-black">Employee Leave Center</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Request leave, track approvals, view credits, and request cancellation for approved leave.
-                  </p>
-                </div>
-
-                <div className="flex rounded-2xl border border-slate-800 bg-slate-950 p-1 text-xs font-black">
-                  <button
-                    onClick={() => setLeaveView("request")}
-                    className={`rounded-xl px-4 py-2 ${
-                      leaveView === "request" ? "bg-blue-600 text-white" : "text-slate-400"
-                    }`}
-                  >
-                    Request
-                  </button>
-                  <button
-                    onClick={() => setLeaveView("history")}
-                    className={`rounded-xl px-4 py-2 ${
-                      leaveView === "history" ? "bg-blue-600 text-white" : "text-slate-400"
-                    }`}
-                  >
-                    History
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Info label="Pending" value={leaveStatuses.pending} />
-                <Info label="Approved" value={leaveStatuses.approved} />
-                <Info label="Cancelled" value={leaveStatuses.cancelled} />
-                <Info label="Credits Left" value={totalRemainingLeaveCredits} />
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <h2 className="text-lg font-black">Remaining Leave Credits</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Credits are read from employee_leave_credits. Approved leave deductions remain handled by Approval Center.
-              </p>
-
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Info label="Credit Types" value={leaveCredits.length} />
-                <Info label="Used Credits" value={totalUsedLeaveCredits} />
-                <Info label="Remaining Credits" value={totalRemainingLeaveCredits} />
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {leaveCredits.map((credit) => (
-                  <div
-                    key={credit.id || `${credit.leave_type}-${credit.employee_no}`}
-                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
-                  >
+            <PortalCard label="Recent Logs" title="Attendance History">
+              <div className="space-y-3">
+                {attendanceHistory.map((entry) => (
+                  <div key={entry.id || `${entry.attendance_date}-${entry.time_in}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-black text-white">{credit.leave_type || "Leave Credit"}</p>
-                        <p className="mt-1 text-xs text-slate-500">Status: {credit.status || "Active"}</p>
+                        <p className="text-sm font-bold text-slate-950">{formatWeekday(entry.attendance_date)}, {formatDate(entry.attendance_date)}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">{formatTime(entry.time_in)} - {formatTime(entry.time_out)}</p>
                       </div>
-                      <StatusBadge status={credit.status || "Active"} />
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-                      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-slate-500">Total</p>
-                        <p className="mt-1 text-lg font-black text-white">{credit.total_credits ?? credit.earned_credits ?? 0}</p>
-                      </div>
-                      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-slate-500">Used</p>
-                        <p className="mt-1 text-lg font-black text-red-300">{credit.used_credits ?? 0}</p>
-                      </div>
-                      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-slate-500">Left</p>
-                        <p className="mt-1 text-lg font-black text-emerald-300">{credit.remaining_credits ?? 0}</p>
-                      </div>
+                      <StatusBadge status={entry.status || "Pending"} />
                     </div>
                   </div>
                 ))}
-
-                {leaveCredits.length === 0 && (
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500 sm:col-span-2">
-                    No leave credits found yet.
-                  </div>
-                )}
+                {attendanceHistory.length === 0 && <EmptyStateInline title="No attendance records" helper="Your attendance records will show here after time in." />}
               </div>
-            </section>
+            </PortalCard>
+          </div>
+        )}
 
-            {leaveView === "request" && (
-              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                <h2 className="text-lg font-black">Request Leave</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Submitted requests go directly to Manager Approval Center.
-                </p>
+        {activeTab === "performance" && (
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Employee Score" title="Performance Snapshot">
+              <div className="grid grid-cols-2 gap-3">
+                <MiniMetric label="Attendance" value={`${attendanceScore}%`} helper={attendanceScoreLabel} />
+                <MiniMetric label="Present" value={presentCount} helper="Last 30 days" />
+                <MiniMetric label="Late" value={lateCount} helper="Needs watch" />
+                <MiniMetric label="Undertime" value={undertimeCount} helper="Records" />
+              </div>
+            </PortalCard>
+          </div>
+        )}
 
-                <div className="mt-4 grid grid-cols-1 gap-3">
-                  <select
-                    value={leaveType}
-                    onChange={(e) => setLeaveType(e.target.value)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                  >
-                    <option>Vacation Leave</option>
-                    <option>Sick Leave</option>
-                    <option>Emergency Leave</option>
-                    <option>Unpaid Leave</option>
-                  </select>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      style={{ colorScheme: "dark" }}
-                      className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                    />
-
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      style={{ colorScheme: "dark" }}
-                      className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                    />
+        {activeTab === "leave" && (
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Available Balance" title="Leave Credits">
+              <div className="grid grid-cols-1 gap-3">
+                {leaveCredits.map((credit) => (
+                  <div key={`${credit.id || credit.leave_type}`} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{credit.leave_type || "Leave"}</p>
+                    <p className="mt-2 text-3xl font-black text-slate-950">{Number(credit.remaining_credits || 0)}</p>
+                    <p className="mt-1 text-sm font-medium text-slate-500">Used: {Number(credit.used_credits || 0)}</p>
                   </div>
+                ))}
+                {leaveCredits.length === 0 && <EmptyStateInline title="No leave credits found" helper="Admin must load leave credits first." />}
+              </div>
+            </PortalCard>
 
-                  <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm">
-                    Days: <span className="font-bold text-slate-300">{leaveDays}</span>
+            <PortalCard label="Submit for Approval" title="Request Leave">
+              <div className="space-y-4">
+                <FormLabel label="Leave Type" />
+                <select value={leaveType} onChange={(event) => setLeaveType(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10">
+                  <option>Vacation Leave</option>
+                  <option>Sick Leave</option>
+                  <option>Emergency Leave</option>
+                  <option>Unpaid Leave</option>
+                </select>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FormLabel label="Start Date" />
+                    <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" />
                   </div>
-
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="Reason is required. Example: Family matter, medical appointment, personal emergency..."
-                    required
-                    minLength={5}
-                    className="min-h-28 rounded-xl border border-slate-700 bg-slate-950 p-3"
-                  />
-
-                  <p className="text-xs font-semibold text-slate-500">
-                    Reason is required before submitting a leave request.
-                  </p>
-
-                  <button
-                    onClick={submitLeaveRequest}
-                    disabled={loading || !currentUser}
-                    className="rounded-xl bg-blue-600 px-5 py-4 font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Submit to Approval Center
-                  </button>
+                  <div>
+                    <FormLabel label="End Date" />
+                    <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" />
+                  </div>
                 </div>
-              </section>
-            )}
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-black">My Leave Requests</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Status tracker for Pending, Approved, Rejected, Cancelled, and cancellation requests.
-                  </p>
+                  <FormLabel label="Reason" />
+                  <textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Enter leave reason" className="mt-2 min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" />
                 </div>
-                <button
-                  onClick={() => currentUser?.id && reloadEmployeeData(currentUser.id)}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
-                >
-                  Refresh
-                </button>
+
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-700">Total request: {leaveDays} day(s)</div>
+                <button onClick={submitLeaveRequest} disabled={loading} className="h-11 w-full rounded-xl bg-violet-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-700 active:scale-[0.98] disabled:opacity-50">Submit Leave Request</button>
               </div>
+            </PortalCard>
 
-              <div className="mt-3 space-y-2">
-                {leaveHistory.map((leave) => {
-                  const pendingCancel = leave.id ? isLeaveCancellationPending(leave.id) : false;
-
-                  return (
-                    <div
-                      key={leave.id || `${leave.start_date}-${leave.end_date}`}
-                      className="rounded-xl border border-slate-800 bg-slate-950 p-3"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="font-black text-white">{leave.leave_type}</p>
-                          <p className="mt-1 text-sm text-slate-400">
-                            {formatDate(leave.start_date)} - {formatDate(leave.end_date)} • {leave.days} day(s)
-                          </p>
-                          <p className="mt-2 text-sm text-slate-300">{leave.reason}</p>
-
-                          {leave.rejection_reason && (
-                            <p className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
-                              Rejection reason: {leave.rejection_reason}
-                            </p>
-                          )}
-
-                          {leave.cancellation_reason && (
-                            <p className="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs text-slate-300">
-                              Cancellation reason: {leave.cancellation_reason}
-                            </p>
-                          )}
-
-                          {pendingCancel && (
-                            <p className="mt-2 rounded-xl border border-slate-800 bg-blue-500/10 p-3 text-xs font-bold text-slate-300">
-                              Cancellation request pending in Approval Center.
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                          <StatusBadge status={leave.status} />
-                          {canCancelLeave(leave) && (
-                            <button
-                              onClick={() => requestLeaveCancellation(leave)}
-                              disabled={loading}
-                              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              Cancel Approved Leave
-                            </button>
-                          )}
-                        </div>
+            <PortalCard label="Recent Requests" title="Leave History">
+              <div className="space-y-3">
+                {leaveHistory.map((leave) => (
+                  <div key={`${leave.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{leave.leave_type}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} • {leave.days || leave.total_days} day(s)</p>
                       </div>
+                      <StatusBadge status={leave.status} />
                     </div>
-                  );
-                })}
-
-                {leaveHistory.length === 0 && (
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
-                    No leave requests yet.
+                    <p className="mt-3 text-sm font-medium leading-6 text-slate-600">{leave.reason}</p>
+                    {canCancelLeave(leave) && (
+                      <button onClick={() => requestLeaveCancellation(leave)} className="mt-3 h-10 rounded-xl border border-red-200 bg-red-50 px-4 text-xs font-bold text-red-700 hover:bg-red-100">
+                        Request Cancellation
+                      </button>
+                    )}
                   </div>
-                )}
+                ))}
+                {leaveHistory.length === 0 && <EmptyStateInline title="No leave requests" helper="Submitted leave requests will appear here." />}
               </div>
-            </section>
+            </PortalCard>
           </div>
         )}
 
         {activeTab === "payslip" && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="text-lg font-black">My Payslips</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Your payroll snapshots and downloadable payslips will appear here.
-            </p>
-
-            <div className="mt-3 space-y-2">
-              {payslips.map((payslip) => {
-                const gross = getPayslipGross(payslip);
-                const deductions = getPayslipDeductions(payslip);
-                const net = getPayslipNet(payslip);
-                const period = getPayslipPeriodLabel(payslip);
-
-                return (
-                  <div
-                    key={payslip.id || period}
-                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Payroll" title="Payslips">
+              <div className="space-y-3">
+                {payslips.map((payslip) => (
+                  <button key={`${payslip.id}`} onClick={() => setActivePayslip(payslip)} className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:border-violet-200 hover:bg-violet-50">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-black text-white">{period}</p>
-                        <p className="mt-1 text-sm text-slate-400">
-                          {formatDate(payslip.start_date)} - {formatDate(payslip.end_date)}
-                        </p>
-                        {payslip.snapshot_type && (
-                          <p className="mt-1 text-xs font-bold text-slate-300">
-                            {payslip.snapshot_type}
-                          </p>
-                        )}
+                        <p className="text-sm font-bold text-slate-950">{getPayslipPeriodLabel(payslip)}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">Net Pay / Release Amount</p>
                       </div>
-                      <StatusBadge status={payslip.status || "Released"} />
+                      <p className="text-lg font-black text-emerald-700">{formatMoney(getPayslipNet(payslip))}</p>
                     </div>
-
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <Info label="Gross" value={formatMoney(gross)} />
-                      <Info label="Deductions" value={formatMoney(deductions)} />
-                      <Info label="Net Pay" value={formatMoney(net)} />
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <button
-                        onClick={() => setActivePayslip(payslip)}
-                        className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800"
-                      >
-                        View Payslip
-                      </button>
-
-                      <button
-                        onClick={() => downloadPayslipPDF(payslip)}
-                        className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500"
-                      >
-                        Download / Print PDF
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {payslips.length === 0 && (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
-                  No payslips found yet. Ask payroll to generate a payroll snapshot first.
-                </div>
-              )}
-            </div>
-          </section>
+                  </button>
+                ))}
+                {payslips.length === 0 && <EmptyStateInline title="No payslips found" helper="Released payroll snapshots will appear here." />}
+              </div>
+            </PortalCard>
+          </div>
         )}
-
 
         {activeTab === "cashadvance" && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="text-lg font-black">My Cash Advances & Balances</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Track cash advances, payroll balances, deductions, and remaining amounts.
-            </p>
-
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Info label="Active Balances" value={activeEmployeeBalances.length} />
-              <Info label="Cash Advance Remaining" value={formatMoney(totalCashAdvanceRemaining)} />
-              <Info label="Total Active Balance" value={formatMoney(totalActiveBalance)} />
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {employeeBalances.map((balance) => (
-                <div
-                  key={balance.id || `${balance.balance_type}-${balance.created_at}`}
-                  className="rounded-xl border border-slate-800 bg-slate-950 p-3"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="font-black text-white">{balance.balance_type || "Employee Balance"}</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Source: {balance.source_module || "-"} • {formatDate(String(balance.created_at || "").slice(0, 10))}
-                      </p>
-                    </div>
-                    <StatusBadge status={balance.status || "Active"} />
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Info label="Original Amount" value={formatMoney(balance.original_amount || 0)} />
-                    <Info label="Remaining Balance" value={formatMoney(balance.remaining_balance || 0)} />
-                  </div>
-
-                  {balance.remarks && (
-                    <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300">
-                      {balance.remarks}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {employeeBalances.length === 0 && (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
-                  No cash advances or balances found.
-                </div>
-              )}
-            </div>
-          </section>
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Balances" title="Cash Advances">
+              <div className="grid grid-cols-1 gap-3">
+                <MiniMetric label="Active Balance" value={formatMoney(totalActiveBalance)} helper="All balances" />
+                <MiniMetric label="Cash Advance" value={formatMoney(totalCashAdvanceRemaining)} helper="Remaining" />
+                <MiniMetric label="Payroll Balance" value={formatMoney(payrollSalaryBalances.reduce((sum, item) => sum + Number(item.remaining_balance || 0), 0))} helper="Salary related" />
+              </div>
+            </PortalCard>
+          </div>
         )}
 
-
         {activeTab === "announcements" && (
-          <div className="space-y-5">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-black">Announcements</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Official updates for employees and managers.
-                  </p>
-                </div>
-                <button
-                  onClick={getAnnouncements}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
-                >
-                  Refresh
-                </button>
-              </div>
-
-              <div className="mt-3 space-y-2">
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Company Updates" title="Announcements">
+              <div className="space-y-3">
                 {announcements.map((announcement) => (
-                  <div
-                    key={announcement.id || `${announcement.title}-${announcement.created_at}`}
-                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div key={`${announcement.id}`} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-black text-white">
-                          {announcement.title || "Announcement"}
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-slate-300">
-                          {announcement.message || announcement.body || "-"}
-                        </p>
-                        <p className="mt-2 text-xs text-slate-500">
-                          Posted by {announcement.posted_by || announcement.created_by || "Admin"} •{" "}
-                          {announcement.created_at
-                            ? new Date(announcement.created_at).toLocaleString("en-PH")
-                            : "-"}
-                        </p>
+                        <p className="text-sm font-bold text-slate-950">{announcement.title || "Announcement"}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">{announcement.posted_by || announcement.created_by || "OPSCORE"}</p>
                       </div>
                       <StatusBadge status={announcement.priority || "Normal"} />
                     </div>
+                    <p className="mt-3 text-sm font-medium leading-6 text-slate-700">{announcement.message || announcement.body}</p>
                   </div>
                 ))}
-
-                {announcements.length === 0 && (
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
-                    No announcements yet.
-                  </div>
-                )}
+                {announcements.length === 0 && <EmptyStateInline title="No announcements" helper="Company announcements will appear here." />}
               </div>
-            </section>
-
-            {canUseManagerTools && (
-              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <h2 className="text-lg font-black">Post Announcement</h2>
-                <p className="mt-1 text-sm text-slate-300">
-                  Managers can post mobile announcements directly from the portal.
-                </p>
-
-                <div className="mt-4 grid grid-cols-1 gap-3">
-                  <input
-                    value={announcementTitle}
-                    onChange={(e) => setAnnouncementTitle(e.target.value)}
-                    placeholder="Announcement title"
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-blue-400"
-                  />
-
-                  <select
-                    value={announcementPriority}
-                    onChange={(e) => setAnnouncementPriority(e.target.value)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-blue-400"
-                  >
-                    <option>Normal</option>
-                    <option>Important</option>
-                    <option>Urgent</option>
-                  </select>
-
-                  <textarea
-                    value={announcementMessage}
-                    onChange={(e) => setAnnouncementMessage(e.target.value)}
-                    placeholder="Type announcement message..."
-                    className="min-h-32 rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-blue-400"
-                  />
-
-                  <button
-                    onClick={submitAnnouncement}
-                    disabled={loading}
-                    className="rounded-xl bg-blue-600 px-5 py-4 font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Post Announcement
-                  </button>
-                </div>
-              </section>
-            )}
+            </PortalCard>
           </div>
         )}
 
         {activeTab === "manager" && canUseManagerTools && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-black">Manager Mobile Approvals</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Approve or reject pending leave requests from mobile.
-                </p>
-              </div>
-
-              <button
-                onClick={getManagerApprovals}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
-              >
-                Refresh
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              {managerApprovals.map((request) => {
-                const payload = request.request_payload || {};
-                const requestType = String(request.request_type || "").replaceAll("_", " ");
-
-                return (
-                  <div
-                    key={request.id || `${request.request_type}-${request.reference_id}`}
-                    className="rounded-xl border border-slate-800 bg-slate-950 p-3"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Approval Queue" title="Manager Approvals">
+              <div className="space-y-3">
+                {managerApprovals.map((request) => (
+                  <div key={`${request.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">
-                          {requestType}
-                        </p>
-                        <p className="mt-1 font-black text-white">
-                          {payload.employee_name || request.title || "Pending Approval"}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-400">
-                          {payload.leave_type || "-"} • {formatDate(payload.start_date)} - {formatDate(payload.end_date)} •{" "}
-                          {payload.days || payload.total_days || 0} day(s)
-                        </p>
-                        <div className="mt-3 space-y-2 text-sm">
-                          {payload.original_reason && (
-                            <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-slate-300">
-                              Original reason: {payload.original_reason}
-                            </div>
-                          )}
-                          {payload.reason && (
-                            <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-slate-300">
-                              Reason: {payload.reason}
-                            </div>
-                          )}
-                          {payload.cancellation_reason && (
-                            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-red-200">
-                              Cancellation reason: {payload.cancellation_reason}
-                            </div>
-                          )}
-                        </div>
+                        <p className="text-sm font-bold text-slate-950">{request.title || request.request_type || "Approval Request"}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">{request.requested_by || "Employee"}</p>
                       </div>
-
-                      <StatusBadge status={request.status || "PENDING"} />
+                      <StatusBadge status={request.status || "Pending"} />
                     </div>
-
-                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <button
-                        onClick={() => rejectMobileApproval(request)}
-                        disabled={actionLoadingId === request.id}
-                        className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => approveMobileApproval(request)}
-                        disabled={actionLoadingId === request.id}
-                        className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-white hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Approve
-                      </button>
+                    <p className="mt-3 text-sm font-medium leading-6 text-slate-600">{request.description || "No description provided."}</p>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <button onClick={() => approveMobileApproval(request)} disabled={actionLoadingId === request.id} className="h-10 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">Approve</button>
+                      <button onClick={() => rejectMobileApproval(request)} disabled={actionLoadingId === request.id} className="h-10 rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50">Reject</button>
                     </div>
                   </div>
-                );
-              })}
-
-              {managerApprovals.length === 0 && (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-500">
-                  No pending mobile approvals.
-                </div>
-              )}
-            </div>
-          </section>
+                ))}
+                {managerApprovals.length === 0 && <EmptyStateInline title="No pending approvals" helper="Assigned approval requests will appear here." />}
+              </div>
+            </PortalCard>
+          </div>
         )}
 
         {activeTab === "profile" && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="text-lg font-black">My Profile</h2>
+          <div className="space-y-4 px-5 pt-5">
+            <PortalCard label="Employee Details" title="Profile">
+              <div className="rounded-3xl border border-violet-100 bg-violet-50 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="grid h-16 w-16 place-items-center rounded-3xl bg-violet-600 text-2xl font-black text-white">{firstName.slice(0, 1).toUpperCase()}</div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xl font-black text-slate-950">{employeeName}</p>
+                    <p className="mt-1 truncate text-sm font-medium text-slate-600">{employeeDepartment}</p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">Employee #{employeeNumber}</p>
+                  </div>
+                </div>
+              </div>
+              <button onClick={logout} className="mt-4 h-11 w-full rounded-xl border border-red-200 bg-red-50 px-5 text-sm font-bold text-red-700 transition-all duration-200 hover:bg-red-100 active:scale-[0.98]">
+                Logout
+              </button>
+            </PortalCard>
+          </div>
+        )}
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Info label="Name" value={employeeName} />
-              <Info label="Employee No." value={employeeNumber} />
-              <Info label="Department" value={currentUser?.department || "-"} />
-              <Info label="Position" value={currentUser?.position || "-"} />
+        <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-3 pb-3 pt-2 shadow-2xl backdrop-blur sm:hidden">
+          <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+            {[
+              { key: "home", label: "Home", icon: "⌂" },
+              { key: "schedule", label: "Schedule", icon: "◷" },
+              { key: "attendance", label: "Attend", icon: "✓" },
+              { key: "payslip", label: "Payslip", icon: "▣" },
+              { key: "profile", label: "Profile", icon: "◎" },
+            ].map((item) => {
+              const active = activeTab === item.key;
+
+              return (
+                <button
+                  key={`bottom-${item.key}`}
+                  onClick={() => openTab(item.key as PortalTab)}
+                  className={`flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-semibold transition-all duration-200 ${
+                    active
+                      ? "bg-violet-600 text-white shadow-md shadow-violet-200"
+                      : "bg-white text-slate-500 hover:bg-violet-50 hover:text-violet-700"
+                  }`}
+                >
+                  <span className="text-lg leading-none">{item.icon}</span>
+                  <span className="mt-1 max-w-full truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {cancelLeaveModal && (
+          <ModalShell title="Request Leave Cancellation">
+            <p className="text-sm font-medium leading-6 text-slate-600">
+              Submit a cancellation request for {cancelLeaveModal.leave_type} from {formatDate(cancelLeaveModal.start_date)} to {formatDate(cancelLeaveModal.end_date)}.
+            </p>
+            <textarea value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} placeholder="Reason for cancellation" className="mt-4 min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" />
+            <div className="mt-5 flex justify-end gap-3">
+              <button onClick={() => setCancelLeaveModal(null)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Cancel</button>
+              <button onClick={submitLeaveCancellationRequest} disabled={loading} className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:opacity-50">Submit</button>
             </div>
+          </ModalShell>
+        )}
 
-            <button
-              onClick={logout}
-              className="mt-5 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm font-black text-red-300 hover:bg-red-500/20"
-            >
-              Logout
-            </button>
-          </section>
+        {rejectApprovalModal && (
+          <ModalShell title="Reject Approval">
+            <p className="text-sm font-medium leading-6 text-slate-600">Provide a reason for rejecting this request.</p>
+            <textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Rejection reason" className="mt-4 min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" />
+            <div className="mt-5 flex justify-end gap-3">
+              <button onClick={() => setRejectApprovalModal(null)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Cancel</button>
+              <button onClick={submitMobileApprovalRejection} disabled={actionLoadingId === rejectApprovalModal.id} className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:opacity-50">Reject</button>
+            </div>
+          </ModalShell>
+        )}
+
+        {activePayslip && (
+          <ModalShell title="Payslip Details">
+            <div className="space-y-3">
+              <InfoRow label="Period" value={getPayslipPeriodLabel(activePayslip)} />
+              <InfoRow label="Gross Pay" value={formatMoney(getPayslipGross(activePayslip))} />
+              <InfoRow label="Deductions" value={formatMoney(getPayslipDeductions(activePayslip))} />
+              <InfoRow label="Net Pay" value={formatMoney(getPayslipNet(activePayslip))} highlight />
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button onClick={() => setActivePayslip(null)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Close</button>
+              <button onClick={() => downloadPayslipPDF(activePayslip)} className="h-11 rounded-xl bg-violet-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-700 active:scale-[0.98]">Print</button>
+            </div>
+          </ModalShell>
         )}
       </section>
-
-      {cancelLeaveModal && (
-        <CancelLeaveModal
-          leave={cancelLeaveModal}
-          reason={cancellationReason}
-          setReason={setCancellationReason}
-          formatDate={formatDate}
-          loading={loading}
-          onClose={() => {
-            setCancelLeaveModal(null);
-            setCancellationReason("");
-          }}
-          onSubmit={submitLeaveCancellationRequest}
-        />
-      )}
-
-      {rejectApprovalModal && (
-        <RejectApprovalModal
-          request={rejectApprovalModal}
-          reason={rejectionReason}
-          setReason={setRejectionReason}
-          formatDate={formatDate}
-          loading={actionLoadingId === (rejectApprovalModal.id as string | number)}
-          onClose={() => {
-            setRejectApprovalModal(null);
-            setRejectionReason("");
-          }}
-          onSubmit={submitMobileApprovalRejection}
-        />
-      )}
-
-      {activePayslip && (
-        <PortalPayslipModal
-          payslip={activePayslip}
-          employeeName={employeeName}
-          employeeNumber={employeeNumber}
-          employeeDepartment={employeeDepartment}
-          formatMoney={formatMoney}
-          formatDate={formatDate}
-          getPayslipPeriodLabel={getPayslipPeriodLabel}
-          getPayslipGross={getPayslipGross}
-          getPayslipDeductions={getPayslipDeductions}
-          getPayslipNet={getPayslipNet}
-          onDownload={() => downloadPayslipPDF(activePayslip)}
-          onClose={() => setActivePayslip(null)}
-        />
-      )}
     </main>
   );
 }
 
-
-function CancelLeaveModal({
-  leave,
-  reason,
-  setReason,
-  formatDate,
-  loading,
-  onClose,
-  onSubmit,
-}: any) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <section className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
-        <div className="border-b border-slate-800 pb-4">
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-red-300">
-            Cancel Approved Leave
-          </p>
-          <h2 className="mt-2 text-2xl font-black">{leave.leave_type}</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            {formatDate(leave.start_date)} - {formatDate(leave.end_date)} •{" "}
-            {leave.days || leave.total_days || 0} day(s)
-          </p>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <p className="text-xs uppercase tracking-widest text-slate-500">Original Reason</p>
-          <p className="mt-1 text-sm text-slate-200">{leave.reason || "-"}</p>
-        </div>
-
-        <label className="mt-4 block text-sm font-bold text-slate-300">
-          Reason for cancellation
-        </label>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Example: Schedule conflict, emergency, no longer needed..."
-          className="mt-2 min-h-32 w-full rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm outline-none focus:border-red-400"
-        />
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-2xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 hover:bg-slate-900 disabled:opacity-40"
-          >
-            Close
-          </button>
-          <button
-            onClick={onSubmit}
-            disabled={loading}
-            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-white hover:bg-red-300 disabled:opacity-40"
-          >
-            Submit Request
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-
-function RejectApprovalModal({
-  request,
-  reason,
-  setReason,
-  formatDate,
-  loading,
-  onClose,
-  onSubmit,
-}: any) {
-  const payload = request.request_payload || {};
-  const requestType = String(request.request_type || "Approval").replaceAll("_", " ");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <section className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
-        <div className="border-b border-slate-800 pb-4">
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-red-300">
-            Reject Approval Request
-          </p>
-          <h2 className="mt-2 text-2xl font-black">{requestType}</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            {payload.employee_name || request.title || "Pending Approval"}
-          </p>
-          {(payload.start_date || payload.end_date) && (
-            <p className="mt-1 text-sm text-slate-500">
-              {formatDate(payload.start_date)} - {formatDate(payload.end_date)} •{" "}
-              {payload.days || payload.total_days || 0} day(s)
-            </p>
-          )}
-        </div>
-
-        <div className="mt-3 space-y-2">
-          {payload.reason && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-widest text-slate-500">Original Reason</p>
-              <p className="mt-1 text-sm text-slate-200">{payload.reason}</p>
-            </div>
-          )}
-
-          {payload.cancellation_reason && (
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-              <p className="text-xs uppercase tracking-widest text-red-300">Cancellation Reason</p>
-              <p className="mt-1 text-sm text-red-100">{payload.cancellation_reason}</p>
-            </div>
-          )}
-        </div>
-
-        <label className="mt-4 block text-sm font-bold text-slate-300">
-          Reason for rejection
-        </label>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Explain why this request is rejected..."
-          className="mt-2 min-h-32 w-full rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm outline-none focus:border-red-400"
-        />
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-2xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 hover:bg-slate-900 disabled:opacity-40"
-          >
-            Close
-          </button>
-          <button
-            onClick={onSubmit}
-            disabled={loading}
-            className="rounded-2xl bg-red-400 px-5 py-3 text-sm font-black text-white hover:bg-red-300 disabled:opacity-40"
-          >
-            Reject Request
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function PortalPayslipModal({
-  payslip,
-  employeeName,
-  employeeNumber,
-  employeeDepartment,
-  formatMoney,
-  formatDate,
-  getPayslipPeriodLabel,
-  getPayslipGross,
-  getPayslipDeductions,
-  getPayslipNet,
-  onDownload,
-  onClose,
-}: any) {
-  const gross = getPayslipGross(payslip);
-  const deductions = getPayslipDeductions(payslip);
-  const net = getPayslipNet(payslip);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/70 p-4 backdrop-blur-sm">
-      <section className="w-full max-w-3xl rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl">
-        <div className="flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-300">OPSCORE Payslip</p>
-            <h2 className="mt-2 text-2xl font-black">{getPayslipPeriodLabel(payslip)}</h2>
-            <p className="mt-1 text-sm text-slate-400">Review your payroll summary before printing or saving as PDF.</p>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 hover:bg-slate-800"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">Net Pay</p>
-          <h3 className="mt-2 text-3xl font-black text-emerald-300">{formatMoney(net)}</h3>
-          <p className="mt-1 text-sm text-emerald-100/80">Amount payable after approved deductions.</p>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Info label="Employee" value={employeeName} />
-          <Info label="Employee No." value={employeeNumber} />
-          <Info label="Department" value={employeeDepartment} />
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h3 className="font-black text-emerald-300">Earnings</h3>
-            <div className="mt-3 space-y-2 text-sm">
-              <LineItem label="Basic Pay" value={formatMoney(payslip.basic_pay || 0)} />
-              <LineItem label="OT Pay" value={formatMoney(payslip.ot_pay || 0)} />
-              <LineItem label="Allowances / Incentives" value={formatMoney(Number(payslip.allowances || 0) + Number(payslip.incentives || 0))} />
-              <LineItem label="Gross Pay" value={formatMoney(gross)} strong />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h3 className="font-black text-red-300">Deductions</h3>
-            <div className="mt-3 space-y-2 text-sm">
-              <LineItem label="Late Deduction" value={formatMoney(payslip.late_deduction || 0)} />
-              <LineItem label="Undertime Deduction" value={formatMoney(payslip.undertime_deduction || 0)} />
-              <LineItem label="Absent Deduction" value={formatMoney(payslip.absence_deduction || 0)} />
-              <LineItem label="Cash Advance / Other" value={formatMoney(Number(payslip.cash_advance || 0) + Number(payslip.other_deductions || 0))} />
-              <LineItem label="Total Deductions" value={formatMoney(deductions)} strong />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Info label="Gross Pay" value={formatMoney(gross)} />
-          <Info label="Deductions" value={formatMoney(deductions)} />
-          <Info label="Issued" value={payslip.created_at ? formatDate(String(payslip.created_at).slice(0, 10)) : "-"} />
-        </div>
-
-        <button
-          onClick={onDownload}
-          className="mt-5 w-full rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white hover:bg-blue-500"
-        >
-          Download / Print PDF
-        </button>
-      </section>
-    </div>
-  );
-}
-
-function LineItem({ label, value, strong }: { label: string; value: any; strong?: boolean }) {
-  return (
-    <div className={`flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 ${strong ? "font-black text-white" : "text-slate-300"}`}>
-      <span>{label}</span>
-      <span>{value}</span>
-    </div>
-  );
-}
-
-function TodayScheduleCard({
-  schedule,
-  formatTime,
-  onScheduleClick,
-}: {
-  schedule: any;
-  formatTime: (time?: string | null) => string;
-  onScheduleClick: () => void;
-}) {
-  const hasSchedule = Boolean(schedule?.scheduled_shift);
-
-  return (
-    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-300/80">
-            Today&apos;s Schedule
-          </p>
-          <h2 className="mt-2 text-2xl font-black text-white">
-            {schedule?.scheduled_shift || "No schedule"}
-          </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            {hasSchedule
-              ? `${formatTime(schedule?.scheduled_in)} - ${formatTime(schedule?.scheduled_out)}`
-              : "No published shift found for today."}
-          </p>
-        </div>
-
-        <button
-          onClick={onScheduleClick}
-          className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm font-black text-blue-200 hover:bg-blue-500/20"
-        >
-          Weekly Schedule
-        </button>
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <Info label="Shift" value={schedule?.scheduled_shift || "OFF"} />
-        <Info
-          label="Time"
-          value={`${formatTime(schedule?.scheduled_in)} - ${formatTime(schedule?.scheduled_out)}`}
-        />
-      </div>
-    </section>
-  );
-}
-
-function Info({ label, value }: { label: string; value: any }) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-1 break-words text-base font-black text-slate-100">{value}</p>
-    </div>
-  );
-}
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = String(status || "").toLowerCase();
@@ -3106,19 +2421,19 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "released"
       ? "bg-emerald-500/10 text-emerald-400"
       : normalized === "pending" || normalized === "draft"
-      ? "bg-blue-500/10 text-slate-300"
+      ? "bg-blue-50 text-slate-700"
       : normalized === "late"
-      ? "bg-red-500/10 text-red-300"
+      ? "bg-red-500/10 text-red-700"
       : normalized === "undertime" ||
         normalized === "absent" ||
         normalized === "rejected" ||
         normalized === "urgent"
       ? "bg-red-500/10 text-red-400"
       : normalized === "cancelled"
-      ? "bg-slate-500/10 text-slate-300"
+      ? "bg-slate-500/10 text-slate-700"
       : normalized === "active"
-      ? "bg-blue-500/10 text-slate-300"
-      : "bg-slate-700 text-slate-300";
+      ? "bg-blue-50 text-slate-700"
+      : "bg-slate-700 text-slate-700";
 
   return (
     <span className={`inline-flex rounded-full border border-white/10 px-3 py-1 text-xs font-black ${style}`}>
@@ -3126,3 +2441,148 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+
+function MobileSectionHeader({
+  title,
+  action,
+  onClick,
+}: {
+  title: string;
+  action?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <h3 className="text-[24px] font-bold tracking-tight text-slate-950">{title}</h3>
+      {action && (
+        <button onClick={onClick} className="text-sm font-bold text-violet-700">
+          {action}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MobileActionCard({
+  label,
+  icon,
+  tone,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  tone: "violet" | "emerald" | "blue" | "amber";
+  onClick: () => void;
+}) {
+  const toneClass =
+    tone === "violet"
+      ? "border-violet-200 bg-violet-50 text-violet-700 shadow-violet-100"
+      : tone === "emerald"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-emerald-100"
+      : tone === "blue"
+      ? "border-blue-200 bg-blue-50 text-blue-700 shadow-blue-100"
+      : "border-amber-200 bg-amber-50 text-amber-700 shadow-amber-100";
+
+  const iconClass =
+    tone === "violet"
+      ? "bg-violet-600 shadow-violet-200"
+      : tone === "emerald"
+      ? "bg-emerald-500 shadow-emerald-200"
+      : tone === "blue"
+      ? "bg-blue-500 shadow-blue-200"
+      : "bg-amber-500 shadow-amber-200";
+
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-3xl border p-3 text-center shadow-sm transition-all duration-200 active:scale-[0.98] ${toneClass}`}
+    >
+      <span className={`mx-auto grid h-10 w-10 place-items-center rounded-2xl text-lg font-black text-white shadow-lg ${iconClass}`}>
+        {icon}
+      </span>
+      <span className="mt-2 block text-[13px] font-bold leading-tight text-slate-700">{label}</span>
+    </button>
+  );
+}
+
+function LeaveCreditMiniCard({
+  index,
+  title,
+  value,
+}: {
+  index: number;
+  title: string;
+  value: number;
+}) {
+  const toneClass =
+    index === 0
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : index === 1
+      ? "border-blue-200 bg-blue-50 text-blue-700"
+      : "border-amber-200 bg-amber-50 text-amber-700";
+  const icon = index === 0 ? "☘" : index === 1 ? "♥" : "⚡";
+
+  return (
+    <div className={`rounded-3xl border p-3 shadow-sm ${toneClass}`}>
+      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-xl shadow-sm">{icon}</div>
+      <p className="mt-3 text-[12px] font-semibold leading-tight text-slate-600 line-clamp-2">{title}</p>
+      <p className="mt-1 text-[36px] font-black leading-none text-slate-950">{value}</p>
+      <p className="text-[11px] font-medium text-slate-500">Days Left</p>
+    </div>
+  );
+}
+
+function PortalCard({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950">{title}</h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function MiniMetric({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-medium text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+function EmptyStateInline({ title, helper }: { title: string; helper: string }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+      <p className="text-sm font-bold text-slate-800">{title}</p>
+      <p className="mt-1 text-sm font-medium text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+function FormLabel({ label }: { label: string }) {
+  return (
+    <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+      {label}
+    </label>
+  );
+}
+

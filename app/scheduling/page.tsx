@@ -14,6 +14,8 @@ import {
   Users,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
+import OpscoreAssistant from "@/components/OpscoreAssistant";
 import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
 
@@ -1148,28 +1150,22 @@ export default function SchedulingPage() {
   };
 
   const getShiftColorClass = (shiftName: string) => {
-    const shift = shifts.find((item) => item.shift_name === shiftName);
-    const color = normalizeColor(shift?.color);
+    if (shiftName === "OFF" || shiftName === "RD") {
+      return "border-slate-200 bg-slate-100 text-slate-700";
+    }
 
-    if (color === "blue") return "border-blue-500/40 bg-blue-500/15 text-blue-300";
-    if (color === "sky") return "border-sky-500/40 bg-sky-500/15 text-sky-300";
-    if (color === "cyan") return "border-cyan-500/40 bg-cyan-500/15 text-cyan-300";
-    if (color === "teal") return "border-teal-500/40 bg-teal-500/15 text-teal-300";
-    if (color === "green") return "border-green-500/40 bg-green-500/15 text-green-300";
-    if (color === "emerald") return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
-    if (color === "lime") return "border-lime-500/40 bg-lime-500/15 text-lime-300";
-    if (color === "yellow") return "border-yellow-500/40 bg-yellow-500/15 text-yellow-300";
-    if (color === "amber") return "border-amber-500/40 bg-amber-500/15 text-amber-300";
-    if (color === "orange") return "border-orange-500/40 bg-orange-500/15 text-orange-300";
-    if (color === "red") return "border-red-500/40 bg-red-500/15 text-red-300";
-    if (color === "rose") return "border-rose-500/40 bg-rose-500/15 text-rose-300";
-    if (color === "pink") return "border-pink-500/40 bg-pink-500/15 text-pink-300";
-    if (color === "purple") return "border-purple-500/40 bg-purple-500/15 text-purple-300";
-    if (color === "violet") return "border-violet-500/40 bg-violet-500/15 text-violet-300";
-    if (color === "indigo") return "border-indigo-500/40 bg-indigo-500/15 text-indigo-300";
-    if (color === "slate" || color === "gray") return "border-slate-500/40 bg-slate-500/15 text-slate-300";
+    if (shiftName === UNSCHEDULED_SHIFT) {
+      return "border-red-200 bg-red-50 text-red-700";
+    }
 
-    return "border-slate-700 bg-slate-800 text-slate-400";
+    const normalized = normalizeShiftName(shiftName);
+
+    if (normalized === "AM Shift") return "border-amber-200 bg-amber-50 text-amber-700";
+    if (normalized === "PM Shift") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (normalized === "Mid Shift") return "border-blue-200 bg-blue-50 text-blue-700";
+    if (normalized === "GY Shift") return "border-slate-200 bg-slate-100 text-slate-700";
+
+    return "border-blue-200 bg-blue-50 text-blue-700";
   };
 
   const getShortShiftLabel = (shiftName: string) => {
@@ -1320,72 +1316,91 @@ export default function SchedulingPage() {
     ? "w-full min-w-[1180px]"
     : "w-max";
 
+  const opscoreReminders = [
+    ...(publishedSchedule
+      ? [{ tone: "warning", text: "Schedule is published and editing is locked." }]
+      : [{ tone: "info", text: "Schedule is editable. Publish when final." }]),
+    ...(unscheduledCells > 0
+      ? [{ tone: "danger", text: `${unscheduledCells} schedule cell(s) still need assignment.` }]
+      : []),
+    ...(understaffedDays > 0
+      ? [{ tone: "warning", text: `${understaffedDays} day(s) are below required headcount.` }]
+      : []),
+    ...(importIssueCount > 0
+      ? [{ tone: "warning", text: `${importIssueCount} import row(s) need review before confirming.` }]
+      : []),
+    ...(leaveCells > 0
+      ? [{ tone: "info", text: `${leaveCells} approved leave cell(s) visible in this period.` }]
+      : []),
+  ].slice(0, 5);
+
   /// UI
   return (
-    <div className="flex min-h-screen bg-[#07111f] text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
+      <TopNavbar breadcrumb="OPERATIONS / SCHEDULING" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <section className="mb-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-                  Scheduling Workbench
-                </h1>
-
-                <span
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black ${
-                    publishedSchedule
-                      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-                      : "border-blue-500/30 bg-blue-500/10 text-blue-300"
-                  }`}
-                >
-                  {publishedSchedule ? <Lock size={14} /> : <Unlock size={14} />}
-                  {publishedSchedule
-                    ? "Published / Locked"
-                    : saveStatus === "saving"
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+        <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              OPERATIONS
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-black tracking-tight text-slate-950">
+                Scheduling Workbench
+              </h1>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${
+                  publishedSchedule
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-blue-200 bg-blue-50 text-blue-700"
+                }`}
+              >
+                {publishedSchedule ? <Lock size={14} /> : <Unlock size={14} />}
+                {publishedSchedule
+                  ? "Published / Locked"
+                  : saveStatus === "saving"
                     ? "Saving"
                     : saveStatus === "saved"
-                    ? "Saved"
-                    : "Editable"}
-                </span>
-              </div>
-
-              <p className="mt-2 text-sm text-slate-400">
-                Build schedules, assign shifts, import Excel files, validate coverage, and publish final locked schedules.
-              </p>
+                      ? "Saved"
+                      : "Editable"}
+              </span>
             </div>
+            <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+              Build schedules, assign shifts, import Excel files, validate coverage, and publish final locked schedules.
+            </p>
+          </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => moveDate("prev")}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black hover:bg-slate-800"
+                className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
                 ‹
               </button>
 
               <button
                 onClick={goToToday}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold hover:bg-slate-800"
+                className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
                 Today
               </button>
 
               <button
                 onClick={() => moveDate("next")}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black hover:bg-slate-800"
+                className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
                 ›
               </button>
 
-              <div className="flex rounded-xl border border-slate-700 bg-slate-950 p-1">
+              <div className="flex h-11 rounded-xl border border-slate-300 bg-white p-1">
                 <button
                   onClick={() => setViewMode("weekly")}
                   className={
                     viewMode === "weekly"
-                      ? "rounded-lg bg-blue-600 px-4 py-2 text-xs font-black text-white"
-                      : "rounded-lg px-4 py-2 text-xs font-bold text-slate-400 hover:bg-slate-800"
+                      ? "rounded-lg bg-slate-950 px-4 py-2 text-xs font-black text-white"
+                      : "rounded-lg px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
                   }
                 >
                   Weekly
@@ -1395,31 +1410,30 @@ export default function SchedulingPage() {
                   onClick={() => setViewMode("monthly")}
                   className={
                     viewMode === "monthly"
-                      ? "rounded-lg bg-blue-600 px-4 py-2 text-xs font-black text-white"
-                      : "rounded-lg px-4 py-2 text-xs font-bold text-slate-400 hover:bg-slate-800"
+                      ? "rounded-lg bg-slate-950 px-4 py-2 text-xs font-black text-white"
+                      : "rounded-lg px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
                   }
                 >
                   Yearly
                 </button>
               </div>
             </div>
-          </div>
         </section>
 
-        <section className="sticky top-0 z-40 mb-4 rounded-2xl border border-slate-800 bg-slate-950/95 p-4 shadow-xl shadow-black/20 backdrop-blur">
+        <section className="sticky top-16 z-40 mb-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[150px_220px_minmax(180px,1fr)_auto] xl:items-center">
             <input
               type="number"
               value={roomsSold}
               onChange={(e) => setRoomsSold(Number(e.target.value || 0))}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none"
+              className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               placeholder="Rooms sold"
             />
 
             <select
               value={selectedDepartment}
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none"
+              className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
             >
               <option value="ALL">All Departments</option>
               {departments.map((department) => (
@@ -1435,7 +1449,7 @@ export default function SchedulingPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search staff name, employee no, or position..."
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-9 py-2.5 text-sm outline-none"
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-9 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               />
             </div>
 
@@ -1443,7 +1457,7 @@ export default function SchedulingPage() {
               <button
                 onClick={() => scheduleFileRef.current?.click()}
                 disabled={!!publishedSchedule}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-black text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FileSpreadsheet size={15} />
                 Import
@@ -1464,7 +1478,7 @@ export default function SchedulingPage() {
               <button
                 onClick={copyLastWeekSchedule}
                 disabled={copyingSchedule || viewMode !== "weekly" || !!publishedSchedule}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-black text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Copy size={15} />
                 {copyingSchedule ? "Copying" : "Copy Week"}
@@ -1473,7 +1487,7 @@ export default function SchedulingPage() {
               {publishedSchedule ? (
                 <button
                   onClick={unpublishSchedule}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-black text-white hover:bg-red-500"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
                 >
                   <Unlock size={15} />
                   Unpublish
@@ -1482,7 +1496,7 @@ export default function SchedulingPage() {
                 <button
                   onClick={publishSchedule}
                   disabled={viewMode !== "weekly"}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Lock size={15} />
                   Publish
@@ -1491,18 +1505,18 @@ export default function SchedulingPage() {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <span className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1">
               {selectedDepartment === "ALL" ? "All Departments" : selectedDepartment}
             </span>
-            <span className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1">
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1">
               {getDateRangeLabel()}
             </span>
-            <span className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1">
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1">
               {filteredEmployees.length} visible staff
             </span>
             {publishedSchedule && (
-              <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-yellow-300">
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
                 Editing locked
               </span>
             )}
@@ -1538,25 +1552,25 @@ export default function SchedulingPage() {
         </section>
 
         {unscheduledRows.length > 0 && (
-          <section className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <section className="mb-4 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 text-red-300" size={18} />
+                <AlertTriangle className="mt-0.5 text-red-700" size={18} />
                 <div>
-                  <p className="text-sm font-black text-red-200">
+                  <p className="text-sm font-black text-red-700">
                     {unscheduledRows.length} missing schedule cell(s) across {unscheduledEmployees} employee(s).
                   </p>
-                  <p className="mt-1 text-xs text-red-100/70">
+                  <p className="mt-1 text-xs text-red-600">
                     OFF and RD are valid rest-day statuses. Blank rows need review.
                   </p>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-red-500/20 px-3 py-1 font-black text-red-200">
+                <span className="rounded-full bg-red-500/20 px-3 py-1 font-black text-red-700">
                   Understaffed: {understaffedDays}
                 </span>
-                <span className="rounded-full bg-slate-950/60 px-3 py-1 font-black text-slate-300">
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 font-bold text-slate-700">
                   Overstaffed: {overstaffedDays}
                 </span>
               </div>
@@ -1565,17 +1579,17 @@ export default function SchedulingPage() {
         )}
 
         {scheduleImportStatus && (
-          <section className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-sm text-blue-300">
+          <section className="mb-4 rounded-3xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm font-semibold text-blue-700 shadow-sm">
             {scheduleImportStatus}
           </section>
         )}
 
         {scheduleImportPreview.length > 0 && (
-          <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h2 className="text-lg font-black">Import Preview</h2>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-sm text-slate-500">
                   Rows: {scheduleImportPreview.length} • Ready: {importReadyCount} • Issues: {importIssueCount}
                 </p>
               </div>
@@ -1583,7 +1597,7 @@ export default function SchedulingPage() {
               <div className="flex gap-2">
                 <button
                   onClick={clearScheduleImportPreview}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:bg-slate-800"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                 >
                   Clear
                 </button>
@@ -1591,16 +1605,16 @@ export default function SchedulingPage() {
                 <button
                   onClick={confirmScheduleImport}
                   disabled={importingSchedule || !!publishedSchedule}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {importingSchedule ? "Importing" : "Confirm Import"}
                 </button>
               </div>
             </div>
 
-            <div className="max-h-[300px] overflow-auto rounded-xl border border-slate-800">
+            <div className="max-h-[300px] overflow-auto rounded-2xl border border-slate-200">
               <table className="w-full min-w-[1100px] text-sm">
-                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-500">
                   <tr>
                     <th className="px-4 py-3">Employee No</th>
                     <th className="px-4 py-3">Excel Name</th>
@@ -1614,10 +1628,10 @@ export default function SchedulingPage() {
 
                 <tbody>
                   {scheduleImportPreview.map((row, index) => (
-                    <tr key={index} className="border-t border-slate-800">
+                    <tr key={index} className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50">
                       <td className="px-4 py-3">{row.employee_no || "-"}</td>
                       <td className="px-4 py-3 font-bold">{row.excel_name || "-"}</td>
-                      <td className="px-4 py-3 font-bold text-slate-200">
+                      <td className="px-4 py-3 font-bold text-slate-950">
                         {row.matched_employee_name || "-"}
                       </td>
                       <td className="px-4 py-3">{row.day || "-"}</td>
@@ -1626,8 +1640,8 @@ export default function SchedulingPage() {
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-black ${
                             row.matched
-                              ? "bg-blue-500/10 text-blue-300"
-                              : "bg-red-500/10 text-red-300"
+                              ? "border border-blue-200 bg-blue-50 text-blue-700"
+                              : "border border-red-200 bg-red-50 text-red-700"
                           }`}
                         >
                           {row.matched ? "Ready" : "Issue"}
@@ -1642,41 +1656,41 @@ export default function SchedulingPage() {
           </section>
         )}
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-black">Schedule Board</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <h2 className="text-xl font-black text-slate-950">Schedule Board</h2>
+              <p className="mt-1 text-sm text-slate-500">
                 {publishedSchedule ? "Published schedule is locked." : "Editable schedule grid."}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300">
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
                 Working: {workingCells}
               </span>
-              <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300">
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
                 Leave: {leaveCells}
               </span>
-              <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300">
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
                 Rest/OFF: {restDayCells}
               </span>
               {publishedSchedule && (
-                <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-black text-yellow-300">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
                   Locked
                 </span>
               )}
             </div>
           </div>
 
-          <div className="max-w-full overflow-hidden rounded-2xl border border-slate-800">
+          <div className="max-w-full overflow-hidden rounded-2xl border border-slate-200">
             <div className="w-full overflow-x-auto overflow-y-auto">
               <div className={viewMode === "weekly" ? "min-w-[1180px]" : "w-max"}>
                 <div
-                  className="grid bg-slate-950 text-sm font-black text-slate-300"
+                  className="grid bg-slate-50 text-sm font-black text-slate-700"
                   style={{ gridTemplateColumns: tableGridColumns }}
                 >
-                  <div className="sticky left-0 z-30 border-r border-slate-800 bg-slate-950 px-4 py-4">
+                  <div className="sticky left-0 z-30 border-r border-slate-200 bg-slate-50 px-4 py-4">
                     Staff Name
                   </div>
 
@@ -1687,12 +1701,12 @@ export default function SchedulingPage() {
                       <div
                         key={day.key}
                         ref={isToday ? todayColumnRef : null}
-                        className={`border-r border-slate-800 px-4 py-4 text-center last:border-r-0 ${
-                          isToday ? "bg-blue-500/10 text-blue-300" : ""
+                        className={`border-r border-slate-200 px-4 py-4 text-center last:border-r-0 ${
+                          isToday ? "border border-blue-200 bg-blue-50 text-blue-700" : ""
                         }`}
                       >
                         <div>{day.dayName}</div>
-                        <div className="mt-1 text-xs font-normal text-slate-400">
+                        <div className="mt-1 text-xs font-normal text-slate-500">
                           {day.dateLabel}
                         </div>
                       </div>
@@ -1703,10 +1717,10 @@ export default function SchedulingPage() {
                 {filteredEmployees.map((employee) => (
                   <div
                     key={employee.id}
-                    className="grid border-t border-slate-800 text-sm hover:bg-slate-800/40"
+                    className="grid border-t border-slate-100 text-sm transition-all duration-200 hover:bg-slate-50"
                     style={{ gridTemplateColumns: tableGridColumns }}
                   >
-                    <div className="sticky left-0 z-20 border-r border-slate-800 bg-slate-900 px-4 py-3">
+                    <div className="sticky left-0 z-20 border-r border-slate-200 bg-white px-4 py-3">
                       <p className="font-black">
                         {employee.first_name} {employee.last_name}
                       </p>
@@ -1724,12 +1738,12 @@ export default function SchedulingPage() {
                       return (
                         <div
                           key={`${employee.id}-${day.key}`}
-                          className="border-r border-slate-800 px-2 py-2 last:border-r-0"
+                          className="border-r border-slate-100 px-2 py-2 last:border-r-0"
                         >
                           {onLeave ? (
-                            <div className="rounded-xl border border-red-500/40 bg-red-500/15 px-2 py-2 text-center text-xs font-black text-red-300">
+                            <div className="rounded-xl border border-red-500/40 bg-red-500/15 px-2 py-2 text-center text-xs font-black text-red-700">
                               LEAVE
-                              <div className="mt-1 text-[10px] font-normal text-red-200">
+                              <div className="mt-1 text-[10px] font-normal text-red-700">
                                 {getLeaveType(employee, day.key)}
                               </div>
                             </div>
@@ -1749,7 +1763,7 @@ export default function SchedulingPage() {
                                   <option
                                     key={shift.shift_name}
                                     value={shift.shift_name}
-                                    className="bg-slate-900 text-white"
+                                    className="bg-white text-slate-900"
                                   >
                                     {getShortShiftLabel(shift.shift_name)}
                                   </option>
@@ -1765,19 +1779,19 @@ export default function SchedulingPage() {
                               </select>
 
                               {currentShift === UNSCHEDULED_SHIFT && (
-                                <p className="text-center text-[10px] font-bold text-red-300">
+                                <p className="text-center text-[10px] font-bold text-red-700">
                                   Unscheduled
                                 </p>
                               )}
 
                               {currentShift === "OFF" && (
-                                <p className="text-center text-[10px] font-bold text-slate-400">
+                                <p className="text-center text-[10px] font-bold text-slate-500">
                                   OFF / Rest day
                                 </p>
                               )}
 
                               {currentShift === "RD" && (
-                                <p className="text-center text-[10px] font-bold text-slate-400">
+                                <p className="text-center text-[10px] font-bold text-slate-500">
                                   Rest day
                                 </p>
                               )}
@@ -1828,19 +1842,19 @@ export default function SchedulingPage() {
         </section>
 
         {unscheduledRows.length > 0 && (
-          <section className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <section className="mt-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-black">Unscheduled Review</h2>
-                <p className="mt-1 text-sm text-slate-400">
+                <h2 className="text-xl font-black text-slate-950">Unscheduled Review</h2>
+                <p className="mt-1 text-sm text-slate-500">
                   First 80 blank schedule cells that need assignment or intentional OFF/RD.
                 </p>
               </div>
             </div>
 
-            <div className="max-h-56 overflow-auto rounded-xl border border-slate-800">
+            <div className="max-h-56 overflow-auto rounded-2xl border border-slate-200">
               <table className="w-full min-w-[760px] text-sm">
-                <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                <thead className="sticky top-0 bg-slate-950 text-left text-slate-500">
                   <tr>
                     <th className="px-4 py-3">Employee</th>
                     <th className="px-4 py-3">Department</th>
@@ -1851,7 +1865,7 @@ export default function SchedulingPage() {
 
                 <tbody>
                   {unscheduledRows.slice(0, 80).map((row) => (
-                    <tr key={row.key} className="border-t border-slate-800">
+                    <tr key={row.key} className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50">
                       <td className="px-4 py-3">
                         <p className="font-black">
                           {row.employee.first_name} {row.employee.last_name}
@@ -1863,7 +1877,7 @@ export default function SchedulingPage() {
                       <td className="px-4 py-3">{row.employee.department || "-"}</td>
                       <td className="px-4 py-3 font-bold">{row.day.key}</td>
                       <td className="px-4 py-3">
-                        <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-black text-red-300">
+                        <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
                           Missing Schedule Row
                         </span>
                       </td>
@@ -1875,6 +1889,7 @@ export default function SchedulingPage() {
           </section>
         )}
       </main>
+      <OpscoreAssistant reminders={opscoreReminders} />
     </div>
   );
 }
@@ -1895,26 +1910,38 @@ function KpiCard({
   danger?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-          ? "border-green-500/20 bg-green-500/10"
-          : "border-slate-800 bg-slate-900"
-      }`}
-    >
-      <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
           {icon}
         </div>
-
-        <p className="text-sm text-slate-400">{title}</p>
+        <span
+          className={[
+            "rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em]",
+            danger
+              ? "border-red-200 bg-red-50 text-red-700"
+              : success
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 bg-slate-100 text-slate-700",
+          ].join(" ")}
+        >
+          {danger ? "Review" : success ? "Good" : "Neutral"}
+        </span>
       </div>
 
-      <h2 className="text-2xl font-bold">{value}</h2>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <h2
+        className={[
+          "mt-2 text-3xl font-black tracking-tight",
+          danger ? "text-red-700" : "text-slate-950",
+        ].join(" ")}
+      >
+        {value}
+      </h2>
 
-      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+      {subtitle && <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>}
     </div>
   );
 }
@@ -1922,17 +1949,17 @@ function KpiCard({
 function SummaryRow({ label, values, tableGridColumns, color }: any) {
   return (
     <div
-      className="grid border-t border-slate-700 bg-slate-950/80 text-sm font-black"
+      className="grid border-t border-slate-100 bg-slate-50 text-sm font-black"
       style={{ gridTemplateColumns: tableGridColumns }}
     >
-      <div className="sticky left-0 z-20 border-r border-slate-700 bg-slate-950 px-4 py-4">
+      <div className="sticky left-0 z-20 border-r border-slate-200 bg-slate-50 px-4 py-4 text-slate-700">
         {label}
       </div>
 
       {values.map((value: any, index: number) => (
         <div
           key={`${label}-${index}`}
-          className={`border-r border-slate-700 px-4 py-4 text-center last:border-r-0 ${color}`}
+          className="border-r border-slate-200 px-4 py-4 text-center text-slate-700 last:border-r-0"
         >
           {value}
         </div>

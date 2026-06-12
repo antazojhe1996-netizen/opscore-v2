@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import * as XLSX from "xlsx";
@@ -118,6 +119,7 @@ export default function EmployeesPage() {
   const [previewRows, setPreviewRows] = useState<any[]>([]);
   const [fileName, setFileName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false);
 
   /// STATES - PERMISSIONS
   const [permissions, setPermissions] = useState<any>(null);
@@ -422,6 +424,7 @@ export default function EmployeesPage() {
     });
 
     clearForm();
+    setShowEmployeeForm(false);
     getEmployees();
   };
 
@@ -472,6 +475,7 @@ export default function EmployeesPage() {
       employee.attendance_source_preference || "Biometrics",
     );
 
+    setShowEmployeeForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -979,20 +983,21 @@ export default function EmployeesPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
+      <TopNavbar breadcrumb="HR / EMPLOYEES" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 xl:p-8">
-        <div className="mx-auto w-full max-w-[1800px]">
-          <section className="mb-5 flex flex-col gap-4 border-b border-slate-800 pb-5 xl:flex-row xl:items-end xl:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+        <div className="w-full">
+          <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
-                HR Operations
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                HR
               </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                 Employee Records
               </h1>
-              <p className="mt-1 max-w-4xl text-sm text-slate-400">
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
                 Maintain employee master data, payroll profile, portal access,
                 attendance source, and 201 file readiness.
               </p>
@@ -1001,25 +1006,43 @@ export default function EmployeesPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={exportEmployees}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-800"
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
                 Export
               </button>
 
               {canModify && (
-                <a
-                  href="#employee-form"
-                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (showEmployeeForm) {
+                      clearForm();
+                      setShowEmployeeForm(false);
+                      return;
+                    }
+
+                    setShowEmployeeForm(true);
+                    window.setTimeout(() => {
+                      document
+                        .getElementById("employee-form")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 50);
+                  }}
+                  className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
                 >
-                  {editingEmployeeNo ? "Editing Employee" : "Add Employee"}
-                </a>
+                  {showEmployeeForm
+                    ? "Hide Form"
+                    : editingEmployeeNo
+                      ? "Editing Employee"
+                      : "Add Employee"}
+                </button>
               )}
             </div>
           </section>
 
           {!canModify && (
-            <section className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-              <p className="font-black text-amber-300">View-only access</p>
+            <section className="mb-5 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-700 shadow-sm">
+              <p className="font-black text-amber-700">View-only access</p>
               <p className="mt-1">
                 You can review employee records, but create, edit, import,
                 archive, and restore actions are locked for your role.
@@ -1027,7 +1050,7 @@ export default function EmployeesPage() {
             </section>
           )}
 
-          <section className="sticky top-0 z-30 mb-5 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 shadow-xl shadow-black/20 backdrop-blur">
+          <section className="mb-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(260px,1fr)_220px_180px]">
                 <div className="relative">
@@ -1039,14 +1062,14 @@ export default function EmployeesPage() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search employee, department, position..."
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-9 py-2.5 text-sm outline-none focus:border-blue-500"
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-9 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   />
                 </div>
 
                 <select
                   value={departmentFilter}
                   onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 >
                   <option value="ALL">All Departments</option>
                   {departments.map((dept) => (
@@ -1059,7 +1082,7 @@ export default function EmployeesPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 >
                   <option value="Active">Active</option>
                   <option value="Archived">Archived</option>
@@ -1084,14 +1107,14 @@ export default function EmployeesPage() {
             </div>
           </section>
 
-          <section className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_460px]">
-            <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900">
-              <div className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-center xl:justify-between">
+          <section className="space-y-5">
+            <div className="min-w-0 rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
                 <div>
-                  <h2 className="text-xl font-black text-white">
+                  <h2 className="text-xl font-black text-slate-950">
                     Employee Masterlist
                   </h2>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm font-medium text-slate-500">
                     {filteredEmployees.length} employee
                     {filteredEmployees.length === 1 ? "" : "s"} shown. Use
                     filters above to narrow records.
@@ -1101,13 +1124,13 @@ export default function EmployeesPage() {
                 <div className="flex flex-wrap gap-2 text-xs font-bold">
                   <button
                     onClick={() => setStatusFilter("Active")}
-                    className="rounded-lg border border-slate-700 px-3 py-2 text-slate-300 hover:bg-slate-800"
+                    className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                   >
                     Active
                   </button>
                   <button
                     onClick={() => setStatusFilter("Archived")}
-                    className="rounded-lg border border-slate-700 px-3 py-2 text-slate-300 hover:bg-slate-800"
+                    className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                   >
                     Archived
                   </button>
@@ -1117,16 +1140,16 @@ export default function EmployeesPage() {
                       setDepartmentFilter("ALL");
                       setSearchTerm("");
                     }}
-                    className="rounded-lg border border-slate-700 px-3 py-2 text-slate-300 hover:bg-slate-800"
+                    className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                   >
                     Clear
                   </button>
                 </div>
               </div>
 
-              <div className="max-h-[760px] overflow-auto">
-                <table className="w-full min-w-[1450px] text-sm">
-                  <thead className="sticky top-0 z-10 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-500">
+              <div className="overflow-auto">
+                <table className="w-full min-w-[1450px]">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                     <tr>
                       <th className="px-4 py-3">Employee</th>
                       <th className="px-4 py-3">Contact</th>
@@ -1154,42 +1177,42 @@ export default function EmployeesPage() {
                       return (
                         <tr
                           key={emp.id}
-                          className="border-t border-slate-800 hover:bg-slate-800/40"
+                          className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50"
                         >
                           <td className="px-4 py-3 align-top">
-                            <p className="font-black text-white">
+                            <p className="font-black text-slate-950">
                               {emp.first_name} {emp.last_name}
                             </p>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-sm font-medium text-slate-500">
                               {emp.employee_no || "No employee no"}
                             </p>
                           </td>
 
                           <td className="px-4 py-3 align-top">
-                            <p className={emp.email ? "text-slate-300" : "text-red-300"}>
+                            <p className={emp.email ? "text-slate-700" : "text-red-700"}>
                               {emp.email || "No email"}
                             </p>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-sm font-medium text-slate-500">
                               {emp.contact_number || "No contact"}
                             </p>
                           </td>
 
-                          <td className="px-4 py-3 align-top text-slate-300">
+                          <td className="px-4 py-3 align-top text-slate-700">
                             {emp.department || "-"}
                           </td>
-                          <td className="px-4 py-3 align-top text-slate-300">
+                          <td className="px-4 py-3 align-top text-slate-700">
                             {emp.position || "-"}
                           </td>
                           <td className="px-4 py-3 align-top">
                             <StatusBadge status={emp.employment_status} />
                           </td>
-                          <td className="px-4 py-3 align-top text-slate-300">
+                          <td className="px-4 py-3 align-top text-slate-700">
                             {emp.employment_type || "-"}
                           </td>
-                          <td className="px-4 py-3 align-top text-slate-300">
+                          <td className="px-4 py-3 align-top text-slate-700">
                             {emp.rate_type || "Daily"}
                           </td>
-                          <td className="px-4 py-3 align-top text-right font-bold text-white">
+                          <td className="px-4 py-3 align-top text-right font-bold text-slate-950">
                             {formatMoney(emp.basic_rate || emp.daily_rate)}
                           </td>
 
@@ -1197,8 +1220,8 @@ export default function EmployeesPage() {
                             <span
                               className={`rounded-full px-3 py-1 text-xs font-bold ${
                                 emp.payroll_active === false
-                                  ? "bg-red-500/10 text-red-300"
-                                  : "bg-emerald-500/10 text-emerald-300"
+                                  ? "bg-red-500/10 text-red-700"
+                                  : "border border-emerald-200 bg-emerald-50 text-emerald-700"
                               }`}
                             >
                               {emp.payroll_active === false ? "Inactive" : "Active"}
@@ -1209,8 +1232,8 @@ export default function EmployeesPage() {
                             <span
                               className={`rounded-full px-3 py-1 text-xs font-bold ${
                                 emp.portal_enabled === false
-                                  ? "bg-slate-700 text-slate-300"
-                                  : "bg-blue-500/10 text-blue-300"
+                                  ? "border border-slate-200 bg-slate-100 text-slate-700"
+                                  : "border border-blue-200 bg-blue-50 text-blue-700"
                               }`}
                             >
                               {emp.portal_enabled === false ? "Disabled" : "Enabled"}
@@ -1218,7 +1241,7 @@ export default function EmployeesPage() {
                           </td>
 
                           <td className="px-4 py-3 align-top">
-                            <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300">
+                            <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
                               {emp.attendance_source_preference || "Biometrics"}
                             </span>
                           </td>
@@ -1232,7 +1255,7 @@ export default function EmployeesPage() {
                                 Complete
                               </span>
                             ) : (
-                              <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
+                              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
                                 Pending
                               </span>
                             )}
@@ -1244,7 +1267,7 @@ export default function EmployeesPage() {
                                 Ready
                               </span>
                             ) : (
-                              <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
+                              <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-700">
                                 Incomplete
                               </span>
                             )}
@@ -1255,7 +1278,7 @@ export default function EmployeesPage() {
                               {canEdit && (
                                 <button
                                   onClick={() => editEmployee(emp)}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                                  className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50"
                                 >
                                   <Pencil size={12} /> Edit
                                 </button>
@@ -1264,7 +1287,7 @@ export default function EmployeesPage() {
                               {isArchived && canEdit && (
                                 <button
                                   onClick={() => restoreEmployee(emp)}
-                                  className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20"
+                                  className="h-9 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-700"
                                 >
                                   Restore
                                 </button>
@@ -1273,7 +1296,7 @@ export default function EmployeesPage() {
                               {!isArchived && canDelete && (
                                 <button
                                   onClick={() => archiveEmployee(emp)}
-                                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-800"
+                                  className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50"
                                 >
                                   Archive
                                 </button>
@@ -1288,7 +1311,7 @@ export default function EmployeesPage() {
                       <tr>
                         <td
                           colSpan={14}
-                          className="px-4 py-14 text-center text-slate-500"
+                          className="px-4 py-14 text-center text-sm font-semibold text-slate-500"
                         >
                           No employees found.
                         </td>
@@ -1299,38 +1322,38 @@ export default function EmployeesPage() {
               </div>
             </div>
 
-            <aside className="space-y-5">
-              {canModify && (
+            <div className="space-y-5">
+              {canModify && showEmployeeForm && (
                 <section
                   id="employee-form"
-                  className="rounded-2xl border border-slate-800 bg-slate-900 p-5"
+                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
                 >
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-black">
+                      <h2 className="text-xl font-black text-slate-950">
                         {editingEmployeeNo ? "Edit Employee" : "New Employee"}
                       </h2>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-sm font-medium text-slate-500">
                         Required fields must be completed before saving.
                       </p>
                     </div>
 
                     {editingEmployeeNo && (
-                      <span className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300">
+                      <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
                         {editingEmployeeNo}
                       </span>
                     )}
                   </div>
 
                   {formError && (
-                    <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
+                    <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-700">
                       {formError}
                     </p>
                   )}
 
                   <div className="space-y-4">
                     <FormPanel title="Personal">
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <Input
                           label="Employee No"
                           value={employeeNo}
@@ -1369,7 +1392,7 @@ export default function EmployeesPage() {
                     </FormPanel>
 
                     <FormPanel title="Assignment">
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <Select
                           label="Department *"
                           value={department}
@@ -1398,7 +1421,7 @@ export default function EmployeesPage() {
                     </FormPanel>
 
                     <FormPanel title="Payroll & Portal">
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <Select
                           label="Rate Type *"
                           value={rateType}
@@ -1435,7 +1458,7 @@ export default function EmployeesPage() {
                     </FormPanel>
 
                     <FormPanel title="201 / Government">
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <Input label="SSS No." value={sssNo} setValue={setSssNo} />
                         <Input
                           label="PhilHealth No."
@@ -1463,14 +1486,14 @@ export default function EmployeesPage() {
                       </div>
                     </FormPanel>
 
-                    <details className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                      <summary className="cursor-pointer text-sm font-black uppercase tracking-[0.16em] text-slate-400">
+                    <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                         More employee details
                       </summary>
 
                       <div className="mt-4 space-y-4">
                         <FormPanel title="Profile">
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                             <Input
                               label="Birth Date"
                               type="date"
@@ -1498,7 +1521,7 @@ export default function EmployeesPage() {
                         </FormPanel>
 
                         <FormPanel title="Emergency Contact">
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                             <Input
                               label="Contact Person"
                               value={emergencyContactName}
@@ -1518,7 +1541,7 @@ export default function EmployeesPage() {
                         </FormPanel>
 
                         <FormPanel title="Additional 201 Checklist">
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                             <Select
                               label="Resume / Bio Data"
                               value={hasResume}
@@ -1551,17 +1574,17 @@ export default function EmployeesPage() {
                             value={payrollNotes}
                             onChange={(e) => setPayrollNotes(e.target.value)}
                             rows={3}
-                            className="w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                            className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                           />
                         </FormPanel>
                       </div>
                     </details>
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <button
                         onClick={saveEmployee}
                         disabled={isSaving}
-                        className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
+                        className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
                       >
                         {isSaving
                           ? "Saving..."
@@ -1571,8 +1594,11 @@ export default function EmployeesPage() {
                       </button>
 
                       <button
-                        onClick={clearForm}
-                        className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                        onClick={() => {
+                          clearForm();
+                          setShowEmployeeForm(false);
+                        }}
+                        className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                       >
                         {editingEmployeeNo ? "Cancel Edit" : "Clear Form"}
                       </button>
@@ -1582,11 +1608,11 @@ export default function EmployeesPage() {
               )}
 
               {canCreate && (
-                <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <h2 className="flex items-center gap-2 text-lg font-black">
+                <section className="rounded-3xl border border-slate-200 bg-white shadow-sm p-5">
+                  <h2 className="flex items-center gap-2 text-xl font-black text-slate-950">
                     <FileSpreadsheet size={18} /> Import Employees
                   </h2>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-sm font-medium text-slate-500">
                     Upload Excel/CSV, preview, then import.
                   </p>
 
@@ -1598,13 +1624,13 @@ export default function EmployeesPage() {
                         const file = e.target.files?.[0];
                         if (file) handleImportFile(file);
                       }}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 file:mr-4 file:h-9 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-bold file:text-slate-700"
                     />
 
                     <button
                       onClick={importEmployees}
                       disabled={isImporting || previewRows.length === 0}
-                      className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
+                      className="h-11 w-full rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
                     >
                       {isImporting
                         ? "Importing..."
@@ -1612,16 +1638,16 @@ export default function EmployeesPage() {
                     </button>
 
                     {fileName && (
-                      <p className="text-sm text-slate-400">
-                        Selected: <span className="font-bold text-white">{fileName}</span>
+                      <p className="text-sm font-medium text-slate-500">
+                        Selected: <span className="font-bold text-slate-950">{fileName}</span>
                       </p>
                     )}
                   </div>
 
                   {previewRows.length > 0 && (
-                    <div className="mt-4 max-h-[300px] overflow-auto rounded-xl border border-slate-800">
+                    <div className="mt-4 max-h-[300px] overflow-auto rounded-2xl border border-slate-200">
                       <table className="w-full min-w-[760px] text-sm">
-                        <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+                        <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                           <tr>
                             <th className="px-4 py-3">Employee No</th>
                             <th className="px-4 py-3">Name</th>
@@ -1634,7 +1660,7 @@ export default function EmployeesPage() {
                           {previewRows.slice(0, 50).map((row, index) => (
                             <tr
                               key={`${row.employee_no}-${index}`}
-                              className="border-t border-slate-800"
+                              className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50"
                             >
                               <td className="px-4 py-3">{row.employee_no}</td>
                               <td className="px-4 py-3 font-bold">
@@ -1653,8 +1679,8 @@ export default function EmployeesPage() {
                 </section>
               )}
 
-              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <h2 className="text-lg font-black">Record Health</h2>
+              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm p-5">
+                <h2 className="text-xl font-black text-slate-950">Record Health</h2>
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <MiniStat title="Total Records" value={totalEmployees} />
                   <MiniStat title="Archived" value={archivedEmployees} />
@@ -1675,12 +1701,12 @@ export default function EmployeesPage() {
                     topDepartments.map((dept) => (
                       <div
                         key={dept.name}
-                        className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
+                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
                       >
-                        <p className="text-sm font-semibold text-slate-300">
+                        <p className="text-sm font-semibold text-slate-700">
                           {dept.name}
                         </p>
-                        <p className="font-bold text-white">{dept.count}</p>
+                        <p className="font-bold text-slate-950">{dept.count}</p>
                       </div>
                     ))
                   ) : (
@@ -1690,7 +1716,7 @@ export default function EmployeesPage() {
                   )}
                 </div>
               </section>
-            </aside>
+            </div>
           </section>
         </div>
       </main>
@@ -1709,17 +1735,19 @@ function CompactMetric({
 }) {
   return (
     <div
-      className={`rounded-xl border px-3 py-2 ${danger ? "border-red-500/20 bg-red-500/10" : "border-slate-800 bg-slate-900"}`}
+      className={[
+        "rounded-2xl border bg-white px-4 py-3 shadow-sm",
+        danger ? "border-red-200" : "border-slate-200",
+      ].join(" ")}
     >
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
         {label}
       </p>
       <p
-        className={
-          danger
-            ? "mt-1 text-lg font-black text-red-300"
-            : "mt-1 text-lg font-black text-white"
-        }
+        className={[
+          "mt-1 text-2xl font-black tracking-tight",
+          danger ? "text-red-700" : "text-slate-950",
+        ].join(" ")}
       >
         {value}
       </p>
@@ -1747,26 +1775,27 @@ function KpiCard({
   danger?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-4 xl:p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-            ? "border-green-500/20 bg-green-500/10"
-            : "border-slate-800 bg-slate-900"
-      }`}
-    >
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-yellow-400">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
           {icon}
         </div>
 
-        <p className="text-sm text-slate-400">{title}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          {title}
+        </p>
       </div>
 
-      <h2 className="text-2xl font-bold">{value}</h2>
+      <h2
+        className={[
+          "text-3xl font-black tracking-tight",
+          danger ? "text-red-700" : success ? "text-emerald-700" : "text-slate-950",
+        ].join(" ")}
+      >
+        {value}
+      </h2>
 
-      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+      {subtitle && <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>}
     </div>
   );
 }
@@ -1779,8 +1808,8 @@ function FormPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-      <h3 className="mb-4 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </h3>
       {children}
@@ -1798,14 +1827,13 @@ function MiniStat({
   danger?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <p className="text-xs text-slate-500">{title}</p>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{title}</p>
       <h3
-        className={
-          danger
-            ? "mt-1 text-2xl font-black text-red-400"
-            : "mt-1 text-2xl font-black text-white"
-        }
+        className={[
+          "mt-1 text-2xl font-black tracking-tight",
+          danger ? "text-red-700" : "text-slate-950",
+        ].join(" ")}
       >
         {value}
       </h3>
@@ -1822,14 +1850,15 @@ function Input({
 }: any) {
   return (
     <div>
-      <label className="text-sm font-semibold text-slate-300">{label}</label>
+      <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </label>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => setValue(e.target.value)}
-        style={type === "date" ? { colorScheme: "dark" } : undefined}
-        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+        className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
       />
     </div>
   );
@@ -1838,11 +1867,13 @@ function Input({
 function Select({ label, value, setValue, options }: any) {
   return (
     <div>
-      <label className="text-sm font-semibold text-slate-300">{label}</label>
+      <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </label>
       <select
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+        className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
       >
         <option value="">Select</option>
         {options.map((option: string) => (
@@ -1860,18 +1891,19 @@ function StatusBadge({ status }: { status: string }) {
 
   const style =
     normalized === "active"
-      ? "bg-emerald-500/10 text-emerald-400"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : normalized === "probationary"
-        ? "bg-blue-500/10 text-blue-400"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
         : normalized === "resigned" ||
             normalized === "terminated" ||
             normalized === "inactive" ||
+            normalized === "archived" ||
             normalized === "awol"
-          ? "bg-red-500/10 text-red-400"
-          : "bg-slate-500/10 text-slate-300";
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-slate-200 bg-slate-100 text-slate-700";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ${style}`}>
+    <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${style}`}>
       {status || "No Status"}
     </span>
   );
