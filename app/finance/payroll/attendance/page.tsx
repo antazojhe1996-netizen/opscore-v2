@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import * as XLSX from "xlsx";
+import Sidebar from "@/components/Sidebar";
 
 type Employee = {
   id: string;
@@ -1893,9 +1894,13 @@ export default function AttendancePage() {
   ).length;
 
   /// UI
-  return (
-   <PageGuard moduleKey="attendance">
-  <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+
+   return (
+  <PageGuard moduleKey="attendance">
+    <div className="flex min-h-screen bg-slate-950 text-white">
+      <Sidebar />
+
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
 
         
           <section className="mb-5 rounded-3xl border border-slate-800 bg-slate-900/90 p-5">
@@ -2334,9 +2339,10 @@ export default function AttendancePage() {
               </table>
             </div>
           </section>
-               </main>
-    </PageGuard>
-  );
+                  </main>
+    </div>
+  </PageGuard>
+);
 }
 
 function FriendlyTimeInput({

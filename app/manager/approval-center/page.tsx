@@ -293,12 +293,12 @@ export default function ApprovalCenterPage() {
       payload?.days || payload?.total_days,
     );
 
-    const { data: creditRecord, error: creditError } = await supabase
+    const { data: creditRecords, error: creditError } = await supabase
       .from("employee_leave_credits")
       .select("*")
       .eq("employee_no", employeeNo)
       .eq("leave_type", leaveType)
-      .maybeSingle();
+      .order("id", { ascending: true });
 
     if (creditError) {
       console.log("GET LEAVE CREDIT RECORD ERROR:", creditError.message);
@@ -306,10 +306,17 @@ export default function ApprovalCenterPage() {
       return false;
     }
 
-    if (!creditRecord) {
+    if (!creditRecords || creditRecords.length === 0) {
       alert(`Cannot approve leave. No ${leaveType} credit record found for employee no. ${employeeNo}.`);
       return false;
     }
+
+    if (creditRecords.length > 1) {
+      alert(`Cannot approve leave. Duplicate ${leaveType} credit records found for employee no. ${employeeNo}. Please clean Leave Credits first.`);
+      return false;
+    }
+
+    const creditRecord = creditRecords[0];
 
     const currentUsed = Number(creditRecord.used_credits || 0);
     const currentRemaining = Number(creditRecord.remaining_credits ?? creditRecord.credits ?? 0);
@@ -380,12 +387,12 @@ export default function ApprovalCenterPage() {
       payload?.days || payload?.total_days,
     );
 
-    const { data: creditRecord, error: creditError } = await supabase
+    const { data: creditRecords, error: creditError } = await supabase
       .from("employee_leave_credits")
       .select("*")
       .eq("employee_no", employeeNo)
       .eq("leave_type", leaveType)
-      .maybeSingle();
+      .order("id", { ascending: true });
 
     if (creditError) {
       console.log("GET LEAVE CREDIT RESTORE ERROR:", creditError.message);
@@ -393,7 +400,14 @@ export default function ApprovalCenterPage() {
       return false;
     }
 
-    if (!creditRecord) return true;
+    if (!creditRecords || creditRecords.length === 0) return true;
+
+    if (creditRecords.length > 1) {
+      alert(`Leave cancellation credit restore failed. Duplicate ${leaveType} credit records found for employee no. ${employeeNo}. Please clean Leave Credits first.`);
+      return false;
+    }
+
+    const creditRecord = creditRecords[0];
 
     const currentUsed = Number(creditRecord.used_credits || 0);
     const currentRemaining = Number(creditRecord.remaining_credits || 0);

@@ -72,7 +72,7 @@ const menuSections = [
     title: "Sales",
     icon: Hotel,
     items: [
-      { label: "Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "hotel_room_sales" },
+{ label: "Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "finance_dashboard" },
       { label: "Apartment", href: "/finance/apartment", icon: Building2, moduleKey: "apartment_sales" },
       { label: "Restaurant Sales", href: "/finance/restaurant-import", icon: Receipt, moduleKey: "restaurant_sales" },
     ],
@@ -259,8 +259,13 @@ export default function Sidebar() {
     const currentRoleId = localRoleId || storedUser?.role_id || null;
 
     if (!currentEmployeeId || !currentRoleId) {
+      const savedRoleName =
+        typeof window !== "undefined"
+          ? localStorage.getItem("opscore_current_role_name")
+          : null;
+
       setCurrentEmployee(null);
-      setCurrentRoleName("Employee");
+      setCurrentRoleName(savedRoleName || "Employee");
       setPermissions([]);
       setLoadingAccess(false);
       await getPendingApprovals();
@@ -341,7 +346,14 @@ export default function Sidebar() {
 
     const roleText = String(currentRoleName || "").toLowerCase();
 
+    // Super Admin / Admin should always see the full OPSCORE navigation.
     if (roleText.includes("super admin") || roleText.includes("admin")) return true;
+
+    // Safety fallback: never let the sidebar go blank if localStorage,
+    // role_permissions, or Vercel cache is temporarily out of sync.
+    // PageGuard still protects the actual pages. This only prevents users
+    // from losing navigation during demos or deployment refreshes.
+    if (!loadingAccess && permissions.length === 0) return true;
 
     return permissions.some(
       (permission) =>

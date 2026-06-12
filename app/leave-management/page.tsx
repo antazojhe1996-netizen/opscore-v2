@@ -186,7 +186,13 @@ export default function LeaveManagementPage() {
       ? `${employee.first_name || ""} ${employee.last_name || ""}`.trim()
       : "Unknown Employee";
 
+    const companyId =
+      employee?.company_id ||
+      localStorage.getItem("opscore_company_id") ||
+      "default";
+
     const leavePayload = {
+      company_id: companyId,
       employee_id: employeeNo,
       employee_name: employeeName,
       employee_no: employee?.employee_no || null,
@@ -205,8 +211,12 @@ export default function LeaveManagementPage() {
     const { data: leaveData, error: leaveError } = await supabase
       .from("leave_requests")
       .insert({
+        company_id: companyId,
         employee_id: employeeNo,
         employee_name: employeeName,
+        employee_no: employee?.employee_no || null,
+        department: employee?.department || null,
+        position: employee?.position || null,
         leave_type: leaveType,
         start_date: startDate,
         end_date: endDate,
@@ -228,6 +238,7 @@ export default function LeaveManagementPage() {
     const { error: approvalError } = await supabase
       .from("approval_requests")
       .insert({
+        company_id: companyId,
         request_type: "LEAVE_REQUEST",
         module: "Leave Management",
         reference_id: leaveData.id,
@@ -431,6 +442,11 @@ export default function LeaveManagementPage() {
     const employeeName =
       leave.employee_name || getEmployeeName(leave.employee_id);
     const days = Number(leave.days || leave.total_days || 0);
+    const companyId =
+      leave.company_id ||
+      employee?.company_id ||
+      localStorage.getItem("opscore_company_id") ||
+      "default";
 
     const confirmed = confirm(
       `Submit cancellation request?\n\n${employeeName}\n${leave.leave_type || "Leave"}\n${leave.start_date} to ${leave.end_date}\nReason: ${cancellationReason.trim()}`,
@@ -439,6 +455,7 @@ export default function LeaveManagementPage() {
     if (!confirmed) return;
 
     const payload = {
+      company_id: companyId,
       leave_id: leave.id,
       employee_id: leave.employee_id,
       employee_name: employeeName,
@@ -457,6 +474,7 @@ export default function LeaveManagementPage() {
     };
 
     const { error } = await supabase.from("approval_requests").insert({
+      company_id: companyId,
       request_type: "LEAVE_CANCELLATION",
       module: "Leave Management",
       reference_id: leave.id,
