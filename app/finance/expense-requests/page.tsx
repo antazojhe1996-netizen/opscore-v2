@@ -199,7 +199,6 @@ export default function ExpenseRequestsPage() {
   };
 
   const canCreateRequest = hasPermission("expense_requests", "can_create");
-  const canApproveRequest = hasPermission("expense_requests", "can_approve");
   const canReleaseRequest = hasPermission("expense_requests", "can_release");
   const canDeleteRequest = hasPermission("expense_requests", "can_delete");
   const canManageWorkflow =
@@ -395,10 +394,22 @@ export default function ExpenseRequestsPage() {
 
     setIsSubmitting(true);
 
+    const companyId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_company_id") || ""
+        : "";
+
+    if (!companyId) {
+      setIsSubmitting(false);
+      alert("Unable to submit expense request. No company_id found for current user.");
+      return;
+    }
+
     const defaultStatus = approvalRequired ? "PENDING" : "APPROVED";
     const nowIso = new Date().toISOString();
 
     const payload: any = {
+      company_id: companyId,
       request_date: requestDate,
       requestor_type: requestorType,
       department: selectedDepartment,
@@ -413,7 +424,6 @@ export default function ExpenseRequestsPage() {
         ? ""
         : "Auto-approved because expense approval workflow is OFF.",
     };
-
     if (!approvalRequired) {
       payload.approved_by = "System";
       payload.approval_role = "Direct Approval";
@@ -429,15 +439,32 @@ export default function ExpenseRequestsPage() {
     setIsSubmitting(false);
 
     if (error) {
-      console.log("SUBMIT EXPENSE REQUEST ERROR:", error.message);
-      alert("Failed to submit expense request.");
+      console.log("SUBMIT EXPENSE REQUEST ERROR:", error);
+      alert(error.message || "Failed to submit expense request.");
       return;
     }
 
     if (approvalRequired && newRequest) {
+      const approvalPayload = {
+        company_id: companyId,
+        expense_request_id: newRequest.id,
+        request_date: requestDate,
+        requestor_type: requestorType,
+        department: selectedDepartment,
+        requested_by: finalRequestedBy,
+        category,
+        expense_area: expenseArea,
+        amount: amountValue,
+        reason: reason.trim(),
+        urgency,
+        status: "PENDING",
+        created_from: "expense_requests",
+      };
+
       const { error: approvalError } = await supabase
         .from("approval_requests")
         .insert({
+          company_id: companyId,
           request_type: "EXPENSE_REQUEST",
           module: "Finance",
           reference_id: String(newRequest.id),
@@ -445,12 +472,13 @@ export default function ExpenseRequestsPage() {
           description: `${reason.trim()} | Area: ${expenseArea} | Urgency: ${urgency}`,
           requested_by: finalRequestedBy,
           status: "PENDING",
+          request_payload: approvalPayload,
         });
 
       if (approvalError) {
-        console.log("CREATE APPROVAL REQUEST ERROR:", approvalError.message);
+        console.log("CREATE APPROVAL REQUEST ERROR:", approvalError);
         alert(
-          "Expense request was saved, but approval center record was not created.",
+          `Expense request was saved, but approval center record was not created. ${approvalError.message}`,
         );
       }
     }
@@ -472,8 +500,10 @@ export default function ExpenseRequestsPage() {
 
   /// FUNCTIONS - ACTION MODAL
   const openAction = (request: any, action: string) => {
-    if (["APPROVE", "REJECT"].includes(action) && !canApproveRequest) {
-      alert("Access denied.");
+    // Approval and rejection are now handled only in Approval Center.
+    // Expense Requests page remains responsible for request creation, release, liquidation, posting, and deletion.
+    if (["APPROVE", "REJECT"].includes(action)) {
+      alert("Please process approvals in Approval Center.");
       return;
     }
 
@@ -500,8 +530,10 @@ export default function ExpenseRequestsPage() {
   const submitAction = async () => {
     if (!selectedRequest || !actionType) return;
 
-    if (["APPROVE", "REJECT"].includes(actionType) && !canApproveRequest) {
-      alert("Access denied.");
+    // Approval and rejection are intentionally not processed on this page anymore.
+    // This prevents duplicate approval paths and keeps Approval Center as the single approval authority.
+    if (["APPROVE", "REJECT"].includes(actionType)) {
+      alert("Please process approvals in Approval Center.");
       return;
     }
 
@@ -512,33 +544,6 @@ export default function ExpenseRequestsPage() {
 
     let payload: any = {};
     let postedExpenseData: any = null;
-
-    if (actionType === "APPROVE") {
-      if (!actorName.trim() || !actorRole.trim()) {
-        alert("Please enter approver name and role.");
-        return;
-      }
-
-      payload = {
-        status: "APPROVED",
-        approved_by: actorName.trim(),
-        approval_role: actorRole.trim(),
-        approved_date: new Date().toISOString(),
-        remarks: actionRemarks.trim() || selectedRequest.remarks || "",
-      };
-    }
-
-    if (actionType === "REJECT") {
-      if (!actionRemarks.trim()) {
-        alert("Please enter rejection reason.");
-        return;
-      }
-
-      payload = {
-        status: "REJECTED",
-        remarks: actionRemarks.trim(),
-      };
-    }
 
     if (actionType === "RELEASE") {
       if (!actorName.trim()) {
@@ -553,20 +558,30 @@ export default function ExpenseRequestsPage() {
 
       const releasedAt = new Date().toISOString();
 
+      const companyId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("opscore_current_company_id") || ""
+          : "";
+
+      const expensePayload: any = {
+        expense_date: String(releasedAt).slice(0, 10),
+        category: selectedRequest.category,
+        subcategory: null,
+        department: selectedRequest.expense_area || selectedRequest.department,
+        description: selectedRequest.reason,
+        source: "Expense Request",
+        amount: Number(selectedRequest.amount || 0),
+        payment_method: "Cash",
+        remarks: `Auto-posted from approved expense request. Request ID: ${selectedRequest.id}. Requested by: ${selectedRequest.requested_by}. Released by: ${actorName.trim()}.`,
+      };
+
+      if (companyId) {
+        expensePayload.company_id = companyId;
+      }
+
       const { data: expenseData, error: expenseError } = await supabase
         .from("expenses")
-        .insert({
-          expense_date: String(releasedAt).slice(0, 10),
-          category: selectedRequest.category,
-          subcategory: null,
-          department:
-            selectedRequest.expense_area || selectedRequest.department,
-          description: selectedRequest.reason,
-          source: "Expense Request",
-          amount: Number(selectedRequest.amount || 0),
-          payment_method: "Cash",
-          remarks: `Auto-posted from approved expense request. Request ID: ${selectedRequest.id}. Requested by: ${selectedRequest.requested_by}. Released by: ${actorName.trim()}.`,
-        })
+        .insert(expensePayload)
         .select()
         .single();
 
@@ -630,7 +645,7 @@ export default function ExpenseRequestsPage() {
         actionType === "RELEASE"
           ? `Released and posted ${selectedRequest.category} request to expenses - ${formatMoney(selectedRequest.amount)}`
           : `${actionType} request ${selectedRequest.category} - ${formatMoney(selectedRequest.amount)}`,
-      severity: actionType === "REJECT" ? "critical" : "warning",
+      severity: "warning",
       recordId: selectedRequest.id,
       oldValue: selectedRequest,
       newValue: {
@@ -667,21 +682,32 @@ export default function ExpenseRequestsPage() {
     const confirmPost = confirm("Post this released request to Expenses?");
     if (!confirmPost) return;
 
+    const companyId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_company_id") || ""
+        : "";
+
+    const expensePayload: any = {
+      expense_date: request.released_date
+        ? String(request.released_date).slice(0, 10)
+        : request.request_date,
+      category: request.category,
+      subcategory: null,
+      department: request.expense_area || request.department,
+      description: request.reason,
+      source: "Expense Request",
+      amount: Number(request.amount || 0),
+      payment_method: "Cash",
+      remarks: `Posted from expense request by ${request.requested_by}. Request ID: ${request.id}. Released by: ${request.released_by || "-"}.`,
+    };
+
+    if (companyId) {
+      expensePayload.company_id = companyId;
+    }
+
     const { data: expenseData, error: expenseError } = await supabase
       .from("expenses")
-      .insert({
-        expense_date: request.released_date
-          ? String(request.released_date).slice(0, 10)
-          : request.request_date,
-        category: request.category,
-        subcategory: null,
-        department: request.expense_area || request.department,
-        description: request.reason,
-        source: "Expense Request",
-        amount: Number(request.amount || 0),
-        payment_method: "Cash",
-        remarks: `Posted from expense request by ${request.requested_by}. Request ID: ${request.id}. Released by: ${request.released_by || "-"}.`,
-      })
+      .insert(expensePayload)
       .select()
       .single();
 
@@ -1124,34 +1150,11 @@ export default function ExpenseRequestsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            {request.status === "PENDING" &&
-                              approvalRequired &&
-                              canApproveRequest && (
-                                <>
-                                  <ActionButton
-                                    label="Approve"
-                                    color="blue"
-                                    onClick={() =>
-                                      openAction(request, "APPROVE")
-                                    }
-                                  />
-                                  <ActionButton
-                                    label="Reject"
-                                    color="red"
-                                    onClick={() =>
-                                      openAction(request, "REJECT")
-                                    }
-                                  />
-                                </>
-                              )}
-
-                            {request.status === "PENDING" &&
-                              approvalRequired &&
-                              !canApproveRequest && (
-                                <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                                  Awaiting Approval
-                                </span>
-                              )}
+                            {request.status === "PENDING" && approvalRequired && (
+                              <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                                Awaiting Approval Center
+                              </span>
+                            )}
 
                             {request.status === "APPROVED" &&
                               !request.posted_to_expenses &&

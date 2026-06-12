@@ -511,6 +511,11 @@ export default function ApprovalCenterPage() {
   const getWorkflowKeyForRequest = (request: any) => {
     if (!request?.request_type) return "";
 
+    // OPSCORE APPROVAL ROUTING FIX:
+    // Expense Requests use their own request_type for audit/history,
+    // but they should follow the same manager approval lane as Finance/Cash releases
+    // unless a dedicated EXPENSE_REQUEST workflow is configured later.
+    if (request.request_type === "EXPENSE_REQUEST") return "CASH_DRAWER_OUT";
     if (request.request_type === "CASH_EXPENSE_RELEASE") return "CASH_DRAWER_OUT";
     if (request.request_type === "CASH_ADVANCE_RELEASE") return "CASH_DRAWER_OUT";
     if (request.request_type === "REFUND_OUT") return "CASH_DRAWER_OUT";
