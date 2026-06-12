@@ -10,6 +10,7 @@ export default function ForecastingPage() {
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [eventAddons, setEventAddons] = useState<any[]>([]);
+  const [roomSales, setRoomSales] = useState<any[]>([]);
   const [hcRules, setHcRules] = useState<any>(null);
   const [forecastingRules, setForecastingRules] = useState<any>(null);
   const [viewRange, setViewRange] = useState("7");
@@ -29,6 +30,20 @@ export default function ForecastingPage() {
     }
 
     setOccupancyData(data || []);
+  };
+
+  const getRoomSales = async () => {
+    const { data, error } = await supabase
+      .from("finance_hotel_reservations")
+      .select("*")
+      .order("check_in", { ascending: true });
+
+    if (error) {
+      console.log("GET ROOM SALES FOR FORECAST ERROR:", error.message);
+      return;
+    }
+
+    setRoomSales(data || []);
   };
 
   const getSchedules = async () => {
@@ -218,6 +233,7 @@ export default function ForecastingPage() {
   /// EFFECTS
   useEffect(() => {
     getOccupancyData();
+    getRoomSales();
     getSchedules();
     getEventAddons();
     loadHCRules();
@@ -225,8 +241,58 @@ export default function ForecastingPage() {
   }, []);
 
   /// CALCULATIONS
+  const forecastSourceLabel =
+    occupancyData.length > 0 ? "Occupancy Import" : "Room Sales Fallback";
+
+  const fallbackOccupancyData = useMemo(() => {
+    const TOTAL_ROOMS = 50;
+
+    const activeRoomSales = roomSales.filter((row) => {
+      const status = String(row.status || "").toUpperCase();
+
+      return (
+        !status.includes("CANCELLED") &&
+        !status.includes("CANCELED") &&
+        !status.includes("NO SHOW") &&
+        !status.includes("NOSHOW")
+      );
+    });
+
+    const grouped = activeRoomSales.reduce((acc: Record<string, any>, row) => {
+      const date = String(row.check_in || row.arrival_date || row.created_at || "").slice(0, 10);
+      if (!date) return acc;
+
+      if (!acc[date]) {
+        acc[date] = {
+          id: `room-sales-${date}`,
+          business_date: date,
+          rooms_sold: 0,
+          available_rooms: TOTAL_ROOMS,
+          occupancy: 0,
+          source: "Room Sales Fallback",
+        };
+      }
+
+      acc[date].rooms_sold += 1;
+      acc[date].available_rooms = Math.max(TOTAL_ROOMS - acc[date].rooms_sold, 0);
+      acc[date].occupancy = Math.min(
+        Math.round((acc[date].rooms_sold / TOTAL_ROOMS) * 100),
+        100,
+      );
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped).sort((a: any, b: any) =>
+      String(a.business_date).localeCompare(String(b.business_date)),
+    );
+  }, [roomSales]);
+
+  const forecastInputData =
+    occupancyData.length > 0 ? occupancyData : fallbackOccupancyData;
+
   const forecastData = useMemo(() => {
-    return occupancyData.map((day) => {
+    return forecastInputData.map((day: any) => {
       const occupancy = Number(day.occupancy || 0);
       const event = getEventForDate(day.business_date);
       const eventPax = Number(event?.expected_pax || 0);
@@ -250,7 +316,13 @@ export default function ForecastingPage() {
         staffing_status: staffingStatus,
       };
     });
-  }, [occupancyData, schedules, eventAddons, hcRules, forecastingRules]);
+  }, [
+    forecastInputData,
+    schedules,
+    eventAddons,
+    hcRules,
+    forecastingRules,
+  ]);
 
   const rangedData = forecastData.slice(0, Number(viewRange));
 
@@ -396,7 +468,7 @@ export default function ForecastingPage() {
           <div className="xl:col-span-2">
             <p className="mb-2 text-sm text-slate-400">Forecast Summary</p>
             <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-              Main demand is based on room occupancy. Events are added only when encoded.
+              Main demand uses imported occupancy data. If occupancy import is empty, OPSCORE falls back to Room Sales reservations for demo forecasting. Events are added when encoded.
             </div>
           </div>
         </div>
@@ -406,7 +478,7 @@ export default function ForecastingPage() {
         <div className="mb-6">
           <h2 className="text-xl font-bold">Room Occupancy Demand Forecast</h2>
           <p className="text-sm text-slate-400">
-            Future demand based mainly on room occupancy forecast. Event data appears at the end when available.
+            Future demand based on occupancy import, with Room Sales fallback when occupancy data is empty. Event data appears when available.
           </p>
         </div>
 
