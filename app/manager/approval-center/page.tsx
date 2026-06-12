@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/SidebarV41";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
-import { CheckCircle, Clock, FileText, XCircle } from "lucide-react";
 
 const CASH_DRAWER_REQUEST_TYPES = [
   "CASH_DRAWER_OUT",
@@ -21,7 +20,9 @@ export default function ApprovalCenterPage() {
   const [requests, setRequests] = useState<any[]>([]);
   const [approvalWorkflows, setApprovalWorkflows] = useState<any[]>([]);
   const [approvalAssignments, setApprovalAssignments] = useState<any[]>([]);
-  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(
+    null,
+  );
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [activeTab, setActiveTab] = useState("PENDING");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -110,13 +111,12 @@ export default function ApprovalCenterPage() {
     return request.request_payload;
   };
 
-
   const getCompanyIdForRequest = async (request: any, payload?: any) => {
     const directCompanyId = String(
       request?.company_id ||
         payload?.company_id ||
         localStorage.getItem("opscore_current_company_id") ||
-        ""
+        "",
     ).trim();
 
     if (directCompanyId) return directCompanyId;
@@ -152,30 +152,43 @@ export default function ApprovalCenterPage() {
 
     const { data: leaveData, error: leaveFetchError } = await supabase
       .from("leave_requests")
-      .select("id, company_id, employee_id, employee_name, leave_type, start_date, end_date, status")
+      .select(
+        "id, company_id, employee_id, employee_name, leave_type, start_date, end_date, status",
+      )
       .eq("id", request.reference_id)
       .maybeSingle();
 
     if (leaveFetchError) {
-      console.log("LEAVE APPROVAL OVERLAP FETCH ERROR:", leaveFetchError.message);
+      console.log(
+        "LEAVE APPROVAL OVERLAP FETCH ERROR:",
+        leaveFetchError.message,
+      );
       alert(`Leave approval safety check failed. ${leaveFetchError.message}`);
       return false;
     }
 
     if (!leaveData) {
-      alert("Leave approval safety check failed. Linked leave request was not found.");
+      alert(
+        "Leave approval safety check failed. Linked leave request was not found.",
+      );
       return false;
     }
 
     const companyId = String(
-      leaveData.company_id || request.company_id || payload.company_id || ""
+      leaveData.company_id || request.company_id || payload.company_id || "",
     ).trim();
-    const employeeId = String(leaveData.employee_id || payload.employee_id || "").trim();
-    const startDate = String(leaveData.start_date || payload.start_date || "").trim();
+    const employeeId = String(
+      leaveData.employee_id || payload.employee_id || "",
+    ).trim();
+    const startDate = String(
+      leaveData.start_date || payload.start_date || "",
+    ).trim();
     const endDate = String(leaveData.end_date || payload.end_date || "").trim();
 
     if (!companyId || !employeeId || !startDate || !endDate) {
-      alert("Leave approval safety check failed. Missing company, employee, or leave dates.");
+      alert(
+        "Leave approval safety check failed. Missing company, employee, or leave dates.",
+      );
       return false;
     }
 
@@ -201,7 +214,7 @@ export default function ApprovalCenterPage() {
 
     if (conflict) {
       alert(
-        `Cannot approve leave. Selected dates overlap with ${conflict.leave_type || "approved leave"} from ${formatDate(conflict.start_date)} to ${formatDate(conflict.end_date)} (${conflict.status}).`
+        `Cannot approve leave. Selected dates overlap with ${conflict.leave_type || "approved leave"} from ${formatDate(conflict.start_date)} to ${formatDate(conflict.end_date)} (${conflict.status}).`,
       );
       return false;
     }
@@ -209,7 +222,11 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
-  const calculateLeaveDays = (startDate: any, endDate: any, fallbackDays?: any) => {
+  const calculateLeaveDays = (
+    startDate: any,
+    endDate: any,
+    fallbackDays?: any,
+  ) => {
     const fallback = Number(fallbackDays || 0);
     const start = String(startDate || "").slice(0, 10);
     const end = String(endDate || startDate || "").slice(0, 10);
@@ -232,12 +249,14 @@ export default function ApprovalCenterPage() {
       leaveData?.employee_no ||
         payload?.employee_no ||
         payload?.employee_number ||
-        ""
+        "",
     ).trim();
 
     if (directEmployeeNo) return directEmployeeNo;
 
-    const employeeId = String(leaveData?.employee_id || payload?.employee_id || "").trim();
+    const employeeId = String(
+      leaveData?.employee_id || payload?.employee_id || "",
+    ).trim();
 
     if (!employeeId) return "";
 
@@ -270,9 +289,14 @@ export default function ApprovalCenterPage() {
     return data || null;
   };
 
-  const adjustLeaveCreditsForApproval = async (request: any, leaveData: any) => {
+  const adjustLeaveCreditsForApproval = async (
+    request: any,
+    leaveData: any,
+  ) => {
     const payload = getPayload(request) || {};
-    const leaveType = String(leaveData?.leave_type || payload?.leave_type || "").trim();
+    const leaveType = String(
+      leaveData?.leave_type || payload?.leave_type || "",
+    ).trim();
 
     if (!leaveType) return true;
 
@@ -307,23 +331,29 @@ export default function ApprovalCenterPage() {
     }
 
     if (!creditRecords || creditRecords.length === 0) {
-      alert(`Cannot approve leave. No ${leaveType} credit record found for employee no. ${employeeNo}.`);
+      alert(
+        `Cannot approve leave. No ${leaveType} credit record found for employee no. ${employeeNo}.`,
+      );
       return false;
     }
 
     if (creditRecords.length > 1) {
-      alert(`Cannot approve leave. Duplicate ${leaveType} credit records found for employee no. ${employeeNo}. Please clean Leave Credits first.`);
+      alert(
+        `Cannot approve leave. Duplicate ${leaveType} credit records found for employee no. ${employeeNo}. Please clean Leave Credits first.`,
+      );
       return false;
     }
 
     const creditRecord = creditRecords[0];
 
     const currentUsed = Number(creditRecord.used_credits || 0);
-    const currentRemaining = Number(creditRecord.remaining_credits ?? creditRecord.credits ?? 0);
+    const currentRemaining = Number(
+      creditRecord.remaining_credits ?? creditRecord.credits ?? 0,
+    );
 
     if (currentRemaining < leaveDays) {
       alert(
-        `Cannot approve leave. Insufficient ${leaveType} credits. Needed: ${leaveDays}. Remaining: ${currentRemaining}.`
+        `Cannot approve leave. Insufficient ${leaveType} credits. Needed: ${leaveDays}. Remaining: ${currentRemaining}.`,
       );
       return false;
     }
@@ -341,7 +371,9 @@ export default function ApprovalCenterPage() {
 
     if (updateError) {
       console.log("DEDUCT LEAVE CREDIT ERROR:", updateError.message);
-      alert(`Leave approval failed before credit deduction. ${updateError.message}`);
+      alert(
+        `Leave approval failed before credit deduction. ${updateError.message}`,
+      );
       return false;
     }
 
@@ -367,9 +399,14 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
-  const restoreLeaveCreditsForCancellation = async (request: any, leaveData: any) => {
+  const restoreLeaveCreditsForCancellation = async (
+    request: any,
+    leaveData: any,
+  ) => {
     const payload = getPayload(request) || {};
-    const leaveType = String(leaveData?.leave_type || payload?.leave_type || "").trim();
+    const leaveType = String(
+      leaveData?.leave_type || payload?.leave_type || "",
+    ).trim();
 
     if (!leaveType) return true;
 
@@ -403,7 +440,9 @@ export default function ApprovalCenterPage() {
     if (!creditRecords || creditRecords.length === 0) return true;
 
     if (creditRecords.length > 1) {
-      alert(`Leave cancellation credit restore failed. Duplicate ${leaveType} credit records found for employee no. ${employeeNo}. Please clean Leave Credits first.`);
+      alert(
+        `Leave cancellation credit restore failed. Duplicate ${leaveType} credit records found for employee no. ${employeeNo}. Please clean Leave Credits first.`,
+      );
       return false;
     }
 
@@ -425,7 +464,9 @@ export default function ApprovalCenterPage() {
 
     if (updateError) {
       console.log("RESTORE LEAVE CREDIT ERROR:", updateError.message);
-      alert(`Leave cancellation failed before credit restore. ${updateError.message}`);
+      alert(
+        `Leave cancellation failed before credit restore. ${updateError.message}`,
+      );
       return false;
     }
 
@@ -450,7 +491,6 @@ export default function ApprovalCenterPage() {
 
     return true;
   };
-
 
   const formatDate = (value: any) => {
     if (!value) return "-";
@@ -497,15 +537,22 @@ export default function ApprovalCenterPage() {
   };
 
   const getRequestTypeBadgeStyle = (type: string) => {
-    if (type === "EXPENSE_REQUEST") return "border-blue-500/20 bg-blue-500/10 text-blue-300";
-    if (type === "PAYROLL_ADJUSTMENT") return "border-blue-500/20 bg-blue-500/10 text-blue-300";
-    if (type === "LEAVE_REQUEST") return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
-    if (type === "LEAVE_CANCELLATION") return "border-slate-700 bg-slate-800 text-slate-300";
-    if (type === "CASH_ADVANCE_RELEASE") return "border-blue-500/20 bg-blue-500/10 text-blue-300";
-    if (type === "OWNER_WITHDRAWAL") return "border-red-500/20 bg-red-500/10 text-red-300";
-    if (CASH_DRAWER_REQUEST_TYPES.includes(type)) return "border-slate-700 bg-slate-800 text-slate-300";
+    if (type === "EXPENSE_REQUEST")
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    if (type === "PAYROLL_ADJUSTMENT")
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    if (type === "LEAVE_REQUEST")
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (type === "LEAVE_CANCELLATION")
+      return "border-slate-200 bg-slate-100 text-slate-700";
+    if (type === "CASH_ADVANCE_RELEASE")
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    if (type === "OWNER_WITHDRAWAL")
+      return "border-red-200 bg-red-50 text-red-700";
+    if (CASH_DRAWER_REQUEST_TYPES.includes(type))
+      return "border-slate-200 bg-slate-100 text-slate-700";
 
-    return "border-slate-700 bg-slate-800 text-slate-300";
+    return "border-slate-200 bg-slate-100 text-slate-700";
   };
 
   const getWorkflowKeyForRequest = (request: any) => {
@@ -516,8 +563,10 @@ export default function ApprovalCenterPage() {
     // but they should follow the same manager approval lane as Finance/Cash releases
     // unless a dedicated EXPENSE_REQUEST workflow is configured later.
     if (request.request_type === "EXPENSE_REQUEST") return "CASH_DRAWER_OUT";
-    if (request.request_type === "CASH_EXPENSE_RELEASE") return "CASH_DRAWER_OUT";
-    if (request.request_type === "CASH_ADVANCE_RELEASE") return "CASH_DRAWER_OUT";
+    if (request.request_type === "CASH_EXPENSE_RELEASE")
+      return "CASH_DRAWER_OUT";
+    if (request.request_type === "CASH_ADVANCE_RELEASE")
+      return "CASH_DRAWER_OUT";
     if (request.request_type === "REFUND_OUT") return "CASH_DRAWER_OUT";
     if (request.request_type === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
     if (request.request_type === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
@@ -530,7 +579,8 @@ export default function ApprovalCenterPage() {
 
     return (
       approvalWorkflows.find(
-        (workflow) => String(workflow.workflow_key || "") === String(workflowKey)
+        (workflow) =>
+          String(workflow.workflow_key || "") === String(workflowKey),
       ) || null
     );
   };
@@ -547,7 +597,7 @@ export default function ApprovalCenterPage() {
       (assignment) =>
         String(assignment.approval_role || "") === String(approverRole) &&
         assignment.is_active !== false &&
-        assignment.employee_id
+        assignment.employee_id,
     );
   };
 
@@ -557,7 +607,8 @@ export default function ApprovalCenterPage() {
     if (!currentEmployeeId || assignedApprovers.length === 0) return false;
 
     return assignedApprovers.some(
-      (assignment) => String(currentEmployeeId) === String(assignment.employee_id)
+      (assignment) =>
+        String(currentEmployeeId) === String(assignment.employee_id),
     );
   };
 
@@ -567,7 +618,9 @@ export default function ApprovalCenterPage() {
     if (assignedApprovers.length === 0) return "No active assigned approver";
 
     const currentUserIsAssigned = assignedApprovers.some(
-      (assignment) => String(currentEmployeeId || "") === String(assignment.employee_id || "")
+      (assignment) =>
+        String(currentEmployeeId || "") ===
+        String(assignment.employee_id || ""),
     );
 
     if (currentUserIsAssigned) {
@@ -589,7 +642,10 @@ export default function ApprovalCenterPage() {
       return "PAYROLL";
     }
 
-    if (requestType === "LEAVE_REQUEST" || requestType === "LEAVE_CANCELLATION") {
+    if (
+      requestType === "LEAVE_REQUEST" ||
+      requestType === "LEAVE_CANCELLATION"
+    ) {
       return "LEAVE";
     }
 
@@ -613,7 +669,9 @@ export default function ApprovalCenterPage() {
     `Approval Request ID: ${String(requestId || "")}`;
 
   const appendApprovalRequestMarker = (remarks: any, requestId: any) => {
-    const baseRemarks = String(remarks || "Approved cash drawer movement").trim();
+    const baseRemarks = String(
+      remarks || "Approved cash drawer movement",
+    ).trim();
     const marker = getApprovalRequestMarker(requestId);
 
     if (baseRemarks.includes(marker)) return baseRemarks;
@@ -624,7 +682,7 @@ export default function ApprovalCenterPage() {
   const cashDrawerMovementAlreadyPosted = async (
     request: any,
     payload: any,
-    amountValue: number
+    amountValue: number,
   ) => {
     const marker = getApprovalRequestMarker(request.id);
 
@@ -636,7 +694,10 @@ export default function ApprovalCenterPage() {
       .maybeSingle();
 
     if (markerError) {
-      console.log("CASH APPROVAL DUPLICATE MARKER CHECK ERROR:", markerError.message);
+      console.log(
+        "CASH APPROVAL DUPLICATE MARKER CHECK ERROR:",
+        markerError.message,
+      );
       throw new Error(markerError.message);
     }
 
@@ -645,7 +706,9 @@ export default function ApprovalCenterPage() {
     // Safety fallback for older rows created before the approval-request marker existed.
     // This catches accidental double-clicks / repeated approval execution with the same payload.
     const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString();
-    const baseRemarks = String(payload.remarks || request.description || "Approved cash drawer movement").trim();
+    const baseRemarks = String(
+      payload.remarks || request.description || "Approved cash drawer movement",
+    ).trim();
 
     let fallbackQuery = supabase
       .from("finance_cash_movements")
@@ -665,10 +728,14 @@ export default function ApprovalCenterPage() {
       ? fallbackQuery.eq("cash_drawer_id", payload.cash_drawer_id)
       : fallbackQuery.is("cash_drawer_id", null);
 
-    const { data: fallbackMatch, error: fallbackError } = await fallbackQuery.maybeSingle();
+    const { data: fallbackMatch, error: fallbackError } =
+      await fallbackQuery.maybeSingle();
 
     if (fallbackError) {
-      console.log("CASH APPROVAL DUPLICATE FALLBACK CHECK ERROR:", fallbackError.message);
+      console.log(
+        "CASH APPROVAL DUPLICATE FALLBACK CHECK ERROR:",
+        fallbackError.message,
+      );
       throw new Error(fallbackError.message);
     }
 
@@ -679,7 +746,9 @@ export default function ApprovalCenterPage() {
     const payload = getPayload(request);
 
     if (!payload) {
-      alert("Missing cash drawer approval payload. Check approval_requests.request_payload column.");
+      alert(
+        "Missing cash drawer approval payload. Check approval_requests.request_payload column.",
+      );
       return false;
     }
 
@@ -699,20 +768,28 @@ export default function ApprovalCenterPage() {
     let alreadyPosted = false;
 
     try {
-      alreadyPosted = await cashDrawerMovementAlreadyPosted(request, payload, amountValue);
+      alreadyPosted = await cashDrawerMovementAlreadyPosted(
+        request,
+        payload,
+        amountValue,
+      );
     } catch (duplicateCheckError: any) {
-      alert(`Duplicate safety check failed. Nothing was posted. ${duplicateCheckError?.message || duplicateCheckError}`);
+      alert(
+        `Duplicate safety check failed. Nothing was posted. ${duplicateCheckError?.message || duplicateCheckError}`,
+      );
       return false;
     }
 
     if (alreadyPosted) {
-      alert("Possible duplicate approval detected. This request already created a cash movement. Nothing was posted again.");
+      alert(
+        "Possible duplicate approval detected. This request already created a cash movement. Nothing was posted again.",
+      );
       return false;
     }
 
     const movementRemarks = appendApprovalRequestMarker(
       payload.remarks || request.description || "Approved cash drawer movement",
-      request.id
+      request.id,
     );
 
     const { data: movementData, error: movementError } = await supabase
@@ -726,9 +803,14 @@ export default function ApprovalCenterPage() {
         amount: amountValue,
         from_person: payload.from_person || "",
         to_person: payload.to_person || "",
-        encoded_by: payload.encoded_by || currentEmployeeName || "Manager Approval Center",
+        encoded_by:
+          payload.encoded_by ||
+          currentEmployeeName ||
+          "Manager Approval Center",
         remarks: movementRemarks,
-        reference_type: payload.should_create_expense ? "expense" : "approval_request",
+        reference_type: payload.should_create_expense
+          ? "expense"
+          : "approval_request",
         reference_id: payload.should_create_expense ? null : request.id,
         cash_drawer_id: payload.cash_drawer_id || null,
       })
@@ -736,8 +818,13 @@ export default function ApprovalCenterPage() {
       .single();
 
     if (movementError) {
-      console.log("APPROVED CASH MOVEMENT INSERT ERROR:", movementError.message);
-      alert(`Approval saved failed before drawer posting. ${movementError.message}`);
+      console.log(
+        "APPROVED CASH MOVEMENT INSERT ERROR:",
+        movementError.message,
+      );
+      alert(
+        `Approval saved failed before drawer posting. ${movementError.message}`,
+      );
       return false;
     }
 
@@ -788,8 +875,13 @@ export default function ApprovalCenterPage() {
         .single();
 
       if (expenseError) {
-        console.log("APPROVED CASH MOVEMENT EXPENSE ERROR:", expenseError.message);
-        alert("Cash movement was posted, but linked expense failed. Check expenses table columns.");
+        console.log(
+          "APPROVED CASH MOVEMENT EXPENSE ERROR:",
+          expenseError.message,
+        );
+        alert(
+          "Cash movement was posted, but linked expense failed. Check expenses table columns.",
+        );
         return false;
       }
 
@@ -820,8 +912,13 @@ export default function ApprovalCenterPage() {
           .single();
 
         if (balanceError) {
-          console.log("APPROVED CASH ADVANCE BALANCE ERROR:", balanceError.message);
-          alert("Cash advance posted to drawer and expenses, but employee balance failed.");
+          console.log(
+            "APPROVED CASH ADVANCE BALANCE ERROR:",
+            balanceError.message,
+          );
+          alert(
+            "Cash advance posted to drawer and expenses, but employee balance failed.",
+          );
         } else {
           createdBalanceData = balanceData;
 
@@ -858,7 +955,6 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
-
   const syncLeaveRequestApproval = async (request: any) => {
     if (request.request_type !== "LEAVE_REQUEST" || !request.reference_id) {
       return true;
@@ -878,8 +974,13 @@ export default function ApprovalCenterPage() {
       .maybeSingle();
 
     if (leaveFetchError) {
-      console.log("FETCH LEAVE FOR CREDIT DEDUCTION ERROR:", leaveFetchError.message);
-      alert(`Approval saved failed before leave credit check. ${leaveFetchError.message}`);
+      console.log(
+        "FETCH LEAVE FOR CREDIT DEDUCTION ERROR:",
+        leaveFetchError.message,
+      );
+      alert(
+        `Approval saved failed before leave credit check. ${leaveFetchError.message}`,
+      );
       return false;
     }
 
@@ -888,7 +989,10 @@ export default function ApprovalCenterPage() {
       return false;
     }
 
-    const creditAdjusted = await adjustLeaveCreditsForApproval(request, leaveData);
+    const creditAdjusted = await adjustLeaveCreditsForApproval(
+      request,
+      leaveData,
+    );
 
     if (!creditAdjusted) {
       return false;
@@ -905,7 +1009,9 @@ export default function ApprovalCenterPage() {
 
     if (error) {
       console.log("SYNC LEAVE REQUEST APPROVAL ERROR:", error.message);
-      alert("Approval saved failed before leave request sync. Check leave_requests columns.");
+      alert(
+        "Approval saved failed before leave request sync. Check leave_requests columns.",
+      );
       return false;
     }
 
@@ -947,7 +1053,9 @@ export default function ApprovalCenterPage() {
 
     if (error) {
       console.log("SYNC LEAVE REQUEST REJECTION ERROR:", error.message);
-      alert("Rejection saved failed before leave request sync. Check leave_requests columns.");
+      alert(
+        "Rejection saved failed before leave request sync. Check leave_requests columns.",
+      );
       return false;
     }
 
@@ -971,9 +1079,11 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
-
   const syncLeaveCancellationApproval = async (request: any) => {
-    if (request.request_type !== "LEAVE_CANCELLATION" || !request.reference_id) {
+    if (
+      request.request_type !== "LEAVE_CANCELLATION" ||
+      !request.reference_id
+    ) {
       return true;
     }
 
@@ -991,13 +1101,21 @@ export default function ApprovalCenterPage() {
       .maybeSingle();
 
     if (leaveFetchError) {
-      console.log("FETCH LEAVE FOR CREDIT RESTORE ERROR:", leaveFetchError.message);
-      alert(`Leave cancellation failed before credit restore check. ${leaveFetchError.message}`);
+      console.log(
+        "FETCH LEAVE FOR CREDIT RESTORE ERROR:",
+        leaveFetchError.message,
+      );
+      alert(
+        `Leave cancellation failed before credit restore check. ${leaveFetchError.message}`,
+      );
       return false;
     }
 
     if (leaveData && String(leaveData.status || "") === "Approved") {
-      const creditsRestored = await restoreLeaveCreditsForCancellation(request, leaveData);
+      const creditsRestored = await restoreLeaveCreditsForCancellation(
+        request,
+        leaveData,
+      );
 
       if (!creditsRestored) {
         return false;
@@ -1016,7 +1134,9 @@ export default function ApprovalCenterPage() {
 
     if (error) {
       console.log("SYNC LEAVE CANCELLATION APPROVAL ERROR:", error.message);
-      alert("Approval saved failed before leave cancellation sync. Check leave_requests cancellation columns.");
+      alert(
+        "Approval saved failed before leave cancellation sync. Check leave_requests cancellation columns.",
+      );
       return false;
     }
 
@@ -1040,8 +1160,14 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
-  const syncLeaveCancellationRejection = async (request: any, reason: string) => {
-    if (request.request_type !== "LEAVE_CANCELLATION" || !request.reference_id) {
+  const syncLeaveCancellationRejection = async (
+    request: any,
+    reason: string,
+  ) => {
+    if (
+      request.request_type !== "LEAVE_CANCELLATION" ||
+      !request.reference_id
+    ) {
       return true;
     }
 
@@ -1093,14 +1219,18 @@ export default function ApprovalCenterPage() {
     if (freshRequestError) {
       setIsProcessing(false);
       processingRequestRef.current = null;
-      alert(`Approval status safety check failed. ${freshRequestError.message}`);
+      alert(
+        `Approval status safety check failed. ${freshRequestError.message}`,
+      );
       return;
     }
 
     if (!freshRequest || String(freshRequest.status || "") !== "PENDING") {
       setIsProcessing(false);
       processingRequestRef.current = null;
-      alert("This request is no longer pending. It may have already been processed.");
+      alert(
+        "This request is no longer pending. It may have already been processed.",
+      );
       await refreshApprovalCenter();
       setSelectedRequest(null);
       return;
@@ -1126,7 +1256,10 @@ export default function ApprovalCenterPage() {
         .eq("id", request.reference_id);
 
       if (adjustmentError) {
-        console.log("SYNC PAYROLL ADJUSTMENT APPROVAL ERROR:", adjustmentError.message);
+        console.log(
+          "SYNC PAYROLL ADJUSTMENT APPROVAL ERROR:",
+          adjustmentError.message,
+        );
         alert("Approval saved failed before payroll adjustment sync.");
         setIsProcessing(false);
         processingRequestRef.current = null;
@@ -1154,7 +1287,10 @@ export default function ApprovalCenterPage() {
         .eq("id", request.reference_id);
 
       if (expenseRequestError) {
-        console.log("SYNC EXPENSE REQUEST APPROVAL ERROR:", expenseRequestError.message);
+        console.log(
+          "SYNC EXPENSE REQUEST APPROVAL ERROR:",
+          expenseRequestError.message,
+        );
         alert("Approval saved failed before expense request sync.");
         setIsProcessing(false);
         processingRequestRef.current = null;
@@ -1231,7 +1367,10 @@ export default function ApprovalCenterPage() {
         .eq("id", request.reference_id);
 
       if (adjustmentError) {
-        console.log("SYNC PAYROLL ADJUSTMENT REJECTION ERROR:", adjustmentError.message);
+        console.log(
+          "SYNC PAYROLL ADJUSTMENT REJECTION ERROR:",
+          adjustmentError.message,
+        );
         alert("Rejection saved failed before payroll adjustment sync.");
         setIsProcessing(false);
         processingRequestRef.current = null;
@@ -1249,7 +1388,10 @@ export default function ApprovalCenterPage() {
         .eq("id", request.reference_id);
 
       if (expenseRequestError) {
-        console.log("SYNC EXPENSE REQUEST REJECTION ERROR:", expenseRequestError.message);
+        console.log(
+          "SYNC EXPENSE REQUEST REJECTION ERROR:",
+          expenseRequestError.message,
+        );
         alert("Rejection saved failed before expense request sync.");
         setIsProcessing(false);
         processingRequestRef.current = null;
@@ -1330,18 +1472,23 @@ export default function ApprovalCenterPage() {
 
   /// CALCULATIONS
   const visibleRequests = requests.filter((request) =>
-    canCurrentUserApproveRequest(request)
+    canCurrentUserApproveRequest(request),
   );
 
   const pendingRequests = visibleRequests.filter((r) => r.status === "PENDING");
-  const approvedRequests = visibleRequests.filter((r) => r.status === "APPROVED");
-  const rejectedRequests = visibleRequests.filter((r) => r.status === "REJECTED");
+  const approvedRequests = visibleRequests.filter(
+    (r) => r.status === "APPROVED",
+  );
+  const rejectedRequests = visibleRequests.filter(
+    (r) => r.status === "REJECTED",
+  );
 
   const getCategoryCount = (status: string, category: string) => {
     return visibleRequests.filter((request) => {
       const statusMatch = request.status === status;
       const categoryMatch =
-        category === "ALL" || getRequestCategory(request.request_type) === category;
+        category === "ALL" ||
+        getRequestCategory(request.request_type) === category;
 
       return statusMatch && categoryMatch;
     }).length;
@@ -1349,10 +1496,22 @@ export default function ApprovalCenterPage() {
 
   const categoryItems = [
     { key: "ALL", label: "All", count: getCategoryCount(activeTab, "ALL") },
-    { key: "FINANCE", label: "Finance", count: getCategoryCount(activeTab, "FINANCE") },
+    {
+      key: "FINANCE",
+      label: "Finance",
+      count: getCategoryCount(activeTab, "FINANCE"),
+    },
     { key: "CASH", label: "Cash", count: getCategoryCount(activeTab, "CASH") },
-    { key: "PAYROLL", label: "Payroll", count: getCategoryCount(activeTab, "PAYROLL") },
-    { key: "LEAVE", label: "Leave", count: getCategoryCount(activeTab, "LEAVE") },
+    {
+      key: "PAYROLL",
+      label: "Payroll",
+      count: getCategoryCount(activeTab, "PAYROLL"),
+    },
+    {
+      key: "LEAVE",
+      label: "Leave",
+      count: getCategoryCount(activeTab, "LEAVE"),
+    },
   ];
 
   const filteredRequests = visibleRequests.filter((request) => {
@@ -1366,214 +1525,319 @@ export default function ApprovalCenterPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-[#07111f] text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 xl:p-8">
-        <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <ApprovalTopNavbar />
+
+        <div className="px-4 pb-6 pt-20 sm:px-6 lg:px-7">
+          {/* PAGE HEADER */}
+          <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
-                Decision Center
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                Approvals
               </p>
-              <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
-                Approval Queue
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                Approval Center
               </h1>
-              <p className="mt-1 max-w-3xl text-sm text-slate-400">
-                Review, approve, or reject assigned finance, cash, payroll, and leave requests.
+              <p className="mt-1 max-w-3xl text-sm font-medium text-slate-500">
+                Review, approve, or reject assigned finance, cash, payroll, and
+                leave requests.
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-800 bg-slate-950 p-2 text-center">
-              <div className="min-w-[92px] rounded-xl bg-slate-900 px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pending</p>
-                <p className="mt-1 text-xl font-black text-white">{pendingRequests.length}</p>
-              </div>
-              <div className="min-w-[92px] rounded-xl bg-slate-900 px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Approved</p>
-                <p className="mt-1 text-xl font-black text-white">{approvedRequests.length}</p>
-              </div>
-              <div className="min-w-[92px] rounded-xl bg-slate-900 px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Rejected</p>
-                <p className="mt-1 text-xl font-black text-white">{rejectedRequests.length}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="sticky top-0 z-30 mb-4 rounded-2xl border border-slate-800 bg-slate-950/95 p-4 shadow-xl shadow-black/20 backdrop-blur">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: "PENDING", label: "Pending", count: pendingRequests.length },
-                { key: "APPROVED", label: "Approved", count: approvedRequests.length },
-                { key: "REJECTED", label: "Rejected", count: rejectedRequests.length },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => {
-                    setActiveTab(tab.key);
-                    setCategoryFilter("ALL");
-                  }}
-                  className={
-                    activeTab === tab.key
-                      ? "rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white"
-                      : "rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
-                  }
-                >
-                  {tab.label} <span className="ml-1 text-xs opacity-70">{tab.count}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr] xl:w-[520px]">
-              <select
-                value={categoryFilter}
-                onChange={(event) => setCategoryFilter(event.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
+                Current user:{" "}
+                {currentEmployeeName || currentEmployeeId || "Not detected"}
+              </span>
+              <button
+                type="button"
+                onClick={refreshApprovalCenter}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
-                {categoryItems.map((item) => (
-                  <option key={item.key} value={item.key}>
-                    {item.label} ({item.count})
-                  </option>
-                ))}
-              </select>
+                Refresh Queue
+              </button>
+            </div>
+          </section>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-slate-400">
-                <span className="font-bold text-white">{filteredRequests.length}</span> {activeTab.toLowerCase()} request(s) • {getCategoryLabel(categoryFilter)}
+          {/* KPI ROW */}
+          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <ApprovalKpiCard
+              title="Pending"
+              value={pendingRequests.length}
+              helper="Awaiting decision"
+            />
+            <ApprovalKpiCard
+              title="Approved"
+              value={approvedRequests.length}
+              helper="Approved assigned requests"
+            />
+            <ApprovalKpiCard
+              title="Rejected"
+              value={rejectedRequests.length}
+              helper="Rejected assigned requests"
+            />
+            <ApprovalKpiCard
+              title="Assigned To Me"
+              value={visibleRequests.length}
+              helper="Total visible workload"
+            />
+          </section>
+
+          {/* FILTER TOOLBAR */}
+          <section className="mb-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    key: "PENDING",
+                    label: "Pending",
+                    count: pendingRequests.length,
+                  },
+                  {
+                    key: "APPROVED",
+                    label: "Approved",
+                    count: approvedRequests.length,
+                  },
+                  {
+                    key: "REJECTED",
+                    label: "Rejected",
+                    count: rejectedRequests.length,
+                  },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tab.key);
+                      setCategoryFilter("ALL");
+                    }}
+                    className={
+                      activeTab === tab.key
+                        ? "h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                        : "h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                    }
+                  >
+                    {tab.label}{" "}
+                    <span className="ml-1 text-xs opacity-70">{tab.count}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr] xl:w-[520px]">
+                <select
+                  value={categoryFilter}
+                  onChange={(event) => setCategoryFilter(event.target.value)}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                >
+                  {categoryItems.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label} ({item.count})
+                    </option>
+                  ))}
+                </select>
+
+                <div className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-600">
+                  <span className="font-black text-slate-950">
+                    {filteredRequests.length}
+                  </span>
+                  <span className="ml-1">
+                    {activeTab.toLowerCase()} request(s) •{" "}
+                    {getCategoryLabel(categoryFilter)}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
-                Current user: <span className="font-bold text-slate-200">{currentEmployeeName || currentEmployeeId || "Not detected"}</span>
-              </span>
-              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
-                Assigned workload: <span className="font-bold text-slate-200">{visibleRequests.length}</span>
-              </span>
-              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
-                Cash: <span className="font-bold text-slate-200">{getCategoryCount(activeTab, "CASH")}</span>
-              </span>
-              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
-                Leave: <span className="font-bold text-slate-200">{getCategoryCount(activeTab, "LEAVE")}</span>
-              </span>
-              <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1">
-                Payroll: <span className="font-bold text-slate-200">{getCategoryCount(activeTab, "PAYROLL")}</span>
-              </span>
-            </div>
+          {/* MAIN WORKFLOW AREA */}
+          <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+            {/* APPROVAL QUEUE */}
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Workflow Queue
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Manager Action Queue
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Open a request to review details, assignment, and approval
+                  actions.
+                </p>
+              </div>
 
-            <button
-              onClick={refreshApprovalCenter}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
-            >
-              Refresh Queue
-            </button>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-xl font-black text-white">Manager Action Queue</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Open a request to review details, workflow assignment, and approval actions.
-              </p>
-            </div>
-            <ApprovalStatusBadge status={activeTab} />
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-slate-800">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Request</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3">Requested By</th>
-                    <th className="px-4 py-3">Submitted</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredRequests.length === 0 ? (
+              <div className="overflow-auto">
+                <table className="w-full min-w-[980px] text-sm">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                     <tr>
-                      <td colSpan={6} className="px-4 py-14 text-center text-slate-500">
-                        No approval requests assigned to you.
-                      </td>
+                      <th className="px-4 py-3">Request</th>
+                      <th className="px-4 py-3">Module</th>
+                      <th className="px-4 py-3">Requested By</th>
+                      <th className="px-4 py-3">Submitted</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
-                  ) : (
-                    filteredRequests.map((request) => (
-                      <tr key={request.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                        <td className="px-4 py-4">
-                          <div className="space-y-2">
-                            <span
-                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getRequestTypeBadgeStyle(
-                                request.request_type
-                              )}`}
-                            >
-                              {getRequestTypeLabel(request.request_type)}
-                            </span>
-                            <div>
-                              <p className="font-black text-white">{request.title || "Untitled Request"}</p>
-                              <p className="mt-1 text-xs text-slate-500">
-                                {request.module || "No module"} • {getApproverRoleForRequest(request)}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300">
-                            {getCategoryLabel(getRequestCategory(request.request_type))}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-slate-300">
-                          {request.requested_by || "-"}
-                        </td>
-                        <td className="px-4 py-4 text-slate-400">
-                          {formatDateTime(request.created_at)}
-                        </td>
-                        <td className="px-4 py-4">
-                          <ApprovalStatusBadge status={request.status} />
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <button
-                            onClick={() => setSelectedRequest(request)}
-                            className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500"
-                          >
-                            Review
-                          </button>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredRequests.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-14 text-center">
+                          <p className="text-sm font-black text-slate-700">
+                            No records found
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-slate-500">
+                            No approval requests are assigned to you for this
+                            filter.
+                          </p>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredRequests.map((request) => (
+                        <tr
+                          key={request.id}
+                          className="text-slate-700 transition-all duration-200 hover:bg-slate-50"
+                        >
+                          <td className="px-4 py-4">
+                            <div className="space-y-2">
+                              <span
+                                className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getRequestTypeBadgeStyle(
+                                  request.request_type,
+                                )}`}
+                              >
+                                {getRequestTypeLabel(request.request_type)}
+                              </span>
+                              <div>
+                                <p className="font-black text-slate-950">
+                                  {request.title || "Untitled Request"}
+                                </p>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  {getApproverRoleForRequest(request)} approval
+                                  lane
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                              {request.module ||
+                                getCategoryLabel(
+                                  getRequestCategory(request.request_type),
+                                )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 font-semibold text-slate-700">
+                            {request.requested_by || "-"}
+                          </td>
+                          <td className="px-4 py-4 font-semibold text-slate-500">
+                            {formatDateTime(request.created_at)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <ApprovalStatusBadge status={request.status} />
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRequest(request)}
+                              className="h-10 rounded-xl bg-slate-950 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                            >
+                              Review
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </section>
+
+            {/* REQUEST SUMMARY */}
+            <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Request Summary
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                {selectedRequest ? "Selected Request" : "No Request Selected"}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                {selectedRequest
+                  ? "Review the key approval details before opening the action panel."
+                  : "Select a request from the queue to view its details."}
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <SummaryLine
+                  label="Title"
+                  value={selectedRequest?.title || "-"}
+                />
+                <SummaryLine
+                  label="Type"
+                  value={
+                    selectedRequest
+                      ? getRequestTypeLabel(selectedRequest.request_type)
+                      : "-"
+                  }
+                />
+                <SummaryLine
+                  label="Requested By"
+                  value={selectedRequest?.requested_by || "-"}
+                />
+                <SummaryLine
+                  label="Required Role"
+                  value={
+                    selectedRequest
+                      ? getApproverRoleForRequest(selectedRequest)
+                      : "-"
+                  }
+                />
+                <SummaryLine
+                  label="Assigned Approvers"
+                  value={
+                    selectedRequest
+                      ? getAssignedApproverLabel(selectedRequest)
+                      : "-"
+                  }
+                />
+                <SummaryLine
+                  label="Status"
+                  value={selectedRequest?.status || "-"}
+                  strong
+                />
+              </div>
+
+              {selectedRequest && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedRequest(selectedRequest)}
+                  className="mt-5 h-11 w-full rounded-xl bg-slate-950 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                >
+                  Open Review Panel
+                </button>
+              )}
+            </aside>
+          </section>
+        </div>
 
         {selectedRequest && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
-            <aside className="flex h-full w-full max-w-3xl flex-col border-l border-slate-800 bg-slate-950 text-white shadow-2xl">
-              <div className="border-b border-slate-800 bg-slate-950 p-6">
+          <div className="fixed bottom-0 right-0 top-0 z-50 flex justify-end bg-slate-950/45 lg:left-[16rem]">
+            <aside className="flex h-full w-full max-w-[560px] flex-col border-l border-slate-200 bg-white text-slate-900 shadow-2xl">
+              <div className="border-b border-slate-100 bg-white px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-400">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
                       Request Review Center
                     </p>
-                    <h2 className="mt-2 text-3xl font-black text-white">
+                    <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
                       {selectedRequest.title || "Untitled Request"}
                     </h2>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span
                         className={`rounded-full border px-3 py-1 text-xs font-bold ${getRequestTypeBadgeStyle(
-                          selectedRequest.request_type
+                          selectedRequest.request_type,
                         )}`}
                       >
                         {getRequestTypeLabel(selectedRequest.request_type)}
@@ -1582,61 +1846,82 @@ export default function ApprovalCenterPage() {
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setSelectedRequest(null)}
-                    className="rounded-xl bg-slate-900 p-3 text-slate-400 hover:text-white"
+                    className="h-10 w-10 shrink-0 rounded-xl border border-slate-300 bg-white text-sm font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                    aria-label="Close review panel"
                   >
                     ✕
                   </button>
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-6">
-                <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <ApprovalDetailCard label="Requested By" value={selectedRequest.requested_by || "-"} />
-                  <ApprovalDetailCard label="Category" value={getCategoryLabel(getRequestCategory(selectedRequest.request_type))} />
-                  <ApprovalDetailCard label="Module" value={selectedRequest.module || "-"} />
-                  <ApprovalDetailCard label="Submitted" value={formatDateTime(selectedRequest.created_at)} />
+              <div className="min-h-0 flex-1 overflow-y-auto p-5 pb-6">
+                <section className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <ApprovalDetailCard
+                    label="Requested By"
+                    value={selectedRequest.requested_by || "-"}
+                  />
+                  <ApprovalDetailCard
+                    label="Category"
+                    value={getCategoryLabel(
+                      getRequestCategory(selectedRequest.request_type),
+                    )}
+                  />
+                  <ApprovalDetailCard
+                    label="Module"
+                    value={selectedRequest.module || "-"}
+                  />
+                  <ApprovalDetailCard
+                    label="Submitted"
+                    value={formatDateTime(selectedRequest.created_at)}
+                  />
                 </section>
 
-                <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <h3 className="text-lg font-black text-white">Request Details</h3>
-                  <p className="mt-3 rounded-xl bg-slate-950 p-4 text-sm leading-6 text-slate-300">
+                <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Request Details
+                  </p>
+                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                    Details
+                  </h3>
+                  <p className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium leading-6 text-slate-700">
                     {selectedRequest.description || "No description provided."}
                   </p>
 
                   {getPayload(selectedRequest) && (
-                    <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                      <ApprovalInfoRow label="Amount" value={formatMoney(getPayload(selectedRequest)?.amount)} />
-                      <ApprovalInfoRow label="Business Date" value={getPayload(selectedRequest)?.business_date || "-"} />
-                      <ApprovalInfoRow label="Movement" value={getPayload(selectedRequest)?.movement_type || "-"} />
-                      <ApprovalInfoRow label="Source" value={getPayload(selectedRequest)?.source || "-"} />
-                      <ApprovalInfoRow label="Payment" value={getPayload(selectedRequest)?.payment_type || "-"} />
-                      <ApprovalInfoRow label="From" value={getPayload(selectedRequest)?.from_person || "-"} />
-                      <ApprovalInfoRow label="To" value={getPayload(selectedRequest)?.to_person || "-"} />
-                      <ApprovalInfoRow label="Encoded By" value={getPayload(selectedRequest)?.encoded_by || "-"} />
-                      <ApprovalInfoRow label="Expense Category" value={getPayload(selectedRequest)?.expense_category || "-"} />
-                      <ApprovalInfoRow label="Expense Area" value={getPayload(selectedRequest)?.expense_department || "-"} />
-                      <ApprovalInfoRow label="Cash Advance Employee" value={getPayload(selectedRequest)?.cash_advance_employee_name || "-"} />
-                      <ApprovalInfoRow label="Payroll Period" value={getPayload(selectedRequest)?.payroll_period_label || "-"} />
-                      <ApprovalInfoRow label="Leave Employee" value={getPayload(selectedRequest)?.employee_name || "-"} />
-                      <ApprovalInfoRow label="Leave Type" value={getPayload(selectedRequest)?.leave_type || "-"} />
-                      <ApprovalInfoRow
-                        label="Leave Dates"
-                        value={`${getPayload(selectedRequest)?.start_date || "-"} to ${getPayload(selectedRequest)?.end_date || "-"}`}
-                      />
-                      <ApprovalInfoRow label="Total Days" value={getPayload(selectedRequest)?.days || getPayload(selectedRequest)?.total_days || "-"} />
-                      <ApprovalInfoRow label="Remarks" value={getPayload(selectedRequest)?.remarks || "-"} wide />
-                      <ApprovalInfoRow label="Cancellation Reason" value={getPayload(selectedRequest)?.cancellation_reason || "-"} wide />
-                    </div>
+                    <ApprovalRequestDetails
+                      request={selectedRequest}
+                      payload={getPayload(selectedRequest)}
+                      formatMoney={formatMoney}
+                    />
                   )}
                 </section>
 
-                <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <h3 className="text-lg font-black text-slate-200">Approval Assignment</h3>
+                <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Approval Assignment
+                  </p>
+                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                    Assignment
+                  </h3>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                    <ApprovalInfoRow label="Required Role" value={getApproverRoleForRequest(selectedRequest)} />
-                    <ApprovalInfoRow label="Assigned Approvers" value={getAssignedApproverLabel(selectedRequest)} />
-                    <ApprovalInfoRow label="Current User" value={currentEmployeeName || currentEmployeeId || "Not detected"} />
+                    <ApprovalInfoRow
+                      label="Required Role"
+                      value={getApproverRoleForRequest(selectedRequest)}
+                    />
+                    <ApprovalInfoRow
+                      label="Assigned Approvers"
+                      value={getAssignedApproverLabel(selectedRequest)}
+                    />
+                    <ApprovalInfoRow
+                      label="Current User"
+                      value={
+                        currentEmployeeName ||
+                        currentEmployeeId ||
+                        "Not detected"
+                      }
+                    />
                     <ApprovalInfoRow
                       label="Access"
                       value={
@@ -1648,91 +1933,130 @@ export default function ApprovalCenterPage() {
                   </div>
                 </section>
 
-                <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <h3 className="text-lg font-black text-white">Audit Trail</h3>
+                <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Audit Trail
+                  </p>
+                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                    History
+                  </h3>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                    <ApprovalInfoRow label="Reference ID" value={selectedRequest.reference_id || "-"} />
-                    <ApprovalInfoRow label="Approved By" value={selectedRequest.approved_by || "-"} />
-                    <ApprovalInfoRow label="Approved At" value={formatDateTime(selectedRequest.approved_at)} />
-                    <ApprovalInfoRow label="Rejected By" value={selectedRequest.rejected_by || "-"} />
-                    <ApprovalInfoRow label="Rejected At" value={formatDateTime(selectedRequest.rejected_at)} />
-                    <ApprovalInfoRow label="Rejection Reason" value={selectedRequest.rejection_reason || "-"} wide />
+                    <ApprovalInfoRow
+                      label="Reference ID"
+                      value={selectedRequest.reference_id || "-"}
+                    />
+                    <ApprovalInfoRow
+                      label="Approved By"
+                      value={selectedRequest.approved_by || "-"}
+                    />
+                    <ApprovalInfoRow
+                      label="Approved At"
+                      value={formatDateTime(selectedRequest.approved_at)}
+                    />
+                    <ApprovalInfoRow
+                      label="Rejected By"
+                      value={selectedRequest.rejected_by || "-"}
+                    />
+                    <ApprovalInfoRow
+                      label="Rejected At"
+                      value={formatDateTime(selectedRequest.rejected_at)}
+                    />
+                    <ApprovalInfoRow
+                      label="Rejection Reason"
+                      value={selectedRequest.rejection_reason || "-"}
+                      wide
+                    />
                   </div>
                 </section>
 
-                {selectedRequest.status === "PENDING" ? (
-                  canCurrentUserApproveRequest(selectedRequest) ? (
-                    <div className="sticky bottom-0 -mx-6 border-t border-slate-800 bg-slate-950/95 p-6 backdrop-blur">
-                      <div className="flex gap-3">
-                        <button
-                          disabled={isProcessing}
-                          onClick={() => approveRequest(selectedRequest)}
-                          className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-black text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isProcessing ? "Processing..." : "Approve Decision"}
-                        </button>
-
-                        <button
-                          disabled={isProcessing}
-                          onClick={() => {
-                            setRejectReason("");
-                            setShowRejectModal(true);
-                          }}
-                          className="flex-1 rounded-xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isProcessing ? "Processing..." : "Reject"}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
-                      You can view this request, but only an assigned approver can approve or reject it.
-                    </div>
-                  )
-                ) : (
-                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+                {selectedRequest.status !== "PENDING" && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-600">
                     This request is already {selectedRequest.status}.
                   </div>
                 )}
+
+                {selectedRequest.status === "PENDING" &&
+                  !canCurrentUserApproveRequest(selectedRequest) && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-600">
+                      You can view this request, but only an assigned approver
+                      can approve or reject it.
+                    </div>
+                  )}
               </div>
+
+              {selectedRequest.status === "PENDING" &&
+                canCurrentUserApproveRequest(selectedRequest) && (
+                  <div className="border-t border-slate-100 bg-white px-5 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => approveRequest(selectedRequest)}
+                        className="h-11 flex-1 rounded-xl bg-emerald-600 text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
+                      >
+                        {isProcessing ? "Processing..." : "Approve Decision"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => {
+                          setRejectReason("");
+                          setShowRejectModal(true);
+                        }}
+                        className="h-11 flex-1 rounded-xl bg-red-600 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
+                      >
+                        {isProcessing ? "Processing..." : "Reject"}
+                      </button>
+                    </div>
+                  </div>
+                )}
             </aside>
           </div>
         )}
 
         {showRejectModal && selectedRequest && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
               <div className="mb-4">
-                <h3 className="text-lg font-black text-white">Decline Request</h3>
-                <p className="mt-1 text-sm text-slate-400">
-                  Enter the reason for rejecting this request. This reason will be saved in the approval audit trail.
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Reject Request
+                </p>
+                <h3 className="mt-1 text-xl font-black text-slate-950">
+                  Decline Request
+                </h3>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Enter the reason for rejecting this request. This reason will
+                  be saved in the approval audit trail.
                 </p>
               </div>
 
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200 outline-none focus:border-red-500"
+                className="w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
                 rows={4}
                 placeholder="Example: Insufficient documentation, duplicate request, or budget exceeded..."
               />
 
               <div className="mt-4 flex gap-3">
                 <button
+                  type="button"
                   disabled={isProcessing}
                   onClick={() => {
                     setShowRejectModal(false);
                     setRejectReason("");
                   }}
-                  className="flex-1 rounded-xl border border-slate-700 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 flex-1 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
                 >
                   Cancel
                 </button>
 
                 <button
+                  type="button"
                   disabled={isProcessing}
                   onClick={() => rejectRequest(selectedRequest, rejectReason)}
-                  className="flex-1 rounded-xl bg-red-600 py-2 text-sm font-black text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 flex-1 rounded-xl bg-red-600 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
                 >
                   {isProcessing ? "Declining..." : "Confirm Decline"}
                 </button>
@@ -1740,40 +2064,152 @@ export default function ApprovalCenterPage() {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
 }
 
-function ApprovalKpiCard({
-  icon,
-  title,
-  value,
-  description,
-  success,
-  danger,
-}: any) {
-  const cardStyle = danger
-    ? "border-red-500/20 bg-white/[0.045]"
-    : success
-      ? "border-emerald-500/20 bg-white/[0.045]"
-      : "border-blue-300/10 bg-white/[0.045]";
+function ApprovalTopNavbar() {
+  return (
+    <div className="fixed left-0 right-0 top-0 z-40 h-16 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+      <div className="flex h-full items-center justify-between px-5 sm:px-7">
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+          APPROVALS / APPROVAL CENTER
+        </p>
+      </div>
+    </div>
+  );
+}
 
-  const iconStyle = danger
-    ? "bg-red-500/10 text-red-300"
-    : success
-      ? "bg-emerald-500/10 text-emerald-300"
-      : "bg-slate-950 text-slate-300";
+function ApprovalRequestDetails({ request, payload, formatMoney }: any) {
+  const requestType = String(request?.request_type || "");
+
+  if (requestType === "EXPENSE_REQUEST") {
+    return (
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+        <ApprovalInfoRow label="Amount" value={formatMoney(payload?.amount)} />
+        <ApprovalInfoRow
+          label="Request Date"
+          value={
+            payload?.request_date || request?.created_at?.slice?.(0, 10) || "-"
+          }
+        />
+        <ApprovalInfoRow
+          label="Expense Category"
+          value={payload?.category || payload?.expense_category || "-"}
+        />
+        <ApprovalInfoRow
+          label="Expense Area"
+          value={payload?.expense_area || payload?.expense_department || "-"}
+        />
+        <ApprovalInfoRow
+          label="Department"
+          value={payload?.department || "-"}
+        />
+        <ApprovalInfoRow label="Urgency" value={payload?.urgency || "-"} />
+        <ApprovalInfoRow
+          label="Reason / Purpose"
+          value={payload?.reason || request?.description || "-"}
+          wide
+        />
+      </div>
+    );
+  }
+
+  if (requestType === "LEAVE_REQUEST" || requestType === "LEAVE_CANCELLATION") {
+    return (
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+        <ApprovalInfoRow
+          label="Employee"
+          value={payload?.employee_name || request?.requested_by || "-"}
+        />
+        <ApprovalInfoRow
+          label="Leave Type"
+          value={payload?.leave_type || "-"}
+        />
+        <ApprovalInfoRow
+          label="Start Date"
+          value={payload?.start_date || "-"}
+        />
+        <ApprovalInfoRow label="End Date" value={payload?.end_date || "-"} />
+        <ApprovalInfoRow
+          label="Total Days"
+          value={payload?.days || payload?.total_days || "-"}
+        />
+        <ApprovalInfoRow
+          label="Reason"
+          value={
+            payload?.reason || payload?.remarks || request?.description || "-"
+          }
+          wide
+        />
+        {requestType === "LEAVE_CANCELLATION" && (
+          <ApprovalInfoRow
+            label="Cancellation Reason"
+            value={payload?.cancellation_reason || "-"}
+            wide
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className={`rounded-2xl border p-4 ${cardStyle}`}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm text-slate-400">{title}</p>
-        <div className={`rounded-xl p-3 ${iconStyle}`}>{icon}</div>
-      </div>
-      <h2 className="text-3xl font-black text-white">{value}</h2>
-      <p className="mt-2 text-xs text-slate-500">{description}</p>
+    <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+      <ApprovalInfoRow label="Amount" value={formatMoney(payload?.amount)} />
+      <ApprovalInfoRow
+        label="Business Date"
+        value={payload?.business_date || payload?.request_date || "-"}
+      />
+      <ApprovalInfoRow label="Movement" value={payload?.movement_type || "-"} />
+      <ApprovalInfoRow label="Source" value={payload?.source || "-"} />
+      <ApprovalInfoRow label="Payment" value={payload?.payment_type || "-"} />
+      <ApprovalInfoRow label="From" value={payload?.from_person || "-"} />
+      <ApprovalInfoRow label="To" value={payload?.to_person || "-"} />
+      <ApprovalInfoRow label="Encoded By" value={payload?.encoded_by || "-"} />
+      <ApprovalInfoRow
+        label="Expense Category"
+        value={payload?.expense_category || payload?.category || "-"}
+      />
+      <ApprovalInfoRow
+        label="Expense Area"
+        value={payload?.expense_department || payload?.expense_area || "-"}
+      />
+      <ApprovalInfoRow
+        label="Cash Advance Employee"
+        value={payload?.cash_advance_employee_name || "-"}
+      />
+      <ApprovalInfoRow
+        label="Payroll Period"
+        value={payload?.payroll_period_label || "-"}
+      />
+      <ApprovalInfoRow
+        label="Remarks"
+        value={payload?.remarks || payload?.reason || "-"}
+        wide
+      />
+    </div>
+  );
+}
+
+function ApprovalKpiCard({
+  title,
+  value,
+  helper,
+}: {
+  title: string;
+  value: any;
+  helper: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <h2 className="mt-2 break-words text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </h2>
+      <p className="mt-1 text-xs font-medium text-slate-500">{helper}</p>
     </div>
   );
 }
@@ -1782,15 +2218,19 @@ function ApprovalStatusBadge({ status }: { status: string }) {
   const normalized = String(status || "").toUpperCase();
   const style =
     normalized === "APPROVED"
-      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : normalized === "REJECTED"
-        ? "border-red-500/20 bg-red-500/10 text-red-300"
+        ? "border-red-200 bg-red-50 text-red-700"
         : normalized === "PENDING"
-          ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-          : "border-slate-700 bg-slate-800 text-slate-300";
+          ? "border-amber-200 bg-amber-50 text-amber-700"
+          : normalized === "CLOSED" || normalized === "CANCELLED"
+            ? "border-slate-200 bg-slate-100 text-slate-700"
+            : "border-blue-200 bg-blue-50 text-blue-700";
 
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${style}`}>
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${style}`}
+    >
       {normalized || "UNKNOWN"}
     </span>
   );
@@ -1798,18 +2238,43 @@ function ApprovalStatusBadge({ status }: { status: string }) {
 
 function ApprovalDetailCard({ label, value }: any) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-sm text-slate-400">{label}</p>
-      <h3 className="mt-2 break-words text-lg font-black text-white">{value}</h3>
+    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <h3 className="mt-1.5 break-words text-base font-black text-slate-950">
+        {value}
+      </h3>
     </div>
   );
 }
 
 function ApprovalInfoRow({ label, value, wide }: any) {
   return (
-    <div className={`rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 ${wide ? "md:col-span-2" : ""}`}>
-      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold text-slate-200">{value}</p>
+    <div
+      className={`rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 ${wide ? "md:col-span-2" : ""}`}
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-800">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SummaryLine({ label, value, strong }: any) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p
+        className={`max-w-[210px] text-right text-sm ${strong ? "font-black text-slate-950" : "font-semibold text-slate-700"}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
