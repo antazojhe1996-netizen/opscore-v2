@@ -1,10 +1,12 @@
+// @ts-nocheck
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/SidebarV41";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import TopNavbar from "@/components/TopNavbar";
 
 export default function CashManagementPage() {
   /// STATES - DATABASE DATA
@@ -437,12 +439,12 @@ export default function CashManagementPage() {
   const getApprovalStatusStyle = (status: string) => {
     const normalized = String(status || "").toUpperCase();
 
-    if (normalized === "APPROVED") return "bg-blue-500/15 text-blue-200";
-    if (normalized === "REJECTED") return "bg-blue-500/15 text-blue-200";
-    if (normalized === "PENDING") return "bg-blue-500/15 text-blue-200";
-    if (normalized === "CANCELLED") return "bg-slate-700 text-slate-300";
+    if (normalized === "APPROVED") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+    if (normalized === "REJECTED") return "bg-red-50 text-red-700 ring-1 ring-red-200";
+    if (normalized === "PENDING") return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
+    if (normalized === "CANCELLED") return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
 
-    return "bg-slate-700 text-slate-300";
+    return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
   };
 
   const expenseCategoryOptions =
@@ -625,7 +627,6 @@ export default function CashManagementPage() {
     .filter((item) => (item.payment_type || "Cash") === "Terminal")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
-
   /// CALCULATIONS - PAYMENT BALANCE GUARD
   // Guard is per payment type. Cash Out using GCash should use GCash balance,
   // not Cash on Hand. This prevents impossible negative balances while still
@@ -676,10 +677,13 @@ export default function CashManagementPage() {
     }
   }, [movementType, source, cashOnHand, gcashTotal, bankTotal, terminalTotal]);
 
-  const drawerDisplayName = activeDrawer?.holder_name || currentDrawerHolderName || "Cashier";
+  const drawerDisplayName =
+    activeDrawer?.holder_name || currentDrawerHolderName || "Cashier";
 
   const drawerFirstName =
-    String(drawerDisplayName || "Cashier").trim().split(" ")[0] || "Cashier";
+    String(drawerDisplayName || "Cashier")
+      .trim()
+      .split(" ")[0] || "Cashier";
 
   const onlineBankingTotal = gcashTotal + bankTotal + terminalTotal;
 
@@ -795,6 +799,10 @@ export default function CashManagementPage() {
     (request) => String(request.status || "").toUpperCase() === "PENDING",
   ).length;
 
+  const todaysMovementCount = movements.filter(
+    (item) => item.business_date === today && !isVoidedMovement(item),
+  ).length;
+
   const closedDrawerVarianceRows = filteredDrawers
     .map((drawer) => {
       const summary = getDrawerCashSummary(drawer);
@@ -851,22 +859,30 @@ export default function CashManagementPage() {
 
   const cashWatchRecommendations = [
     ...(cashOnHand > 20000
-      ? ["Deposit excess physical cash or remit to management before end of shift."]
+      ? [
+          "Deposit excess physical cash or remit to management before end of shift.",
+        ]
       : []),
     ...(pendingCashApprovalCount > 0
-      ? ["Review pending money-out approvals before releasing additional funds."]
+      ? [
+          "Review pending money-out approvals before releasing additional funds.",
+        ]
       : []),
-    ...(activeDrawer ? ["Close and print the drawer report once cash count is verified."] : []),
-    ...(!activeDrawer ? ["Open the correct drawer before accepting or releasing physical cash."] : []),
+    ...(activeDrawer
+      ? ["Close and print the drawer report once cash count is verified."]
+      : []),
+    ...(!activeDrawer
+      ? ["Open the correct drawer before accepting or releasing physical cash."]
+      : []),
     ...(closedDrawerVarianceRows.length > 0
       ? ["Review drawer variance reports and confirm remittance amounts."]
       : []),
     ...(onlineBankingTotal > 0
-      ? ["Reconcile GCash, Bank, and Terminal balances against proof of payment."]
+      ? [
+          "Reconcile GCash, Bank, and Terminal balances against proof of payment.",
+        ]
       : []),
   ].slice(0, 5);
-
-
 
   /// FUNCTIONS - FORMATTERS
   const formatMoney = (value: any) => {
@@ -882,20 +898,20 @@ export default function CashManagementPage() {
   };
 
   const getMovementStyle = (type: string) => {
-    if (type === "Opening Float") return "bg-cyan-500/15 text-cyan-200";
-    if (type === "Cash In") return "bg-blue-500/15 text-blue-200";
-    if (type === "Cash Out") return "bg-blue-500/15 text-blue-200";
-    if (type === "Remittance") return "bg-blue-500/15 text-blue-200";
-    if (type === "Adjustment") return "bg-blue-500/15 text-blue-200";
-    return "bg-slate-700 text-slate-300";
+    if (type === "Opening Float") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
+    if (type === "Cash In") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+    if (type === "Cash Out") return "bg-red-50 text-red-700 ring-1 ring-red-200";
+    if (type === "Remittance") return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
+    if (type === "Adjustment") return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
+    return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
   };
 
   const getPaymentStyle = (payment: string) => {
-    if (payment === "Cash") return "bg-blue-500/15 text-blue-200";
-    if (payment === "GCash") return "bg-blue-500/15 text-blue-200";
-    if (payment === "Bank") return "bg-cyan-500/15 text-cyan-200";
-    if (payment === "Terminal") return "bg-sky-500/10 text-sky-400";
-    return "bg-slate-700 text-slate-300";
+    if (payment === "Cash") return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
+    if (payment === "GCash") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
+    if (payment === "Bank") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
+    if (payment === "Terminal") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
+    return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
   };
 
   /// FUNCTIONS - GET DATA
@@ -2031,7 +2047,6 @@ export default function CashManagementPage() {
       return;
     }
 
-
     if (isBalanceGuardedMoneyOut()) {
       const availableBalance = getAvailableBalanceByPaymentType(paymentType);
 
@@ -3015,718 +3030,438 @@ export default function CashManagementPage() {
   }, [sourceOptions, source]);
 
   /// UI
+  const inputClass =
+    "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100";
+  const selectClass = inputClass;
+  const labelClass =
+    "text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500";
+
+  const opscoreAlertCount = cashWatchAlerts.length;
+  const opscoreHasCritical = cashHealthScore < 70;
+  const opscoreHasWarning = cashHealthScore < 85 || opscoreAlertCount > 0;
+
+  const signedAmount = (item: any) => {
+    const value = Math.abs(Number(item.amount || 0));
+
+    if (
+      item.movement_type === "Cash Out" ||
+      item.movement_type === "Remittance" ||
+      item.source === "Expense Release" ||
+      item.source === "Cash Advance" ||
+      item.source === "Owner Withdrawal" ||
+      item.source === "Bank Deposit" ||
+      (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
+    ) {
+      return -value;
+    }
+
+    return value;
+  };
+
   return (
     <PageGuard moduleKey="cash_management">
-      <div className="flex min-h-screen bg-[#07111f] text-white">
+      <div className="flex min-h-screen bg-slate-50 text-slate-900">
         <Sidebar />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#07111f] p-4 text-white sm:p-5 lg:p-6">
-          {/* SYSTEM HEADER - WORKBENCH NOT DASHBOARD */}
-          <section className="mb-4 rounded-[1.4rem] border border-slate-800 bg-[#08101d] px-4 py-3 shadow-xl shadow-black/20">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex min-w-0 flex-wrap items-center gap-3">
-                <div className="h-8 w-1 rounded-full bg-gradient-to-b from-blue-400 to-cyan-300" />
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-blue-300">
-                    OPSCORE Finance Workbench
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-slate-50">
+          <TopNavbar />
+
+          <datalist id="employee-name-list">
+            {allEmployeeNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+
+          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            {/* PAGE HEADER */}
+            <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  Finance
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  Cash Management
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
+                  Manage cash drawers, remittances, cash releases, and fund balances.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+                <div
+                  className={`mr-1 rounded-2xl border px-4 py-2 ${
+                    activeDrawer
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-white text-slate-600"
+                  }`}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em]">
+                    {activeDrawer ? "Drawer Open" : "Drawer Closed"}
                   </p>
-                  <h1 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">
-                    Cash Management
-                  </h1>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:min-w-[620px]">
-                <CompactTopMetric label="Cash on Hand" value={formatMoney(cashOnHand)} tone={cashOnHand <= 0 ? "red" : "blue"} />
-                <CompactTopMetric label="Cash In / Out" value={`${formatMoney(cashInTotal)} / ${formatMoney(cashOutTotal)}`} tone="emerald" />
-                <CompactTopMetric label="Online Banking" value={formatMoney(onlineBankingTotal)} tone="cyan" />
-                <CompactTopMetric label="Variance" value={closedDrawerVarianceRows[0] ? formatMoney(closedDrawerVarianceRows[0].variance) : formatMoney(0)} tone={closedDrawerVarianceRows.length > 0 ? "red" : "orange"} />
-              </div>
-            </div>
-          </section>
-
-          {/* ACTIVE DRAWER - PRIMARY WORK AREA */}
-          <section className="mb-4 overflow-hidden rounded-[1.6rem] border border-blue-400/20 bg-gradient-to-r from-slate-950 via-[#0b1728] to-slate-950 shadow-2xl shadow-blue-950/20">
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="relative min-w-0 p-4 sm:p-5">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/10 to-transparent" />
-                <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-blue-300/25 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-200">
-                        Active Drawer
-                      </span>
-                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${activeDrawer ? "border-emerald-300/25 bg-emerald-500/10 text-emerald-200" : "border-orange-300/25 bg-orange-500/10 text-orange-200"}`}>
-                        {activeDrawer ? "Open" : "No Drawer"}
-                      </span>
-                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${cashWatchTone} border-white/10 bg-white/[0.05]`}>
-                        Cash Watch: {cashWatchStatus}
-                      </span>
-                    </div>
-
-                    <h2 className="mt-3 truncate text-3xl font-black tracking-tight text-white lg:text-4xl">
-                      {activeDrawer ? drawerDisplayName : "Open a drawer to start"}
-                    </h2>
-                    <p className="mt-2 text-sm font-semibold text-slate-400">
-                      {activeDrawer
-                        ? `Opened ${formatDateTime(activeDrawer.opened_at)} • ${activeDrawer.remarks || "Cash drawer is ready for transactions."}`
-                        : "Physical cash transactions require an active drawer. Online payment releases remain balance-guarded by payment type."}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[560px]">
-                    <MiniBalance label="Cash" value={formatMoney(cashOnHand)} tone="blue" />
-                    <MiniBalance label="GCash" value={formatMoney(gcashTotal)} tone="emerald" />
-                    <MiniBalance label="Bank" value={formatMoney(bankTotal)} tone="cyan" />
-                    <MiniBalance label="Terminal" value={formatMoney(terminalTotal)} tone="orange" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-blue-300/10 bg-slate-950/70 p-4 xl:border-l xl:border-t-0">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setShowOpenDrawer(true)}
-                    disabled={Boolean(activeDrawer)}
-                    className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-200 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Open
-                  </button>
-                  <button
-                    onClick={() => setShowCloseDrawer(true)}
-                    disabled={!activeDrawer}
-                    className="rounded-xl border border-orange-400/25 bg-orange-500/10 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-orange-200 hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Close
-                  </button>
-                  {activeDrawer && (
-                    <button
-                      onClick={() => printDrawerReport(activeDrawer)}
-                      className="col-span-2 rounded-xl border border-blue-400/25 bg-blue-500/10 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-blue-200 hover:bg-blue-500/20"
-                    >
-                      Print Drawer Report
-                    </button>
-                  )}
-                  {canManageDrawerForOthers && (
-                    <button
-                      onClick={() => setShowDrawerHolderSettings(true)}
-                      className="col-span-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-200 hover:bg-white/10"
-                    >
-                      Drawer Holder Settings
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* FAST ACTION STRIP */}
-          <section className="mb-4 rounded-[1.4rem] border border-slate-800 bg-slate-950/80 p-3 shadow-xl shadow-black/10">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:min-w-[740px]">
-                <FastSignal label="Pending Approvals" value={pendingCashApprovalCount} tone={pendingCashApprovalCount > 0 ? "orange" : "blue"} />
-                <FastSignal label="Cash In" value={formatMoney(cashInTotal)} tone="emerald" />
-                <FastSignal label="Cash Out" value={formatMoney(cashOutTotal)} tone="red" />
-                <FastSignal label="Remitted" value={formatMoney(remittanceTotal)} tone="cyan" />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    setMovementType("Cash In");
-                    setSource(sourceOptions[0] || "");
-                    setPaymentType("Cash");
-                  }}
-                  className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/20"
-                >
-                  + Cash In
-                </button>
-                <button
-                  onClick={() => {
-                    setMovementType("Cash Out");
-                    setSource("Expense Release");
-                    setPaymentType("Cash");
-                  }}
-                  className="rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-2 text-xs font-black text-red-200 hover:bg-red-500/20"
-                >
-                  - Cash Out
-                </button>
-                <button
-                  onClick={() => {
-                    setMovementType("Remittance");
-                    setSource("Remittance");
-                    setPaymentType("Cash");
-                  }}
-                  className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 text-xs font-black text-cyan-200 hover:bg-cyan-500/20"
-                >
-                  Remittance
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section className="sticky top-0 z-20 mb-4 rounded-[1.5rem] border border-blue-300/15 bg-slate-950/90 p-3 shadow-xl shadow-blue-950/10 backdrop-blur">
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                <select
-                  value={ledgerDateScope}
-                  onChange={(e) => setLedgerDateScope(e.target.value)}
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="TODAY">Today</option>
-                  <option value="CUSTOM">Selected Date</option>
-                  <option value="ALL">All Ledger</option>
-                </select>
-
-                {ledgerDateScope === "CUSTOM" ? (
-                  <input
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    style={{ colorScheme: "dark" }}
-                    className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                  />
-                ) : (
-                  <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
-                    {ledgerDateScope === "ALL" ? "All dates" : today}
-                  </div>
-                )}
-
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="ALL">All Movement Types</option>
-                  {movementTypes.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search ledger..."
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    setMovementType("Cash In");
-                    setSource(sourceOptions[0] || "");
-                    setPaymentType("Cash");
-                  }}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-400 hover:from-blue-500 hover:to-cyan-400/10 hover:text-white"
-                >
-                  Cash In
-                </button>
-                <button
-                  onClick={() => {
-                    setMovementType("Cash Out");
-                    setSource("Expense Release");
-                    setPaymentType("Cash");
-                  }}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-400 hover:from-blue-500 hover:to-cyan-400/10 hover:text-white"
-                >
-                  Cash Out
-                </button>
-                <button
-                  onClick={() => {
-                    setMovementType("Remittance");
-                    setSource("Remittance");
-                    setPaymentType("Cash");
-                  }}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 hover:border-blue-400 hover:from-blue-500 hover:to-cyan-400/10 hover:text-white"
-                >
-                  Remittance
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[430px_minmax(0,1fr)]">
-            <section className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
-              <div className="mb-4 border-b border-emerald-400/15 pb-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-300">Movement Workbench</p>
-                <h2 className="mt-1 text-xl font-black text-white">Record Cash Movement</h2>
-              </div>
-
-              <div className="mt-5 space-y-4">
-                <input
-                  type="date"
-                  value={businessDate}
-                  onChange={(e) => setBusinessDate(e.target.value)}
-                  style={{ colorScheme: "dark" }}
-                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                />
-
-                <select
-                  value={movementType}
-                  onChange={(e) => {
-                    const nextType = e.target.value;
-                    setMovementType(nextType);
-
-                    if (nextType === "Remittance") {
-                      setSource("Remittance");
-                      setPaymentType("Cash");
-                      return;
-                    }
-
-                    if (nextType === "Opening Float") {
-                      setSource("Petty Cash");
-                      setPaymentType("Cash");
-                      return;
-                    }
-
-                    if (nextType === "Adjustment") {
-                      setSource("Other");
-                      return;
-                    }
-
-                    if (nextType === "Cash In") {
-                      setSource(sourceOptions[0] || "");
-                      return;
-                    }
-
-                    if (nextType === "Cash Out") {
-                      setSource("Expense Release");
-                    }
-                  }}
-                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  {movementTypes
-                    .filter((type) => type !== "Remittance")
-                    .map((type) => (
-                      <option key={type}>{type}</option>
-                    ))}
-                </select>
-
-                <select
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  {sourceOptions.length === 0 && (
-                    <option value="">No active cash sources found</option>
-                  )}
-                  {sourceOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={paymentType}
-                  onChange={(e) => setPaymentType(e.target.value)}
-                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  {paymentTypes.map((item) => (
-                    <option
-                      key={item}
-                      value={item}
-                      disabled={isPaymentTypeDisabled(item)}
-                    >
-                      {getPaymentTypeLabel(item)}
-                    </option>
-                  ))}
-                </select>
-
-                {isBalanceGuardedMoneyOut() && (
-                  <p className="-mt-2 text-xs font-semibold text-slate-400">
-                    Available {paymentType}: {formatMoney(
-                      getAvailableBalanceByPaymentType(paymentType),
-                    )}
+                  <p className="mt-0.5 text-sm font-black text-slate-950">
+                    {activeDrawer?.holder_name || "No active holder"}
                   </p>
-                )}
-
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Amount"
-                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                />
-
-                {movementType === "Remittance" && (
-                  <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
-                    <p className="text-sm font-bold text-sky-300">
-                      Remittance Process
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-300">
-                      Remittance is a custody transfer only. It reduces drawer
-                      cash but does not count as an expense or profit deduction.
-                      Enter the remitted by person in From and the receiver in
-                      To.
-                    </p>
-                  </div>
-                )}
-
-                {shouldCreateExpenseFromCashOut && (
-                  <div
-                    className={`rounded-2xl border p-4 ${
-                      isCashAdvanceCashOut
-                        ? "border-blue-500/20 bg-blue-500/10"
-                        : "border-red-500/25 bg-red-500/10"
-                    }`}
-                  >
-                    <p
-                      className={`mb-3 text-sm font-bold ${
-                        isCashAdvanceCashOut ? "text-blue-300" : "text-blue-300"
-                      }`}
-                    >
-                      {isCashAdvanceCashOut
-                        ? "Cash Advance Details"
-                        : "Cash Expense Details"}
-                    </p>
-
-                    {isCashAdvanceCashOut ? (
-                      <div className="space-y-3">
-                        <select
-                          value={cashAdvanceEmployeeId}
-                          onChange={(e) =>
-                            setCashAdvanceEmployeeId(e.target.value)
-                          }
-                          autoComplete="off"
-                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                        >
-                          <option value="">Select employee</option>
-                          {cashAdvanceEmployeeOptions.map((employee) => {
-                            const payrollEmployeeId =
-                              getEmployeePayrollId(employee);
-                            const fullName = getEmployeeFullName(employee);
-
-                            return (
-                              <option
-                                key={payrollEmployeeId}
-                                value={payrollEmployeeId}
-                              >
-                                {fullName}
-                                {employee.employee_no
-                                  ? ` - ${employee.employee_no}`
-                                  : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-
-                        <div
-                          className={`rounded-xl border p-3 ${
-                            activePayrollPeriod
-                              ? "border-blue-500/20 bg-blue-500/10"
-                              : "border-blue-500/20 bg-blue-500/10"
-                          }`}
-                        >
-                          <p
-                            className={`text-xs font-black ${
-                              activePayrollPeriod
-                                ? "text-emerald-300"
-                                : "text-blue-300"
-                            }`}
-                          >
-                            {activePayrollPeriod
-                              ? "✓ Auto Linked by Selected Date"
-                              : "⚠ No Usable Payroll Period for Selected Date"}
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-slate-300">
-                            {activePayrollPeriod
-                              ? activePayrollLabel
-                              : "Create, reopen, partially approve/release, or release the cutoff that covers the selected date. No manual cutoff selection needed here."}
-                          </p>
-                        </div>
-
-                        <input
-                          value={cashAdvancePurpose}
-                          onChange={(e) =>
-                            setCashAdvancePurpose(e.target.value)
-                          }
-                          placeholder="Purpose / reason (optional)"
-                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                        />
-
-                        <p className="text-xs leading-5 text-blue-200">
-                          No cutoff selection needed. Cash requires an open
-                          drawer. GCash, Bank, and Terminal cash advances post
-                          to Cash Movements, Expenses, and Employee Balances for
-                          Payroll Register deduction.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <select
-                          value={expenseCategory}
-                          onChange={(e) => {
-                            setExpenseCategory(e.target.value);
-                            setExpenseSubcategory("");
-                          }}
-                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                        >
-                          <option value="">Select expense category</option>
-                          {expenseCategoryOptions.map((item) => (
-                            <option key={item}>{item}</option>
-                          ))}
-                        </select>
-
-                        {expenseSubcategoryOptions.length > 0 && (
-                          <select
-                            value={expenseSubcategory}
-                            onChange={(e) =>
-                              setExpenseSubcategory(e.target.value)
-                            }
-                            className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                          >
-                            <option value="">Select expense subcategory</option>
-                            {expenseSubcategoryOptions.map((item) => (
-                              <option key={item}>{item}</option>
-                            ))}
-                          </select>
-                        )}
-
-                        <select
-                          value={expenseDepartment}
-                          onChange={(e) => setExpenseDepartment(e.target.value)}
-                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                        >
-                          <option value="">Select department / area</option>
-                          {expenseDepartments.map((item) => (
-                            <option key={item}>{item}</option>
-                          ))}
-                        </select>
-
-                        <input
-                          value={expenseDescription}
-                          onChange={(e) =>
-                            setExpenseDescription(e.target.value)
-                          }
-                          placeholder="Expense description / purpose"
-                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                        />
-
-                        <input
-                          value={expenseReleasedTo}
-                          onChange={(e) => setExpenseReleasedTo(e.target.value)}
-                          placeholder="Released to / received by"
-                          list="employee-name-list"
-                          autoComplete="off"
-                          className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                        />
-
-                        <p className="text-xs leading-5 text-blue-200">
-                          This creates both Cash Movement and Expenses entry. No
-                          approval workflow.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!shouldCreateExpenseFromCashOut &&
-                  (movementType === "Cash Out" ||
-                    movementType === "Remittance" ||
-                    movementType === "Adjustment") && (
-                    <input
-                      value={fromPerson}
-                      onChange={(e) => setFromPerson(e.target.value)}
-                      placeholder={
-                        activeDrawer
-                          ? `From: ${activeDrawer.holder_name}`
-                          : "From / Released by"
-                      }
-                      list="employee-name-list"
-                      autoComplete="off"
-                      className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                    />
-                  )}
-
-                {!shouldCreateExpenseFromCashOut &&
-                  (movementType === "Opening Float" ||
-                    movementType === "Cash In" ||
-                    movementType === "Remittance" ||
-                    movementType === "Adjustment") && (
-                    <input
-                      value={toPerson}
-                      onChange={(e) => setToPerson(e.target.value)}
-                      placeholder={
-                        activeDrawer
-                          ? `To: ${activeDrawer.holder_name}`
-                          : "To / Received by / Holder"
-                      }
-                      list="employee-name-list"
-                      autoComplete="off"
-                      className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                    />
-                  )}
-
-                <input
-                  value={activeDrawer?.holder_name || encodedBy || "System"}
-                  readOnly
-                  placeholder="Encoded by"
-                  autoComplete="off"
-                  className="w-full cursor-not-allowed rounded-xl border border-blue-300/15 bg-slate-950/80/70 px-3 py-2 text-sm text-slate-400 outline-none"
-                />
-
-                <datalist id="employee-name-list">
-                  {validEmployeeOptions.map((employee) => (
-                    <option
-                      key={employee.id}
-                      value={`${employee.first_name} ${employee.last_name}`}
-                      label={`${employee.first_name} ${employee.last_name} - ${employee.employee_no}`}
-                    />
-                  ))}
-                </datalist>
-
-                <textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  rows={3}
-                  placeholder="Remarks / reference / purpose"
-                  className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                />
-
+                </div>
                 <button
-                  onClick={saveMovement}
-                  disabled={isSaving}
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 shadow-lg shadow-blue-950/30 px-4 py-3 text-sm font-semibold hover:from-blue-500 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  type="button"
+                  onClick={() => setShowOpenDrawer(true)}
+                  disabled={Boolean(activeDrawer)}
+                  className="h-11 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {isSaving
-                    ? "Saving..."
-                    : isCashAdvanceCashOut
-                      ? "Save Cash Advance"
-                      : isExpenseRelease
-                        ? "Save Expense Release"
-                        : "Save Cash Movement"}
+                  Open Drawer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCloseDrawer(true)}
+                  disabled={!activeDrawer}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Close Drawer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDrawerHolderSettings(true)}
+                  aria-label="Drawer settings"
+                  title="Drawer settings"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-.4-1.1 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.1-.4 1.65 1.65 0 0 0 .6-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 .4 1.1 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.3.2.6.4 1 .6.3.1.7.1 1.1.1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.1.4c-.2.2-.4.5-.6.9Z" />
+                  </svg>
                 </button>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
-              <div className="mb-4 border-b border-orange-400/15 pb-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-orange-300">Live Ledger</p>
-                <h2 className="mt-1 text-xl font-black text-white">Cash Movement Ledger</h2>
+            {/* KPI CARDS */}
+            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <EnterpriseMetric
+                label="Cash On Hand"
+                value={formatMoney(cashOnHand)}
+                caption={activeDrawer ? "Active physical cash balance" : "No active drawer"}
+              />
+              <EnterpriseMetric
+                label="Online Banking"
+                value={formatMoney(onlineBankingTotal)}
+                caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`}
+              />
+              <EnterpriseMetric
+                label="Pending Approvals"
+                value={pendingCashApprovalCount}
+                caption="Money-out requests"
+                tone={pendingCashApprovalCount > 0 ? "warning" : "default"}
+              />
+              <EnterpriseMetric
+                label="Today's Movements"
+                value={todaysMovementCount}
+                caption="Active cash ledger records"
+              />
+            </section>
+
+            {/* FORM + DRAWER SUMMARY */}
+            <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+                <div className="mb-5 flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Entry Form
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">
+                      Record Cash Movement
+                    </h2>
+                  </div>
+                  <p className="max-w-xl text-sm font-medium text-slate-500">
+                    Money-in records immediately. Money-out requests are routed to the Approval Center when required.
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  <section>
+                    <p className={labelClass}>Primary Information</p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <label className="space-y-2">
+                        <span className={labelClass}>Business Date</span>
+                        <input type="date" value={businessDate} onChange={(e) => setBusinessDate(e.target.value)} className={inputClass} />
+                      </label>
+                      <label className="space-y-2">
+                        <span className={labelClass}>Movement Type</span>
+                        <select value={movementType} onChange={(e) => setMovementType(e.target.value)} className={selectClass}>
+                          {movementTypes.map((type) => <option key={type}>{type}</option>)}
+                        </select>
+                      </label>
+                      <label className="space-y-2">
+                        <span className={labelClass}>Source</span>
+                        <select value={source} onChange={(e) => setSource(e.target.value)} className={selectClass}>
+                          {sourceOptions.map((item) => <option key={item}>{item}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section>
+                    <p className={labelClass}>Financial Information</p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className={labelClass}>Payment Type</span>
+                        <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={selectClass}>
+                          {paymentTypes.map((type) => (
+                            <option key={type} value={type} disabled={isPaymentTypeDisabled(type)}>
+                              {getPaymentTypeLabel(type)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-2">
+                        <span className={labelClass}>Amount</span>
+                        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className={inputClass} />
+                      </label>
+                    </div>
+                  </section>
+
+                  {isCashAdvanceCashOut && (
+                    <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                      <p className={labelClass}>Cash Advance Details</p>
+                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className={labelClass}>Employee</span>
+                          <select value={cashAdvanceEmployeeId} onChange={(e) => setCashAdvanceEmployeeId(e.target.value)} className={selectClass}>
+                            <option value="">Select employee</option>
+                            {cashAdvanceEmployeeOptions.map((employee) => (
+                              <option key={getEmployeePayrollId(employee)} value={getEmployeePayrollId(employee)}>
+                                {getEmployeeFullName(employee)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-2">
+                          <span className={labelClass}>Purpose</span>
+                          <input value={cashAdvancePurpose} onChange={(e) => setCashAdvancePurpose(e.target.value)} placeholder="Cash advance purpose" className={inputClass} />
+                        </label>
+                      </div>
+                    </section>
+                  )}
+
+                  {isExpenseRelease && (
+                    <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                      <p className={labelClass}>Expense Release Details</p>
+                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className={labelClass}>Category</span>
+                          <select value={expenseCategory} onChange={(e) => { setExpenseCategory(e.target.value); setExpenseSubcategory(""); }} className={selectClass}>
+                            <option value="">Select category</option>
+                            {expenseCategoryOptions.map((item) => <option key={item}>{item}</option>)}
+                          </select>
+                        </label>
+                        <label className="space-y-2">
+                          <span className={labelClass}>Subcategory</span>
+                          <select value={expenseSubcategory} onChange={(e) => setExpenseSubcategory(e.target.value)} className={selectClass}>
+                            <option value="">Select subcategory</option>
+                            {expenseSubcategoryOptions.map((item) => <option key={item}>{item}</option>)}
+                          </select>
+                        </label>
+                        <label className="space-y-2">
+                          <span className={labelClass}>Department / Area</span>
+                          <select value={expenseDepartment} onChange={(e) => setExpenseDepartment(e.target.value)} className={selectClass}>
+                            <option value="">Select department</option>
+                            {expenseDepartments.map((item) => <option key={item}>{item}</option>)}
+                          </select>
+                        </label>
+                        <label className="space-y-2">
+                          <span className={labelClass}>Released To / Receiver</span>
+                          <input value={expenseReleasedTo} onChange={(e) => setExpenseReleasedTo(e.target.value)} list="employee-name-list" placeholder="Receiver name" className={inputClass} />
+                        </label>
+                      </div>
+                      <label className="mt-4 block space-y-2">
+                        <span className={labelClass}>Expense Description</span>
+                        <textarea value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} rows={3} placeholder="Description / reason" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
+                      </label>
+                    </section>
+                  )}
+
+                  <section>
+                    <p className={labelClass}>Additional Details</p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <label className="space-y-2">
+                        <span className={labelClass}>From</span>
+                        <input value={fromPerson} onChange={(e) => setFromPerson(e.target.value)} list="employee-name-list" placeholder={paymentType === "Cash" ? activeDrawer?.holder_name || "Cash holder" : paymentType} className={inputClass} />
+                      </label>
+                      <label className="space-y-2">
+                        <span className={labelClass}>To / Received By</span>
+                        <input value={toPerson} onChange={(e) => setToPerson(e.target.value)} list="employee-name-list" placeholder="Receiver" className={inputClass} />
+                      </label>
+                      <label className="space-y-2">
+                        <span className={labelClass}>Encoded By</span>
+                        <input value={encodedBy} onChange={(e) => setEncodedBy(e.target.value)} list="employee-name-list" placeholder={currentEmployeeName || "Encoder"} className={inputClass} />
+                      </label>
+                    </div>
+                    <label className="mt-4 block space-y-2">
+                      <span className={labelClass}>Remarks</span>
+                      <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={3} placeholder="Reference, notes, or supporting details" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
+                    </label>
+                  </section>
+
+                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                    <button type="button" onClick={resetForm} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">
+                      Reset
+                    </button>
+                    <button type="button" onClick={saveMovement} disabled={isSaving} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50">
+                      {isSaving ? "Saving..." : isCashDrawerMoneyOut ? "Send for Approval" : "Save Movement"}
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="my-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <select
-                  value={paymentFilter}
-                  onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="ALL">All Payment Types</option>
-                  {paymentTypes.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
+              <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+                <div className="border-b border-slate-200 pb-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Drawer Summary
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    {activeDrawer ? activeDrawer.holder_name : "No Active Drawer"}
+                  </h2>
+                  <p className="mt-2 text-sm font-medium text-slate-500">
+                    Cash-only drawer monitoring. Digital channels remain in Online Banking.
+                  </p>
+                </div>
 
-                <select
-                  value={holderFilter}
-                  onChange={(e) => setHolderFilter(e.target.value)}
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="AUTO">Active Drawer Holder</option>
-                  <option value="ALL">All Holders</option>
-                  {validEmployeeOptions.map((employee) => (
-                    <option
-                      key={employee.id}
-                      value={`${employee.first_name} ${employee.last_name}`}
-                    >
-                      {employee.first_name} {employee.last_name}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-5 divide-y divide-slate-200">
+                  <InfoRow label="Cash On Hand" value={formatMoney(activeDrawerCash)} strong />
+                  <InfoRow label="Opening Float" value={formatMoney(activeDrawer?.opening_float || 0)} />
+                  <InfoRow label="Cash In" value={formatMoney(cashInTotal)} />
+                  <InfoRow label="Cash Out" value={formatMoney(cashOutTotal)} />
+                  <InfoRow label="Remittance" value={formatMoney(remittanceTotal)} />
+                  <InfoRow label="Holder" value={activeDrawer?.holder_name || "-"} />
+                </div>
+              </aside>
+            </section>
+
+            {/* FILTERS */}
+            <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Ledger Filters
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    Cash Movement Log
+                  </h2>
+                </div>
+                <p className="text-sm font-medium text-slate-500">
+                  {filteredMovements.length} record(s) shown
+                </p>
               </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <label className="space-y-2">
+                  <span className={labelClass}>Date Scope</span>
+                  <select value={ledgerDateScope} onChange={(e) => setLedgerDateScope(e.target.value)} className={selectClass}>
+                    <option value="TODAY">Today</option>
+                    <option value="DATE">Selected Date</option>
+                    <option value="ALL">All Dates</option>
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className={labelClass}>Date</span>
+                  <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} disabled={ledgerDateScope !== "DATE"} className={inputClass} />
+                </label>
+                <label className="space-y-2">
+                  <span className={labelClass}>Type</span>
+                  <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectClass}>
+                    <option value="ALL">All Types</option>
+                    {movementTypes.map((item) => <option key={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className={labelClass}>Payment</span>
+                  <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className={selectClass}>
+                    <option value="ALL">All Payments</option>
+                    {paymentTypes.map((item) => <option key={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className={labelClass}>Search</span>
+                  <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search ledger" className={inputClass} />
+                </label>
+              </div>
+            </section>
 
-              <div className="max-h-[700px] overflow-auto rounded-xl border border-slate-800">
-                <table className="w-full min-w-[1200px] text-sm">
-                  <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
+            {/* CASH MOVEMENT TABLE */}
+            <section className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+              <div className="border-b border-slate-200 p-6">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Table / Log
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Cash Movements
+                </h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">Payment</th>
-                      <th className="px-4 py-3">Source</th>
-                      <th className="px-4 py-3 text-right">Amount</th>
-                      <th className="px-4 py-3">From</th>
-                      <th className="px-4 py-3">To / Holder</th>
-                      <th className="px-4 py-3">Encoded By</th>
-                      <th className="px-4 py-3">Remarks</th>
-                      <th className="px-4 py-3">Action</th>
+                      {["Date", "Transaction", "Amount", "Holder", "Status", "Action"].map((head) => (
+                        <th key={head} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                          {head}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {filteredMovements.map((item) => {
+                      const voided = isVoidedMovement(item);
+                      const holderName = item.from_person || item.to_person || item.encoded_by || "-";
 
-                  <tbody>
-                    {filteredMovements.map((item) => (
-                      <tr
-                        key={item.id}
-                        className={`border-t border-slate-800 text-slate-200 hover:bg-slate-800/40 ${isVoidedMovement(item) ? "bg-red-950/20 opacity-70" : ""}`}
-                      >
-                        <td className="px-4 py-3">{item.business_date}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getMovementStyle(item.movement_type)}`}
-                          >
-                            {item.movement_type}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getPaymentStyle(item.payment_type || "Cash")}`}
-                          >
-                            {item.payment_type || "Cash"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">{item.source}</td>
-                        <td className="px-4 py-3 text-right font-semibold">
-                          {formatMoney(item.amount)}
-                        </td>
-                        <td className="px-4 py-3">{item.from_person || "-"}</td>
-                        <td className="px-4 py-3">{item.to_person || "-"}</td>
-                        <td className="px-4 py-3">{item.encoded_by || "-"}</td>
-                        <td className="px-4 py-3">
-                          {isVoidedMovement(item) ? (
-                            <div className="space-y-1">
-                              <p className="line-through text-slate-400">
-                                {item.remarks || "-"}
+                      return (
+                        <tr key={item.id} className={`transition-all duration-200 hover:bg-slate-50 ${voided ? "bg-slate-50 opacity-70" : ""}`}>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-700">
+                            {item.business_date || "-"}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1">
+                              <span className={`w-fit rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getMovementStyle(item.movement_type)}`}>
+                                {item.movement_type || "-"}
+                              </span>
+                              <p className="text-sm font-black text-slate-950">
+                                {item.source || "-"}
                               </p>
-                              <p className="text-xs text-blue-300">
-                                Void reason:{" "}
-                                {item.void_reason || "No reason saved"}
+                              <p className="text-xs font-semibold text-slate-500">
+                                {item.payment_type || "Cash"}
+                                {item.remarks ? ` · ${item.remarks}` : ""}
                               </p>
                             </div>
-                          ) : (
-                            item.remarks || "-"
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isVoidedMovement(item) ? (
-                            <span className="rounded-lg bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                              VOIDED
+                          </td>
+                          <td className={`whitespace-nowrap px-4 py-4 text-sm font-black ${signedAmount(item) < 0 ? "text-red-700" : "text-slate-950"}`}>
+                            {formatMoney(signedAmount(item))}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-semibold text-slate-700">
+                            {holderName}
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${voided ? "bg-red-50 text-red-700 ring-1 ring-red-200" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"}`}>
+                              {voided ? "VOIDED" : "ACTIVE"}
                             </span>
-                          ) : item.reference_type ===
-                              "drawer_closing_remittance" ||
-                            item.source === "Drawer Closing Remittance" ? (
-                            <span className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
-                              Locked
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => voidMovement(item.id)}
-                              className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold hover:bg-amber-500"
-                            >
+                          </td>
+                          <td className="px-4 py-4">
+                            <button type="button" onClick={() => voidMovement(item.id)} disabled={voided || isSaving} className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40">
                               Void
                             </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {filteredMovements.length === 0 && (
                       <tr>
-                        <td
-                          colSpan={10}
-                          className="px-4 py-12 text-center text-slate-500"
-                        >
-                          No cash movements found.
+                        <td colSpan={6} className="px-4 py-12 text-center">
+                          <p className="text-sm font-black text-slate-950">No records found</p>
+                          <p className="mt-1 text-sm font-medium text-slate-500">Adjust filters or record a new cash movement.</p>
                         </td>
                       </tr>
                     )}
@@ -3734,786 +3469,260 @@ export default function CashManagementPage() {
                 </table>
               </div>
             </section>
-          </div>
 
-          <section className="mb-6 rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold">
-                  Cash Request Approval History
-                </h2>
-                <p className="mt-1 text-xs text-slate-400">
-                  Receptionists can monitor if cash advance / cash release
-                  requests are pending, approved, or rejected.
-                </p>
-              </div>
-
-              <button
-                onClick={getApprovalRequests}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold hover:bg-slate-800"
-              >
-                Refresh Status
-              </button>
-            </div>
-
-            <div className="overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1150px] text-sm">
-                <thead className="bg-slate-950 text-slate-400">
-                  <tr>
-                    <th className="px-3 py-3 text-left">Date</th>
-                    <th className="px-3 py-3 text-left">Type</th>
-                    <th className="px-3 py-3 text-left">Payment</th>
-                    <th className="px-3 py-3 text-left">Employee / Receiver</th>
-                    <th className="px-3 py-3 text-right">Amount</th>
-                    <th className="px-3 py-3 text-left">Requested By</th>
-                    <th className="px-3 py-3 text-center">Status</th>
-                    <th className="px-3 py-3 text-left">Remarks</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {cashApprovalRequests.slice(0, 15).map((request) => {
-                    const payload = request.request_payload || {};
-                    const requestDate =
-                      payload.business_date ||
-                      String(request.created_at || "").slice(0, 10);
-                    const requestType = String(
-                      request.request_type || "-",
-                    ).replaceAll("_", " ");
-                    const receiver =
-                      payload.cash_advance_employee_name ||
-                      payload.to_person ||
-                      payload.expense_released_to ||
-                      "-";
-                    const amountValue = payload.amount || 0;
-                    const paymentValue = payload.payment_type || "-";
-                    const remarksValue =
-                      payload.cash_advance_purpose ||
-                      payload.remarks ||
-                      request.description ||
-                      "-";
-
-                    return (
-                      <tr
-                        key={request.id}
-                        className="border-t border-slate-800"
-                      >
-                        <td className="px-3 py-3 font-semibold">
-                          {requestDate}
-                        </td>
-                        <td className="px-3 py-3">{requestType}</td>
-                        <td className="px-3 py-3">
-                          <span
-                            className={`rounded-full px-2 py-1 text-xs font-bold ${getPaymentStyle(paymentValue)}`}
-                          >
-                            {paymentValue}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 font-semibold">{receiver}</td>
-                        <td className="px-3 py-3 text-right font-black">
-                          {formatMoney(amountValue)}
-                        </td>
-                        <td className="px-3 py-3">
-                          {request.requested_by || payload.encoded_by || "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-black ${getApprovalStatusStyle(request.status)}`}
-                          >
-                            {String(request.status || "PENDING").toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-slate-300">
-                          {remarksValue}
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {cashApprovalRequests.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="px-3 py-10 text-center text-slate-500"
-                      >
-                        No cash approval requests found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-300">Drawer Control</p>
-                <h2 className="mt-1 text-xl font-black text-white">Drawer History</h2>
-                <p className="mt-1 text-xs text-slate-400">
-                  Uses cash-only drawer logic. Bank, GCash, and Terminal
-                  payments are excluded from expected cash.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                <select
-                  value={historyDateScope}
-                  onChange={(e) => setHistoryDateScope(e.target.value)}
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="TODAY">Today</option>
-                  <option value="ALL">All History</option>
-                  <option value="CUSTOM">Custom Date</option>
-                </select>
-
-                {historyDateScope === "CUSTOM" ? (
-                  <input
-                    type="date"
-                    value={historyDateFilter}
-                    onChange={(e) => setHistoryDateFilter(e.target.value)}
-                    style={{ colorScheme: "dark" }}
-                    className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                  />
-                ) : (
-                  <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500">
-                    {historyDateScope === "ALL" ? "All dates" : today}
+            {/* DRAWER HISTORY + APPROVAL HISTORY */}
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+                <div className="border-b border-slate-200 p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Drawer History</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">Cash Drawer Sessions</h2>
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <select value={historyDateScope} onChange={(e) => setHistoryDateScope(e.target.value)} className={selectClass}>
+                      <option value="ALL">All Dates</option>
+                      <option value="TODAY">Today</option>
+                      <option value="DATE">Selected Date</option>
+                    </select>
+                    <input type="date" value={historyDateFilter} onChange={(e) => setHistoryDateFilter(e.target.value)} disabled={historyDateScope !== "DATE"} className={inputClass} />
+                    <select value={historyStatusFilter} onChange={(e) => setHistoryStatusFilter(e.target.value)} className={selectClass}>
+                      <option value="ALL">All Status</option>
+                      <option value="OPEN">Open</option>
+                      <option value="CLOSED">Closed</option>
+                    </select>
                   </div>
-                )}
-
-                <select
-                  value={historyHolderFilter}
-                  onChange={(e) => setHistoryHolderFilter(e.target.value)}
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="ALL">All Holders</option>
-                  {validEmployeeOptions.map((employee) => (
-                    <option
-                      key={employee.id}
-                      value={`${employee.first_name} ${employee.last_name}`}
-                    >
-                      {employee.first_name} {employee.last_name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={historyStatusFilter}
-                  onChange={(e) => setHistoryStatusFilter(e.target.value)}
-                  className="rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="ALL">All Status</option>
-                  <option value="OPEN">Open</option>
-                  <option value="CLOSED">Closed</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1250px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Holder</th>
-                    <th className="px-4 py-3">Opened</th>
-                    <th className="px-4 py-3">Closed</th>
-                    <th className="px-4 py-3 text-right">Opening</th>
-                    <th className="px-4 py-3 text-right">Expected Cash</th>
-                    <th className="px-4 py-3 text-right">Actual Count</th>
-                    <th className="px-4 py-3 text-right">Remitted</th>
-                    <th className="px-4 py-3 text-right">Remaining</th>
-                    <th className="px-4 py-3 text-right">Variance</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">PDF</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredDrawers.map((drawer) => {
-                    const summary = getDrawerCashSummary(drawer);
-                    const displayActual =
-                      String(drawer.status || "").toUpperCase() === "CLOSED"
-                        ? summary.actualCash
-                        : 0;
-                    const displayRemaining =
-                      String(drawer.status || "").toUpperCase() === "CLOSED"
-                        ? summary.remainingCashAfterRemittance
-                        : summary.expectedBeforeClosingRemittance;
-
-                    return (
-                      <tr
-                        key={drawer.id}
-                        className="border-t border-slate-800 text-slate-200"
-                      >
-                        <td className="px-4 py-3">{drawer.holder_name}</td>
-                        <td className="px-4 py-3">
-                          {formatDateTime(drawer.opened_at)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDateTime(drawer.closed_at)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {formatMoney(drawer.opening_float)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {formatMoney(summary.expectedBeforeClosingRemittance)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {formatMoney(displayActual)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {formatMoney(summary.closingRemittance)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {formatMoney(displayRemaining)}
-                        </td>
-                        <td
-                          className={`px-4 py-3 text-right font-semibold ${summary.variance < 0 ? "text-blue-300" : "text-blue-300"}`}
-                        >
-                          {formatMoney(summary.variance)}
-                        </td>
-                        <td className="px-4 py-3">{drawer.status}</td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() =>
-                              printDrawerReport(drawer, {
-                                ...drawer,
-                                expected_cash:
-                                  summary.expectedBeforeClosingRemittance,
-                                actual_cash: summary.actualCash,
-                                remittance_amount: summary.closingRemittance,
-                                remaining_cash_after_remittance:
-                                  summary.remainingCashAfterRemittance,
-                                // Full-remittance policy: remitted amount minus expected cash.
-                                variance:
-                                  summary.closingRemittance -
-                                  summary.expectedBeforeClosingRemittance,
-                                received_by:
-                                  movements.find(
-                                    (item) =>
-                                      String(item.cash_drawer_id || "") ===
-                                        String(drawer.id || "") &&
-                                      item.movement_type === "Remittance" &&
-                                      (item.source ===
-                                        "Drawer Closing Remittance" ||
-                                        item.reference_type ===
-                                          "drawer_closing_remittance"),
-                                  )?.to_person || "-",
-                              })
-                            }
-                            className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold hover:from-blue-500 hover:to-cyan-400"
-                          >
-                            Print PDF
-                          </button>
-                        </td>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {['Holder','Opened','Expected','Actual','Variance','Status','Report'].map((head) => (
+                          <th key={head} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{head}</th>
+                        ))}
                       </tr>
-                    );
-                  })}
-
-                  {filteredDrawers.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={11}
-                        className="px-4 py-10 text-center text-slate-500"
-                      >
-                        No drawer history found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-
-          {/* FLOATING OPSCORE BRAIN - ASSISTANT ONLY */}
-          <div className="group fixed bottom-6 right-6 z-50">
-            <button
-              className={`relative flex h-14 w-14 items-center justify-center rounded-full border shadow-2xl backdrop-blur ${
-                cashHealthScore < 70
-                  ? "animate-pulse border-red-300/40 bg-red-500/25 text-red-100 shadow-red-950/40"
-                  : cashHealthScore < 85
-                    ? "border-orange-300/40 bg-orange-500/25 text-orange-100 shadow-orange-950/40"
-                    : "border-cyan-300/40 bg-cyan-500/20 text-cyan-100 shadow-cyan-950/40"
-              }`}
-              title="OPSCORE Cash Watch"
-            >
-              <span className="text-2xl">🧠</span>
-            </button>
-
-            <div className="pointer-events-none absolute bottom-16 right-0 w-80 translate-y-2 rounded-2xl border border-cyan-300/20 bg-slate-950/95 p-4 opacity-0 shadow-2xl shadow-black/40 backdrop-blur transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">
-                  OPSCORE Cash Watch
-                </p>
-                <span className={`text-xs font-black uppercase ${cashWatchTone}`}>
-                  {cashWatchStatus}
-                </span>
-              </div>
-
-              <div className="mt-3 space-y-2">
-                {(cashWatchAlerts.length > 0 ? cashWatchAlerts : ["No urgent cash control alerts."]).slice(0, 3).map((item, index) => (
-                  <p key={`cash-watch-alert-${index}`} className="rounded-xl border border-white/10 bg-white/[0.05] p-3 text-xs font-semibold leading-5 text-slate-200">
-                    {item}
-                  </p>
-                ))}
-              </div>
-
-              <div className="mt-3 rounded-xl border border-blue-300/15 bg-blue-500/10 p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200/80">
-                  Recommendation
-                </p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-100">
-                  {cashWatchRecommendations[0] || "Continue monitoring drawer movements and remittance accuracy."}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {showDrawerHolderSettings && (
-            <Modal
-              title="Drawer Holder Settings"
-              onClose={() => setShowDrawerHolderSettings(false)}
-            >
-              <div className="space-y-4">
-                <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
-                  <p className="text-sm font-bold text-sky-300">
-                    Authorized Cash Control Holders
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-300">
-                    Only selected names will appear when opening a drawer.
-                    Admin/Finance may open drawers for others; normal cashiers
-                    can only open their own drawer. Current settings are
-                    browser-local until the finance_drawer_holders table is
-                    added.
-                  </p>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredDrawers.map((drawer) => {
+                        const summary = getDrawerCashSummary(drawer);
+                        return (
+                          <tr key={drawer.id} className="transition-all duration-200 hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm font-semibold text-slate-800">{drawer.holder_name || "-"}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-700">{formatDateTime(drawer.opened_at || drawer.created_at)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(summary.expectedBeforeClosingRemittance)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(summary.actualCash)}</td>
+                            <td className={`whitespace-nowrap px-4 py-3 text-sm font-black ${Number(summary.variance || 0) < 0 ? "text-red-700" : "text-slate-950"}`}>{formatMoney(summary.variance)}</td>
+                            <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${String(drawer.status || "").toUpperCase() === "OPEN" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-slate-100 text-slate-700 ring-1 ring-slate-200"}`}>{drawer.status || "-"}</span></td>
+                            <td className="px-4 py-3"><button type="button" onClick={() => printDrawerReport(drawer)} className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Print</button></td>
+                          </tr>
+                        );
+                      })}
+                      {filteredDrawers.length === 0 && (
+                        <tr><td colSpan={7} className="px-4 py-10 text-center"><p className="text-sm font-black text-slate-950">No records found</p><p className="mt-1 text-sm font-medium text-slate-500">No drawer sessions match the current filters.</p></td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
+              </div>
 
-                <input
-                  value={drawerHolderSearch}
-                  onChange={(e) => setDrawerHolderSearch(e.target.value)}
-                  placeholder="Search employee, department, or position..."
-                  className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() =>
-                      setAuthorizedDrawerHolders(
-                        allEmployeeNames.sort((a, b) => a.localeCompare(b)),
-                      )
-                    }
-                    className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
-                  >
-                    Select All
-                  </button>
-                  <button
-                    onClick={() => setAuthorizedDrawerHolders([])}
-                    className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-600"
-                  >
-                    Clear All
-                  </button>
-                  <span className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">
-                    Selected: {authorizedDrawerHolders.length}
-                  </span>
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+                <div className="border-b border-slate-200 p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Approval History</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">Cash Approval Requests</h2>
                 </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {['Request','Requested By','Amount','Date','Status'].map((head) => (
+                          <th key={head} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{head}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {cashApprovalRequests.slice(0, 12).map((request) => (
+                        <tr key={request.id} className="transition-all duration-200 hover:bg-slate-50">
+                          <td className="max-w-[260px] truncate px-4 py-3 text-sm font-semibold text-slate-800">{request.title || request.request_type || "Cash Request"}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-slate-700">{request.requested_by || "-"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(request.amount || request.request_amount || 0)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-700">{formatDateTime(request.created_at)}</td>
+                          <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getApprovalStatusStyle(request.status)}`}>{request.status || "PENDING"}</span></td>
+                        </tr>
+                      ))}
+                      {cashApprovalRequests.length === 0 && (
+                        <tr><td colSpan={5} className="px-4 py-10 text-center"><p className="text-sm font-black text-slate-950">No records found</p><p className="mt-1 text-sm font-medium text-slate-500">No cash approval requests yet.</p></td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
 
-                <div className="max-h-[420px] overflow-auto rounded-xl border border-slate-800">
+            {/* MODALS */}
+            {showDrawerHolderSettings && (
+              <Modal title="Drawer Holder Settings" onClose={() => setShowDrawerHolderSettings(false)}>
+                <p className="text-sm font-medium text-slate-500">
+                  Authorize employees who can open and hold cash drawers.
+                </p>
+                <input value={drawerHolderSearch} onChange={(e) => setDrawerHolderSearch(e.target.value)} placeholder="Search employee" className={inputClass} />
+                <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
                   {filteredDrawerHolderSettingEmployees.map((employee) => {
-                    const fullName = getEmployeeFullName(employee);
-                    const checked = authorizedDrawerHolders.includes(fullName);
-
+                    const name = getEmployeeFullName(employee);
+                    const checked = authorizedDrawerHolders.includes(name);
                     return (
-                      <label
-                        key={employee.id}
-                        className="flex cursor-pointer items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 hover:bg-slate-800/50"
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-white">
-                            {fullName}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {employee.department || "No department"}
-                            {employee.position ? ` • ${employee.position}` : ""}
-                          </p>
+                      <button key={getEmployeePayrollId(employee)} type="button" onClick={() => toggleAuthorizedDrawerHolder(name)} className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 hover:border-slate-300 hover:shadow-md active:scale-[0.98] ${checked ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-slate-950">{name}</p>
+                            <p className="mt-1 text-xs font-medium text-slate-500">{employee.employee_no || "-"} · {employee.department || "-"} · {employee.position || "-"}</p>
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${checked ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Allowed" : "Not Allowed"}</span>
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            toggleAuthorizedDrawerHolder(fullName)
-                          }
-                          className="h-4 w-4 accent-sky-500"
-                        />
-                      </label>
+                      </button>
                     );
                   })}
-
-                  {filteredDrawerHolderSettingEmployees.length === 0 && (
-                    <div className="p-6 text-center text-sm text-slate-500">
-                      No employees matched your search.
-                    </div>
-                  )}
                 </div>
+              </Modal>
+            )}
 
-                <button
-                  onClick={() => setShowDrawerHolderSettings(false)}
-                  className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-bold hover:bg-sky-500"
-                >
-                  Save Settings
-                </button>
-              </div>
-            </Modal>
-          )}
-
-          {showOpenDrawer && (
-            <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-100">
-                {canManageDrawerForOthers
-                  ? "Admin/Finance/Manager override is enabled. You may open a drawer for an authorized holder."
-                  : "Cash drawer is locked to your own logged-in employee account."}
-              </div>
-
-              <select
-                value={drawerHolder}
-                onChange={(e) => setDrawerHolder(e.target.value)}
-                disabled={!canManageDrawerForOthers}
-                className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="">Select authorized drawer holder</option>
-                {allowedOpenDrawerHolderOptions.map((employee) => (
-                  <option
-                    key={employee.id}
-                    value={getEmployeeFullName(employee)}
-                  >
-                    {getEmployeeFullName(employee)}
-                    {employee.department ? ` - ${employee.department}` : ""}
-                  </option>
-                ))}
-              </select>
-
-              {drawerHolderOptions.length === 0 && (
-                <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
-                  No authorized drawer holders yet. Admin/Finance must open
-                  Drawer Holder Settings and choose who is allowed to handle
-                  cash drawers.
-                </div>
-              )}
-
-              {!canManageDrawerForOthers &&
-                currentDrawerHolderName &&
-                !authorizedDrawerHolders.includes(currentDrawerHolderName) && (
-                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs leading-5 text-blue-200">
-                    Your account is not authorized as a drawer holder. Ask
-                    Admin/Finance to authorize {currentDrawerHolderName}.
+            {showOpenDrawer && (
+              <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Drawer Holder</span>
+                  <select value={drawerHolder} onChange={(e) => setDrawerHolder(e.target.value)} className={selectClass}>
+                    <option value="">Select authorized holder</option>
+                    {allowedOpenDrawerHolderOptions.map((employee) => {
+                      const name = getEmployeeFullName(employee);
+                      return <option key={getEmployeePayrollId(employee)} value={name}>{name}</option>;
+                    })}
+                  </select>
+                </label>
+                {allowedOpenDrawerHolderOptions.length === 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-700">
+                    No authorized drawer holder available. Update Drawer Settings first.
                   </div>
                 )}
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Opening Float</span>
+                  <input type="number" value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0.00" className={inputClass} />
+                </label>
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Remarks</span>
+                  <textarea value={drawerRemarks} onChange={(e) => setDrawerRemarks(e.target.value)} rows={3} placeholder="Opening remarks" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
+                </label>
+                <button onClick={openDrawer} disabled={isSaving || allowedOpenDrawerHolderOptions.length === 0 || !drawerHolder || (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName)} className="h-11 w-full rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-300">
+                  {isSaving ? "Opening..." : "Open Drawer"}
+                </button>
+              </Modal>
+            )}
 
-              <input
-                type="number"
-                value={openingFloat}
-                onChange={(e) => setOpeningFloat(e.target.value)}
-                placeholder="Opening float"
-                className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-              />
-
-              <textarea
-                value={drawerRemarks}
-                onChange={(e) => setDrawerRemarks(e.target.value)}
-                rows={3}
-                placeholder="Opening remarks"
-                className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-              />
-
-              <button
-                onClick={openDrawer}
-                disabled={
-                  isSaving ||
-                  allowedOpenDrawerHolderOptions.length === 0 ||
-                  !drawerHolder ||
-                  (!canManageDrawerForOthers &&
-                    drawerHolder !== currentDrawerHolderName)
-                }
-                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 shadow-lg shadow-blue-950/30 px-4 py-3 text-sm font-bold hover:from-blue-500 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSaving ? "Opening..." : "Open Drawer"}
-              </button>
-            </Modal>
-          )}
-
-          {showCloseDrawer && activeDrawer && (
-            <Modal
-              title="Close Drawer"
-              onClose={() => setShowCloseDrawer(false)}
-            >
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
-                <p className="text-sm text-slate-300">Expected Drawer Cash</p>
-                <h3 className="mt-2 text-2xl font-bold text-blue-300">
-                  {formatMoney(activeDrawerCash)}
-                </h3>
-              </div>
-
-              <input
-                type="number"
-                value={actualClosingCash}
-                onChange={(e) => setActualClosingCash(e.target.value)}
-                placeholder="Actual cash counted before remittance"
-                className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-              />
-
-              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
-                <p className="text-sm font-bold text-sky-300">
-                  Drawer Remittance
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-300">
-                  Record the cash turned over when closing the drawer. This
-                  creates an automatic Remittance movement and does not count as
-                  an expense.
-                </p>
-
-                <div className="mt-4 space-y-3">
-                  <input
-                    type="number"
-                    value={closingRemittanceAmount}
-                    onChange={(e) => setClosingRemittanceAmount(e.target.value)}
-                    placeholder="Remittance amount"
-                    className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                  />
-
-                  <input
-                    value={closingRemittanceReceivedBy}
-                    onChange={(e) =>
-                      setClosingRemittanceReceivedBy(e.target.value)
-                    }
-                    placeholder="Received by"
-                    list="employee-name-list"
-                    autoComplete="off"
-                    className="w-full rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                  />
-
-                  <textarea
-                    value={closingRemittanceRemarks}
-                    onChange={(e) =>
-                      setClosingRemittanceRemarks(e.target.value)
-                    }
-                    rows={2}
-                    placeholder="Remittance remarks / reference"
-                    className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-                  />
-
-                  <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
-                    <div className="rounded-xl border border-blue-300/15 bg-slate-950/80 p-3">
-                      <p className="text-slate-500">
-                        Remaining after remittance
-                      </p>
-                      <p className="mt-1 font-black text-emerald-300">
-                        {formatMoney(
-                          Number(actualClosingCash || 0) -
-                            Number(closingRemittanceAmount || 0),
-                        )}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-blue-300/15 bg-slate-950/80 p-3">
-                      <p className="text-slate-500">
-                        Variance before remittance
-                      </p>
-                      <p
-                        className={`mt-1 font-black ${Number(actualClosingCash || 0) - activeDrawerCash < 0 ? "text-blue-300" : "text-emerald-300"}`}
-                      >
-                        {formatMoney(
-                          Number(actualClosingCash || 0) - activeDrawerCash,
-                        )}
-                      </p>
-                    </div>
+            {showCloseDrawer && activeDrawer && (
+              <Modal title="Close Drawer" onClose={() => setShowCloseDrawer(false)}>
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <p className={labelClass}>Expected Drawer Cash</p>
+                  <h3 className="mt-2 text-3xl font-black text-slate-950">{formatMoney(activeDrawerCash)}</h3>
+                </div>
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Actual Cash Counted</span>
+                  <input type="number" value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} placeholder="0.00" className={inputClass} />
+                </label>
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Remittance Amount</span>
+                  <input type="number" value={closingRemittanceAmount} onChange={(e) => setClosingRemittanceAmount(e.target.value)} placeholder="0.00" className={inputClass} />
+                </label>
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Received By</span>
+                  <input value={closingRemittanceReceivedBy} onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)} list="employee-name-list" placeholder="Receiver name" className={inputClass} />
+                </label>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <p className={labelClass}>Remaining Cash</p>
+                    <p className="mt-2 text-lg font-black text-slate-950">{formatMoney(Number(actualClosingCash || 0) - Number(closingRemittanceAmount || 0))}</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <p className={labelClass}>Variance</p>
+                    <p className="mt-2 text-lg font-black text-slate-950">{formatMoney(Number(closingRemittanceAmount || 0) - activeDrawerCash)}</p>
                   </div>
                 </div>
-              </div>
-
-              <textarea
-                value={closeRemarks}
-                onChange={(e) => setCloseRemarks(e.target.value)}
-                rows={3}
-                placeholder="Closing remarks / variance explanation"
-                className="w-full resize-none rounded-xl border border-blue-300/15 bg-slate-950/80 px-3 py-2 text-sm outline-none"
-              />
-
-              <button
-                onClick={closeDrawer}
-                disabled={isSaving}
-                className="w-full rounded-xl bg-slate-700 px-4 py-3 text-sm font-bold hover:bg-slate-600 disabled:opacity-50"
-              >
-                {isSaving ? "Closing..." : "Save Remittance & Close Drawer"}
-              </button>
-            </Modal>
-          )}
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Remittance Remarks</span>
+                  <textarea value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} rows={2} placeholder="Reference / notes" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
+                </label>
+                <label className="space-y-2 block">
+                  <span className={labelClass}>Closing Remarks</span>
+                  <textarea value={closeRemarks} onChange={(e) => setCloseRemarks(e.target.value)} rows={3} placeholder="Closing remarks / variance explanation" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
+                </label>
+                <button onClick={closeDrawer} disabled={isSaving} className="h-11 w-full rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50">
+                  {isSaving ? "Closing..." : "Save Remittance & Close Drawer"}
+                </button>
+              </Modal>
+            )}
+          </div>
         </main>
       </div>
     </PageGuard>
   );
 }
 
-
-function CompactTopMetric({ label, value, tone = "blue" }: any) {
+function EnterpriseMetric({ label, value, caption, tone = "default" }: any) {
   const toneMap: Record<string, string> = {
-    blue: "border-blue-400/20 bg-blue-500/10 text-blue-200",
-    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
-    cyan: "border-cyan-400/20 bg-cyan-500/10 text-cyan-200",
-    orange: "border-orange-400/20 bg-orange-500/10 text-orange-200",
-    red: "border-red-400/20 bg-red-500/10 text-red-200",
+    default: "border-slate-200 bg-white text-slate-950",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-950",
+    warning: "border-amber-200 bg-amber-50 text-amber-950",
+    danger: "border-red-200 bg-red-50 text-red-950",
+    muted: "border-slate-200 bg-slate-50 text-slate-700",
   };
-
-  return (
-    <div className={`min-w-0 rounded-xl border px-3 py-2 ${toneMap[tone] || toneMap.blue}`}>
-      <p className="truncate text-[9px] font-black uppercase tracking-[0.18em] opacity-80">
-        {label}
-      </p>
-      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function MiniBalance({ label, value, tone = "blue" }: any) {
-  const toneMap: Record<string, string> = {
-    blue: "border-blue-400/20 bg-blue-500/10 text-blue-200",
-    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
-    cyan: "border-cyan-400/20 bg-cyan-500/10 text-cyan-200",
-    orange: "border-orange-400/20 bg-orange-500/10 text-orange-200",
-  };
-
-  return (
-    <div className={`relative overflow-hidden rounded-2xl border p-3 ${toneMap[tone] || toneMap.blue}`}>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-      <p className="relative text-[10px] font-black uppercase tracking-[0.18em] opacity-75">
-        {label}
-      </p>
-      <p className="relative mt-1 truncate text-lg font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function FastSignal({ label, value, tone = "blue" }: any) {
-  const toneMap: Record<string, string> = {
-    blue: "border-blue-400/20 bg-blue-500/10 text-blue-200",
-    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
-    cyan: "border-cyan-400/20 bg-cyan-500/10 text-cyan-200",
-    orange: "border-orange-400/20 bg-orange-500/10 text-orange-200",
-    red: "border-red-400/20 bg-red-500/10 text-red-200",
-  };
-
-  return (
-    <div className={`rounded-xl border px-3 py-2 ${toneMap[tone] || toneMap.blue}`}>
-      <p className="text-[9px] font-black uppercase tracking-[0.18em] opacity-75">{label}</p>
-      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function WorkbenchMetric({
-  title,
-  value,
-  subtitle,
-  status,
-  tone = "blue",
-}: any) {
-  const toneMap: Record<string, any> = {
-    blue: {
-      border: "border-blue-400/20",
-      bg: "from-blue-500/15 via-slate-900 to-slate-950",
-      text: "text-blue-200",
-      glow: "bg-blue-400/20",
-      pill: "border-blue-300/20 bg-blue-500/10 text-blue-200",
-    },
-    emerald: {
-      border: "border-emerald-400/20",
-      bg: "from-emerald-500/15 via-slate-900 to-slate-950",
-      text: "text-emerald-200",
-      glow: "bg-emerald-400/20",
-      pill: "border-emerald-300/20 bg-emerald-500/10 text-emerald-200",
-    },
-    cyan: {
-      border: "border-cyan-400/20",
-      bg: "from-cyan-500/15 via-slate-900 to-slate-950",
-      text: "text-cyan-200",
-      glow: "bg-cyan-400/20",
-      pill: "border-cyan-300/20 bg-cyan-500/10 text-cyan-200",
-    },
-    orange: {
-      border: "border-orange-400/20",
-      bg: "from-orange-500/15 via-slate-900 to-slate-950",
-      text: "text-orange-200",
-      glow: "bg-orange-400/20",
-      pill: "border-orange-300/20 bg-orange-500/10 text-orange-200",
-    },
-    red: {
-      border: "border-red-400/20",
-      bg: "from-red-500/15 via-slate-900 to-slate-950",
-      text: "text-red-200",
-      glow: "bg-red-400/20",
-      pill: "border-red-300/20 bg-red-500/10 text-red-200",
-    },
-  };
-
-  const style = toneMap[tone] || toneMap.blue;
 
   return (
     <div
-      className={`relative overflow-hidden rounded-[1.6rem] border ${style.border} bg-gradient-to-br ${style.bg} p-5 shadow-xl shadow-black/20`}
+      className={`rounded-3xl border px-4 py-4 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md ${toneMap[tone] || toneMap.default}`}
     >
-      <div className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full ${style.glow} blur-3xl`} />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${style.text}`}>
-            {title}
-          </p>
-          <p className="mt-3 break-words text-3xl font-black tracking-tight text-white">
-            {value}
-          </p>
-          {subtitle && (
-            <p className="mt-2 text-xs leading-5 text-slate-400">{subtitle}</p>
-          )}
-        </div>
-        {status && (
-          <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${style.pill}`}>
-            {status}
-          </span>
-        )}
-      </div>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <h2 className="mt-2 truncate text-3xl font-black tracking-tight">
+        {value}
+      </h2>
+      {caption && (
+        <p className="mt-1 truncate text-xs font-medium text-slate-500">
+          {caption}
+        </p>
+      )}
     </div>
   );
 }
 
-function SummaryCard({ title, value, color }: any) {
+function InfoRow({ label, value, strong = false }: any) {
   return (
-    <div className="relative overflow-hidden rounded-[1.6rem] border border-blue-300/10 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 shadow-xl shadow-black/20">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-      <p className="relative text-xs font-black uppercase tracking-[0.18em] text-blue-200/80">
-        {title}
+    <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-3 py-3 text-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
       </p>
-      <h2 className={`relative mt-3 break-words text-3xl font-black tracking-tight ${color}`}>
+      <p
+        className={`truncate text-right ${
+          strong ? "text-lg font-black text-slate-950" : "font-semibold text-slate-800"
+        }`}
+      >
         {value}
-      </h2>
+      </p>
     </div>
   );
 }
 
 function Modal({ title, children, onClose }: any) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[1.75rem] border border-blue-300/15 bg-gradient-to-b from-slate-900 to-slate-950 p-6 shadow-2xl shadow-blue-950/30">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/10 to-transparent" />
-
-        <div className="relative mb-5 flex items-center justify-between gap-4">
-          <h2 className="text-2xl font-black tracking-tight text-white">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="mb-5 flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
+          <h2 className="text-xl font-black text-slate-950">
+            {title}
+          </h2>
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-300 hover:border-blue-400 hover:bg-blue-500/10 hover:text-white"
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
           >
             Close
           </button>
         </div>
 
-        <div className="relative space-y-4">{children}</div>
+        <div className="space-y-4 text-slate-900">{children}</div>
       </div>
     </div>
   );

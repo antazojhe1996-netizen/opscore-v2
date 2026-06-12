@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/SidebarV41";
+import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
@@ -34,6 +35,7 @@ export default function ExpenseRequestsPage() {
   /// STATES - FILTERS
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [dateScope, setDateScope] = useState("ALL");
 
   /// STATES - SYSTEM
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,7 +53,7 @@ export default function ExpenseRequestsPage() {
 
   /// CALCULATIONS - SELECTED REQUESTOR
   const selectedEmployeeData = employees.find(
-    (employee) => String(employee.id) === String(selectedEmployee)
+    (employee) => String(employee.id) === String(selectedEmployee),
   );
 
   const selectedDepartment =
@@ -67,28 +69,46 @@ export default function ExpenseRequestsPage() {
       : manualRequestorName.trim();
 
   /// CALCULATIONS - DASHBOARD CARDS
-  const pendingCount = requests.filter((item) => item.status === "PENDING").length;
-  const approvedCount = requests.filter((item) => item.status === "APPROVED").length;
+  const pendingCount = requests.filter(
+    (item) => item.status === "PENDING",
+  ).length;
+  const approvedCount = requests.filter(
+    (item) => item.status === "APPROVED",
+  ).length;
   const releasedAmount = requests
-    .filter((item) => item.status === "RELEASED" || item.status === "LIQUIDATED")
+    .filter(
+      (item) => item.status === "RELEASED" || item.status === "LIQUIDATED",
+    )
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const forLiquidationCount = requests.filter((item) => item.status === "RELEASED").length;
+  const forLiquidationCount = requests.filter(
+    (item) => item.status === "RELEASED",
+  ).length;
 
   /// CALCULATIONS - FILTERED TABLE
   const filteredRequests = useMemo(() => {
     return requests.filter((item) => {
-      const matchesStatus = statusFilter === "ALL" ? true : item.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "ALL" ? true : item.status === statusFilter;
+      const matchesDate = dateScope === "ALL" ? true : item.request_date === today;
       const search = searchTerm.toLowerCase();
 
       const matchesSearch =
-        String(item.department || "").toLowerCase().includes(search) ||
-        String(item.requested_by || "").toLowerCase().includes(search) ||
-        String(item.category || "").toLowerCase().includes(search) ||
-        String(item.reason || "").toLowerCase().includes(search);
+        String(item.department || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(item.requested_by || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(item.category || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(item.reason || "")
+          .toLowerCase()
+          .includes(search);
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesDate && matchesSearch;
     });
-  }, [requests, searchTerm, statusFilter]);
+  }, [requests, searchTerm, statusFilter, dateScope, today]);
 
   /// FUNCTIONS - FORMATTERS
   const formatMoney = (value: any) =>
@@ -98,12 +118,24 @@ export default function ExpenseRequestsPage() {
     })}`;
 
   const getStatusStyle = (status: string) => {
-    if (status === "PENDING") return "bg-amber-500/10 text-amber-400";
-    if (status === "APPROVED") return "bg-blue-500/10 text-blue-400";
-    if (status === "REJECTED") return "bg-red-500/10 text-red-400";
-    if (status === "RELEASED") return "bg-purple-500/10 text-purple-400";
-    if (status === "LIQUIDATED") return "bg-emerald-500/10 text-emerald-400";
-    return "bg-slate-700 text-slate-300";
+    if (status === "PENDING")
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    if (status === "APPROVED")
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    if (status === "REJECTED") return "border-red-200 bg-red-50 text-red-700";
+    if (status === "RELEASED")
+      return "border-violet-200 bg-violet-50 text-violet-700";
+    if (status === "LIQUIDATED")
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-slate-200 bg-slate-50 text-slate-600";
+  };
+
+  const getLastAction = (request: any) => {
+    if (request.liquidated_by) return `Liquidated by ${request.liquidated_by}`;
+    if (request.released_by) return `Released by ${request.released_by}`;
+    if (request.approved_by) return `Approved by ${request.approved_by}`;
+    if (request.status === "REJECTED") return request.remarks || "Rejected";
+    return approvalRequired ? "Awaiting manager approval" : "Direct approved";
   };
 
   /// PERMISSIONS
@@ -125,7 +157,10 @@ export default function ExpenseRequestsPage() {
       .maybeSingle();
 
     if (employeeError || !employee?.system_role_id) {
-      console.log("EXPENSE REQUESTS PERMISSION EMPLOYEE ERROR:", employeeError?.message);
+      console.log(
+        "EXPENSE REQUESTS PERMISSION EMPLOYEE ERROR:",
+        employeeError?.message,
+      );
       setPermissions([]);
       return;
     }
@@ -136,7 +171,10 @@ export default function ExpenseRequestsPage() {
       .eq("role_id", employee.system_role_id);
 
     if (permissionError) {
-      console.log("EXPENSE REQUESTS PERMISSION ERROR:", permissionError.message);
+      console.log(
+        "EXPENSE REQUESTS PERMISSION ERROR:",
+        permissionError.message,
+      );
       setPermissions([]);
       return;
     }
@@ -152,11 +190,11 @@ export default function ExpenseRequestsPage() {
       | "can_edit"
       | "can_delete"
       | "can_approve"
-      | "can_release"
+      | "can_release",
   ) => {
     return permissions.some(
       (permission) =>
-        permission.module_key === moduleKey && permission[field] === true
+        permission.module_key === moduleKey && permission[field] === true,
     );
   };
 
@@ -175,7 +213,8 @@ export default function ExpenseRequestsPage() {
       .select("*")
       .order("first_name", { ascending: true });
 
-    if (employeesError) console.log("GET EMPLOYEES ERROR:", employeesError.message);
+    if (employeesError)
+      console.log("GET EMPLOYEES ERROR:", employeesError.message);
 
     // IMPORTANT: Use the same category table as the main Expenses page.
     const { data: categoriesData, error: categoriesError } = await supabase
@@ -184,7 +223,8 @@ export default function ExpenseRequestsPage() {
       .eq("is_active", true)
       .order("name", { ascending: true });
 
-    if (categoriesError) console.log("GET CATEGORIES ERROR:", categoriesError.message);
+    if (categoriesError)
+      console.log("GET CATEGORIES ERROR:", categoriesError.message);
 
     const { data: areasData, error: areasError } = await supabase
       .from("finance_expense_areas")
@@ -200,17 +240,22 @@ export default function ExpenseRequestsPage() {
       .limit(1)
       .maybeSingle();
 
-    if (workflowError) console.log("GET WORKFLOW SETTINGS ERROR:", workflowError.message);
+    if (workflowError)
+      console.log("GET WORKFLOW SETTINGS ERROR:", workflowError.message);
 
     if (!workflowData) {
-      const { data: insertedWorkflow, error: insertWorkflowError } = await supabase
-        .from("finance_workflow_settings")
-        .insert({ require_expense_approval: false })
-        .select("*")
-        .single();
+      const { data: insertedWorkflow, error: insertWorkflowError } =
+        await supabase
+          .from("finance_workflow_settings")
+          .insert({ require_expense_approval: false })
+          .select("*")
+          .single();
 
       if (insertWorkflowError) {
-        console.log("CREATE WORKFLOW SETTINGS ERROR:", insertWorkflowError.message);
+        console.log(
+          "CREATE WORKFLOW SETTINGS ERROR:",
+          insertWorkflowError.message,
+        );
         setWorkflowSettings({ require_expense_approval: false });
       } else {
         setWorkflowSettings(insertedWorkflow);
@@ -251,7 +296,7 @@ export default function ExpenseRequestsPage() {
     const confirmed = confirm(
       nextValue
         ? "Turn ON expense approval workflow? New requests will start as Pending."
-        : "Turn OFF expense approval workflow? New requests will be Approved automatically."
+        : "Turn OFF expense approval workflow? New requests will be Approved automatically.",
     );
 
     if (!confirmed) return;
@@ -364,7 +409,9 @@ export default function ExpenseRequestsPage() {
       reason: reason.trim(),
       urgency,
       status: defaultStatus,
-      remarks: approvalRequired ? "" : "Auto-approved because expense approval workflow is OFF.",
+      remarks: approvalRequired
+        ? ""
+        : "Auto-approved because expense approval workflow is OFF.",
     };
 
     if (!approvalRequired) {
@@ -402,14 +449,18 @@ export default function ExpenseRequestsPage() {
 
       if (approvalError) {
         console.log("CREATE APPROVAL REQUEST ERROR:", approvalError.message);
-        alert("Expense request was saved, but approval center record was not created.");
+        alert(
+          "Expense request was saved, but approval center record was not created.",
+        );
       }
     }
 
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Expense Requests",
-      action: approvalRequired ? "Submit Expense Request" : "Submit Direct Approved Request",
+      action: approvalRequired
+        ? "Submit Expense Request"
+        : "Submit Direct Approved Request",
       description: `${finalRequestedBy} submitted ${category} request for ${formatMoney(amountValue)}. Status: ${defaultStatus}`,
       severity: approvalRequired ? "info" : "warning",
       newValue: payload,
@@ -508,7 +559,8 @@ export default function ExpenseRequestsPage() {
           expense_date: String(releasedAt).slice(0, 10),
           category: selectedRequest.category,
           subcategory: null,
-          department: selectedRequest.expense_area || selectedRequest.department,
+          department:
+            selectedRequest.expense_area || selectedRequest.department,
           description: selectedRequest.reason,
           source: "Expense Request",
           amount: Number(selectedRequest.amount || 0),
@@ -519,7 +571,10 @@ export default function ExpenseRequestsPage() {
         .single();
 
       if (expenseError) {
-        console.log("AUTO POST RELEASE TO EXPENSES ERROR:", expenseError.message);
+        console.log(
+          "AUTO POST RELEASE TO EXPENSES ERROR:",
+          expenseError.message,
+        );
         alert("Release failed because posting to Expenses failed.");
         return;
       }
@@ -559,7 +614,7 @@ export default function ExpenseRequestsPage() {
       alert(
         actionType === "RELEASE"
           ? `Expense was posted, but request status was not updated. ${error.message}`
-          : `Failed to update request. ${error.message}`
+          : `Failed to update request. ${error.message}`,
       );
       return;
     }
@@ -645,7 +700,9 @@ export default function ExpenseRequestsPage() {
 
     if (updateError) {
       console.log("UPDATE POSTED REQUEST ERROR:", updateError.message);
-      alert(`Expense was posted, but request was not updated. ${updateError.message}`);
+      alert(
+        `Expense was posted, but request was not updated. ${updateError.message}`,
+      );
       return;
     }
 
@@ -674,14 +731,19 @@ export default function ExpenseRequestsPage() {
     }
 
     if (request.posted_to_expenses) {
-      alert("This request is already posted to expenses. Delete or reverse from Expenses first.");
+      alert(
+        "This request is already posted to expenses. Delete or reverse from Expenses first.",
+      );
       return;
     }
 
     const confirmDelete = confirm("Delete this request?");
     if (!confirmDelete) return;
 
-    const { error } = await supabase.from("expense_requests").delete().eq("id", request.id);
+    const { error } = await supabase
+      .from("expense_requests")
+      .delete()
+      .eq("id", request.id);
 
     if (error) {
       console.log("DELETE REQUEST ERROR:", error.message);
@@ -713,287 +775,549 @@ export default function ExpenseRequestsPage() {
   /// UI
   return (
     <PageGuard moduleKey="expense_requests">
-      <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+        <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-              Finance Control
-            </p>
-            <h1 className="mt-2 text-3xl font-bold">Expense Requests</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Optional approval workflow for future request-to-release process. Turn it off when operations use direct expense posting.
-            </p>
-          </div>
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar />
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-300">
-              Workflow: {" "}
-              <span className={approvalRequired ? "font-semibold text-amber-400" : "font-semibold text-emerald-400"}>
-                {approvalRequired ? "Approval Required" : "Approval OFF / Direct Approved"}
-              </span>
-            </div>
-
-            {canManageWorkflow && (
-              <button
-                onClick={toggleApprovalWorkflow}
-                disabled={isSavingSettings}
-                className={`rounded-xl px-4 py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60 ${
-                  approvalRequired
-                    ? "bg-red-600 hover:bg-red-500"
-                    : "bg-emerald-600 hover:bg-emerald-500"
-                }`}
-              >
-                {isSavingSettings
-                  ? "Saving..."
-                  : approvalRequired
-                  ? "Turn Approval OFF"
-                  : "Turn Approval ON"}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {!approvalRequired && (
-          <section className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-            <h2 className="text-lg font-black text-emerald-300">Direct Approval Mode</h2>
-            <p className="mt-1 text-sm leading-6 text-emerald-100">
-              New requests will be saved as APPROVED automatically. This keeps the module ready for future approval workflow without forcing the hotel to use it today.
-            </p>
-          </section>
-        )}
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Pending Requests" value={pendingCount} color="text-amber-400" />
-          <SummaryCard title="Approved Requests" value={approvedCount} color="text-blue-400" />
-          <SummaryCard title="Released Cash" value={formatMoney(releasedAmount)} color="text-purple-400" />
-          <SummaryCard title="For Liquidation" value={forLiquidationCount} color="text-emerald-400" />
-        </section>
-
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="text-xl font-bold">New Request</h2>
-
-            {!canCreateRequest && (
-              <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
-                View-only access. You can review requests, but you cannot submit new expense requests.
+          <div className="px-4 pb-6 pt-20 sm:px-6 lg:px-7">
+            {/* PAGE HEADER */}
+            <section className="mb-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Finance
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+                Expense Requests
+              </h1>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Request, approve, release, and liquidate operational expenses.
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    approvalRequired ? "bg-amber-500" : "bg-emerald-500"
+                  }`}
+                />
+                <span
+                  className={`text-xs font-semibold ${
+                    approvalRequired ? "text-amber-700" : "text-emerald-700"
+                  }`}
+                >
+                  {approvalRequired ? "Approval workflow active" : "Direct approval mode"}
+                </span>
               </div>
-            )}
+            </section>
 
-            {canCreateRequest && (
-            <div className="mt-5 space-y-4">
-              <input type="date" value={requestDate} onChange={(e) => setRequestDate(e.target.value)} style={{ colorScheme: "dark" }} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-              <select value={requestorType} onChange={(e) => setRequestorType(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="Employee">Employee</option>
-                <option value="Non Employee">Non Employee</option>
-              </select>
-
-              {requestorType === "Employee" ? (
-                <>
-                  <select value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                    <option value="">Select Employee</option>
-                    {employees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>
-                    ))}
-                  </select>
-                  <DepartmentCard department={selectedDepartment} emptyText="Select employee first" />
-                </>
-              ) : (
-                <>
-                  <input value={manualRequestorName} onChange={(e) => setManualRequestorName(e.target.value)} placeholder="Requestor name" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-                  <input value={manualDepartment} onChange={(e) => setManualDepartment(e.target.value)} placeholder="Department / Source" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-                </>
-              )}
-
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="">Select category</option>
-                {categories.map((item) => <option key={item.id || item.name} value={item.name}>{item.name}</option>)}
-              </select>
-
-              <select value={expenseArea} onChange={(e) => setExpenseArea(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="">Select expense area</option>
-                {areas.map((item) => <option key={item.id || item.name} value={item.name}>{item.name}</option>)}
-              </select>
-
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Requested amount" className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-              <select value={urgency} onChange={(e) => setUrgency(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                <option value="Low">Low</option>
-                <option value="Normal">Normal</option>
-                <option value="Urgent">Urgent</option>
-              </select>
-
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={4} placeholder="Reason / purpose of request" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-
-              <button onClick={submitRequest} disabled={isSubmitting} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
-                {isSubmitting ? "Submitting..." : approvalRequired ? "Submit Request" : "Save as Approved Request"}
-              </button>
-            </div>
-            )}
-          </section>
-
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Request Workflow</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Review pending, approved, released, and liquidated requests.
+            {/* ENTRY FORM */}
+            <section className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-5 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Expense Request Entry
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-slate-950">
+                  Request Details
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Encode the request details once, then route it through
+                  approval and release.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search request..." className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none">
-                  <option value="ALL">All Status</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="APPROVED">Approved</option>
-                  <option value="REJECTED">Rejected</option>
-                  <option value="RELEASED">Released</option>
-                  <option value="LIQUIDATED">Liquidated</option>
-                </select>
+              {!canCreateRequest ? (
+                <div className="m-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
+                  View-only access. You can review requests, but you cannot
+                  submit new expense requests.
+                </div>
+              ) : (
+                <div className="space-y-3.5 p-5">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                    <FieldLabel label="Request Date">
+                      <input
+                        type="date"
+                        value={requestDate}
+                        onChange={(e) => setRequestDate(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      />
+                    </FieldLabel>
+
+                    <FieldLabel label="Requestor Type">
+                      <select
+                        value={requestorType}
+                        onChange={(e) => setRequestorType(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      >
+                        <option value="Employee">Employee</option>
+                        <option value="Non Employee">Non Employee</option>
+                      </select>
+                    </FieldLabel>
+
+                    {requestorType === "Employee" ? (
+                      <FieldLabel label="Employee">
+                        <select
+                          value={selectedEmployee}
+                          onChange={(e) => setSelectedEmployee(e.target.value)}
+                          className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        >
+                          <option value="">Select employee</option>
+                          {employees.map((employee) => (
+                            <option key={employee.id} value={employee.id}>
+                              {employee.first_name} {employee.last_name}
+                            </option>
+                          ))}
+                        </select>
+                      </FieldLabel>
+                    ) : (
+                      <FieldLabel label="Requestor Name">
+                        <input
+                          value={manualRequestorName}
+                          onChange={(e) =>
+                            setManualRequestorName(e.target.value)
+                          }
+                          placeholder="Name"
+                          className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        />
+                      </FieldLabel>
+                    )}
+
+                    <DepartmentCard
+                      department={selectedDepartment}
+                      emptyText="No department selected"
+                    />
+                  </div>
+
+                  {requestorType !== "Employee" && (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <FieldLabel label="Department / Source">
+                        <input
+                          value={manualDepartment}
+                          onChange={(e) => setManualDepartment(e.target.value)}
+                          placeholder="Department or source"
+                          className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        />
+                      </FieldLabel>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <FieldLabel label="Category">
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      >
+                        <option value="">Select category</option>
+                        {categories.map((item) => (
+                          <option key={item.id || item.name} value={item.name}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FieldLabel>
+
+                    <FieldLabel label="Expense Area">
+                      <select
+                        value={expenseArea}
+                        onChange={(e) => setExpenseArea(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      >
+                        <option value="">Select expense area</option>
+                        {areas.map((item) => (
+                          <option key={item.id || item.name} value={item.name}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FieldLabel>
+
+                    <FieldLabel label="Amount">
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
+                          ₱
+                        </span>
+                        <input
+                          type="number"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-lg font-black text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        />
+                      </div>
+                    </FieldLabel>
+
+                    <FieldLabel label="Urgency">
+                      <select
+                        value={urgency}
+                        onChange={(e) => setUrgency(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Normal">Normal</option>
+                        <option value="Urgent">Urgent</option>
+                      </select>
+                    </FieldLabel>
+                  </div>
+
+                  <FieldLabel label="Reason / Purpose">
+                    <textarea
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      rows={2}
+                      placeholder="Describe the operational purpose of this expense request."
+                      className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                    />
+                  </FieldLabel>
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={resetRequestForm}
+                      className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitRequest}
+                      disabled={isSubmitting}
+                      className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSubmitting
+                        ? "Submitting..."
+                        : approvalRequired
+                          ? "Submit Request"
+                          : "Save as Approved Request"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* KPI CARDS */}
+            <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryCard
+                title="Pending Approval"
+                value={pendingCount}
+                helper="Awaiting review"
+              />
+              <SummaryCard
+                title="Ready For Release"
+                value={approvedCount}
+                helper="Ready for cashier release"
+              />
+              <SummaryCard
+                title="Released This Month"
+                value={formatMoney(releasedAmount)}
+                helper="Released this period"
+              />
+              <SummaryCard
+                title="Pending Liquidation"
+                value={forLiquidationCount}
+                helper="Receipt follow-up required"
+              />
+            </section>
+
+            {/* REQUEST TABLE */}
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    Expense Request Log
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Review pending, approved, released, and liquidated requests.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search request..."
+                    className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="ALL">All Status</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="RELEASED">Released</option>
+                    <option value="LIQUIDATED">Liquidated</option>
+                  </select>
+                  <select
+                    value={dateScope}
+                    onChange={(e) => setDateScope(e.target.value)}
+                    className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="ALL">All Dates</option>
+                    <option value="TODAY">Today</option>
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1250px] text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Requestor</th>
-                    <th className="px-4 py-3">Department</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3 text-right">Amount</th>
-                    <th className="px-4 py-3">Urgency</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Trail</th>
-                    <th className="px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
+              <div className="overflow-auto">
+                <table className="w-full min-w-[1080px] text-sm">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Requestor</th>
+                      <th className="px-4 py-3">Department</th>
+                      <th className="px-4 py-3">Category</th>
+                      <th className="px-4 py-3 text-right">Amount</th>
+                      <th className="px-4 py-3">Urgency</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Last Action</th>
+                      <th className="px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
 
-                <tbody>
-                  {filteredRequests.map((request) => (
-                    <tr key={request.id} className="border-t border-slate-800 text-slate-200 hover:bg-slate-800/40">
-                      <td className="whitespace-nowrap px-4 py-3">{request.request_date}</td>
-                      <td className="px-4 py-3"><p>{request.requested_by}</p><p className="text-xs text-slate-500">{request.requestor_type || "Employee"}</p></td>
-                      <td className="px-4 py-3">{request.department}</td>
-                      <td className="px-4 py-3">{request.category}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatMoney(request.amount)}</td>
-                      <td className="px-4 py-3"><UrgencyBadge urgency={request.urgency} /></td>
-                      <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(request.status)}`}>{request.status}</span></td>
-                      <td className="px-4 py-3 text-xs text-slate-400">
-                        <p>Approved: {request.approved_by || "-"}</p>
-                        <p>Released: {request.released_by || "-"}</p>
-                        <p>Liquidated: {request.liquidated_by || "-"}</p>
-                        <p>Posted: {request.posted_to_expenses ? <span className="text-emerald-400">Yes</span> : <span className="text-amber-400">No</span>}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          {request.status === "PENDING" && approvalRequired && (
-                            <span className="rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
-                              Awaiting Manager Approval
-                            </span>
-                          )}
-
-                          {request.status === "APPROVED" && !request.posted_to_expenses && canReleaseRequest && (
-                            <ActionButton label="Release" color="purple" onClick={() => openAction(request, "RELEASE")} />
-                          )}
-
-                          {request.status === "RELEASED" && (
-                            <>
-                              {request.posted_to_expenses ? (
-                                <span className="rounded-lg bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
-                                  Posted to Expenses
-                                </span>
-                              ) : (
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredRequests.map((request) => (
+                      <tr
+                        key={request.id}
+                        className="text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-700">
+                          {request.request_date}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-slate-900">
+                            {request.requested_by}
+                          </p>
+                          <p className="text-xs font-medium text-slate-500">
+                            {request.requestor_type || "Employee"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-slate-700">
+                          {request.department}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-slate-700">
+                          {request.category}
+                        </td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(request.amount)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <UrgencyBadge urgency={request.urgency} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusStyle(request.status)}`}
+                          >
+                            {request.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs font-semibold text-slate-500">
+                          <p>{getLastAction(request)}</p>
+                          <p className="mt-1">
+                            Posted:{" "}
+                            {request.posted_to_expenses ? (
+                              <span className="text-emerald-700">Yes</span>
+                            ) : (
+                              <span className="text-amber-700">No</span>
+                            )}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            {request.status === "PENDING" &&
+                              approvalRequired &&
+                              canApproveRequest && (
                                 <>
-                                  <span className="rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
-                                    Ready for Posting
-                                  </span>
-                                  {canReleaseRequest && (
-                                    <ActionButton label="Post Now" color="purple" onClick={() => postToExpenses(request)} />
-                                  )}
+                                  <ActionButton
+                                    label="Approve"
+                                    color="blue"
+                                    onClick={() =>
+                                      openAction(request, "APPROVE")
+                                    }
+                                  />
+                                  <ActionButton
+                                    label="Reject"
+                                    color="red"
+                                    onClick={() =>
+                                      openAction(request, "REJECT")
+                                    }
+                                  />
                                 </>
                               )}
-                            </>
-                          )}
 
-                          {!request.posted_to_expenses && canDeleteRequest && (
-                            <ActionButton label="Delete" color="slate" onClick={() => deleteRequest(request)} />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {request.status === "PENDING" &&
+                              approvalRequired &&
+                              !canApproveRequest && (
+                                <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                                  Awaiting Approval
+                                </span>
+                              )}
 
-                  {filteredRequests.length === 0 && (
-                    <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-500">No expense requests found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+                            {request.status === "APPROVED" &&
+                              !request.posted_to_expenses &&
+                              canReleaseRequest && (
+                                <ActionButton
+                                  label="Release Cash"
+                                  color="purple"
+                                  onClick={() => openAction(request, "RELEASE")}
+                                />
+                              )}
 
-        {selectedRequest && (
-          <ActionModal
-            actionType={actionType}
-            selectedRequest={selectedRequest}
-            actorName={actorName}
-            actorRole={actorRole}
-            actionRemarks={actionRemarks}
-            setActorName={setActorName}
-            setActorRole={setActorRole}
-            setActionRemarks={setActionRemarks}
-            closeAction={closeAction}
-            submitAction={submitAction}
-            formatMoney={formatMoney}
-          />
-        )}
-      </main>
+                            {request.status === "RELEASED" && (
+                              <>
+                                {request.posted_to_expenses ? (
+                                  <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                    Posted
+                                  </span>
+                                ) : (
+                                  <>
+                                    <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                                      Ready for Posting
+                                    </span>
+                                    {canReleaseRequest && (
+                                      <ActionButton
+                                        label="Post Now"
+                                        color="purple"
+                                        onClick={() => postToExpenses(request)}
+                                      />
+                                    )}
+                                  </>
+                                )}
+                                {canReleaseRequest && (
+                                  <ActionButton
+                                    label="Liquidate"
+                                    color="emerald"
+                                    onClick={() =>
+                                      openAction(request, "LIQUIDATE")
+                                    }
+                                  />
+                                )}
+                              </>
+                            )}
+
+                            {!request.posted_to_expenses &&
+                              canDeleteRequest && (
+                                <ActionButton
+                                  label="Delete"
+                                  color="slate"
+                                  onClick={() => deleteRequest(request)}
+                                />
+                              )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {filteredRequests.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-4 py-12 text-center text-sm font-medium text-slate-500"
+                        >
+                          No expense requests found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          {selectedRequest && (
+            <ActionModal
+              actionType={actionType}
+              selectedRequest={selectedRequest}
+              actorName={actorName}
+              actorRole={actorRole}
+              actionRemarks={actionRemarks}
+              setActorName={setActorName}
+              setActorRole={setActorRole}
+              setActionRemarks={setActionRemarks}
+              closeAction={closeAction}
+              submitAction={submitAction}
+              formatMoney={formatMoney}
+            />
+          )}
+        </main>
       </div>
     </PageGuard>
   );
 }
 
-function SummaryCard({ title, value, color }: any) {
+function FieldLabel({ label, children }: any) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 break-words text-2xl font-bold ${color}`}>{value}</h2>
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function SummaryCard({ title, value, helper }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-[11px] font-semibold text-slate-500">{title}</p>
+      <h2 className="mt-2 break-words text-3xl font-bold tracking-tight text-slate-950">
+        {value}
+      </h2>
+      <p className="mt-1 text-xs font-medium text-slate-500">{helper}</p>
     </div>
   );
 }
 
 function DepartmentCard({ department, emptyText }: any) {
   return (
-    <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">Department</p>
-      <p className="mt-2 text-lg font-bold text-white">{department || emptyText}</p>
-    </div>
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Department
+      </span>
+      <div className="flex h-11 w-full items-center rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+        {department || "—"}
+      </div>
+    </label>
   );
 }
 
 function UrgencyBadge({ urgency }: any) {
+  const className =
+    urgency === "Urgent"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : urgency === "Low"
+        ? "border-slate-200 bg-slate-50 text-slate-600"
+        : "border-blue-200 bg-blue-50 text-blue-700";
+
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${urgency === "Urgent" ? "bg-red-500/10 text-red-400" : urgency === "Low" ? "bg-slate-700 text-slate-300" : "bg-blue-500/10 text-blue-400"}`}>
-      {urgency}
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${className}`}
+    >
+      {urgency || "Normal"}
     </span>
   );
 }
 
 function ActionButton({ label, color, onClick }: any) {
   const styles: any = {
-    blue: "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20",
-    red: "bg-red-500/10 text-red-400 hover:bg-red-500/20",
-    purple: "bg-purple-500/10 text-purple-400 hover:bg-purple-500/20",
-    emerald: "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20",
-    slate: "bg-slate-600 text-white hover:bg-slate-500",
+    blue: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+    red: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+    purple:
+      "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100",
+    emerald:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+    slate: "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
   };
 
-  return <button onClick={onClick} className={`rounded-lg px-3 py-1 text-xs font-semibold ${styles[color]}`}>{label}</button>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border px-3 py-1 text-xs font-bold transition ${styles[color]}`}
+    >
+      {label}
+    </button>
+  );
 }
 
 function ActionModal({
@@ -1009,46 +1333,142 @@ function ActionModal({
   submitAction,
   formatMoney,
 }: any) {
+  const primaryLabel =
+    actionType === "APPROVE"
+      ? "Approve Request"
+      : actionType === "REJECT"
+        ? "Reject Request"
+        : actionType === "RELEASE"
+          ? "Release Cash"
+          : actionType === "LIQUIDATE"
+            ? "Mark Liquidated"
+            : `Confirm ${actionType}`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="mb-5">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-400">{actionType}</p>
-          <h2 className="mt-2 text-2xl font-bold">{selectedRequest.category} — {formatMoney(selectedRequest.amount)}</h2>
-          <p className="mt-1 text-sm text-slate-400">Requested by {selectedRequest.requested_by} / {selectedRequest.department}</p>
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+        <div className="border-b border-slate-100 px-6 py-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+            Expense Request Review
+          </p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">
+            {selectedRequest.category} — {formatMoney(selectedRequest.amount)}
+          </h2>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Requested by {selectedRequest.requested_by} /{" "}
+            {selectedRequest.department}
+          </p>
         </div>
 
-        <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
-          <p className="font-semibold text-white">Reason</p>
-          <p className="mt-2 leading-6">{selectedRequest.reason}</p>
+        <div className="space-y-4 p-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <MiniDetail label="Status" value={selectedRequest.status} />
+            <MiniDetail
+              label="Urgency"
+              value={selectedRequest.urgency || "Normal"}
+            />
+            <MiniDetail
+              label="Area"
+              value={selectedRequest.expense_area || "-"}
+            />
+            <MiniDetail
+              label="Date"
+              value={selectedRequest.request_date || "-"}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              Reason
+            </p>
+            <p className="mt-2 text-sm font-medium leading-6 text-slate-700">
+              {selectedRequest.reason}
+            </p>
+          </div>
+
+          {actionType !== "REJECT" && (
+            <FieldLabel
+              label={
+                actionType === "APPROVE"
+                  ? "Approved By"
+                  : actionType === "RELEASE"
+                    ? "Released By"
+                    : "Liquidated By"
+              }
+            >
+              <input
+                value={actorName}
+                onChange={(e) => setActorName(e.target.value)}
+                placeholder="Name"
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              />
+            </FieldLabel>
+          )}
+
+          {actionType === "APPROVE" && (
+            <FieldLabel label="Approval Role">
+              <input
+                value={actorRole}
+                onChange={(e) => setActorRole(e.target.value)}
+                placeholder="Supervisor, Operations Manager, Owner"
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              />
+            </FieldLabel>
+          )}
+
+          <FieldLabel
+            label={
+              actionType === "REJECT"
+                ? "Rejection Reason"
+                : actionType === "LIQUIDATE"
+                  ? "Liquidation Notes"
+                  : "Remarks"
+            }
+          >
+            <textarea
+              value={actionRemarks}
+              onChange={(e) => setActionRemarks(e.target.value)}
+              rows={4}
+              placeholder={
+                actionType === "REJECT"
+                  ? "Reason for rejection"
+                  : actionType === "LIQUIDATE"
+                    ? "Receipt / liquidation remarks"
+                    : "Optional remarks"
+              }
+              className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+            />
+          </FieldLabel>
         </div>
 
-        {actionType !== "REJECT" && (
-          <input
-            value={actorName}
-            onChange={(e) => setActorName(e.target.value)}
-            placeholder={actionType === "APPROVE" ? "Approved by" : actionType === "RELEASE" ? "Released by" : "Liquidated by"}
-            className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-          />
-        )}
-
-        {actionType === "APPROVE" && (
-          <input value={actorRole} onChange={(e) => setActorRole(e.target.value)} placeholder="Approval role e.g. Supervisor, OM, Owner, CEO" className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none" />
-        )}
-
-        <textarea
-          value={actionRemarks}
-          onChange={(e) => setActionRemarks(e.target.value)}
-          rows={4}
-          placeholder={actionType === "REJECT" ? "Reason for rejection" : actionType === "LIQUIDATE" ? "Receipt / liquidation remarks" : "Optional remarks"}
-          className="mb-5 w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-        />
-
-        <div className="flex justify-end gap-3">
-          <button onClick={closeAction} className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800">Cancel</button>
-          <button onClick={submitAction} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500">Confirm {actionType}</button>
+        <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
+          <button
+            type="button"
+            onClick={closeAction}
+            className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submitAction}
+            className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white hover:bg-blue-700"
+          >
+            {primaryLabel}
+          </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MiniDetail({ label, value }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-black text-slate-900">{value}</p>
     </div>
   );
 }

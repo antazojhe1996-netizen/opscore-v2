@@ -33,7 +33,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
 
-
 const menuSections = [
   {
     title: "Dashboard",
@@ -42,7 +41,6 @@ const menuSections = [
     moduleKey: "dashboard",
     items: [],
   },
-
   {
     title: "Workforce",
     icon: Users,
@@ -54,7 +52,6 @@ const menuSections = [
       { label: "Workforce Dashboard", href: "/workforce", icon: Users, moduleKey: "workforce" },
     ],
   },
-
   {
     title: "Payroll",
     icon: FileText,
@@ -68,17 +65,15 @@ const menuSections = [
       { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings, moduleKey: "payroll_settings" },
     ],
   },
-
   {
     title: "Sales",
     icon: Hotel,
     items: [
-{ label: "Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "finance_dashboard" },
+      { label: "Room Sales", href: "/finance/room-sales", icon: Hotel, moduleKey: "finance_dashboard" },
       { label: "Apartment", href: "/finance/apartment", icon: Building2, moduleKey: "apartment_sales" },
       { label: "Restaurant Sales", href: "/finance/restaurant-import", icon: Receipt, moduleKey: "restaurant_sales" },
     ],
   },
-
   {
     title: "Finance",
     icon: Wallet,
@@ -91,7 +86,6 @@ const menuSections = [
       { label: "Finance Settings", href: "/finance/settings", icon: Settings, moduleKey: "finance_settings" },
     ],
   },
-
   {
     title: "Approvals",
     icon: ShieldCheck,
@@ -101,7 +95,6 @@ const menuSections = [
       { label: "Assignments", href: "/settings/approval-assignments", icon: UserCheck, moduleKey: "approval_assignments" },
     ],
   },
-
   {
     title: "Audit",
     icon: ShieldCheck,
@@ -111,7 +104,6 @@ const menuSections = [
       { label: "Database Health", href: "/admin/database-health", icon: Database, moduleKey: "database_health" },
     ],
   },
-
   {
     title: "Reservations",
     icon: Hotel,
@@ -122,7 +114,6 @@ const menuSections = [
       { label: "Analytics", href: "/reservations/analytics", icon: BarChart3, moduleKey: "dashboard", comingSoon: true },
     ],
   },
-
   {
     title: "Marketing",
     icon: Megaphone,
@@ -130,7 +121,6 @@ const menuSections = [
       { label: "Marketing Center", href: "/marketing", icon: Megaphone, moduleKey: "dashboard", comingSoon: true },
     ],
   },
-
   {
     title: "POS",
     icon: ShoppingCart,
@@ -143,7 +133,6 @@ const menuSections = [
       { label: "POS Reports", href: "/pos/reports", icon: BarChart3, moduleKey: "pos_reports", comingSoon: true },
     ],
   },
-
   {
     title: "Maintenance",
     icon: Wrench,
@@ -151,7 +140,6 @@ const menuSections = [
       { label: "Maintenance Tracker", href: "/maintenance-tracker", icon: Wrench, moduleKey: "dashboard", comingSoon: true },
     ],
   },
-
   {
     title: "HR Settings",
     icon: Users,
@@ -164,7 +152,6 @@ const menuSections = [
       { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList, moduleKey: "leave_settings" },
     ],
   },
-
   {
     title: "System",
     icon: Settings,
@@ -178,7 +165,6 @@ const menuSections = [
       { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3, moduleKey: "hc_rules" },
     ],
   },
-
   {
     title: "Future Tools",
     icon: Sparkles,
@@ -189,7 +175,6 @@ const menuSections = [
     ],
   },
 ];
-
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -205,6 +190,18 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  const getInitials = (name: string) => {
+    const initials = name
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+
+    return initials || "OP";
+  };
 
   const getStoredCurrentUser = () => {
     if (typeof window === "undefined") return null;
@@ -347,13 +344,8 @@ export default function Sidebar() {
 
     const roleText = String(currentRoleName || "").toLowerCase();
 
-    // Super Admin / Admin should always see the full OPSCORE navigation.
     if (roleText.includes("super admin") || roleText.includes("admin")) return true;
 
-    // Safety fallback: never let the sidebar go blank if localStorage,
-    // role_permissions, or Vercel cache is temporarily out of sync.
-    // PageGuard still protects the actual pages. This only prevents users
-    // from losing navigation during demos or deployment refreshes.
     if (!loadingAccess && permissions.length === 0) return true;
 
     return permissions.some(
@@ -386,6 +378,7 @@ export default function Sidebar() {
     ? `${currentEmployee.first_name || ""} ${currentEmployee.last_name || ""}`.trim()
     : fallbackEmployeeName;
 
+  const employeeInitials = getInitials(employeeName);
   const portalActive = isExactActive("/employee-portal");
 
   const logout = async () => {
@@ -624,39 +617,10 @@ export default function Sidebar() {
                 OPSCORE
               </p>
               <p className="truncate text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                Enterprise Suite
+                Finance Suite
               </p>
             </div>
           </div>
-        </div>
-
-        <div className="mt-2 rounded-2xl border border-slate-200/10 bg-white/[0.03] px-3 py-2.5 shadow-lg shadow-black/10">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-300">
-              <User size={14} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-black text-white">{employeeName}</p>
-              <p className="truncate text-[10px] font-semibold text-slate-500">
-                {currentRoleName}
-              </p>
-            </div>
-          </div>
-
-          <Link
-            href="/employee-portal"
-            title="My Portal"
-            className={`mt-2 flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] font-bold transition ${
-              portalActive
-                ? "border border-blue-300/20 bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                : "border border-slate-800 bg-slate-950/70 text-slate-300 hover:border-blue-300/20 hover:bg-blue-500/10 hover:text-white"
-            }`}
-          >
-            <User size={13} />
-            <span className="min-w-0 flex-1 truncate">My Portal</span>
-            <ChevronRight size={12} />
-          </Link>
         </div>
       </div>
 
@@ -668,14 +632,7 @@ export default function Sidebar() {
         renderMenuSections(isMobile)
       )}
 
-      <div className="shrink-0 px-3 pb-3 pt-2">
-        <button
-          onClick={logout}
-          className="w-full rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-[11px] font-black text-red-200 transition hover:bg-red-500/20"
-        >
-          Logout
-        </button>
-      </div>
+      <div className="shrink-0 border-t border-slate-200/10 px-3 pb-3 pt-3" />
     </div>
   );
 

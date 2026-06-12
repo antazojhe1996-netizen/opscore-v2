@@ -1942,7 +1942,7 @@ export default function POSTerminalPage() {
             </div>
           </div>
         )}
-
+  
       </div>
     </PageGuard>
   );
