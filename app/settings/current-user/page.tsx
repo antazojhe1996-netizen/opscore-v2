@@ -2,193 +2,168 @@
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
-import { UserCheck } from "lucide-react";
+import { ShieldCheck, UserCheck } from "lucide-react";
 
 export default function CurrentUserPage() {
-  /// STATES
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [currentUserId, setCurrentUserId] = useState("");
+  const [session, setSession] = useState<any>(null);
+  const [systemUser, setSystemUser] = useState<any>(null);
+  const [companyUser, setCompanyUser] = useState<any>(null);
+  const [role, setRole] = useState<any>(null);
+  const [employee, setEmployee] = useState<any>(null);
 
-  /// FUNCTIONS
+  const loadSession = async () => {
+    const systemUserId = localStorage.getItem("opscore_current_system_user_id");
+    const employeeId = localStorage.getItem("opscore_current_employee_id");
+    const companyId = localStorage.getItem("opscore_current_company_id");
+    const roleId = localStorage.getItem("opscore_current_role_id");
+    const mustChangePassword = localStorage.getItem("opscore_must_change_password");
 
-  const getEmployees = async () => {
-    const { data, error } = await supabase
-      .from("employees")
-      .select(
-        `
-        *,
-        system_roles (
-          role_name
-        )
-      `
-      )
-      .order("first_name");
-
-    if (error) {
-      console.log("GET EMPLOYEES ERROR:", error);
-      return;
-    }
-
-    setEmployees(data || []);
-  };
-
-  const getEmployeeName = (employee: any) => {
-    if (!employee) return "Unknown";
-    return `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
-  };
-
-  const saveCurrentUser = async () => {
-    if (!currentUserId) {
-      alert("Please select an employee.");
-      return;
-    }
-
-    const oldUserId =
-      localStorage.getItem("opscore_current_employee_id") || null;
-
-    const oldUser = employees.find(
-      (emp) => String(emp.id) === String(oldUserId)
-    );
-
-    const newUser = employees.find(
-      (emp) => String(emp.id) === String(currentUserId)
-    );
-
-    localStorage.setItem("opscore_current_employee_id", currentUserId);
-
-    await createAuditLog({
-      userName: newUser ? getEmployeeName(newUser) : "System User",
-      module: "Settings / Current User",
-      action:
-        oldUserId && currentUserId
-          ? "SWITCH_CURRENT_USER"
-          : "SET_CURRENT_USER",
-      description:
-        oldUserId && currentUserId
-          ? `Switched active user from ${getEmployeeName(
-              oldUser
-            )} to ${getEmployeeName(newUser)}`
-          : `Set active user to ${getEmployeeName(newUser)}`,
-      severity: "info",
-      recordId: currentUserId,
-      oldValue: oldUser || null,
-      newValue: newUser || null,
+    setSession({
+      systemUserId,
+      employeeId,
+      companyId,
+      roleId,
+      mustChangePassword,
     });
 
-    window.dispatchEvent(new Event("storage"));
+    if (systemUserId) {
+      const { data } = await supabase
+        .from("system_users")
+        .select("*")
+        .eq("id", systemUserId)
+        .maybeSingle();
 
-    alert("Current user updated.");
-  };
-
-  const clearCurrentUser = async () => {
-    const oldUserId =
-      localStorage.getItem("opscore_current_employee_id") || null;
-
-    if (!oldUserId) {
-      alert("No current user selected.");
-      return;
+      setSystemUser(data || null);
     }
 
-    const oldUser = employees.find(
-      (emp) => String(emp.id) === String(oldUserId)
-    );
+    if (systemUserId && companyId) {
+      const { data } = await supabase
+        .from("company_users")
+        .select("*")
+        .eq("user_id", systemUserId)
+        .eq("company_id", companyId)
+        .maybeSingle();
 
-    localStorage.removeItem("opscore_current_employee_id");
-    setCurrentUserId("");
+      setCompanyUser(data || null);
+    }
 
-    await createAuditLog({
-      userName: "System User",
-      module: "Settings / Current User",
-      action: "CLEAR_CURRENT_USER",
-      description: `Cleared active user: ${getEmployeeName(oldUser)}`,
-      severity: "warning",
-      recordId: String(oldUserId),
-      oldValue: oldUser || null,
-      newValue: null,
-    });
+    if (roleId) {
+      const { data } = await supabase
+        .from("system_roles")
+        .select("*")
+        .eq("id", roleId)
+        .maybeSingle();
 
-    window.dispatchEvent(new Event("storage"));
+      setRole(data || null);
+    }
 
-    alert("Current user cleared.");
+    if (employeeId) {
+      const { data } = await supabase
+        .from("employees")
+        .select("id, employee_no, first_name, last_name, department, position, employment_status")
+        .eq("id", employeeId)
+        .maybeSingle();
+
+      setEmployee(data || null);
+    }
   };
-
-  /// EFFECTS
 
   useEffect(() => {
-    getEmployees();
-
-    const savedUser = localStorage.getItem("opscore_current_employee_id") || "";
-
-    setCurrentUserId(savedUser);
+    loadSession();
   }, []);
 
-  /// UI
-
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="flex-1 p-8">
-        <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">
-            System
-          </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="SYSTEM / SESSION INSPECTOR" />
 
-          <h1 className="mt-2 text-4xl font-black">Current User</h1>
-
-          <p className="mt-2 text-sm text-slate-400">
-            Temporary user selector for role testing and audit tracking.
-          </p>
-        </section>
-
-        <div className="max-w-2xl rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <UserCheck size={24} />
-            <h2 className="text-xl font-black">Active User</h2>
-          </div>
-
-          <select
-            value={currentUserId}
-            onChange={(e) => setCurrentUserId(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
-          >
-            <option value="">Select Employee</option>
-
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.first_name} {employee.last_name}
-                {" — "}
-                {employee.system_roles?.role_name || "No Role"}
-              </option>
-            ))}
-          </select>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              onClick={saveCurrentUser}
-              className="rounded-xl bg-cyan-500 px-5 py-3 font-black text-slate-950 hover:bg-cyan-400"
-            >
-              Save Current User
-            </button>
-
-            <button
-              onClick={clearCurrentUser}
-              className="rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-3 font-black text-red-300 hover:bg-red-500/20"
-            >
-              Clear User
-            </button>
-          </div>
-
-          <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950 p-4">
-            <p className="text-sm font-bold text-slate-300">Audit Behavior</p>
-            <p className="mt-2 text-sm text-slate-500">
-              Saving creates SET_CURRENT_USER or SWITCH_CURRENT_USER logs. Clearing creates CLEAR_CURRENT_USER logs.
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              System
             </p>
-          </div>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+              Session Inspector
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
+              Read-only view of the active OPSCORE login session. Employee link is optional for SaaS owner and system accounts.
+            </p>
+          </section>
+
+          <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <InfoCard title="System Identity" icon={<ShieldCheck size={20} />}>
+              <InfoRow label="System User ID" value={session?.systemUserId} />
+              <InfoRow label="Username" value={systemUser?.username} />
+              <InfoRow label="Active" value={String(systemUser?.is_active ?? "-")} />
+              <InfoRow label="Must Change Password" value={String(systemUser?.must_change_password ?? session?.mustChangePassword ?? "-")} />
+              <InfoRow label="Last Login" value={systemUser?.last_login_at || "-"} />
+            </InfoCard>
+
+            <InfoCard title="Company Access" icon={<UserCheck size={20} />}>
+              <InfoRow label="Company ID" value={session?.companyId} />
+              <InfoRow label="Company User ID" value={companyUser?.id} />
+              <InfoRow label="Role ID" value={session?.roleId || companyUser?.role_id} />
+              <InfoRow label="Role Name" value={role?.role_name || "-"} />
+              <InfoRow label="Company Access Active" value={String(companyUser?.is_active ?? "-")} />
+            </InfoCard>
+
+            <InfoCard title="Employee Link Optional" icon={<UserCheck size={20} />}>
+              <InfoRow label="Employee ID" value={session?.employeeId || "NULL / Not linked"} />
+              <InfoRow label="Employee No" value={employee?.employee_no || "-"} />
+              <InfoRow label="Employee Name" value={employee ? `${employee.first_name || ""} ${employee.last_name || ""}`.trim() : "No employee profile linked"} />
+              <InfoRow label="Department" value={employee?.department || "-"} />
+              <InfoRow label="Status" value={employee?.employment_status || "-"} />
+            </InfoCard>
+
+            <InfoCard title="Architecture Status" icon={<ShieldCheck size={20} />}>
+              <InfoRow label="Primary Session Source" value="system_user_id" />
+              <InfoRow label="Permission Source" value="company_users.role_id" />
+              <InfoRow label="Employee Requirement" value="Optional" />
+              <InfoRow label="SaaS Owner Ready" value={session?.systemUserId && !session?.employeeId ? "Yes" : "Ready after employee_id detach"} />
+            </InfoCard>
+          </section>
         </div>
       </main>
+    </div>
+  );
+}
+
+function InfoCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+          {icon}
+        </div>
+        <h2 className="text-xl font-black text-slate-950">{title}</h2>
+      </div>
+
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 break-all text-sm font-black text-slate-950">
+        {value || "-"}
+      </p>
     </div>
   );
 }

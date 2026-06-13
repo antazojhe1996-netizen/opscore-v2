@@ -32,10 +32,12 @@ export default function DataCleanupPage() {
   const [rows, setRows] = useState<CleanupRow[]>([]);
   const [confirmation, setConfirmation] = useState("");
   const [keepCurrentSuperAdmin, setKeepCurrentSuperAdmin] = useState(true);
+
   const [currentEmployeeId, setCurrentEmployeeId] = useState("");
   const [currentSystemUserId, setCurrentSystemUserId] = useState("");
   const [currentCompanyUserId, setCurrentCompanyUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("Current Super Admin");
+
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
@@ -56,7 +58,7 @@ export default function DataCleanupPage() {
 
   const protectionReady =
     !keepCurrentSuperAdmin ||
-    Boolean(currentEmployeeId && currentSystemUserId && currentCompanyUserId);
+    Boolean(currentSystemUserId && currentCompanyUserId);
 
   const scanDatabase = async () => {
     setLoading(true);
@@ -84,13 +86,24 @@ export default function DataCleanupPage() {
 
     const employeeId = localStorage.getItem(employeeIdKey) || "";
     const systemUserId = localStorage.getItem(systemUserIdKey) || "";
+
     let companyUserId = "";
     let displayName = "Current Super Admin";
 
     const savedEmployee = localStorage.getItem(employeeSessionKey);
     const savedUser = localStorage.getItem(currentUserKey);
 
-    if (savedEmployee) {
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        companyUserId = parsed?.company_user_id || "";
+        displayName = parsed?.name || parsed?.username || displayName;
+      } catch {
+        // ignore invalid local session
+      }
+    }
+
+    if (!companyUserId && savedEmployee) {
       try {
         const parsed = JSON.parse(savedEmployee);
         companyUserId = parsed?.company_user_id || "";
@@ -98,16 +111,6 @@ export default function DataCleanupPage() {
           `${parsed?.first_name || ""} ${parsed?.last_name || ""}`.trim() ||
           parsed?.username ||
           displayName;
-      } catch {
-        // ignore invalid local session
-      }
-    }
-
-    if (!companyUserId && savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        companyUserId = parsed?.company_user_id || "";
-        displayName = parsed?.name || parsed?.username || displayName;
       } catch {
         // ignore invalid local session
       }
@@ -122,7 +125,7 @@ export default function DataCleanupPage() {
   const deleteData = async () => {
     if (keepCurrentSuperAdmin && !protectionReady) {
       setErrorMessage(
-        "Current Super Admin protection is enabled, but your session IDs are incomplete. Logout and login again, then retry.",
+        "Current Super Admin protection is enabled, but your system user or company access ID is missing. Logout and login again, then retry.",
       );
       return;
     }
@@ -139,7 +142,7 @@ export default function DataCleanupPage() {
       body: JSON.stringify({
         confirmation,
         keep_current_super_admin: keepCurrentSuperAdmin,
-        protected_employee_id: currentEmployeeId,
+        protected_employee_id: currentEmployeeId || null,
         protected_system_user_id: currentSystemUserId,
         protected_company_user_id: currentCompanyUserId,
       }),
@@ -156,7 +159,7 @@ export default function DataCleanupPage() {
 
     setMessage(
       keepCurrentSuperAdmin
-        ? "Test data cleanup completed. Current Super Admin was protected."
+        ? "Test data cleanup completed. Current Super Admin system access was protected."
         : "Test data cleanup completed. Tables are still intact.",
     );
     setConfirmation("");
@@ -216,8 +219,8 @@ export default function DataCleanupPage() {
             value={keepCurrentSuperAdmin ? "On" : "Off"}
             helper={
               protectionReady
-                ? "Current user can be excluded."
-                : "Session IDs incomplete."
+                ? "Current system access can be excluded."
+                : "System access IDs incomplete."
             }
           />
           <SummaryCard
@@ -315,11 +318,11 @@ export default function DataCleanupPage() {
                   />
                   <span>
                     <span className="block text-sm font-black text-emerald-800">
-                      Keep Current Super Admin Account
+                      Keep Current Super Admin Access
                     </span>
                     <span className="mt-1 block text-xs font-bold leading-5 text-emerald-700">
-                      Protects your current employee, system user, and company
-                      access record.
+                      Protects your current system user and company access
+                      record. Employee link is optional.
                     </span>
                   </span>
                 </label>
@@ -327,11 +330,11 @@ export default function DataCleanupPage() {
                 <div className="mt-3 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-bold leading-5 text-emerald-800">
                   Protected: {currentUserName}
                   <br />
-                  Employee: {currentEmployeeId || "Missing"}
-                  <br />
                   System User: {currentSystemUserId || "Missing"}
                   <br />
                   Company User: {currentCompanyUserId || "Missing"}
+                  <br />
+                  Employee: {currentEmployeeId || "NULL / Not linked"}
                 </div>
               </div>
 

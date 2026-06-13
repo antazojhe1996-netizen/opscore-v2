@@ -15,7 +15,7 @@ import { supabase } from "@/app/lib/supabase";
 type SystemUser = {
   id: string;
   auth_user_id: string | null;
-  employee_id: string;
+  employee_id: string | null;
   username: string;
   is_active: boolean;
   must_change_password?: boolean | null;
@@ -36,18 +36,17 @@ export default function ChangePasswordPage() {
   const [showPasswords, setShowPasswords] = useState(false);
 
   /// DATA
-  const employeeIdKey = "opscore_current_employee_id";
   const systemUserIdKey = "opscore_current_system_user_id";
   const mustChangePasswordKey = "opscore_must_change_password";
   const employeeSessionKey = "opscore_current_employee";
+  const currentUserKey = "opscore_current_user";
 
   /// EFFECTS
   useEffect(() => {
     const loadSession = async () => {
-      const savedEmployeeId = localStorage.getItem(employeeIdKey);
-      const savedUserId = localStorage.getItem(systemUserIdKey);
+      const savedSystemUserId = localStorage.getItem(systemUserIdKey);
 
-      if (!savedEmployeeId || !savedUserId) {
+      if (!savedSystemUserId) {
         router.replace("/login");
         return;
       }
@@ -59,7 +58,7 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      setSystemUserId(savedUserId);
+      setSystemUserId(savedSystemUserId);
       setAuthEmail(data.user.email || "");
       setChecking(false);
     };
@@ -85,7 +84,9 @@ export default function ChangePasswordPage() {
     }
 
     if (newPassword === currentPassword) {
-      setErrorMessage("New password must be different from your current password.");
+      setErrorMessage(
+        "New password must be different from your current password."
+      );
       return;
     }
 
@@ -99,7 +100,9 @@ export default function ChangePasswordPage() {
 
     const { data: userData, error: userError } = await supabase
       .from("system_users")
-      .select("id, auth_user_id, employee_id, username, is_active, must_change_password")
+      .select(
+        "id, auth_user_id, employee_id, username, is_active, must_change_password"
+      )
       .eq("id", systemUserId)
       .maybeSingle();
 
@@ -159,6 +162,24 @@ export default function ChangePasswordPage() {
 
         localStorage.setItem(
           employeeSessionKey,
+          JSON.stringify({
+            ...parsed,
+            must_change_password: false,
+          })
+        );
+      } catch {
+        // ignore local session update failure
+      }
+    }
+
+    const savedCurrentUser = localStorage.getItem(currentUserKey);
+
+    if (savedCurrentUser) {
+      try {
+        const parsed = JSON.parse(savedCurrentUser);
+
+        localStorage.setItem(
+          currentUserKey,
           JSON.stringify({
             ...parsed,
             must_change_password: false,

@@ -86,6 +86,7 @@ export default function CashManagementPage() {
   const [drawerHolderSettingsLoaded, setDrawerHolderSettingsLoaded] =
     useState(false);
   const [currentEmployeeId, setCurrentEmployeeId] = useState("");
+  const [currentSystemUserId, setCurrentSystemUserId] = useState("");
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [currentRoleName, setCurrentRoleName] = useState("");
   const [currentCompanyId, setCurrentCompanyId] = useState("");
@@ -233,6 +234,32 @@ export default function CashManagementPage() {
         localStorage.setItem("opscore_current_company_id", cachedCompanyId);
       }
       return cachedCompanyId;
+    }
+
+    const systemUserId = String(currentSystemUserId || "").trim();
+
+    if (systemUserId) {
+      const { data: companyUser, error: companyUserError } = await supabase
+        .from("company_users")
+        .select("company_id")
+        .eq("user_id", systemUserId)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
+      if (companyUserError) {
+        console.log("GET COMPANY USER COMPANY ID ERROR:", companyUserError.message);
+      }
+
+      const companyId = String(companyUser?.company_id || "").trim();
+
+      if (companyId) {
+        setCurrentCompanyId(companyId);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("opscore_current_company_id", companyId);
+        }
+        return companyId;
+      }
     }
 
     const employeeId = String(currentEmployeeId || "").trim();
@@ -2220,6 +2247,7 @@ export default function CashManagementPage() {
       const approvalPayload = {
         company_id: companyId,
         requested_by_employee_id: currentEmployeeId || null,
+        requested_by_system_user_id: currentSystemUserId || null,
         requested_by_name: autoEncoded,
         drawer_holder_name: activeDrawer?.holder_name || null,
         business_date: businessDate,
@@ -2933,21 +2961,84 @@ export default function CashManagementPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    setCurrentEmployeeId(
-      localStorage.getItem("opscore_current_employee_id") || "",
-    );
-    setCurrentEmployeeName(
-      localStorage.getItem("opscore_current_employee_name") || "",
-    );
-    setCurrentCompanyId(
-      localStorage.getItem("opscore_current_company_id") || "",
-    );
-    setCurrentRoleName(
-      localStorage.getItem("opscore_current_role_name") ||
-        localStorage.getItem("opscore_current_role") ||
-        localStorage.getItem("opscore_current_role_label") ||
-        "",
-    );
+    const loadCurrentSession = async () => {
+      const storedCurrentUser = localStorage.getItem("opscore_current_user");
+      const parsedCurrentUser = storedCurrentUser
+        ? JSON.parse(storedCurrentUser)
+        : null;
+
+      const systemUserId =
+        localStorage.getItem("opscore_current_system_user_id") ||
+        parsedCurrentUser?.system_user_id ||
+        parsedCurrentUser?.id ||
+        "";
+
+      const employeeId =
+        localStorage.getItem("opscore_current_employee_id") ||
+        parsedCurrentUser?.employee_id ||
+        "";
+
+      const companyId =
+        localStorage.getItem("opscore_current_company_id") ||
+        parsedCurrentUser?.company_id ||
+        "";
+
+      const fallbackName =
+        localStorage.getItem("opscore_current_employee_name") ||
+        parsedCurrentUser?.name ||
+        parsedCurrentUser?.username ||
+        "OPSCORE USER";
+
+      setCurrentSystemUserId(systemUserId);
+      setCurrentEmployeeId(employeeId);
+      setCurrentEmployeeName(fallbackName);
+      setCurrentCompanyId(companyId);
+
+      if (!systemUserId) return;
+
+      const { data: companyUser, error: companyUserError } = await supabase
+        .from("company_users")
+        .select("id, company_id, role_id, is_active")
+        .eq("user_id", systemUserId)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
+      if (companyUserError) {
+        console.log("CASH MANAGEMENT SESSION COMPANY USER ERROR:", companyUserError.message);
+      }
+
+      const activeCompanyId = String(companyUser?.company_id || companyId || "").trim();
+      const activeRoleId = String(companyUser?.role_id || localStorage.getItem("opscore_current_role_id") || "").trim();
+
+      if (activeCompanyId) {
+        setCurrentCompanyId(activeCompanyId);
+        localStorage.setItem("opscore_current_company_id", activeCompanyId);
+      }
+
+      if (activeRoleId) {
+        localStorage.setItem("opscore_current_role_id", activeRoleId);
+
+        const { data: roleData, error: roleError } = await supabase
+          .from("system_roles")
+          .select("role_name")
+          .eq("id", activeRoleId)
+          .maybeSingle();
+
+        if (roleError) {
+          console.log("CASH MANAGEMENT SESSION ROLE ERROR:", roleError.message);
+        }
+
+        const roleName = String(roleData?.role_name || "").trim();
+
+        if (roleName) {
+          setCurrentRoleName(roleName);
+          localStorage.setItem("opscore_current_role_name", roleName);
+        }
+      }
+    };
+
+    loadCurrentSession();
   }, []);
 
   useEffect(() => {

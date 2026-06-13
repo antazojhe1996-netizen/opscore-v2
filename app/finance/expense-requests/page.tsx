@@ -140,27 +140,40 @@ export default function ExpenseRequestsPage() {
 
   /// PERMISSIONS
   const getCurrentUserPermissions = async () => {
-    const currentEmployeeId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_employee_id")
-        : null;
-
-    if (!currentEmployeeId) {
+    if (typeof window === "undefined") {
       setPermissions([]);
       return;
     }
 
-    const { data: employee, error: employeeError } = await supabase
-      .from("employees")
-      .select("id, system_role_id")
-      .eq("id", currentEmployeeId)
+    const systemUserId = localStorage.getItem("opscore_current_system_user_id");
+    const companyId = localStorage.getItem("opscore_current_company_id");
+    const fallbackRoleId = localStorage.getItem("opscore_current_role_id");
+
+    if (!systemUserId || !companyId) {
+      setPermissions([]);
+      return;
+    }
+
+    const { data: companyUser, error: companyUserError } = await supabase
+      .from("company_users")
+      .select("id, role_id, is_active")
+      .eq("user_id", systemUserId)
+      .eq("company_id", companyId)
+      .eq("is_active", true)
       .maybeSingle();
 
-    if (employeeError || !employee?.system_role_id) {
+    if (companyUserError) {
       console.log(
-        "EXPENSE REQUESTS PERMISSION EMPLOYEE ERROR:",
-        employeeError?.message,
+        "EXPENSE REQUESTS COMPANY USER PERMISSION ERROR:",
+        companyUserError.message,
       );
+      setPermissions([]);
+      return;
+    }
+
+    const activeRoleId = companyUser?.role_id || fallbackRoleId;
+
+    if (!activeRoleId) {
       setPermissions([]);
       return;
     }
@@ -168,7 +181,7 @@ export default function ExpenseRequestsPage() {
     const { data: rolePermissions, error: permissionError } = await supabase
       .from("role_permissions")
       .select("*")
-      .eq("role_id", employee.system_role_id);
+      .eq("role_id", activeRoleId);
 
     if (permissionError) {
       console.log(

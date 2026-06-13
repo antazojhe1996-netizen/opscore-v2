@@ -25,6 +25,8 @@ export default function ApprovalCenterPage() {
     null,
   );
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
+  const [currentSystemUserId, setCurrentSystemUserId] = useState<string | null>(null);
+  const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("PENDING");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
@@ -49,17 +51,32 @@ export default function ApprovalCenterPage() {
   };
 
   const getApprovalSecuritySetup = async () => {
-    const localEmployeeId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_employee_id")
-        : null;
+    if (typeof window === "undefined") return;
+
+    const localEmployeeId = localStorage.getItem("opscore_current_employee_id");
+    const localSystemUserId = localStorage.getItem("opscore_current_system_user_id");
+    const localCompanyId = localStorage.getItem("opscore_current_company_id");
+    const storedCurrentUser = localStorage.getItem("opscore_current_user");
+
+    let parsedCurrentUser: any = null;
+
+    if (storedCurrentUser) {
+      try {
+        parsedCurrentUser = JSON.parse(storedCurrentUser);
+      } catch (error) {
+        parsedCurrentUser = null;
+      }
+    }
 
     const localEmployeeName =
-      typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_employee_name") || ""
-        : "";
+      localStorage.getItem("opscore_current_employee_name") ||
+      parsedCurrentUser?.name ||
+      parsedCurrentUser?.username ||
+      "OPSCORE USER";
 
-    setCurrentEmployeeId(localEmployeeId);
+    setCurrentEmployeeId(localEmployeeId || parsedCurrentUser?.employee_id || null);
+    setCurrentSystemUserId(localSystemUserId || parsedCurrentUser?.system_user_id || null);
+    setCurrentCompanyId(localCompanyId || parsedCurrentUser?.company_id || null);
     setCurrentEmployeeName(localEmployeeName);
 
     const { data: workflowData, error: workflowError } = await supabase
@@ -116,11 +133,37 @@ export default function ApprovalCenterPage() {
     const directCompanyId = String(
       request?.company_id ||
         payload?.company_id ||
+        currentCompanyId ||
         localStorage.getItem("opscore_current_company_id") ||
         "",
     ).trim();
 
     if (directCompanyId) return directCompanyId;
+
+    const systemUserId = String(
+      currentSystemUserId || localStorage.getItem("opscore_current_system_user_id") || "",
+    ).trim();
+
+    if (systemUserId) {
+      const { data: companyUser, error: companyUserError } = await supabase
+        .from("company_users")
+        .select("company_id")
+        .eq("user_id", systemUserId)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
+      if (!companyUserError && companyUser?.company_id) {
+        const companyId = String(companyUser.company_id).trim();
+        localStorage.setItem("opscore_current_company_id", companyId);
+        setCurrentCompanyId(companyId);
+        return companyId;
+      }
+
+      if (companyUserError) {
+        console.log("APPROVAL CENTER COMPANY USER LOOKUP ERROR:", companyUserError.message);
+      }
+    }
 
     if (!currentEmployeeId) return "";
 
@@ -139,6 +182,7 @@ export default function ApprovalCenterPage() {
 
     if (companyId) {
       localStorage.setItem("opscore_current_company_id", companyId);
+      setCurrentCompanyId(companyId);
     }
 
     return companyId;
@@ -598,23 +642,55 @@ export default function ApprovalCenterPage() {
   const getAssignedApproversForRequest = (request: any) => {
     const approverRole = getApproverRoleForRequest(request);
 
-    return approvalAssignments.filter(
-      (assignment) =>
+    return approvalAssignments.filter((assignment) => {
+      const assignmentActive = assignment.is_active ?? assignment.active ?? true;
+      const status = String(assignment.status || "Active").toLowerCase();
+
+      return (
         String(assignment.approval_role || "") === String(approverRole) &&
-        assignment.is_active !== false &&
-        assignment.employee_id,
+        assignmentActive !== false &&
+        !["inactive", "disabled", "archived"].includes(status)
+      );
+    });
+  };
+
+  const assignmentMatchesCurrentUser = (assignment: any) => {
+    const employeeId = String(currentEmployeeId || "").trim();
+    const systemUserId = String(currentSystemUserId || "").trim();
+    const currentUserName = String(currentEmployeeName || "").trim();
+
+    const assignmentEmployeeIds = [
+      assignment.employee_id,
+      assignment.approver_employee_id,
+      assignment.assigned_employee_id,
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+
+    const assignmentSystemUserIds = [
+      assignment.system_user_id,
+      assignment.approver_user_id,
+      assignment.user_id,
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+
+    const assignmentNames = [
+      assignment.approver_name,
+      assignment.employee_name,
+      assignment.username,
+      assignment.approver_username,
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+
+    return (
+      (!!employeeId && assignmentEmployeeIds.includes(employeeId)) ||
+      (!!systemUserId && assignmentSystemUserIds.includes(systemUserId)) ||
+      (!!currentUserName && assignmentNames.includes(currentUserName))
     );
   };
 
   const canCurrentUserApproveRequest = (request: any) => {
     const assignedApprovers = getAssignedApproversForRequest(request);
 
-    if (!currentEmployeeId || assignedApprovers.length === 0) return false;
+    if (assignedApprovers.length === 0) return false;
 
-    return assignedApprovers.some(
-      (assignment) =>
-        String(currentEmployeeId) === String(assignment.employee_id),
-    );
+    return assignedApprovers.some((assignment) => assignmentMatchesCurrentUser(assignment));
   };
 
   const getAssignedApproverLabel = (request: any) => {
@@ -622,10 +698,8 @@ export default function ApprovalCenterPage() {
 
     if (assignedApprovers.length === 0) return "No active assigned approver";
 
-    const currentUserIsAssigned = assignedApprovers.some(
-      (assignment) =>
-        String(currentEmployeeId || "") ===
-        String(assignment.employee_id || ""),
+    const currentUserIsAssigned = assignedApprovers.some((assignment) =>
+      assignmentMatchesCurrentUser(assignment),
     );
 
     if (currentUserIsAssigned) {

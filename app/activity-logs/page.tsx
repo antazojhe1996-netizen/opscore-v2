@@ -1,453 +1,221 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  AlertCircle,
-  ArrowRight,
-  BarChart3,
-  Eye,
-  EyeOff,
-  Hotel,
-  LockKeyhole,
-  ShieldCheck,
-  UserCheck,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import PageGuard from "@/components/PageGuard";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
+import { ClipboardList, RefreshCcw, Search } from "lucide-react";
 
-type SystemUser = {
-  id: string;
-  auth_user_id: string | null;
-  employee_id: string;
-  username: string;
-  company_id: string | null;
-  is_active: boolean;
-  must_change_password?: boolean | null;
-  last_login_at?: string | null;
-};
+const Sidebar = dynamic(() => import("@/components/Sidebar"), {
+  ssr: false,
+});
 
-type LoginEmployee = {
-  id: string;
-  employee_no: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  email?: string | null;
-  department?: string | null;
-  position?: string | null;
-  employment_status: string | null;
-};
-
-type CompanyUser = {
-  id: string;
-  company_id: string;
-  user_id: string;
-  role_id: string | null;
-  is_active: boolean | null;
-};
-
-export default function LoginPage() {
-  const router = useRouter();
-
-  /// STATES
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+export default function ActivityLogsPage() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [moduleFilter, setModuleFilter] = useState("All");
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
-  /// DATA
-  const employeeSessionKey = "opscore_current_employee";
-  const employeeIdKey = "opscore_current_employee_id";
-  const employeeNameKey = "opscore_current_employee_name";
-  const currentUserKey = "opscore_current_user";
-  const systemUserIdKey = "opscore_current_system_user_id";
-  const mustChangePasswordKey = "opscore_must_change_password";
-  const companyIdKey = "opscore_current_company_id";
-  const roleIdKey = "opscore_current_role_id";
-
-  /// FUNCTIONS
-  const normalize = (value: string) => value.trim().toLowerCase();
-
-  useEffect(() => {
-    const currentEmployeeId = localStorage.getItem(employeeIdKey);
-    const mustChangePassword = localStorage.getItem(mustChangePasswordKey);
-
-    if (currentEmployeeId && mustChangePassword === "true") {
-      router.replace("/change-password");
-      return;
-    }
-
-    if (currentEmployeeId) {
-      router.replace("/dashboard");
-    }
-  }, [router]);
-
-  const login = async () => {
-    if (isLoading) return;
-
-    const emailInput = normalize(email);
-    const passwordInput = password.trim();
-
-    if (!emailInput || !passwordInput) {
-      setErrorMessage("Enter your email and password.");
-      return;
-    }
-
+  const getLogs = async () => {
     setIsLoading(true);
-    setErrorMessage("");
 
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email: emailInput,
-        password: passwordInput,
-      });
+    const companyId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_company_id") || ""
+        : "";
 
-    if (authError || !authData.user) {
-      setIsLoading(false);
-      setErrorMessage("Invalid email or password.");
-      return;
-    }
-
-    const authUserId = authData.user.id;
-
-    const { data: userData, error: userError } = await supabase
-      .from("system_users")
+    let query = supabase
+      .from("activity_logs")
       .select("*")
-      .eq("auth_user_id", authUserId)
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
-    if (userError || !userData) {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("No OPSCORE user profile linked to this account.");
-      return;
+    if (companyId) {
+      query = query.eq("company_id", companyId);
     }
 
-    const systemUser = userData as SystemUser;
+    const { data, error } = await query;
 
-    if (!systemUser.is_active) {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("This user account is inactive.");
-      return;
-    }
-
-    const { data: employeeData, error: employeeError } = await supabase
-      .from("employees")
-      .select("*")
-      .eq("id", systemUser.employee_id)
-      .maybeSingle();
-
-    if (employeeError || !employeeData) {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("Employee profile not found. Contact administrator.");
-      return;
-    }
-
-    const employee = employeeData as LoginEmployee;
-
-    if (String(employee.employment_status || "").toLowerCase() !== "active") {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("This employee account is not active.");
-      return;
-    }
-
-    const { data: companyUserData, error: companyUserError } = await supabase
-      .from("company_users")
-      .select("*")
-      .eq("user_id", systemUser.id)
-      .eq("company_id", systemUser.company_id)
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
-
-    if (companyUserError || !companyUserData) {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("No active company access found for this user.");
-      return;
-    }
-
-    const companyUser = companyUserData as CompanyUser;
-    const employeeName = `${employee.first_name || ""} ${
-      employee.last_name || ""
-    }`.trim();
-    const mustChangePassword = Boolean(systemUser.must_change_password);
-
-    localStorage.removeItem(employeeSessionKey);
-    localStorage.removeItem(employeeIdKey);
-    localStorage.removeItem(employeeNameKey);
-    localStorage.removeItem(currentUserKey);
-    localStorage.removeItem(systemUserIdKey);
-    localStorage.removeItem(mustChangePasswordKey);
-    localStorage.removeItem(companyIdKey);
-    localStorage.removeItem(roleIdKey);
-
-    const sessionEmployee = {
-      ...employee,
-      auth_user_id: authUserId,
-      system_user_id: systemUser.id,
-      company_user_id: companyUser.id,
-      company_id: systemUser.company_id,
-      role_id: companyUser.role_id,
-      username: systemUser.username,
-      must_change_password: mustChangePassword,
-    };
-
-    localStorage.setItem(employeeIdKey, employee.id);
-    localStorage.setItem(employeeNameKey, employeeName);
-    localStorage.setItem(employeeSessionKey, JSON.stringify(sessionEmployee));
-    localStorage.setItem(systemUserIdKey, systemUser.id);
-    localStorage.setItem(companyIdKey, String(systemUser.company_id || ""));
-    localStorage.setItem(roleIdKey, String(companyUser.role_id || ""));
-    localStorage.setItem(mustChangePasswordKey, String(mustChangePassword));
-
-    localStorage.setItem(
-      currentUserKey,
-      JSON.stringify({
-        id: employee.id,
-        auth_user_id: authUserId,
-        system_user_id: systemUser.id,
-        company_user_id: companyUser.id,
-        company_id: systemUser.company_id,
-        role_id: companyUser.role_id,
-        name: employeeName,
-        username: systemUser.username,
-        email: authData.user.email || employee.email || null,
-      })
-    );
-
-    await supabase
-      .from("system_users")
-      .update({ last_login_at: new Date().toISOString() })
-      .eq("id", systemUser.id);
-
-    window.dispatchEvent(new Event("storage"));
     setIsLoading(false);
 
-    if (mustChangePassword) {
-      router.replace("/change-password");
+    if (error) {
+      console.log("GET ACTIVITY LOGS ERROR:", error.message);
       return;
     }
 
-    router.replace("/dashboard");
+    setLogs(data || []);
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    login();
-  };
+  useEffect(() => {
+    getLogs();
+  }, []);
 
-  /// UI
+  const modules = useMemo(() => {
+    const uniqueModules = Array.from(
+      new Set(logs.map((log) => log.module).filter(Boolean)),
+    );
+
+    return ["All", ...uniqueModules];
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const matchesModule =
+        moduleFilter === "All" || String(log.module || "") === moduleFilter;
+
+      const searchableText = `
+        ${log.module || ""}
+        ${log.action || ""}
+        ${log.user_name || ""}
+        ${log.employee_name || ""}
+        ${log.details || ""}
+        ${log.description || ""}
+        ${log.role_name || ""}
+      `.toLowerCase();
+
+      const matchesSearch = searchableText.includes(searchTerm.toLowerCase());
+
+      return matchesModule && matchesSearch;
+    });
+  }, [logs, searchTerm, moduleFilter]);
+
+  const getDisplayUser = (log: any) =>
+    log.user_name || log.employee_name || "System User";
+
+  const getDisplayDetails = (log: any) =>
+    log.details || log.description || "-";
+
   return (
-    <main className="min-h-screen overflow-hidden bg-[#080D1A] text-white">
-      <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.28),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.88),transparent_42%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(15,23,42,0.95),rgba(30,41,59,0.92),rgba(49,46,129,0.28))]" />
-        <div className="absolute left-10 top-10 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-10 right-10 h-80 w-80 rounded-full bg-slate-400/10 blur-3xl" />
+    <PageGuard moduleKey="activity_logs">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+        <Sidebar />
 
-        <section className="relative grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 shadow-2xl shadow-black/60 backdrop-blur-xl xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="relative hidden min-h-[720px] overflow-hidden border-r border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/80 p-10 xl:block">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(148,163,184,0.12),transparent_38%)]" />
-            <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-indigo-950/50 to-transparent" />
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="SYSTEM / ACTIVITY LOGS" />
 
-            <div className="relative z-10 flex h-full flex-col justify-between">
+          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-300/20 bg-white/10 text-indigo-200 shadow-lg shadow-indigo-950/30">
-                    <Hotel size={30} />
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-200">
-                      OPSCORE V3
-                    </p>
-                    <h1 className="text-2xl font-black text-white">
-                      Vincent Resort Hotel
-                    </h1>
-                  </div>
-                </div>
-
-                <h2 className="mt-12 text-5xl font-black leading-tight tracking-tight text-white">
-                  Business Operations
-                  <span className="block bg-gradient-to-r from-indigo-200 to-slate-300 bg-clip-text text-transparent">
-                    Command Center
-                  </span>
-                </h2>
-
-                <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-300">
-                  Centralized access for workforce, payroll, finance,
-                  approvals, apartment operations, and audit control.
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  System
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  Activity Logs
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
+                  Company-scoped audit trail of important OPSCORE system activities.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FeatureCard
-                  icon={<Users size={22} />}
-                  title="Workforce"
-                  description="Employees, schedules, attendance, and leave."
-                />
-
-                <FeatureCard
-                  icon={<Wallet size={22} />}
-                  title="Finance"
-                  description="Cash drawer, bills, room sales, and reports."
-                />
-
-                <FeatureCard
-                  icon={<ShieldCheck size={22} />}
-                  title="Approvals"
-                  description="Controlled requests with clear accountability."
-                />
-
-                <FeatureCard
-                  icon={<BarChart3 size={22} />}
-                  title="Audit"
-                  description="Logs, database health, and business controls."
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 rounded-3xl border border-white/10 bg-slate-950/55 p-4 shadow-lg shadow-black/20">
-                <Metric value="1" label="Platform" />
-                <Metric value="100%" label="Controlled Access" />
-                <Metric value="Pilot" label="Ready" />
-              </div>
-            </div>
-          </div>
-
-          <div className="relative bg-slate-950/55 p-6 sm:p-10 xl:p-12">
-            <div className="mx-auto flex min-h-[620px] max-w-md flex-col justify-center">
-              <div className="mb-8">
-                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-200">
-                  Secure Login
-                </p>
-
-                <h2 className="mt-3 text-4xl font-black tracking-tight text-white">
-                  Welcome back
-                </h2>
-
-                <p className="mt-3 text-sm font-medium leading-6 text-slate-400">
-                  Sign in to access the OPSCORE operations dashboard.
-                </p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                    Email
-                  </label>
-
-                  <div className="flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-3 transition-all duration-200 focus-within:border-indigo-300/60 focus-within:ring-4 focus-within:ring-indigo-500/10">
-                    <UserCheck size={18} className="text-slate-500" />
-
-                    <input
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="Enter OPSCORE email"
-                      autoComplete="email"
-                      className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-slate-600"
-                    />
+              <div className="flex flex-wrap gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                  <div className="flex items-center gap-2 text-sm font-black text-slate-950">
+                    <ClipboardList size={18} />
+                    <span>{filteredLogs.length} Logs</span>
                   </div>
                 </div>
-
-                <div>
-                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                    Password
-                  </label>
-
-                  <div className="flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-3 transition-all duration-200 focus-within:border-indigo-300/60 focus-within:ring-4 focus-within:ring-indigo-500/10">
-                    <LockKeyhole size={18} className="text-slate-500" />
-
-                    <input
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter password"
-                      autoComplete="current-password"
-                      className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-slate-600"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all duration-200 hover:bg-white/10 hover:text-white"
-                    >
-                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                    </button>
-                  </div>
-                </div>
-
-                {errorMessage && (
-                  <div className="flex gap-3 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm font-bold leading-5 text-red-200">
-                    <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                    <p>{errorMessage}</p>
-                  </div>
-                )}
 
                 <button
-                  type="submit"
+                  onClick={getLogs}
                   disabled={isLoading}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-5 text-sm font-black text-slate-950 shadow-lg shadow-black/25 transition-all duration-200 hover:bg-indigo-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-12 items-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                 >
-                  {isLoading ? "Checking access..." : "Sign In"}
-                  {!isLoading && <ArrowRight size={18} />}
+                  <RefreshCcw size={16} />
+                  {isLoading ? "Loading..." : "Refresh"}
                 </button>
-              </form>
-
-              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                <div className="text-center text-xs font-medium leading-5 text-slate-400">
-                  <p>Need access? Contact the system administrator.</p>
-                  <p className="mt-1 font-bold text-slate-200">
-                    Powered by OPSCORE · Developed & Designed by Jherome Antazo
-                  </p>
-                </div>
               </div>
-            </div>
+            </section>
+
+            <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-4">
+              <div className="relative xl:col-span-3">
+                <Search
+                  size={18}
+                  className="absolute left-4 top-3.5 text-slate-400"
+                />
+
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search module, action, user, role, or details..."
+                  className="h-11 w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                />
+              </div>
+
+              <select
+                value={moduleFilter}
+                onChange={(e) => setModuleFilter(e.target.value)}
+                className="h-11 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              >
+                {modules.map((moduleName) => (
+                  <option key={moduleName} value={moduleName}>
+                    {moduleName}
+                  </option>
+                ))}
+              </select>
+            </section>
+
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-auto">
+                <table className="w-full min-w-[1250px] text-sm">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Module</th>
+                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">User</th>
+                      <th className="px-4 py-3">Role</th>
+                      <th className="px-4 py-3">Details</th>
+                      <th className="px-4 py-3">Date & Time</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredLogs.map((log) => (
+                      <tr key={log.id} className="text-slate-700 hover:bg-slate-50">
+                        <td className="px-4 py-3 font-bold text-slate-900">
+                          {log.module || "-"}
+                        </td>
+
+                        <td className="px-4 py-3 font-bold text-blue-700">
+                          {log.action || "-"}
+                        </td>
+
+                        <td className="px-4 py-3 font-semibold">
+                          {getDisplayUser(log)}
+                        </td>
+
+                        <td className="px-4 py-3 text-slate-500">
+                          {log.role_name || "-"}
+                        </td>
+
+                        <td className="px-4 py-3 text-slate-600">
+                          {getDisplayDetails(log)}
+                        </td>
+
+                        <td className="px-4 py-3 text-slate-500">
+                          {log.created_at
+                            ? new Date(log.created_at).toLocaleString()
+                            : "-"}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {filteredLogs.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-4 py-12 text-center text-sm font-medium text-slate-500"
+                        >
+                          No activity logs found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
-        </section>
+        </main>
       </div>
-    </main>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-lg shadow-black/10 transition-all duration-200 hover:border-indigo-300/30 hover:bg-white/[0.08]">
-      <div className="flex items-start gap-4">
-        <div className="rounded-xl border border-white/10 bg-indigo-400/10 p-3 text-indigo-200">
-          {icon}
-        </div>
-
-        <div>
-          <h3 className="font-black text-white">{title}</h3>
-          <p className="mt-1 text-sm font-medium leading-6 text-slate-400">
-            {description}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Metric({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <p className="text-2xl font-black text-indigo-200">{value}</p>
-      <p className="text-xs font-semibold text-slate-400">{label}</p>
-    </div>
+    </PageGuard>
   );
 }

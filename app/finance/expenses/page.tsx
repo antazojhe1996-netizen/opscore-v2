@@ -375,24 +375,43 @@ export default function ExpensesPage() {
 
   /// PERMISSIONS
   const getCurrentUserPermissions = async () => {
-    const currentEmployeeId =
+    const systemUserId =
       typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_employee_id")
+        ? localStorage.getItem("opscore_current_system_user_id")
         : null;
 
-    if (!currentEmployeeId) {
+    const companyId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_company_id")
+        : null;
+
+    const savedRoleId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_role_id")
+        : null;
+
+    if (!systemUserId || !companyId) {
       setPermissions([]);
       return;
     }
 
-    const { data: employee, error: employeeError } = await supabase
-      .from("employees")
-      .select("id, system_role_id")
-      .eq("id", currentEmployeeId)
+    const { data: companyUser, error: companyUserError } = await supabase
+      .from("company_users")
+      .select("id, role_id, is_active")
+      .eq("user_id", systemUserId)
+      .eq("company_id", companyId)
+      .eq("is_active", true)
       .maybeSingle();
 
-    if (employeeError || !employee?.system_role_id) {
-      console.log("EXPENSES PERMISSION EMPLOYEE ERROR:", employeeError?.message);
+    if (companyUserError || !companyUser?.role_id) {
+      console.log("EXPENSES COMPANY USER PERMISSION ERROR:", companyUserError?.message);
+      setPermissions([]);
+      return;
+    }
+
+    const activeRoleId = companyUser.role_id || savedRoleId;
+
+    if (!activeRoleId) {
       setPermissions([]);
       return;
     }
@@ -400,7 +419,7 @@ export default function ExpensesPage() {
     const { data: rolePermissions, error: permissionError } = await supabase
       .from("role_permissions")
       .select("*")
-      .eq("role_id", employee.system_role_id);
+      .eq("role_id", activeRoleId);
 
     if (permissionError) {
       console.log("EXPENSES PERMISSION ERROR:", permissionError.message);

@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { FileSpreadsheet, Pencil, Search } from "lucide-react";
+import { FileSpreadsheet, Pencil, Search, Trash2 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
@@ -101,6 +101,8 @@ export default function EmployeesPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [permissions, setPermissions] = useState<any>(null);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState("");
+  const [currentSystemUserId, setCurrentSystemUserId] = useState("");
 
   const canCreate = permissions?.can_create === true;
   const canEdit = permissions?.can_edit === true;
@@ -221,24 +223,36 @@ export default function EmployeesPage() {
   };
 
   const getCurrentPermissions = async () => {
-    const currentEmployeeId =
+    const roleId =
       typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_employee_id")
+        ? localStorage.getItem("opscore_current_role_id")
         : null;
 
-    if (!currentEmployeeId) {
+    const systemUserId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_system_user_id")
+        : null;
+
+    const companyId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_company_id")
+        : null;
+
+    if (!roleId || !systemUserId || !companyId) {
       setPermissions(null);
       return;
     }
 
-    const { data: employee, error: employeeError } = await supabase
-      .from("employees")
-      .select("id, system_role_id")
-      .eq("id", currentEmployeeId)
+    const { data: companyUser, error: companyUserError } = await supabase
+      .from("company_users")
+      .select("id, role_id, is_active")
+      .eq("user_id", systemUserId)
+      .eq("company_id", companyId)
+      .eq("is_active", true)
       .maybeSingle();
 
-    if (employeeError || !employee?.system_role_id) {
-      console.log("GET EMPLOYEE PERMISSION ERROR:", employeeError?.message);
+    if (companyUserError || !companyUser?.role_id) {
+      console.log("GET COMPANY USER PERMISSION ERROR:", companyUserError?.message);
       setPermissions(null);
       return;
     }
@@ -246,7 +260,7 @@ export default function EmployeesPage() {
     const { data, error } = await supabase
       .from("role_permissions")
       .select("*")
-      .eq("role_id", employee.system_role_id)
+      .eq("role_id", companyUser.role_id)
       .eq("module_key", "employees")
       .maybeSingle();
 
@@ -652,6 +666,63 @@ export default function EmployeesPage() {
     getEmployees();
   };
 
+
+  const deleteEmployee = async (employee: Employee) => {
+    if (!canDelete) {
+      alert("Access denied. Only authorized users can delete employee records.");
+      return;
+    }
+
+    if (employee.id === currentEmployeeId) {
+      alert("You cannot delete your own Super Admin account.");
+      return;
+    }
+
+    if (!currentEmployeeId || !currentSystemUserId) {
+      alert("Current admin session is incomplete. Logout and login again before deleting employees.");
+      return;
+    }
+
+    const confirmDelete = confirm(
+      `Permanently delete ${employee.first_name} ${employee.last_name}? This will also remove linked portal access if no payroll, attendance, leave, or payroll records exist. This cannot be undone.`,
+    );
+
+    if (!confirmDelete) return;
+
+    const response = await fetch("/api/hr/delete-employee", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        employee_id: employee.id,
+        current_employee_id: currentEmployeeId,
+        current_system_user_id: currentSystemUserId,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert(result.error || "Failed to delete employee.");
+      return;
+    }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Employees",
+      action: "Delete Employee",
+      description: `${employee.first_name} ${employee.last_name} was permanently deleted`,
+      severity: "critical",
+      recordId: employee.employee_no,
+      oldValue: employee,
+      newValue: null,
+    });
+
+    alert("Employee deleted successfully.");
+    getEmployees();
+  };
+
   const handleImportFile = async (file: File) => {
     if (!canCreate) {
       alert("Access denied. You do not have permission to import employee records.");
@@ -910,6 +981,11 @@ export default function EmployeesPage() {
 
   /// EFFECTS
   useEffect(() => {
+    setCurrentEmployeeId(localStorage.getItem("opscore_current_employee_id") || "");
+    setCurrentSystemUserId(
+      localStorage.getItem("opscore_current_system_user_id") || "",
+    );
+
     getCurrentPermissions();
     getEmployees();
     getDropdownData();
@@ -1338,6 +1414,16 @@ export default function EmployeesPage() {
                                   className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50"
                                 >
                                   Archive
+                                </button>
+                              )}
+
+
+                              {canDelete && emp.id !== currentEmployeeId && (
+                                <button
+                                  onClick={() => deleteEmployee(emp)}
+                                  className="inline-flex h-9 items-center gap-1 rounded-xl bg-red-600 px-3 text-xs font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
+                                >
+                                  <Trash2 size={12} /> Delete
                                 </button>
                               )}
                             </div>

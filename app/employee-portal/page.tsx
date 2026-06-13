@@ -815,24 +815,54 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    if (employee.system_role_id) {
-      const { data, error } = await supabase
-        .from("role_permissions")
-        .select("*")
-        .eq("role_id", employee.system_role_id);
+    const systemUserId = String(
+      employee.system_user_id ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("opscore_current_system_user_id")
+          : "") ||
+        ""
+    ).trim();
 
-      if (error) {
-        console.log("PORTAL ROLE PERMISSIONS ERROR:", error.message);
+    const companyId = String(
+      employee.company_id ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("opscore_current_company_id")
+          : "") ||
+        ""
+    ).trim();
+
+    if (systemUserId && companyId) {
+      const { data: companyUser, error: companyUserError } = await supabase
+        .from("company_users")
+        .select("id, role_id, is_active")
+        .eq("user_id", systemUserId)
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (companyUserError) {
+        console.log("PORTAL COMPANY USER ERROR:", companyUserError.message);
         setRolePermissions([]);
+      } else if (companyUser?.role_id) {
+        const { data, error } = await supabase
+          .from("role_permissions")
+          .select("*")
+          .eq("role_id", companyUser.role_id);
+
+        if (error) {
+          console.log("PORTAL ROLE PERMISSIONS ERROR:", error.message);
+          setRolePermissions([]);
+        } else {
+          setRolePermissions(data || []);
+        }
       } else {
-        setRolePermissions(data || []);
+        setRolePermissions([]);
       }
     } else {
       setRolePermissions([]);
     }
 
     const employeeId = String(employee.id || "").trim();
-    const systemUserId = String(employee.system_user_id || "").trim();
     const employeeNo = String(employee.employee_no || employee.employee_number || "").trim();
     const username = String(employee.username || "").trim();
     const employeeNameValue = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();

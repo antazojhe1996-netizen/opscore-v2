@@ -20,7 +20,7 @@ import { supabase } from "@/app/lib/supabase";
 type SystemUser = {
   id: string;
   auth_user_id: string | null;
-  employee_id: string;
+  employee_id: string | null;
   username: string;
   company_id: string | null;
   is_active: boolean;
@@ -70,16 +70,27 @@ export default function LoginPage() {
   /// FUNCTIONS
   const normalize = (value: string) => value.trim().toLowerCase();
 
+  const clearSession = () => {
+    localStorage.removeItem(employeeSessionKey);
+    localStorage.removeItem(employeeIdKey);
+    localStorage.removeItem(employeeNameKey);
+    localStorage.removeItem(currentUserKey);
+    localStorage.removeItem(systemUserIdKey);
+    localStorage.removeItem(mustChangePasswordKey);
+    localStorage.removeItem(companyIdKey);
+    localStorage.removeItem(roleIdKey);
+  };
+
   useEffect(() => {
-    const currentEmployeeId = localStorage.getItem(employeeIdKey);
+    const currentSystemUserId = localStorage.getItem(systemUserIdKey);
     const mustChangePassword = localStorage.getItem(mustChangePasswordKey);
 
-    if (currentEmployeeId && mustChangePassword === "true") {
+    if (currentSystemUserId && mustChangePassword === "true") {
       router.replace("/change-password");
       return;
     }
 
-    if (currentEmployeeId) {
+    if (currentSystemUserId) {
       router.replace("/dashboard");
     }
   }, [router]);
@@ -135,25 +146,10 @@ export default function LoginPage() {
       return;
     }
 
-    const { data: employeeData, error: employeeError } = await supabase
-      .from("employees")
-      .select("*")
-      .eq("id", systemUser.employee_id)
-      .maybeSingle();
-
-    if (employeeError || !employeeData) {
+    if (!systemUser.company_id) {
       await supabase.auth.signOut();
       setIsLoading(false);
-      setErrorMessage("Employee profile not found. Contact administrator.");
-      return;
-    }
-
-    const employee = employeeData as LoginEmployee;
-
-    if (String(employee.employment_status || "").toLowerCase() !== "active") {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("This employee account is not active.");
+      setErrorMessage("No company assigned to this user.");
       return;
     }
 
@@ -174,51 +170,84 @@ export default function LoginPage() {
     }
 
     const companyUser = companyUserData as CompanyUser;
-    const employeeName = `${employee.first_name || ""} ${
-      employee.last_name || ""
-    }`.trim();
+
+    if (!companyUser.role_id) {
+      await supabase.auth.signOut();
+      setIsLoading(false);
+      setErrorMessage("No role assigned to this user.");
+      return;
+    }
+
+    let employee: LoginEmployee | null = null;
+    let employeeName = systemUser.username || "System User";
+
+    if (systemUser.employee_id) {
+      const { data: employeeData, error: employeeError } = await supabase
+        .from("employees")
+        .select("*")
+        .eq("id", systemUser.employee_id)
+        .maybeSingle();
+
+      if (employeeError || !employeeData) {
+        await supabase.auth.signOut();
+        setIsLoading(false);
+        setErrorMessage("Linked employee profile not found. Contact administrator.");
+        return;
+      }
+
+      employee = employeeData as LoginEmployee;
+
+      if (String(employee.employment_status || "").toLowerCase() !== "active") {
+        await supabase.auth.signOut();
+        setIsLoading(false);
+        setErrorMessage("This employee account is not active.");
+        return;
+      }
+
+      employeeName = `${employee.first_name || ""} ${
+        employee.last_name || ""
+      }`.trim();
+    }
+
     const mustChangePassword = Boolean(systemUser.must_change_password);
 
-    localStorage.removeItem(employeeSessionKey);
-    localStorage.removeItem(employeeIdKey);
-    localStorage.removeItem(employeeNameKey);
-    localStorage.removeItem(currentUserKey);
-    localStorage.removeItem(systemUserIdKey);
-    localStorage.removeItem(mustChangePasswordKey);
-    localStorage.removeItem(companyIdKey);
-    localStorage.removeItem(roleIdKey);
+    clearSession();
 
-    const sessionEmployee = {
-      ...employee,
-      auth_user_id: authUserId,
-      system_user_id: systemUser.id,
-      company_user_id: companyUser.id,
-      company_id: systemUser.company_id,
-      role_id: companyUser.role_id,
-      username: systemUser.username,
-      must_change_password: mustChangePassword,
-    };
-
-    localStorage.setItem(employeeIdKey, employee.id);
-    localStorage.setItem(employeeNameKey, employeeName);
-    localStorage.setItem(employeeSessionKey, JSON.stringify(sessionEmployee));
     localStorage.setItem(systemUserIdKey, systemUser.id);
-    localStorage.setItem(companyIdKey, String(systemUser.company_id || ""));
-    localStorage.setItem(roleIdKey, String(companyUser.role_id || ""));
+    localStorage.setItem(companyIdKey, systemUser.company_id);
+    localStorage.setItem(roleIdKey, companyUser.role_id);
     localStorage.setItem(mustChangePasswordKey, String(mustChangePassword));
 
-    localStorage.setItem(
-      currentUserKey,
-      JSON.stringify({
-        id: employee.id,
+    if (employee) {
+      const sessionEmployee = {
+        ...employee,
         auth_user_id: authUserId,
         system_user_id: systemUser.id,
         company_user_id: companyUser.id,
         company_id: systemUser.company_id,
         role_id: companyUser.role_id,
+        username: systemUser.username,
+        must_change_password: mustChangePassword,
+      };
+
+      localStorage.setItem(employeeIdKey, employee.id);
+      localStorage.setItem(employeeNameKey, employeeName);
+      localStorage.setItem(employeeSessionKey, JSON.stringify(sessionEmployee));
+    }
+
+    localStorage.setItem(
+      currentUserKey,
+      JSON.stringify({
+        id: systemUser.id,
+        auth_user_id: authUserId,
+        system_user_id: systemUser.id,
+        company_user_id: companyUser.id,
+        company_id: systemUser.company_id,
+        role_id: companyUser.role_id,
+        employee_id: employee?.id || null,
         name: employeeName,
         username: systemUser.username,
-        email: authData.user.email || employee.email || null,
+        email: authData.user.email || employee?.email || null,
       })
     );
 
