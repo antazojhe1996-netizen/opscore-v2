@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+type SystemRole = {
+  id: string;
+  role_name?: string | null;
+  name?: string | null;
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -11,6 +17,7 @@ export async function POST(req: Request) {
       first_name,
       last_name,
       company_id: incomingCompanyId,
+      role_id: incomingRoleId,
     } = body;
 
     if (!employee_id || !email || !first_name || !last_name) {
@@ -37,7 +44,7 @@ export async function POST(req: Request) {
       },
     });
 
-    let companyId = incomingCompanyId;
+    let companyId = incomingCompanyId || null;
 
     if (!companyId) {
       const { data: employeeData, error: employeeError } = await supabaseAdmin
@@ -81,6 +88,48 @@ export async function POST(req: Request) {
       );
     }
 
+    let resolvedRoleId = incomingRoleId || null;
+
+    if (!resolvedRoleId) {
+      const { data: rolesData, error: rolesError } = await supabaseAdmin
+        .from("system_roles")
+        .select("id, role_name, name");
+
+      if (rolesError) {
+        return NextResponse.json(
+          { error: `Role lookup failed: ${rolesError.message}` },
+          { status: 400 },
+        );
+      }
+
+      const roles = (rolesData || []) as SystemRole[];
+
+      const superAdminRole = roles.find((role) => {
+        const roleLabel = String(role.role_name || role.name || "")
+          .trim()
+          .toLowerCase();
+
+        return (
+          roleLabel === "super admin" ||
+          roleLabel === "superadmin" ||
+          roleLabel === "administrator" ||
+          roleLabel === "admin"
+        );
+      });
+
+      resolvedRoleId = superAdminRole?.id || null;
+    }
+
+    if (!resolvedRoleId) {
+      return NextResponse.json(
+        {
+          error:
+            "No role_id found. Please create a Super Admin role or pass role_id from the UI.",
+        },
+        { status: 400 },
+      );
+    }
+
     const temporaryPassword = "Temp123!";
 
     const { data: authData, error: authError } =
@@ -93,6 +142,7 @@ export async function POST(req: Request) {
           first_name,
           last_name,
           company_id: companyId,
+          role_id: resolvedRoleId,
         },
       });
 
@@ -145,7 +195,7 @@ export async function POST(req: Request) {
       .insert({
         company_id: companyId,
         user_id: systemUserId,
-        role_id: null,
+        role_id: resolvedRoleId,
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -168,6 +218,7 @@ export async function POST(req: Request) {
       auth_user_id: authUserId,
       system_user_id: systemUserId,
       company_id: companyId,
+      role_id: resolvedRoleId,
       temporary_password: temporaryPassword,
     });
   } catch (error: any) {
