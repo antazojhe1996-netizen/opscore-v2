@@ -1295,22 +1295,34 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    const lateMinutes = computeLateMinutes(schedule?.scheduled_in, timeIn);
+    const lateMinutes = computeLateMinutes(
+      existingEntry?.scheduled_in || schedule?.scheduled_in || null,
+      timeIn
+    );
 
-    const { error } = await supabase.from("attendance_entries").insert({
+    const attendancePayload = {
       employee_id: currentUser.id,
       attendance_date: attendanceDate,
-      scheduled_shift: schedule?.scheduled_shift || null,
-      scheduled_in: schedule?.scheduled_in || null,
-      scheduled_out: schedule?.scheduled_out || null,
+      scheduled_shift:
+        existingEntry?.scheduled_shift || schedule?.scheduled_shift || null,
+      scheduled_in: existingEntry?.scheduled_in || schedule?.scheduled_in || null,
+      scheduled_out:
+        existingEntry?.scheduled_out || schedule?.scheduled_out || null,
       time_in: timeIn,
       time_out: null,
       late_minutes: lateMinutes,
-      undertime_minutes: 0,
-      ot_minutes: 0,
+      undertime_minutes: Number(existingEntry?.undertime_minutes || 0),
+      ot_minutes: Number(existingEntry?.ot_minutes || 0),
       status: lateMinutes > 0 ? "Late" : "Present",
-      remarks: "Employee Portal Time In",
-    });
+      remarks: existingEntry?.remarks || "Employee Portal Time In",
+    };
+
+    const { error } = existingEntry?.id
+      ? await supabase
+          .from("attendance_entries")
+          .update(attendancePayload)
+          .eq("id", existingEntry.id)
+      : await supabase.from("attendance_entries").insert(attendancePayload);
 
     if (error) {
       alert(error.message);
@@ -1983,21 +1995,21 @@ export default function EmployeePortalPage() {
           <div className="-mt-16 space-y-5 px-5">
             <section className="relative z-10 rounded-[1.75rem] border border-violet-100 bg-white p-4 shadow-xl shadow-violet-100/80">
               <div className="grid grid-cols-2 divide-x divide-slate-100">
-                <div className="flex items-center gap-2 pr-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-xl font-black text-violet-700">◷</div>
+                <div className="flex items-center gap-3 pr-3">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-100 text-2xl font-black text-violet-700">◷</div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">Today&apos;s Shift</p>
-                    <p className="mt-1 text-[15px] font-bold leading-tight text-slate-950 line-clamp-2">{todayShiftLabel}</p>
-                    <p className="mt-1 text-[12px] font-medium leading-tight text-slate-500">{todayShiftTimeLabel}</p>
+                    <p className="mt-1 truncate text-lg font-bold text-slate-950">{todayShiftLabel}</p>
+                    <p className="truncate text-xs font-medium text-slate-500">{todayShiftTimeLabel}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pl-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-xl font-black text-violet-700">✓</div>
+                <div className="flex items-center gap-3 pl-3">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-100 text-2xl font-black text-violet-700">✓</div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">Status</p>
-                    <p className="mt-1 text-[15px] font-bold leading-tight text-emerald-700 line-clamp-2">{todayAttendance?.status || "Not Timed In"}</p>
-                    <p className="mt-1 text-[12px] font-medium leading-tight text-slate-500">
+                    <p className="mt-1 truncate text-lg font-bold text-emerald-700">{todayAttendance?.status || "Not Timed In"}</p>
+                    <p className="truncate text-xs font-medium text-slate-500">
                       {formatTime(todayAttendance?.time_in)} - {formatTime(todayAttendance?.time_out)}
                     </p>
                   </div>
@@ -2033,7 +2045,7 @@ export default function EmployeePortalPage() {
 
             <MobileSectionHeader title="Quick Actions" action="View All ›" onClick={() => openTab("profile")} />
 
-            <section className="grid grid-cols-4 gap-2 sm:gap-3">
+            <section className="grid grid-cols-4 gap-3">
               <MobileActionCard label="Payslip" icon="▣" tone="violet" onClick={() => openTab("payslip")} />
               <MobileActionCard label="Leave" icon="↗" tone="emerald" onClick={() => openTab("leave")} />
               <MobileActionCard label="Attendance" icon="✓" tone="blue" onClick={() => openTab("attendance")} />
@@ -2409,6 +2421,47 @@ export default function EmployeePortalPage() {
 }
 
 
+
+function ModalShell({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/40 p-4 backdrop-blur-sm sm:place-items-center">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl">
+        <h3 className="text-xl font-black text-slate-950">{title}</h3>
+        <div className="mt-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <span className="text-sm font-semibold text-slate-500">{label}</span>
+      <span
+        className={`text-right text-sm font-black ${
+          highlight ? "text-emerald-700" : "text-slate-950"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const normalized = String(status || "").toLowerCase();
 
@@ -2454,7 +2507,7 @@ function MobileSectionHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="text-[24px] font-bold tracking-tight text-slate-950">{title}</h3>
+      <h3 className="text-[22px] font-bold tracking-tight text-slate-950">{title}</h3>
       {action && (
         <button onClick={onClick} className="text-sm font-bold text-violet-700">
           {action}
@@ -2498,10 +2551,10 @@ function MobileActionCard({
       onClick={onClick}
       className={`rounded-3xl border p-3 text-center shadow-sm transition-all duration-200 active:scale-[0.98] ${toneClass}`}
     >
-      <span className={`mx-auto grid h-10 w-10 place-items-center rounded-2xl text-lg font-black text-white shadow-lg ${iconClass}`}>
+      <span className={`mx-auto grid h-12 w-12 place-items-center rounded-2xl text-xl font-black text-white shadow-lg ${iconClass}`}>
         {icon}
       </span>
-      <span className="mt-2 block text-[13px] font-bold leading-tight text-slate-700">{label}</span>
+      <span className="mt-2 block text-[12px] font-semibold leading-tight text-slate-700">{label}</span>
     </button>
   );
 }
@@ -2526,8 +2579,8 @@ function LeaveCreditMiniCard({
   return (
     <div className={`rounded-3xl border p-3 shadow-sm ${toneClass}`}>
       <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-xl shadow-sm">{icon}</div>
-      <p className="mt-3 text-[12px] font-semibold leading-tight text-slate-600 line-clamp-2">{title}</p>
-      <p className="mt-1 text-[36px] font-black leading-none text-slate-950">{value}</p>
+      <p className="mt-3 truncate text-[11px] font-semibold text-slate-600">{title}</p>
+      <p className="mt-1 text-3xl font-black text-slate-950">{value}</p>
       <p className="text-[11px] font-medium text-slate-500">Days Left</p>
     </div>
   );

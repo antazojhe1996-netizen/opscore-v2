@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Mail, Printer, Search, X } from "lucide-react";
+import { CheckCircle2, Eye, Mail, Printer, Search, Send, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
+import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
+import OpscoreAssistant from "@/components/OpscoreAssistant";
+import { supabase } from "@/app/lib/supabase";
 
 export default function PayslipsPage() {
   /// STATES
@@ -22,6 +24,12 @@ export default function PayslipsPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+
+  const formatDate = (value: any) => {
+    if (!value) return "-";
+    const raw = String(value).slice(0, 10);
+    return raw || "-";
+  };
 
   const formatDateTime = (value: any) => {
     if (!value) return "-";
@@ -71,8 +79,10 @@ export default function PayslipsPage() {
   const isPayrollReleased = (record: any) => {
     const status = String(record.status || "");
     const releaseStatus = String(record.release_status || "");
-    return status === "Released" || status === "Paid" || releaseStatus === "Released";
+    return status === "Released" || status === "Paid" || releaseStatus === "Released" || releaseStatus === "Paid";
   };
+
+  const getEmail = (record: any) => record.employees?.email || record.email || "";
 
   /// DATA LOADERS
   const getPeriods = async () => {
@@ -108,11 +118,7 @@ export default function PayslipsPage() {
   };
 
   /// FUNCTIONS
-  const updatePayslipStatus = async (
-    recordId: string,
-    status: string,
-    emailStatus: string
-  ) => {
+  const updatePayslipStatus = async (recordId: string, status: string, emailStatus: string) => {
     const { error } = await supabase
       .from("payroll_records")
       .update({
@@ -132,7 +138,7 @@ export default function PayslipsPage() {
   };
 
   const sendPayslip = async (record: any) => {
-    const employeeEmail = record.employees?.email;
+    const employeeEmail = getEmail(record);
 
     if (!employeeEmail) {
       alert("Employee has no email address.");
@@ -158,9 +164,7 @@ export default function PayslipsPage() {
             total_deductions: getDisplayedTotalDeductions(record),
             net_pay: getDisplayedNetPay(record),
           },
-          adjustments: adjustments.filter(
-            (item) => item.employee_id === record.employee_id
-          ),
+          adjustments: adjustments.filter((item) => item.employee_id === record.employee_id),
         }),
       });
 
@@ -211,84 +215,62 @@ export default function PayslipsPage() {
       <!doctype html>
       <html>
         <head>
-          <title>Payslip</title>
+          <title>OPSCORE Payslip</title>
           <style>
-            @page { size: A4 portrait; margin: 12mm; }
+            @page { size: A4 portrait; margin: 7mm; }
             * { box-sizing: border-box; }
             body {
               margin: 0;
               background: white;
-              color: #111827;
+              color: #0f172a;
               font-family: Arial, Helvetica, sans-serif;
-              font-size: 11px;
-              line-height: 1.25;
+              font-size: 9.2px;
+              line-height: 1.14;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
-            .doc {
+            .opscore-payslip {
               width: 100%;
-              max-width: 190mm;
+              max-width: 196mm;
               margin: 0 auto;
+              border: 1px solid #0f172a;
+              background: white;
+              page-break-inside: avoid;
             }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              gap: 16px;
-              border-bottom: 2px solid #111827;
-              padding-bottom: 10px;
-              margin-bottom: 10px;
-            }
-            .company-title { font-size: 21px; font-weight: 800; margin: 0; }
-            .doc-title { font-size: 12px; letter-spacing: 2px; font-weight: 800; text-transform: uppercase; margin: 0 0 4px; }
-            .muted { color: #4b5563; }
-            .badge-line { text-align: right; font-size: 10px; line-height: 1.5; }
-            .section-title {
-              margin: 10px 0 5px;
-              font-size: 11px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              color: #111827;
-            }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #d1d5db; padding: 5px 6px; vertical-align: top; }
-            th { background: #f3f4f6; text-align: left; font-weight: 800; }
-            .no-border td, .no-border th { border: 0; padding: 2px 0; }
-            .label { color: #4b5563; font-size: 9px; text-transform: uppercase; letter-spacing: .7px; }
-            .value { font-weight: 800; color: #111827; }
-            .amount { text-align: right; white-space: nowrap; font-weight: 700; }
-            .net-box {
-              margin: 10px 0;
-              border: 2px solid #111827;
-              padding: 8px 10px;
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-            }
-            .net-label { font-size: 13px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; }
-            .net-amount { font-size: 26px; font-weight: 900; }
-            .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-            .summary-table td { font-size: 11px; }
-            .note {
-              margin-top: 8px;
-              border: 1px solid #d1d5db;
-              padding: 7px;
-              font-size: 10px;
-              color: #374151;
-            }
-            .signature-grid {
+            .ps-header {
               display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 14px;
-              margin-top: 18px;
+              grid-template-columns: 1fr 138px;
+              gap: 10px;
+              padding: 7px 10px 5px;
+              border-bottom: 2px solid #0f172a;
             }
-            .signature-line {
-              border-top: 1px solid #111827;
-              text-align: center;
-              padding-top: 5px;
-              font-size: 10px;
-              font-weight: 700;
-            }
-            .print-hidden { display: none !important; }
-          </style>
+            .ps-company { margin: 0; font-size: 19px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase; }
+            .ps-title { margin: 2px 0 0; font-size: 9.5px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: #334155; }
+            .ps-subtitle { margin: 4px 0 0; font-size: 9px; color: #475569; font-weight: 700; }
+            .ps-stamp { border: 1px solid #0f172a; padding: 5px 7px; text-align: right; }
+            .ps-stamp-label { font-size: 7.5px; font-weight: 900; letter-spacing: 1.8px; text-transform: uppercase; color: #64748b; }
+            .ps-stamp-value { margin-top: 1px; font-size: 12px; font-weight: 900; color: #0f172a; }
+            .ps-body { padding: 7px 10px 9px; }
+            .ps-block-title { margin: 5px 0 2px; padding: 3px 5px; border: 1px solid #cbd5e1; background: #f1f5f9; font-size: 8.5px; font-weight: 900; letter-spacing: 1.4px; text-transform: uppercase; color: #334155; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #cbd5e1; padding: 3px 4px; vertical-align: top; }
+            th { background: #f8fafc; color: #475569; font-size: 7.4px; font-weight: 900; letter-spacing: 1.1px; text-transform: uppercase; text-align: left; }
+            td { color: #0f172a; font-weight: 700; }
+            .ps-label { color: #64748b; font-size: 7.4px; font-weight: 900; letter-spacing: 1.1px; text-transform: uppercase; }
+            .ps-value { margin-top: 1px; color: #0f172a; font-size: 9.4px; font-weight: 900; }
+            .amount { text-align: right; white-space: nowrap; font-weight: 900; }
+            .muted { color: #64748b; font-weight: 700; }
+            .ps-computation { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+            .ps-total-row td { border-top: 2px solid #0f172a; font-weight: 900; background: #f8fafc; }
+            .ps-net-band { margin: 6px 0; display: grid; grid-template-columns: 1fr 190px; border: 2px solid #0f172a; }
+            .ps-net-copy { padding: 5px 8px; }
+            .ps-net-label { font-size: 8.8px; font-weight: 900; letter-spacing: 2.4px; text-transform: uppercase; color: #334155; }
+            .ps-net-note { margin-top: 2px; color: #64748b; font-size: 8px; font-weight: 700; }
+            .ps-net-amount { display: flex; align-items: center; justify-content: flex-end; padding: 5px 8px; border-left: 2px solid #0f172a; font-size: 21px; font-weight: 900; }
+            .ps-signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 10px; }
+            .ps-signature { border-top: 1.5px solid #0f172a; padding-top: 3px; text-align: center; font-size: 8px; font-weight: 900; color: #334155; }
+            .ps-note { margin-top: 6px; border: 1px solid #cbd5e1; background: #f8fafc; padding: 5px 6px; color: #475569; font-size: 8px; font-weight: 700; }
+            .ps-footer { display: none; }          </style>
         </head>
         <body>
           ${printContents}
@@ -325,203 +307,245 @@ export default function PayslipsPage() {
 
   const filteredRecords = useMemo(() => {
     return records.filter((record) =>
-      `${record.employee_name} ${record.department} ${record.position} ${record.employee_no}`
+      `${record.employee_name} ${record.department} ${record.position} ${record.employee_no} ${getEmail(record)}`
         .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+        .includes(searchTerm.toLowerCase()),
     );
   }, [records, searchTerm]);
 
-  const sentCount = records.filter(
-    (record) => record.payslip_email_status === "Sent"
-  ).length;
-
-  const releasedCount = records.filter(
-    (record) => record.payslip_status === "Released"
-  ).length;
-
+  const sentCount = records.filter((record) => record.payslip_email_status === "Sent").length;
+  const failedCount = records.filter((record) => record.payslip_email_status === "Failed").length;
+  const releasedCount = records.filter((record) => record.payslip_status === "Released").length;
   const payrollReleasedCount = records.filter((record) => isPayrollReleased(record)).length;
+  const pendingReleaseCount = Math.max(records.length - releasedCount, 0);
+
+  const totalNet = records.reduce((sum, record) => sum + getDisplayedNetPay(record), 0);
+  const totalReleased = records.reduce((sum, record) => sum + getReleasedAmount(record), 0);
 
   const getApprovedAdjustmentsForRecord = (record: any) =>
     adjustments.filter(
       (item) =>
         item.employee_id === record.employee_id &&
-        String(item.status || "").toLowerCase() === "approved"
+        String(item.status || "").toLowerCase() === "approved",
     );
 
+  const assistantReminders = [
+    ...(failedCount > 0
+      ? [{ type: "Critical", tone: "critical", text: `${failedCount} payslip email failed. Review employee email addresses.` }]
+      : []),
+    ...(pendingReleaseCount > 0
+      ? [{ type: "Warning", tone: "warning", text: `${pendingReleaseCount} payslip(s) are not yet marked released.` }]
+      : []),
+    ...(records.some((record) => !getEmail(record))
+      ? [{ type: "Warning", tone: "warning", text: "Some employees have no email address for payslip delivery." }]
+      : []),
+    ...(records.length > 0
+      ? [{ type: "Information", tone: "info", text: `${records.length} payroll record(s) loaded for ${getPeriodLabel(selectedPeriod)}.` }]
+      : [{ type: "Information", tone: "info", text: "Select a payroll period to generate payslip records." }]),
+  ].slice(0, 5);
+
   /// UI
-return (
-  <PageGuard moduleKey="payslips">
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+  return (
+    <PageGuard moduleKey="payslips">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+        <Sidebar />
+        <TopNavbar breadcrumb="PAYROLL / PAYSLIPS" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-            Payroll
-          </p>
-          <h1 className="mt-2 text-4xl font-black">Payslip Management</h1>
-          <p className="mt-2 max-w-5xl text-sm text-slate-400">
-            Review released payroll records, generate official payslips, send employee copies, and monitor document release status.
-          </p>
-        </section>
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Payroll Operations</p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Payslip Management</h1>
+                <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+                  Generate professional A4 payroll payslips, release employee copies, email approved documents, and maintain document delivery status.
+                </p>
+              </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-5">
-          <SummaryCard title="Employees" value={records.length} />
-          <SummaryCard title="Payroll Released" value={payrollReleasedCount} color="text-emerald-400" />
-          <SummaryCard title="Payslip Released" value={releasedCount} color="text-emerald-400" />
-          <SummaryCard title="Email Sent" value={sentCount} color="text-blue-400" />
-          <SummaryCard title="Pending Release" value={Math.max(records.length - releasedCount, 0)} color="text-blue-300" />
-        </section>
-
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[360px_minmax(0,1fr)]">
-            <select
-              value={selectedPeriodId}
-              onChange={(e) => setSelectedPeriodId(e.target.value)}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-            >
-              <option value="">Select payroll period</option>
-              {periods.map((period) => (
-                <option key={period.id} value={period.id}>
-                  {getPeriodLabel(period)} ({period.status || "No status"})
-                </option>
-              ))}
-            </select>
-
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search employee..."
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-10 py-3 text-sm outline-none"
-              />
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 xl:min-w-[420px]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Document Status</p>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Records</p>
+                    <p className="mt-1 text-xl font-black text-slate-950">{records.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Sent</p>
+                    <p className="mt-1 text-xl font-black text-emerald-700">{sentCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Released</p>
+                    <p className="mt-1 text-xl font-black text-slate-950">{releasedCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Pending</p>
+                    <p className={pendingReleaseCount > 0 ? "mt-1 text-xl font-black text-amber-700" : "mt-1 text-xl font-black text-slate-950"}>{pendingReleaseCount}</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-xl font-black">Payslip Records</h2>
+          <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[360px_minmax(0,1fr)_280px] lg:items-center">
+              <select
+                value={selectedPeriodId}
+                onChange={(e) => setSelectedPeriodId(e.target.value)}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              >
+                <option value="">Select payroll period</option>
+                {periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {getPeriodLabel(period)} ({period.status || "No status"})
+                  </option>
+                ))}
+              </select>
 
-          <div className="mt-4 max-h-[700px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1450px] text-sm">
-              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3 text-right">Gross</th>
-                  <th className="px-4 py-3 text-right">Deductions</th>
-                  <th className="px-4 py-3 text-right">Net Pay</th>
-                  <th className="px-4 py-3 text-right">Released</th>
-                  <th className="px-4 py-3 text-right">Remaining</th>
-                  <th className="px-4 py-3">Payroll</th>
-                  <th className="px-4 py-3">Payslip</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Action</th>
-                </tr>
-              </thead>
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search employee, department, position, employee no., or email..."
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-10 text-sm font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                />
+              </div>
 
-              <tbody>
-                {filteredRecords.map((record) => {
-                  const email = record.employees?.email || "";
-                  const payrollReleased = isPayrollReleased(record);
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Total Released</p>
+                <p className="text-lg font-black text-slate-950">{formatMoney(totalReleased || totalNet)}</p>
+              </div>
+            </div>
+          </section>
 
-                  return (
-                    <tr key={record.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                      <td className="px-4 py-3">
-                        <p className="font-black">{record.employee_name}</p>
-                        <p className="text-xs text-slate-500">
-                          {record.employee_no || "No employee no."} • {record.department} • {record.position}
-                        </p>
-                      </td>
+          <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-950">Payslip Records</h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">Released payroll records ready for print, PDF save, employee email, and payslip status tracking.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Sent {sentCount}</span>
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Pending {pendingReleaseCount}</span>
+                {failedCount > 0 && <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">Failed {failedCount}</span>}
+              </div>
+            </div>
 
-                      <td className="px-4 py-3">
-                        {email ? <span className="text-slate-300">{email}</span> : <span className="text-red-400">No email</span>}
-                      </td>
+            <div className="overflow-auto p-6 pt-0">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Employee</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3 text-right">Net Pay</th>
+                    <th className="px-4 py-3 text-right">Released</th>
+                    <th className="px-4 py-3">Payroll</th>
+                    <th className="px-4 py-3">Payslip</th>
+                    <th className="px-4 py-3">Email Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
 
-                      <td className="px-4 py-3 text-right">{formatMoney(record.gross_pay)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(getDisplayedTotalDeductions(record))}</td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">{formatMoney(getDisplayedNetPay(record))}</td>
-                      <td className="px-4 py-3 text-right font-bold text-blue-300">{formatMoney(getReleasedAmount(record))}</td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-300">{formatMoney(getRemainingAmount(record))}</td>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {filteredRecords.map((record) => {
+                    const email = getEmail(record);
+                    const payrollReleased = isPayrollReleased(record);
 
-                      <td className="px-4 py-3"><StatusBadge value={payrollReleased ? "Released" : record.status || "Pending Release"} /></td>
-                      <td className="px-4 py-3"><StatusBadge value={record.payslip_status || "Not Released"} /></td>
-                      <td className="px-4 py-3"><StatusBadge value={record.payslip_email_status || "Not Sent"} /></td>
+                    return (
+                      <tr key={record.id} className="transition-all duration-200 hover:bg-slate-50">
+                        <td className="px-4 py-4">
+                          <p className="font-black text-slate-950">{record.employee_name}</p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            {record.employee_no || "No employee no."} • {record.department || "No department"} • {record.position || "No position"}
+                          </p>
+                        </td>
 
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => setActivePayslip(record)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-800"
-                          >
-                            <Eye size={14} /> View
-                          </button>
+                        <td className="px-4 py-4">
+                          {email ? <span className="text-slate-700">{email}</span> : <StatusBadge value="No Email" />}
+                        </td>
 
-                          <button
-                            onClick={() => sendPayslip(record)}
-                            disabled={isSending || !email || !payrollReleased}
-                            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold hover:bg-blue-500 disabled:opacity-50"
-                          >
-                            <Mail size={14} /> Email
-                          </button>
+                        <td className="px-4 py-4 text-right font-black text-emerald-700">{formatMoney(getDisplayedNetPay(record))}</td>
+                        <td className="px-4 py-4 text-right font-black text-slate-950">{formatMoney(getReleasedAmount(record))}</td>
+                        <td className="px-4 py-4"><StatusBadge value={payrollReleased ? "Released" : record.status || "Pending Release"} /></td>
+                        <td className="px-4 py-4"><StatusBadge value={record.payslip_status || "Not Released"} /></td>
+                        <td className="px-4 py-4"><StatusBadge value={record.payslip_email_status || "Not Sent"} /></td>
 
-                          <button
-                            onClick={() => markReleased(record)}
-                            disabled={!payrollReleased}
-                            className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold hover:bg-emerald-500 disabled:opacity-50"
-                          >
-                            Mark Released
-                          </button>
-                        </div>
+                        <td className="px-4 py-4">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setActivePayslip(record)}
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                            >
+                              <Eye size={14} /> View
+                            </button>
+
+                            <button
+                              onClick={() => sendPayslip(record)}
+                              disabled={isSending || !email || !payrollReleased}
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              <Mail size={14} /> Email
+                            </button>
+
+                            <button
+                              onClick={() => markReleased(record)}
+                              disabled={!payrollReleased}
+                              className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              Mark
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredRecords.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-14 text-center text-sm font-semibold text-slate-500">
+                        No payslip records found. Select a payroll period to continue.
                       </td>
                     </tr>
-                  );
-                })}
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
 
-                {filteredRecords.length === 0 && (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-14 text-center text-slate-500">
-                      No payslip records. Select a payroll period.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </main>
+        {activePayslip && (
+          <PayslipPreviewDrawer
+            record={activePayslip}
+            periodLabel={getRecordPeriodLabel(activePayslip)}
+            approvedAdjustments={getApprovedAdjustmentsForRecord(activePayslip)}
+            formatMoney={formatMoney}
+            formatDate={formatDate}
+            formatDateTime={formatDateTime}
+            getDisplayedTotalDeductions={getDisplayedTotalDeductions}
+            getDisplayedNetPay={getDisplayedNetPay}
+            getReleasedAmount={getReleasedAmount}
+            getRemainingAmount={getRemainingAmount}
+            getAutoDeductionTotal={getAutoDeductionTotal}
+            getGovernmentDeductionTotal={getGovernmentDeductionTotal}
+            getBalanceDeduction={getBalanceDeduction}
+            isPayrollReleased={isPayrollReleased}
+            onClose={() => setActivePayslip(null)}
+            onPrint={printCleanPayslip}
+          />
+        )}
 
-      {activePayslip && (
-        <PayslipPreviewModal
-          record={activePayslip}
-          selectedPeriod={selectedPeriod}
-          periodLabel={getRecordPeriodLabel(activePayslip)}
-          approvedAdjustments={getApprovedAdjustmentsForRecord(activePayslip)}
-          formatMoney={formatMoney}
-          formatDateTime={formatDateTime}
-          getDisplayedTotalDeductions={getDisplayedTotalDeductions}
-          getDisplayedNetPay={getDisplayedNetPay}
-          getReleasedAmount={getReleasedAmount}
-          getRemainingAmount={getRemainingAmount}
-          getAutoDeductionTotal={getAutoDeductionTotal}
-          getGovernmentDeductionTotal={getGovernmentDeductionTotal}
-          getBalanceDeduction={getBalanceDeduction}
-          isPayrollReleased={isPayrollReleased}
-          onClose={() => setActivePayslip(null)}
-          onPrint={printCleanPayslip}
-        />
-      )}
-       </div>
-  </PageGuard>
-);
+        <OpscoreAssistant reminders={assistantReminders} />
+      </div>
+    </PageGuard>
+  );
 }
 
-function PayslipPreviewModal({
+function PayslipPreviewDrawer({
   record,
   periodLabel,
   approvedAdjustments,
   formatMoney,
+  formatDate,
   formatDateTime,
   getDisplayedTotalDeductions,
   getDisplayedNetPay,
@@ -541,35 +565,26 @@ function PayslipPreviewModal({
   const remainingAmount = getRemainingAmount(record);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 p-4 backdrop-blur-sm">
-      <div className="mx-auto flex max-h-[94vh] max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 p-5">
+    <>
+      <div className="fixed left-0 right-0 top-16 z-40 h-[calc(100vh-64px)] bg-slate-950/35" onClick={onClose} />
+      <aside className="fixed right-0 top-16 z-50 flex h-[calc(100vh-64px)] w-full max-w-[820px] flex-col border-l border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-slate-100 p-6">
           <div>
-            <h2 className="text-2xl font-black">Payslip Preview</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Official payslip preview. Print output is optimized for A4 and excludes OPSCORE interface elements.
-            </p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Official Payslip Preview</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">{record.employee_name || "Employee Payslip"}</h2>
+            <p className="mt-1 text-sm font-medium text-slate-500">{periodLabel} • Print-safe A4 payroll document</p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onPrint}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white hover:bg-blue-500"
-            >
-              <Printer size={16} /> Print / Save PDF
-            </button>
-
-            <button
-              onClick={onClose}
-              className="rounded-xl border border-slate-700 p-2 text-slate-300 hover:bg-slate-800"
-            >
-              <X size={18} />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="overflow-auto bg-slate-900 p-6">
-          <div className="mx-auto max-w-[820px] bg-white p-8 text-slate-900 shadow-xl">
+        <div className="flex-1 overflow-y-auto bg-[#F5F7FB] p-6">
+          <div className="mx-auto w-full max-w-[760px] rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <CleanPayslipDocument
               record={record}
               periodLabel={periodLabel}
@@ -580,6 +595,7 @@ function PayslipPreviewModal({
               releasedAmount={releasedAmount}
               remainingAmount={remainingAmount}
               formatMoney={formatMoney}
+              formatDate={formatDate}
               formatDateTime={formatDateTime}
               getAutoDeductionTotal={getAutoDeductionTotal}
               getGovernmentDeductionTotal={getGovernmentDeductionTotal}
@@ -599,6 +615,7 @@ function PayslipPreviewModal({
               releasedAmount={releasedAmount}
               remainingAmount={remainingAmount}
               formatMoney={formatMoney}
+              formatDate={formatDate}
               formatDateTime={formatDateTime}
               getAutoDeductionTotal={getAutoDeductionTotal}
               getGovernmentDeductionTotal={getGovernmentDeductionTotal}
@@ -607,8 +624,23 @@ function PayslipPreviewModal({
             />
           </div>
         </div>
-      </div>
-    </div>
+
+        <div className="sticky bottom-0 flex gap-3 border-t border-slate-100 bg-white/95 p-6">
+          <button
+            onClick={onClose}
+            className="h-11 flex-1 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+          >
+            Close
+          </button>
+          <button
+            onClick={onPrint}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+          >
+            <Printer size={16} /> Print / Save PDF
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -622,194 +654,246 @@ function CleanPayslipDocument({
   releasedAmount,
   remainingAmount,
   formatMoney,
+  formatDate,
   formatDateTime,
   getAutoDeductionTotal,
   getGovernmentDeductionTotal,
   getBalanceDeduction,
   isPayrollReleased,
 }: any) {
+  const payslipNumber = `PS-${String(record.id || "00000000").slice(0, 8).toUpperCase()}`;
+  const manualDeduction = Number(record.manual_deduction || 0);
+  const autoDeduction = getAutoDeductionTotal(record);
+  const governmentDeduction = getGovernmentDeductionTotal(record);
+  const balanceDeduction = getBalanceDeduction(record);
+  const otherDeduction = Math.max(totalDeductions - autoDeduction - manualDeduction - governmentDeduction - balanceDeduction, 0);
+
   return (
-    <div className="doc">
-      <div className="header">
+    <div className="opscore-payslip overflow-hidden border border-slate-950 bg-white text-slate-950">
+      <div className="ps-header grid grid-cols-1 gap-4 border-b-2 border-slate-950 p-3 md:grid-cols-[minmax(0,1fr)_150px]">
         <div>
-          <p className="doc-title">Official Payroll Payslip</p>
-          <h1 className="company-title">Vincent Resort Hotel</h1>
-          <p className="muted">Payroll Period: {periodLabel}</p>
+          <h1 className="ps-company text-xl font-black uppercase tracking-wide text-slate-950">Vincent Resort Hotel</h1>
+          <p className="ps-title mt-1 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600">Employee Payslip</p>
+          <p className="ps-subtitle mt-2 text-sm font-semibold text-slate-600">
+            Payroll Period: <span className="font-black text-slate-950">{periodLabel}</span>
+          </p>
         </div>
 
-        <div className="badge-line">
-          <div><strong>Payslip No:</strong> {String(record.id || "").slice(0, 8).toUpperCase()}</div>
-          <div><strong>Generated:</strong> {formatDateTime(new Date().toISOString())}</div>
-          <div><strong>Payroll:</strong> {isPayrollReleased(record) ? "Released" : record.status || "Pending Release"}</div>
-          <div><strong>Payslip:</strong> {record.payslip_status || "Not Released"}</div>
-          <div><strong>Email:</strong> {record.payslip_email_status || "Not Sent"}</div>
+        <div className="ps-stamp border border-slate-950 p-2 text-right">
+          <p className="ps-stamp-label text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Payroll Status</p>
+          <p className="ps-stamp-value mt-1 text-base font-black text-slate-950">{isPayrollReleased(record) ? "RELEASED" : "PENDING"}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">{payslipNumber}</p>
         </div>
       </div>
 
-      <table className="summary-table">
-        <tbody>
-          <tr>
-            <td><div className="label">Employee</div><div className="value">{record.employee_name || "-"}</div></td>
-            <td><div className="label">Employee No.</div><div className="value">{record.employee_no || "-"}</div></td>
-            <td><div className="label">Department</div><div className="value">{record.department || "-"}</div></td>
-            <td><div className="label">Position</div><div className="value">{record.position || "-"}</div></td>
-          </tr>
-          <tr>
-            <td><div className="label">Rate Type</div><div className="value">{record.rate_type || "-"}</div></td>
-            <td><div className="label">Basic Rate</div><div className="value">{formatMoney(record.basic_rate)}</div></td>
-            <td><div className="label">Released At</div><div className="value">{formatDateTime(record.released_at)}</div></td>
-            <td><div className="label">Payslip Released At</div><div className="value">{formatDateTime(record.payslip_released_at)}</div></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div className="net-box">
-        <div>
-          <div className="net-label">Net Pay</div>
-          <div className="muted">Amount payable after approved deductions</div>
-        </div>
-        <div className="net-amount">{formatMoney(netPay)}</div>
-      </div>
-
-      <table className="summary-table">
-        <tbody>
-          <tr>
-            <td><div className="label">Gross Pay</div><div className="value">{formatMoney(grossPay)}</div></td>
-            <td><div className="label">Total Deductions</div><div className="value">{formatMoney(totalDeductions)}</div></td>
-            <td><div className="label">Released Amount</div><div className="value">{formatMoney(releasedAmount)}</div></td>
-            <td><div className="label">Remaining</div><div className="value">{formatMoney(remainingAmount)}</div></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div className="section-title">Work Summary</div>
-      <table>
-        <tbody>
-          <tr>
-            <td>Days Worked</td><td className="amount">{Number(record.days_worked || 0)}</td>
-            <td>Scheduled Days</td><td className="amount">{Number(record.scheduled_days || 0)}</td>
-            <td>Rest Days</td><td className="amount">{Number(record.rest_days || 0)}</td>
-          </tr>
-          <tr>
-            <td>OT Minutes</td><td className="amount">{Number(record.ot_minutes || 0)}</td>
-            <td>Late Minutes</td><td className="amount">{Number(record.late_minutes || 0)}</td>
-            <td>Undertime Minutes</td><td className="amount">{Number(record.undertime_minutes || 0)}</td>
-          </tr>
-          <tr>
-            <td>Absent Days</td><td className="amount">{Number(record.absent_days || 0)}</td>
-            <td>Holiday Worked</td><td className="amount">{Array.isArray(record.holiday_worked_dates) ? record.holiday_worked_dates.length : 0}</td>
-            <td></td><td></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div className="two-col">
-        <div>
-          <div className="section-title">Earnings</div>
-          <table>
-            <tbody>
-              <MoneyRow label="Basic Pay" value={record.basic_pay} formatMoney={formatMoney} />
-              <MoneyRow label="OT Pay" value={record.ot_pay || record.overtime_pay} formatMoney={formatMoney} />
-              <MoneyRow label="Holiday Pay" value={record.holiday_pay} formatMoney={formatMoney} />
-              <MoneyRow label="Allowance / Bonus" value={record.allowance || record.allowances || record.bonus || record.incentive} formatMoney={formatMoney} />
-              <MoneyRow label="Gross Pay" value={grossPay} formatMoney={formatMoney} bold />
-            </tbody>
-          </table>
-        </div>
-
-        <div>
-          <div className="section-title">Deductions</div>
-          <table>
-            <tbody>
-              <MoneyRow label="Late Deduction" value={record.late_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="Undertime Deduction" value={record.undertime_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="Absent Deduction" value={record.absent_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="Manual Deduction" value={record.manual_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="Cash Advance / Balance" value={getBalanceDeduction(record)} formatMoney={formatMoney} />
-              <MoneyRow label="SSS" value={record.sss_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="PhilHealth" value={record.philhealth_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="Pag-IBIG" value={record.pagibig_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="Tax" value={record.tax_deduction} formatMoney={formatMoney} />
-              <MoneyRow label="Auto Deductions" value={getAutoDeductionTotal(record)} formatMoney={formatMoney} />
-              <MoneyRow label="Government Deductions" value={getGovernmentDeductionTotal(record)} formatMoney={formatMoney} />
-              <MoneyRow label="Total Deductions" value={totalDeductions} formatMoney={formatMoney} bold />
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="section-title">Approved Adjustments</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Description</th>
-            <th className="amount">Amount</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {approvedAdjustments.length > 0 ? (
-            approvedAdjustments.map((item: any) => (
-              <tr key={item.id}>
-                <td>{item.adjustment_type || item.type || item.category || "Adjustment"}</td>
-                <td>{item.description || item.remarks || "-"}</td>
-                <td className="amount">{formatMoney(item.amount)}</td>
-                <td>{item.status || "Approved"}</td>
-              </tr>
-            ))
-          ) : (
+      <div className="ps-body p-3">
+        <SectionTitle title="Employee Information" />
+        <table className="w-full border-collapse text-xs">
+          <tbody>
             <tr>
-              <td colSpan={4} style={{ textAlign: "center", color: "#6b7280" }}>
-                No approved adjustments for this payslip.
-              </td>
+              <InfoCell label="Employee Name" value={record.employee_name || "-"} />
+              <InfoCell label="Employee No." value={record.employee_no || "-"} />
+              <InfoCell label="Department" value={record.department || "-"} />
+              <InfoCell label="Position" value={record.position || "-"} />
+              <InfoCell label="Rate Type" value={record.rate_type || "-"} />
+              <InfoCell label="Period" value={periodLabel} />
             </tr>
-          )}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
 
-      <div className="note">
-        This payslip is system-generated from OPSCORE payroll records. For disputes, employee should contact Payroll/Admin before acknowledgement or final filing.
-      </div>
+        <SectionTitle title="Attendance Summary" />
+        <table className="w-full border-collapse text-xs">
+          <tbody>
+            <tr>
+              <MetricCell label="Scheduled" value={Number(record.scheduled_days || 0)} />
+              <MetricCell label="Worked" value={Number(record.days_worked || 0)} />
+              <MetricCell label="Rest / Off" value={Number(record.rest_days || 0)} />
+              <MetricCell label="Absent" value={Number(record.absent_days || 0)} />
+              <MetricCell label="Late" value={`${Number(record.late_minutes || 0)} min`} />
+              <MetricCell label="Undertime" value={`${Number(record.undertime_minutes || 0)} min`} />
+            </tr>
+          </tbody>
+        </table>
 
-      <div className="signature-grid">
-        <div className="signature-line">Employee Signature</div>
-        <div className="signature-line">Date Received</div>
-        <div className="signature-line">Payroll/Admin Signature</div>
+        <SectionTitle title="Payroll Computation" />
+        <div className="ps-computation grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-2 text-left text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Earnings</th>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-2 text-right text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <MoneyRow label="Basic Pay" value={record.basic_pay} formatMoney={formatMoney} />
+                <MoneyRow label="Overtime Pay" value={record.ot_pay || record.overtime_pay} formatMoney={formatMoney} />
+                <MoneyRow label="Holiday Pay" value={record.holiday_pay} formatMoney={formatMoney} />
+                <MoneyRow label="Allowance / Bonus" value={record.allowance || record.allowances || record.bonus || record.incentive} formatMoney={formatMoney} />
+                <MoneyRow label="Gross Pay" value={grossPay} formatMoney={formatMoney} bold />
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-2 text-left text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Deductions</th>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-2 text-right text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <MoneyRow label="Late Deduction" value={record.late_deduction} formatMoney={formatMoney} />
+                <MoneyRow label="Undertime Deduction" value={record.undertime_deduction} formatMoney={formatMoney} />
+                <MoneyRow label="Absent Deduction" value={record.absent_deduction} formatMoney={formatMoney} />
+                <MoneyRow label="Cash Advance / Balance" value={balanceDeduction} formatMoney={formatMoney} />
+                <MoneyRow label="Manual Deduction" value={manualDeduction} formatMoney={formatMoney} />
+                <MoneyRow label="Government Deductions" value={governmentDeduction} formatMoney={formatMoney} />
+                {otherDeduction > 0 && <MoneyRow label="Other Deductions" value={otherDeduction} formatMoney={formatMoney} />}
+                <MoneyRow label="Total Deductions" value={totalDeductions} formatMoney={formatMoney} bold />
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="ps-net-band my-2 grid grid-cols-1 overflow-hidden border-2 border-slate-950 md:grid-cols-[minmax(0,1fr)_190px]">
+          <div className="ps-net-copy p-2">
+            <p className="ps-net-label text-[11px] font-black uppercase tracking-[0.24em] text-slate-700">Net Pay</p>
+            <p className="ps-net-note mt-0.5 text-[10px] font-semibold text-slate-500">Amount payable after approved earnings and deductions.</p>
+          </div>
+          <div className="ps-net-amount flex items-center justify-end border-t-2 border-slate-950 p-2 text-2xl font-black text-slate-950 md:border-l-2 md:border-t-0">
+            {formatMoney(netPay)}
+          </div>
+        </div>
+
+        <SectionTitle title="Release Information" />
+        <table className="w-full border-collapse text-xs">
+          <tbody>
+            <tr>
+              <MetricCell label="Gross Pay" value={formatMoney(grossPay)} />
+              <MetricCell label="Deductions" value={formatMoney(totalDeductions)} />
+              <MetricCell label="Released" value={formatMoney(releasedAmount)} />
+              <MetricCell label="Remaining" value={formatMoney(remainingAmount)} />
+              <MetricCell label="Status" value={record.payslip_status || "Not Released"} />
+              <MetricCell label="Released By" value={record.released_by || "Payroll/Admin"} />
+            </tr>
+          </tbody>
+        </table>
+
+        {approvedAdjustments.length > 0 ? (
+          <>
+            <SectionTitle title="Approved Adjustments" />
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-1.5 text-left text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Type</th>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-1.5 text-left text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Description</th>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-1.5 text-right text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Amount</th>
+                  <th className="border border-slate-300 bg-slate-50 px-2 py-1.5 text-left text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedAdjustments.map((item: any) => (
+                  <tr key={item.id}>
+                    <td className="border border-slate-300 px-2 py-1.5 font-bold">{item.adjustment_type || item.type || item.category || "Adjustment"}</td>
+                    <td className="border border-slate-300 px-2 py-1.5 font-semibold text-slate-600">{item.description || item.remarks || "-"}</td>
+                    <td className="border border-slate-300 px-2 py-1.5 text-right font-black">{formatMoney(item.amount)}</td>
+                    <td className="border border-slate-300 px-2 py-1.5 font-bold">{item.status || "Approved"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <div className="mt-2 border border-slate-300 bg-slate-50 px-2 py-1.5 text-[11px] font-bold text-slate-600">
+            Approved Adjustments: None
+          </div>
+        )}
+
+        <div className="ps-note mt-2 border border-slate-300 bg-slate-50 p-2 text-[11px] font-semibold leading-4 text-slate-600">
+          I acknowledge that I have reviewed this payslip and received the salary amount stated above, subject to company payroll records and approved deductions. Any dispute must be reported to Payroll/Admin before final filing.
+        </div>
+
+        <div className="ps-signatures mt-4 grid grid-cols-3 gap-4">
+          <div className="ps-signature border-t border-slate-950 pt-1.5 text-center text-[11px] font-black text-slate-700">Employee Signature</div>
+          <div className="ps-signature border-t border-slate-950 pt-1.5 text-center text-[11px] font-black text-slate-700">Date Received</div>
+          <div className="ps-signature border-t border-slate-950 pt-1.5 text-center text-[11px] font-black text-slate-700">Payroll / Admin Signature</div>
+        </div>
+
+        <div className="ps-footer hidden">
+          Generated by OPSCORE Payroll • {formatDateTime(new Date().toISOString())}
+        </div>
       </div>
     </div>
+  );
+}
+
+function SectionTitle({ title }: any) {
+  return (
+    <p className="ps-block-title mt-2 border border-slate-300 bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700">
+      {title}
+    </p>
+  );
+}
+
+function InfoCell({ label, value }: any) {
+  return (
+    <td className="border border-slate-300 px-2 py-1.5">
+      <p className="ps-label text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="ps-value mt-0.5 font-black text-slate-950">{value}</p>
+    </td>
+  );
+}
+
+function MetricCell({ label, value }: any) {
+  return (
+    <td className="border border-slate-300 px-2 py-1.5 text-center">
+      <p className="ps-label text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="ps-value mt-0.5 font-black text-slate-950">{value}</p>
+    </td>
   );
 }
 
 function MoneyRow({ label, value, formatMoney, bold }: any) {
   return (
-    <tr>
-      <td style={{ fontWeight: bold ? 800 : 400 }}>{label}</td>
-      <td className="amount" style={{ fontWeight: bold ? 800 : 700 }}>{formatMoney(value)}</td>
+    <tr className={bold ? "ps-total-row" : ""}>
+      <td className={bold ? "border border-slate-300 bg-slate-50 px-2 py-2 font-black text-slate-950" : "border border-slate-300 px-2 py-2 font-semibold text-slate-700"}>{label}</td>
+      <td className="amount border border-slate-300 px-2 py-1.5 text-right font-black text-slate-950">{formatMoney(value)}</td>
     </tr>
   );
 }
 
-function SummaryCard({ title, value, color = "text-white" }: any) {
+function KpiCard({ label, value, tone = "neutral" }: any) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-slate-200 bg-slate-50 text-slate-950";
+
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 text-2xl font-black ${color}`}>{value}</h2>
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-80">{label}</p>
+      <p className="mt-2 text-2xl font-black tracking-tight">{value}</p>
     </div>
   );
 }
 
 function StatusBadge({ value }: any) {
+  const normalized = String(value || "");
   const color =
-    value === "Released" || value === "Sent" || value === "Paid"
-      ? "bg-emerald-500/10 text-emerald-400"
-      : value === "Failed" || value === "Rejected"
-      ? "bg-red-500/10 text-red-400"
-      : "bg-amber-500/10 text-blue-300";
+    ["Released", "Sent", "Paid", "Active", "Approved"].includes(normalized)
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : ["Failed", "Rejected", "No Email"].includes(normalized)
+        ? "border-red-200 bg-red-50 text-red-700"
+        : ["Not Released", "Not Sent", "Pending Release", "Pending"].includes(normalized)
+          ? "border-amber-200 bg-amber-50 text-amber-700"
+          : "border-slate-200 bg-slate-100 text-slate-700";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${color}`}>
-      {value}
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${color}`}>
+      {normalized}
     </span>
   );
 }

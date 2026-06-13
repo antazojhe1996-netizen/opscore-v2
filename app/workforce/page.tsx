@@ -7,9 +7,10 @@ import {
   ClipboardList,
   UserCheck,
   Users,
-  UserX,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
+import OpscoreAssistant from "@/components/OpscoreAssistant";
 import { supabase } from "@/app/lib/supabase";
 
 export default function WorkforcePage() {
@@ -46,6 +47,7 @@ export default function WorkforcePage() {
     const status = String(
       emp.employment_status || emp.status || "",
     ).toLowerCase();
+
     return (
       status !== "resigned" &&
       status !== "inactive" &&
@@ -58,79 +60,6 @@ export default function WorkforcePage() {
 
   const getShiftTemplate = (shiftName?: string | null) =>
     shiftTemplates.find((shift) => shift.shift_name === shiftName);
-
-  const normalizeColor = (color?: string | null) => {
-    const cleanColor = String(color || "")
-      .toLowerCase()
-      .trim();
-
-    if (!cleanColor) return "slate";
-    if (cleanColor.includes("sky")) return "sky";
-    if (cleanColor.includes("cyan")) return "cyan";
-    if (cleanColor.includes("teal")) return "teal";
-    if (cleanColor.includes("emerald")) return "emerald";
-    if (cleanColor.includes("green")) return "green";
-    if (cleanColor.includes("lime")) return "lime";
-    if (cleanColor.includes("yellow")) return "yellow";
-    if (cleanColor.includes("amber")) return "amber";
-    if (cleanColor.includes("orange")) return "orange";
-    if (cleanColor.includes("rose")) return "rose";
-    if (cleanColor.includes("pink")) return "pink";
-    if (cleanColor.includes("purple")) return "purple";
-    if (cleanColor.includes("violet")) return "violet";
-    if (cleanColor.includes("indigo")) return "indigo";
-    if (cleanColor.includes("red")) return "red";
-    if (cleanColor.includes("gray")) return "gray";
-    if (cleanColor.includes("blue")) return "blue";
-
-    return "slate";
-  };
-
-  const getColorClasses = (color?: string | null) => {
-    const normalized = normalizeColor(color);
-
-    if (normalized === "blue")
-      return "border-blue-500/40 bg-blue-500/15 text-blue-300";
-    if (normalized === "sky")
-      return "border-sky-500/40 bg-sky-500/15 text-sky-300";
-    if (normalized === "cyan")
-      return "border-cyan-500/40 bg-cyan-500/15 text-cyan-300";
-    if (normalized === "teal")
-      return "border-teal-500/40 bg-teal-500/15 text-teal-300";
-    if (normalized === "green")
-      return "border-green-500/40 bg-green-500/15 text-green-300";
-    if (normalized === "emerald")
-      return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
-    if (normalized === "lime")
-      return "border-lime-500/40 bg-lime-500/15 text-lime-300";
-    if (normalized === "yellow")
-      return "border-yellow-500/40 bg-yellow-500/15 text-yellow-300";
-    if (normalized === "amber")
-      return "border-amber-500/40 bg-amber-500/15 text-amber-300";
-    if (normalized === "orange")
-      return "border-orange-500/40 bg-orange-500/15 text-orange-300";
-    if (normalized === "red")
-      return "border-red-500/40 bg-red-500/15 text-red-300";
-    if (normalized === "rose")
-      return "border-rose-500/40 bg-rose-500/15 text-rose-300";
-    if (normalized === "pink")
-      return "border-pink-500/40 bg-pink-500/15 text-pink-300";
-    if (normalized === "purple")
-      return "border-purple-500/40 bg-purple-500/15 text-purple-300";
-    if (normalized === "violet")
-      return "border-violet-500/40 bg-violet-500/15 text-violet-300";
-    if (normalized === "indigo")
-      return "border-indigo-500/40 bg-indigo-500/15 text-indigo-300";
-    if (normalized === "gray")
-      return "border-gray-500/40 bg-gray-500/15 text-gray-300";
-
-    return "border-slate-500/40 bg-slate-500/15 text-slate-300";
-  };
-
-  const getShiftColorClass = (shiftName?: string | null) => {
-    const shift = getShiftTemplate(shiftName);
-    return getColorClasses(shift?.color);
-  };
 
   const isUnscheduledShift = (shiftName?: string | null) => !shiftName;
 
@@ -216,8 +145,6 @@ export default function WorkforcePage() {
       occupancyData.find((row) => String(row.business_date) === todayKey) ||
       occupancyData[occupancyData.length - 1];
 
-    // HC Rules Settings is the only source of truth.
-    // If rules or occupancy are missing, do not create fake shortages.
     if (!hcRules || !latestOccupancy) return {};
 
     const roomsSold = Number(latestOccupancy.rooms_sold || 0);
@@ -274,10 +201,6 @@ export default function WorkforcePage() {
 
   const restDayTodaySchedules = visibleTodaySchedules.filter((schedule) =>
     isRestDayShift(schedule.shift),
-  );
-
-  const unscheduledTodaySchedules = visibleTodaySchedules.filter((schedule) =>
-    isUnscheduledShift(schedule.shift),
   );
 
   const approvedLeavesToday = leaveRequests.filter((leave) => {
@@ -339,6 +262,7 @@ export default function WorkforcePage() {
 
     const required = Number(requiredHC[department] || 0);
     const totalEmployees = departmentEmployees.length;
+
     const noSchedule = departmentEmployees.filter((emp) => {
       return (
         !scheduledEmployeeIds.some((id) => isSameEmployee(id, emp.id)) &&
@@ -372,6 +296,7 @@ export default function WorkforcePage() {
       totalEmployees - onLeave.length - restDayToday.length,
       0,
     );
+
     const scheduledCount = scheduled.length;
     const gap = scheduledCount - required;
 
@@ -471,7 +396,7 @@ export default function WorkforcePage() {
       : []),
     ...(noScheduleEmployees.length > 0
       ? [
-          `${noScheduleEmployees.length} active employee(s) have no saved schedule row today. OFF and RD are treated as valid rest days.`,
+          `${noScheduleEmployees.length} active employee(s) have no saved schedule row today.`,
         ]
       : []),
     ...(overStaffDepartments.length > 0
@@ -499,12 +424,7 @@ export default function WorkforcePage() {
       : []),
     ...(noScheduleEmployees.length > 0
       ? [
-          `${noScheduleEmployees.length} active employee(s) have no saved schedule row today. OFF and RD are treated as valid rest days.`,
-        ]
-      : []),
-    ...(noScheduleEmployees.length > 0
-      ? [
-          "Review employees with missing schedule rows and assign working shift, OFF, or RD where intended.",
+          "Review missing schedule rows and assign working shift, OFF, or RD where intended.",
         ]
       : []),
     ...(overStaffDepartments.length > 0
@@ -523,224 +443,158 @@ export default function WorkforcePage() {
         ? "Watchlist"
         : "Stable";
 
-  const statusClass =
-    workforceStatus === "Stable"
-      ? "border-green-500/20 bg-green-500/10 text-green-300"
-      : workforceStatus === "Watchlist" || workforceStatus === "Draft Data"
-        ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
-        : "border-red-500/20 bg-red-500/10 text-red-300";
+type ReminderStatus = "critical" | "warning" | "info" | "success" | "neutral";
+
+type Reminder = {
+  status: ReminderStatus;
+  text: string;
+};
+
+const assistantReminders: Reminder[] = [
+  ...lowStaffDepartments.map((dept) => ({
+    status: "critical" as const,
+    text: `${dept.department} is short by ${Math.abs(dept.gap)} staff.`,
+  })),
+  ...(pendingLeaves.length > 0
+    ? [
+        {
+          status: "warning" as const,
+          text: `${pendingLeaves.length} pending leave request(s) need review.`,
+        },
+      ]
+    : []),
+  ...(noScheduleEmployees.length > 0
+    ? [
+        {
+          status: "warning" as const,
+          text: `${noScheduleEmployees.length} active employee(s) have no schedule row today.`,
+        },
+      ]
+    : []),
+  ...(!hasPublishedSchedule
+    ? [
+        {
+          status: "info" as const,
+          text: "Today is still using draft schedule data.",
+        },
+      ]
+    : []),
+].slice(0, 5);
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-[#07111f] text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-300/20 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-5 shadow-2xl shadow-blue-950/30 lg:p-7">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="OPERATIONS / WORKFORCE" />
 
-          <div className="relative grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_460px]">
-            <div className="min-w-0">
-              <div className="mb-6 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-blue-100">
-                  Executive Suite
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[11px] font-bold text-slate-200">
-                  {hasPublishedSchedule
-                    ? "Published Schedule"
-                    : "Draft Schedule Data"}
-                </span>
-              </div>
-
-              <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-100/80">
-                OPSCORE Workforce Intelligence
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                Operations
               </p>
-
-              <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-6xl">
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                 Workforce Command Center
               </h1>
-
-              <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-200">
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
                 Monitor manpower coverage, schedule publication, leave impact,
-                floaters, staffing gaps, and daily workforce risk from one
-                executive command center.
+                floaters, staffing gaps, and daily workforce risk.
               </p>
-
-              <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <HeroMetric
-                  label="Staffing Health"
-                  title={workforceStatus}
-                  value={`${totalScheduled}/${totalRequired}`}
-                  subtitle="Scheduled vs required today"
-                />
-
-                <HeroMetric
-                  label="Coverage Gap"
-                  title={missingStaff > 0 ? "Action Required" : "Balanced"}
-                  value={missingStaff}
-                  subtitle="Missing staff across departments"
-                />
-
-                <HeroMetric
-                  label="Schedule Control"
-                  title={hasPublishedSchedule ? "Locked" : "Draft"}
-                  value={publishedSchedules.length}
-                  subtitle="Published schedule record(s) today"
-                />
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-blue-200/20 bg-blue-300/10 p-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-100/80">
-                  Recommended action
-                </p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
-                  {aiActions[0] ||
-                    "Maintain current manpower setup and monitor staffing coverage throughout the day."}
-                </p>
-              </div>
             </div>
 
-            <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/30 backdrop-blur">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/80">
-                    Workforce Health
-                  </p>
-                  <h2 className="mt-2 text-5xl font-black text-white">
-                    {workforceStatus}
-                  </h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">
-                    {missingStaff > 0
-                      ? `${missingStaff} missing staff need immediate review.`
-                      : noScheduleEmployees.length > 0
-                        ? `${noScheduleEmployees.length} employee(s) need schedule validation.`
-                        : hasPublishedSchedule
-                          ? "No critical shortage detected today."
-                          : "Schedule is not yet locked for today."}
-                  </p>
-                </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              >
+                <option value="All">All Departments</option>
+                {departments.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
+              </select>
 
-                <div
-                  className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em] ${statusClass}`}
-                >
-                  {workforceStatus}
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <ExecutiveMiniStat
-                  label="Active"
-                  value={activeEmployees.length}
-                />
-                <ExecutiveMiniStat
-                  label="Inactive"
-                  value={inactiveEmployees.length}
-                />
-                <ExecutiveMiniStat
-                  label="On Leave"
-                  value={approvedLeavesToday.length}
-                />
-                <ExecutiveMiniStat
-                  label="Pending Leave"
-                  value={pendingLeaves.length}
-                />
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
-                  Department Filter
-                </p>
-                <select
-                  value={selectedDepartment}
-                  onChange={(e) => setSelectedDepartment(e.target.value)}
-                  className="mt-3 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm font-bold text-white outline-none"
-                >
-                  <option value="All">All Departments</option>
-                  {departments.map((department) => (
-                    <option key={department} value={department}>
-                      {department}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <StatusBadge
+                status={hasPublishedSchedule ? "success" : "warning"}
+                label={
+                  hasPublishedSchedule
+                    ? "Published Schedule"
+                    : "Draft Schedule Data"
+                }
+              />
             </div>
-          </div>
-        </section>
-
-        {!hasPublishedSchedule && (
-          <section className="mb-6 overflow-hidden rounded-3xl border border-blue-300/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/20">
-            <p className="text-sm font-black uppercase tracking-[0.24em] text-blue-200">
-              Schedule Publication Notice
-            </p>
-            <h2 className="mt-2 text-2xl font-black text-white">
-              Draft schedule data is currently being used.
-            </h2>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
-              Publish the weekly schedule in Scheduling to make Workforce
-              reflect final locked manpower.
-            </p>
           </section>
-        )}
 
-        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard
-            icon={<Users size={22} />}
-            title="Active Employees"
-            value={activeEmployees.length}
-          />
-          <StatCard
-            icon={<ClipboardList size={22} />}
-            title="Required Today"
-            value={totalRequired}
-          />
-          <StatCard
-            icon={<UserCheck size={22} />}
-            title="Scheduled Today"
-            value={totalScheduled}
-          />
-          <StatCard
-            icon={<AlertTriangle size={22} />}
-            title="Missing Staff"
-            value={missingStaff}
-            danger={missingStaff > 0}
-          />
-          <StatCard
-            icon={<AlertTriangle size={22} />}
-            title="No Schedule Alert"
-            value={noScheduleEmployees.length}
-            danger={noScheduleEmployees.length > 0}
-          />
-          <StatCard
-            icon={<UserX size={22} />}
-            title="Inactive / Resigned"
-            value={inactiveEmployees.length}
-            danger={inactiveEmployees.length > 0}
-          />
-        </section>
-
-        <section className="mb-6 overflow-hidden rounded-3xl border border-blue-300/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/20 lg:p-6">
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-stretch">
-            <div>
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-blue-200">
-                <AlertTriangle size={18} /> AI Workforce Briefing
+          {!hasPublishedSchedule && (
+            <section className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                Schedule Publication Notice
               </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                {workforceStatus === "Stable"
-                  ? "Workforce coverage is under control."
-                  : workforceStatus === "Watchlist"
-                    ? "Workforce is stable, but needs review."
-                    : workforceStatus === "Draft Data"
-                      ? "Schedule publication is still pending."
-                      : "Immediate manpower attention is recommended."}
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Draft schedule data is currently being used.
               </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                OPSCORE summarized today’s staffing position based on required
-                headcount, scheduled manpower, leave impact, unpublished
-                schedule data, and no-schedule alerts.
+              <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-amber-700">
+                Publish the weekly schedule in Scheduling to make Workforce
+                reflect final locked manpower.
               </p>
+            </section>
+          )}
 
-              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              icon={<Users size={20} />}
+              title="Active Employees"
+              value={activeEmployees.length}
+              helper={`${inactiveEmployees.length} inactive / resigned`}
+            />
+            <StatCard
+              icon={<ClipboardList size={20} />}
+              title="Required Today"
+              value={totalRequired}
+              helper="Based on HC rule settings"
+            />
+            <StatCard
+              icon={<UserCheck size={20} />}
+              title="Scheduled Today"
+              value={totalScheduled}
+              helper={`${workforceStatus} workforce status`}
+            />
+            <StatCard
+              icon={<AlertTriangle size={20} />}
+              title="Missing Staff"
+              value={missingStaff}
+              helper={`${noScheduleEmployees.length} no schedule alert(s)`}
+              danger={missingStaff > 0 || noScheduleEmployees.length > 0}
+            />
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  OPSCORE Workforce Briefing
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  {workforceStatus === "Stable"
+                    ? "Workforce coverage is under control."
+                    : workforceStatus === "Watchlist"
+                      ? "Workforce is stable, but needs review."
+                      : workforceStatus === "Draft Data"
+                        ? "Schedule publication is still pending."
+                        : "Immediate manpower attention is recommended."}
+                </h2>
+                <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                  OPSCORE summarized today’s staffing position based on required
+                  headcount, scheduled manpower, leave impact, unpublished
+                  schedule data, and no-schedule alerts.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
                 {(aiNotes.length > 0
                   ? aiNotes
                   : ["No major workforce issue detected."]
@@ -749,12 +603,12 @@ export default function WorkforcePage() {
                   .map((item, index) => (
                     <div
                       key={index}
-                      className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                         Insight {index + 1}
                       </p>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
                         {item}
                       </p>
                     </div>
@@ -762,11 +616,14 @@ export default function WorkforcePage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-blue-300/20 bg-slate-950/70 p-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/70">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                 Action Center
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Priority Actions
+              </h2>
+              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
                 Highest priority workforce actions for today.
               </p>
 
@@ -779,350 +636,277 @@ export default function WorkforcePage() {
                   .map((item, index) => (
                     <div
                       key={index}
-                      className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
+                      className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-blue-700"
                     >
-                      <p className="text-sm font-semibold leading-6 text-slate-100">
-                        {item}
-                      </p>
+                      {item}
                     </div>
                   ))}
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10 lg:p-6 xl:col-span-1">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-              Staffing Risk Monitor
-            </p>
-            <h2 className="mt-2 text-2xl font-black text-white">
-              Risk Summary
-            </h2>
+          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Staffing Risk Monitor
+              </p>
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Risk Summary
+              </h2>
 
-            <div className="mt-5 grid grid-cols-1 gap-3">
-              <RiskLine
-                label="Low Staff Departments"
-                value={lowStaffDepartments.length}
-                danger={lowStaffDepartments.length > 0}
-              />
-              <RiskLine
-                label="Overstaffed Departments"
-                value={overStaffDepartments.length}
-                danger={overStaffDepartments.length > 0}
-              />
-              <RiskLine
-                label="Approved Leaves Today"
-                value={approvedLeavesToday.length}
-                danger={approvedLeavesToday.length > 0}
-              />
-              <RiskLine
-                label="Pending Leave Requests"
-                value={pendingLeaves.length}
-                danger={pendingLeaves.length > 0}
-              />
-              <RiskLine
-                label="No Schedule Employees"
-                value={noScheduleEmployees.length}
-                danger={noScheduleEmployees.length > 0}
-              />
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10 lg:p-6 xl:col-span-2">
-            <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-                  Department Exceptions
-                </p>
-                <h2 className="mt-2 text-2xl font-black text-white">
-                  Needs Attention
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Departments with shortage, excess manpower, leave impact, no
-                  schedule alerts, or missing published schedule.
-                </p>
+              <div className="mt-5 space-y-3">
+                <RiskLine
+                  label="Low Staff Departments"
+                  value={lowStaffDepartments.length}
+                  danger={lowStaffDepartments.length > 0}
+                />
+                <RiskLine
+                  label="Overstaffed Departments"
+                  value={overStaffDepartments.length}
+                  danger={overStaffDepartments.length > 0}
+                />
+                <RiskLine
+                  label="Approved Leaves Today"
+                  value={approvedLeavesToday.length}
+                  danger={approvedLeavesToday.length > 0}
+                />
+                <RiskLine
+                  label="Pending Leave Requests"
+                  value={pendingLeaves.length}
+                  danger={pendingLeaves.length > 0}
+                />
+                <RiskLine
+                  label="No Schedule Employees"
+                  value={noScheduleEmployees.length}
+                  danger={noScheduleEmployees.length > 0}
+                />
               </div>
             </div>
 
-            <div className="overflow-auto rounded-2xl border border-slate-800">
-              <table className="w-full min-w-[900px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-5 py-4">Department</th>
-                    <th className="px-5 py-4">Issue</th>
-                    <th className="px-5 py-4">Gap</th>
-                    <th className="px-5 py-4">Priority</th>
-                    <th className="px-5 py-4">Action</th>
-                  </tr>
-                </thead>
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Department Exceptions
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Needs Attention
+                </h2>
+                <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                  Shortage, excess manpower, leave impact, no schedule alerts,
+                  or missing published schedule.
+                </p>
+              </div>
 
-                <tbody>
-                  {needsAttention.length > 0 ? (
-                    needsAttention.slice(0, 8).map((dept) => (
-                      <tr
-                        key={dept.department}
-                        className="border-t border-slate-800 hover:bg-slate-800/40"
-                      >
-                        <td className="px-5 py-4 font-bold text-white">
-                          {dept.department}
-                        </td>
-                        <td className="px-5 py-4 text-slate-300">
-                          {dept.gap < 0
-                            ? "Shortage"
-                            : dept.gap > 0
-                              ? "Overstaffed"
-                              : dept.onLeave > 0
-                                ? "Leave impact"
-                                : dept.noSchedule > 0
-                                  ? "No schedule"
-                                  : "Not published"}
-                        </td>
-                        <td
-                          className={
-                            dept.gap < 0
-                              ? "px-5 py-4 font-black text-red-300"
-                              : dept.gap > 0
-                                ? "px-5 py-4 font-black text-blue-300"
-                                : "px-5 py-4 font-black text-slate-300"
-                          }
+              <div className="overflow-auto">
+                <table className="w-full min-w-[900px] text-sm">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-6 py-4">Department</th>
+                      <th className="px-6 py-4">Issue</th>
+                      <th className="px-6 py-4">Gap</th>
+                      <th className="px-6 py-4">Priority</th>
+                      <th className="px-6 py-4">Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                    {needsAttention.length > 0 ? (
+                      needsAttention.slice(0, 8).map((dept) => (
+                        <tr
+                          key={dept.department}
+                          className="transition-all duration-200 hover:bg-slate-50"
                         >
-                          {dept.gap > 0 ? `+${dept.gap}` : dept.gap}
-                        </td>
-                        <td className="px-5 py-4">
-                          <PriorityBadge priority={dept.priority} />
-                        </td>
-                        <td className="px-5 py-4 text-slate-300">
-                          {dept.action}
+                          <td className="px-6 py-4 font-black text-slate-950">
+                            {dept.department}
+                          </td>
+                          <td className="px-6 py-4">
+                            {dept.gap < 0
+                              ? "Shortage"
+                              : dept.gap > 0
+                                ? "Overstaffed"
+                                : dept.onLeave > 0
+                                  ? "Leave impact"
+                                  : dept.noSchedule > 0
+                                    ? "No schedule"
+                                    : "Not published"}
+                          </td>
+                          <td className="px-6 py-4 font-black text-slate-950">
+                            {dept.gap > 0 ? `+${dept.gap}` : dept.gap}
+                          </td>
+                          <td className="px-6 py-4">
+                            <PriorityBadge priority={dept.priority} />
+                          </td>
+                          <td className="px-6 py-4">{dept.action}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-6 py-12 text-center text-sm font-medium text-slate-500"
+                        >
+                          No department needs attention.
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="border-t border-slate-800 px-5 py-8 text-center text-sm text-slate-500"
-                      >
-                        No department needs attention.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10 lg:p-6">
-          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                 Workforce Operations
               </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
+              <h2 className="mt-2 text-xl font-black text-slate-950">
                 Department Coverage
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
+              <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
                 Required, scheduled, available, leave, no schedule, RD, shift
-                colors, gap, and published status.
+                breakdown, gap, and published status.
               </p>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {filteredDepartmentSummary.map((dept) => (
-              <DepartmentCoverageCard
-                key={dept.department}
-                dept={dept}
-                getShiftColorClass={getShiftColorClass}
-                getShiftTimeLabel={getShiftTimeLabel}
-              />
-            ))}
-          </div>
-        </section>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {filteredDepartmentSummary.map((dept) => (
+                <DepartmentCoverageCard
+                  key={dept.department}
+                  dept={dept}
+                  getShiftTimeLabel={getShiftTimeLabel}
+                />
+              ))}
+            </div>
+          </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <StaffList
-            title="Available Floaters / No Schedule"
-            subtitle="Active employees without a working shift today. RD and approved leave are excluded."
-            employees={possibleFloaters}
-            empty="No available floater found."
-          />
+          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <StaffList
+              title="Available Floaters / No Schedule"
+              subtitle="Active employees without a working shift today. RD and approved leave are excluded."
+              employees={possibleFloaters}
+              empty="No available floater found."
+            />
 
-          <StaffList
-            title="On Leave Today"
-            subtitle="Approved leave that affects today’s manpower."
-            employees={approvedLeavesToday.map((leave) => {
-              const emp = employees.find((employee) =>
-                isSameEmployee(employee.id, leave.employee_id),
-              );
-
-              return emp || leave;
-            })}
-            empty="No approved leave today."
-          />
-
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10 lg:p-6">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-              Leave Control
-            </p>
-            <h2 className="mt-2 text-2xl font-black text-white">Leave Queue</h2>
-            <p className="mt-1 text-sm leading-6 text-slate-400">
-              Pending leave requests needing review.
-            </p>
-
-            <div className="mt-5 space-y-3">
-              {pendingLeaves.slice(0, 6).map((leave, index) => {
+            <StaffList
+              title="On Leave Today"
+              subtitle="Approved leave that affects today’s manpower."
+              employees={approvedLeavesToday.map((leave) => {
                 const emp = employees.find((employee) =>
                   isSameEmployee(employee.id, leave.employee_id),
                 );
 
-                return (
-                  <div
-                    key={leave.id || index}
-                    className="rounded-2xl border border-blue-300/20 bg-blue-300/10 p-4"
-                  >
-                    <p className="font-bold text-blue-100">
-                      {emp
-                        ? getEmployeeName(emp)
-                        : leave.employee_name || "Employee"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {String(leave.start_date || leave.date || "").slice(
-                        0,
-                        10,
-                      )}{" "}
-                      -{" "}
-                      {String(leave.end_date || leave.date || "").slice(0, 10)}
-                    </p>
-                  </div>
-                );
+                return emp || leave;
               })}
+              empty="No approved leave today."
+            />
 
-              {pendingLeaves.length === 0 && (
-                <p className="text-sm text-slate-500">
-                  No pending leave requests.
-                </p>
-              )}
+            <LeaveQueue
+              pendingLeaves={pendingLeaves}
+              employees={employees}
+              isSameEmployee={isSameEmployee}
+              getEmployeeName={getEmployeeName}
+            />
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Manpower Action Ledger
+              </p>
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Action Table
+              </h2>
+              <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                Operational manpower issues and recommended action by
+                department.
+              </p>
             </div>
-          </div>
-        </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10 lg:p-6">
-          <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-              Manpower Action Ledger
-            </p>
-            <h2 className="mt-2 text-2xl font-black text-white">
-              Action Table
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-400">
-              Operational manpower issues and recommended action by department.
-            </p>
-          </div>
-
-          <div className="overflow-auto rounded-2xl border border-slate-800">
-            <table className="w-full min-w-[1200px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-5 py-4">Department</th>
-                  <th className="px-5 py-4">Required</th>
-                  <th className="px-5 py-4">Scheduled</th>
-                  <th className="px-5 py-4">Available</th>
-                  <th className="px-5 py-4">No Sched</th>
-                  <th className="px-5 py-4">RD</th>
-                  <th className="px-5 py-4">Gap</th>
-                  <th className="px-5 py-4">Priority</th>
-                  <th className="px-5 py-4">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredDepartmentSummary.map((dept) => (
-                  <tr
-                    key={dept.department}
-                    className="border-t border-slate-800 hover:bg-slate-800/40"
-                  >
-                    <td className="px-5 py-4 font-semibold text-white">
-                      {dept.department}
-                    </td>
-                    <td className="px-5 py-4 text-slate-300">
-                      {dept.required}
-                    </td>
-                    <td className="px-5 py-4 text-slate-300">
-                      {dept.scheduled}
-                    </td>
-                    <td className="px-5 py-4 text-slate-300">
-                      {dept.available}
-                    </td>
-                    <td
-                      className={
-                        dept.noSchedule > 0
-                          ? "px-5 py-4 font-bold text-red-300"
-                          : "px-5 py-4 text-slate-300"
-                      }
-                    >
-                      {dept.noSchedule}
-                    </td>
-                    <td className="px-5 py-4 text-slate-300">
-                      {dept.restDayToday}
-                    </td>
-                    <td
-                      className={
-                        dept.gap < 0
-                          ? "px-5 py-4 font-bold text-red-300"
-                          : dept.gap > 0
-                            ? "px-5 py-4 font-bold text-blue-300"
-                            : "px-5 py-4 font-bold text-emerald-300"
-                      }
-                    >
-                      {dept.gap > 0 ? `+${dept.gap}` : dept.gap}
-                    </td>
-                    <td className="px-5 py-4">
-                      <PriorityBadge priority={dept.priority} />
-                    </td>
-                    <td className="px-5 py-4 text-slate-300">{dept.action}</td>
+            <div className="overflow-auto">
+              <table className="w-full min-w-[1200px] text-sm">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4">Department</th>
+                    <th className="px-6 py-4">Required</th>
+                    <th className="px-6 py-4">Scheduled</th>
+                    <th className="px-6 py-4">Available</th>
+                    <th className="px-6 py-4">No Sched</th>
+                    <th className="px-6 py-4">RD</th>
+                    <th className="px-6 py-4">Gap</th>
+                    <th className="px-6 py-4">Priority</th>
+                    <th className="px-6 py-4">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {filteredDepartmentSummary.map((dept) => (
+                    <tr
+                      key={dept.department}
+                      className="transition-all duration-200 hover:bg-slate-50"
+                    >
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {dept.department}
+                      </td>
+                      <td className="px-6 py-4">{dept.required}</td>
+                      <td className="px-6 py-4">{dept.scheduled}</td>
+                      <td className="px-6 py-4">{dept.available}</td>
+                      <td className="px-6 py-4">{dept.noSchedule}</td>
+                      <td className="px-6 py-4">{dept.restDayToday}</td>
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {dept.gap > 0 ? `+${dept.gap}` : dept.gap}
+                      </td>
+                      <td className="px-6 py-4">
+                        <PriorityBadge priority={dept.priority} />
+                      </td>
+                      <td className="px-6 py-4">{dept.action}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <OpscoreAssistant reminders={assistantReminders} />
       </main>
     </div>
   );
 }
 
-function HeroMetric({
-  label,
+function StatCard({
+  icon,
   title,
   value,
-  subtitle,
+  helper,
+  danger,
 }: {
-  label: string;
+  icon: React.ReactNode;
   title: string;
   value: any;
-  subtitle: string;
+  helper: string;
+  danger?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
-      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
-        {label}
-      </p>
-      <p className="mt-2 text-sm font-bold text-white">{title}</p>
-      <p className="mt-1 text-3xl font-black text-blue-100">{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
-    </div>
-  );
-}
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-950">
+          {icon}
+        </div>
 
-function ExecutiveMiniStat({ label, value }: { label: string; value: any }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-        {label}
+        <StatusBadge
+          status={danger ? "danger" : "success"}
+          label={danger ? "Review" : "Normal"}
+        />
+      </div>
+
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
       </p>
-      <p className="mt-1 text-3xl font-black text-white">{value}</p>
+      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </h2>
+      <p className="mt-1 text-sm font-medium text-slate-500">{helper}</p>
     </div>
   );
 }
@@ -1137,128 +921,93 @@ function RiskLine({
   danger?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3">
-      <p className="text-sm font-semibold text-slate-300">{label}</p>
-      <span
-        className={
-          danger
-            ? "rounded-full border border-red-300/20 bg-red-500/10 px-3 py-1 text-xs font-black text-red-300"
-            : "rounded-full border border-blue-300/20 bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-300"
-        }
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function StatCard({
-  icon,
-  title,
-  value,
-  danger,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: any;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-3xl border p-5 shadow-xl shadow-black/10 ${
-        danger
-          ? "border-red-300/20 bg-red-500/10"
-          : "border-blue-300/20 bg-slate-900"
-      }`}
-    >
-      <div className="mb-3 flex items-center gap-3">
-        <div
-          className={
-            danger
-              ? "rounded-2xl border border-red-300/20 bg-red-500/10 p-3 text-red-300"
-              : "rounded-2xl border border-blue-300/20 bg-blue-500/10 p-3 text-blue-200"
-          }
-        >
-          {icon}
-        </div>
-        <p className="text-sm font-bold text-slate-400">{title}</p>
-      </div>
-
-      <h2 className="text-3xl font-black text-white">{value}</h2>
+    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-sm font-semibold text-slate-700">{label}</p>
+      <StatusBadge
+        status={danger ? "warning" : "neutral"}
+        label={String(value)}
+      />
     </div>
   );
 }
 
 function PriorityBadge({ priority }: { priority: string }) {
+  if (priority === "High") return <StatusBadge status="danger" label="High" />;
+  if (priority === "Medium")
+    return <StatusBadge status="warning" label="Medium" />;
+  if (priority === "Review")
+    return <StatusBadge status="info" label="Review" />;
+
+  return <StatusBadge status="success" label="Normal" />;
+}
+
+function StatusBadge({
+  status,
+  label,
+}: {
+  status: "success" | "warning" | "danger" | "info" | "neutral";
+  label: string;
+}) {
+  const className =
+    status === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : status === "danger"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : status === "info"
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-slate-200 bg-slate-100 text-slate-700";
+
   return (
     <span
-      className={
-        priority === "High"
-          ? "rounded-full border border-red-300/20 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300"
-          : priority === "Medium"
-            ? "rounded-full border border-blue-300/20 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-            : priority === "Review"
-              ? "rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-300"
-              : "rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300"
-      }
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${className}`}
     >
-      {priority}
+      {label}
     </span>
   );
 }
 
 function DepartmentCoverageCard({
   dept,
-  getShiftColorClass,
   getShiftTimeLabel,
 }: {
   dept: any;
-  getShiftColorClass: (shiftName?: string | null) => string;
   getShiftTimeLabel: (shiftName?: string | null) => string;
 }) {
   const width = Math.min(100, Math.max(0, dept.coverage));
 
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/10">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-black text-white">{dept.department}</h3>
-          <p className="mt-1 text-xs text-slate-500">
+          <h3 className="font-black text-slate-950">{dept.department}</h3>
+          <p className="mt-1 text-xs font-medium text-slate-500">
             Required {dept.required} • Scheduled {dept.scheduled} • Available{" "}
             {dept.available}
           </p>
         </div>
 
-        <span
-          className={
+        <StatusBadge
+          status={
             dept.status === "LOW STAFF"
-              ? "rounded-full border border-red-300/20 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300"
+              ? "danger"
               : dept.status === "OVER STAFF"
-                ? "rounded-full border border-blue-300/20 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300"
-                : "rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300"
+                ? "info"
+                : "success"
           }
-        >
-          {dept.status}
-        </span>
+          label={dept.status}
+        />
       </div>
 
       <div className="mt-5">
-        <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+        <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
           <span>Coverage</span>
           <span>{dept.coverage}%</span>
         </div>
 
-        <div className="h-3 overflow-hidden rounded-full bg-slate-800">
-          <div
-            className={
-              dept.gap < 0
-                ? "h-full rounded-full bg-gradient-to-r from-red-500 to-red-300"
-                : dept.gap > 0
-                  ? "h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-200"
-                  : "h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-300 to-cyan-200"
-            }
-            style={{ width: `${width}%` }}
-          />
+        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-slate-950" style={{ width: `${width}%` }} />
         </div>
       </div>
 
@@ -1267,7 +1016,7 @@ function DepartmentCoverageCard({
           {dept.shiftBreakdown.map((item: any) => (
             <span
               key={item.shiftName}
-              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getShiftColorClass(item.shiftName)}`}
+              className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700"
             >
               {getShiftTimeLabel(item.shiftName)} × {item.count}
             </span>
@@ -1276,52 +1025,20 @@ function DepartmentCoverageCard({
       )}
 
       <div className="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2">
-          <p className="text-slate-500">Leave</p>
-          <p className="font-bold text-white">{dept.onLeave}</p>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2">
-          <p className="text-slate-500">No Sched</p>
-          <p
-            className={
-              dept.noSchedule > 0
-                ? "font-bold text-red-300"
-                : "font-bold text-white"
-            }
-          >
-            {dept.noSchedule}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2">
-          <p className="text-slate-500">Gap</p>
-          <p
-            className={
-              dept.gap < 0
-                ? "font-bold text-red-300"
-                : dept.gap > 0
-                  ? "font-bold text-blue-300"
-                  : "font-bold text-emerald-300"
-            }
-          >
-            {dept.gap > 0 ? `+${dept.gap}` : dept.gap}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2">
-          <p className="text-slate-500">Pub</p>
-          <p
-            className={
-              dept.published
-                ? "font-bold text-blue-300"
-                : "font-bold text-red-300"
-            }
-          >
-            {dept.published ? "Yes" : "Draft"}
-          </p>
-        </div>
+        <MiniValue label="Leave" value={dept.onLeave} />
+        <MiniValue label="No Sched" value={dept.noSchedule} />
+        <MiniValue label="Gap" value={dept.gap > 0 ? `+${dept.gap}` : dept.gap} />
+        <MiniValue label="Pub" value={dept.published ? "Yes" : "Draft"} />
       </div>
+    </div>
+  );
+}
+
+function MiniValue({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+      <p className="text-slate-500">{label}</p>
+      <p className="font-black text-slate-950">{value}</p>
     </div>
   );
 }
@@ -1344,28 +1061,85 @@ function StaffList({
     "Employee";
 
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10 lg:p-6">
-      <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         Workforce List
       </p>
-      <h2 className="mt-2 text-2xl font-black text-white">{title}</h2>
-      <p className="mt-1 text-sm leading-6 text-slate-400">{subtitle}</p>
+      <h2 className="mt-2 text-xl font-black text-slate-950">{title}</h2>
+      <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+        {subtitle}
+      </p>
 
       <div className="mt-5 space-y-3">
         {employees.slice(0, 8).map((emp, index) => (
           <div
             key={emp.id || index}
-            className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
           >
-            <p className="font-semibold text-white">{getName(emp)}</p>
-            <p className="text-xs text-slate-500">
+            <p className="font-black text-slate-950">{getName(emp)}</p>
+            <p className="text-xs font-medium text-slate-500">
               {emp.department || "Unassigned"} • {emp.position || "No position"}
             </p>
           </div>
         ))}
 
         {employees.length === 0 && (
-          <p className="text-sm text-slate-500">{empty}</p>
+          <p className="py-8 text-center text-sm font-medium text-slate-500">
+            {empty}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LeaveQueue({
+  pendingLeaves,
+  employees,
+  isSameEmployee,
+  getEmployeeName,
+}: {
+  pendingLeaves: any[];
+  employees: any[];
+  isSameEmployee: (a: any, b: any) => boolean;
+  getEmployeeName: (emp: any) => string;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        Leave Control
+      </p>
+      <h2 className="mt-2 text-xl font-black text-slate-950">Leave Queue</h2>
+      <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+        Pending leave requests needing review.
+      </p>
+
+      <div className="mt-5 space-y-3">
+        {pendingLeaves.slice(0, 6).map((leave, index) => {
+          const emp = employees.find((employee) =>
+            isSameEmployee(employee.id, leave.employee_id),
+          );
+
+          return (
+            <div
+              key={leave.id || index}
+              className="rounded-2xl border border-amber-200 bg-amber-50 p-4"
+            >
+              <p className="font-black text-slate-950">
+                {emp ? getEmployeeName(emp) : leave.employee_name || "Employee"}
+              </p>
+              <p className="mt-1 text-xs font-bold text-amber-700">
+                {String(leave.start_date || leave.date || "").slice(0, 10)} -{" "}
+                {String(leave.end_date || leave.date || "").slice(0, 10)}
+              </p>
+            </div>
+          );
+        })}
+
+        {pendingLeaves.length === 0 && (
+          <p className="py-8 text-center text-sm font-medium text-slate-500">
+            No pending leave requests.
+          </p>
         )}
       </div>
     </div>

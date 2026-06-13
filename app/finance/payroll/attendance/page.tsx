@@ -5,6 +5,8 @@ import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
+import OpscoreAssistant from "@/components/OpscoreAssistant";
 
 type Employee = {
   id: string;
@@ -1889,51 +1891,102 @@ export default function AttendancePage() {
     "Locked payroll period";
 
   const matchedPreviewCount = importPreview.filter((row) => row.matched).length;
-  const missingPreviewCount = importPreview.filter(
-    (row) => !row.matched,
-  ).length;
+const missingPreviewCount = importPreview.filter(
+  (row) => !row.matched,
+).length;
+
+const otHours = totalOtMinutes / 60;
+
+
+  type AssistantReminder = {
+  type: "critical" | "warning" | "info" | "success" | "neutral";
+  text: string;
+};
+
+const assistantReminders: AssistantReminder[] = [];
+
+if (attendanceLocked) {
+  assistantReminders.push({
+    type: "critical",
+    text: `Attendance is locked for ${lockedPeriodNames}. Reopen payroll before editing.`,
+  });
+}
+
+if (payrollIssueRows.length > 0) {
+  assistantReminders.push({
+    type: "critical",
+    text: `${payrollIssueRows.length} attendance issue(s) must be reviewed before payroll.`,
+  });
+}
+
+if (missingPreviewCount > 0) {
+  assistantReminders.push({
+    type: "warning",
+    text: `${missingPreviewCount} imported biometric row(s) are not matched to employees.`,
+  });
+}
+
+if (lateCount > 0) {
+  assistantReminders.push({
+    type: "info",
+    text: `${lateCount} late attendance record(s) detected.`,
+  });
+}
+
+if (otHours > 0) {
+  assistantReminders.push({
+    type: "info",
+    text: `${otHours.toFixed(2)} OT hour(s) recorded in this cutoff.`,
+  });
+}
+
+const limitedAssistantReminders = assistantReminders.slice(0, 5);
 
   /// UI
+  return (
+    <PageGuard moduleKey="attendance">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+        <Sidebar />
 
-   return (
-  <PageGuard moduleKey="attendance">
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="PAYROLL / ATTENDANCE ENTRIES" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-
-        
-          <section className="mb-5 rounded-3xl border border-slate-800 bg-slate-900/90 p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
-                  Payroll Workbench
+          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  Payroll
                 </p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                   Attendance Entries
                 </h1>
-                <p className="mt-1 max-w-4xl text-sm leading-6 text-slate-400">
-                  Import biometrics, review exceptions, edit attendance rows, and save payroll-ready attendance.
+                <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                  Import biometrics, review exceptions, edit attendance rows,
+                  and save payroll-ready attendance.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <span
-                  className={
+                <StatusPill
+                  tone={
                     attendanceLocked
-                      ? "rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-black text-amber-300"
+                      ? "warning"
                       : payrollReady
-                        ? "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-300"
-                        : "rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-black text-slate-300"
+                        ? "success"
+                        : "neutral"
                   }
                 >
-                  {attendanceLocked ? "Locked" : payrollReady ? "Payroll Ready" : "Review Mode"}
-                </span>
+                  {attendanceLocked
+                    ? "Locked"
+                    : payrollReady
+                      ? "Payroll Ready"
+                      : "Review Mode"}
+                </StatusPill>
 
                 <button
                   onClick={saveAttendance}
                   disabled={isSaving || attendanceLocked}
-                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {attendanceLocked
                     ? "Attendance Locked"
@@ -1944,510 +1997,693 @@ export default function AttendancePage() {
                         : "Save with Issues"}
                 </button>
               </div>
-            </div>
-          </section>
-
-          {(attendanceLocked || importStatus) && (
-            <section className="mb-5 space-y-3">
-              {attendanceLocked && (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-100">
-                  <span className="font-black text-amber-300">Locked cutoff:</span>{" "}
-                  Payroll was already sent for approval for {lockedPeriodNames}. Reopen payroll before editing or importing attendance.
-                </div>
-              )}
-
-              {importStatus && (
-                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-sm font-semibold text-blue-200">
-                  {importStatus}
-                </div>
-              )}
             </section>
-          )}
 
-          <section className="sticky top-0 z-40 mb-5 rounded-3xl border border-slate-800 bg-slate-900/95 p-4 shadow-2xl shadow-black/20 backdrop-blur">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto]">
-              <select
-                value={selectedCutoffId}
-                onChange={(e) => applyPayrollCutoff(e.target.value)}
-                className="min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-slate-200 outline-none"
-              >
-                <option value="CUSTOM">Custom Date Range</option>
-                {payrollPeriods.map((period) => (
-                  <option key={period.id} value={period.id}>
-                    {period.period_name} • {String(period.start_date).slice(0, 10)} to {String(period.end_date).slice(0, 10)}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={departmentFilter}
-                onChange={(e) => {
-                  setDepartmentFilter(e.target.value);
-                  setSelectedEmployeeId("");
-                }}
-                className="min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-              >
-                <option value="ALL">All Departments</option>
-                {departments.map((dept: any) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-
-              <select
-                value={selectedEmployeeId}
-                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-              >
-                <option value="">Select Employee</option>
-                <option value="ALL_EMPLOYEES">All Employees</option>
-                {employeeOptions.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.first_name} {emp.last_name}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setSelectedCutoffId("CUSTOM");
-                  setStartDate(e.target.value);
-                }}
-                style={{ colorScheme: "dark" }}
-                className="min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-              />
-
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setSelectedCutoffId("CUSTOM");
-                  setEndDate(e.target.value);
-                }}
-                style={{ colorScheme: "dark" }}
-                className="min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-              />
-
-              <label className="cursor-pointer rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-center text-sm font-black text-slate-200 hover:bg-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-                Import File
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  disabled={attendanceLocked}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) previewBiometrics(file);
-                    e.target.value = "";
-                  }}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <SummaryCard title="Rows" value={attendanceRows.length} />
-              <SummaryCard title="Issues" value={payrollIssueRows.length} color={payrollIssueRows.length > 0 ? "text-red-300" : "text-emerald-300"} />
-              <SummaryCard title="Late" value={lateCount} color={lateCount > 0 ? "text-amber-300" : "text-slate-200"} />
-              <SummaryCard title="OT Hours" value={(totalOtMinutes / 60).toFixed(2)} color="text-blue-300" />
-            </div>
-          </section>
-
-          {reviewEmployees.length > 0 && payrollIssueRows.length > 0 && (
-            <section className="mb-5 rounded-3xl border border-red-500/25 bg-red-500/10 p-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <h2 className="text-xl font-black text-red-200">Attendance Exceptions</h2>
-                  <p className="mt-1 text-sm text-red-100/80">
-                    Missing: {missingEntryRows.length} • Missing out: {missingOutRows.length} • No schedule: {noScheduleRows.length} • Review: {reviewRequiredRows.length}
-                  </p>
-                </div>
-
-                {missingEntryRows.length > 0 && (
-                  <button
-                    onClick={markMissingAsAbsent}
-                    disabled={attendanceLocked}
-                    className="rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-500 disabled:opacity-50"
-                  >
-                    Mark Missing as Absent
-                  </button>
+            {(attendanceLocked || importStatus) && (
+              <section className="mb-6 space-y-3">
+                {attendanceLocked && (
+                  <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                      Locked Cutoff
+                    </p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-amber-700">
+                      Payroll was already sent for approval for{" "}
+                      <span className="font-black">{lockedPeriodNames}</span>.
+                      Reopen payroll before editing or importing attendance.
+                    </p>
+                  </div>
                 )}
-              </div>
 
-              <div className="mt-4 max-h-56 overflow-auto rounded-2xl border border-red-500/20 bg-slate-950/70">
-                <table className="w-full min-w-[900px] text-sm">
-                  <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">Employee</th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Issue</th>
-                      <th className="px-4 py-3">Schedule</th>
-                      <th className="px-4 py-3">Time In</th>
-                      <th className="px-4 py-3">Time Out</th>
-                    </tr>
-                  </thead>
+                {importStatus && (
+                  <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 text-sm font-semibold leading-6 text-blue-700 shadow-sm">
+                    {importStatus}
+                  </div>
+                )}
+              </section>
+            )}
 
-                  <tbody>
-                    {payrollIssueRows.slice(0, 80).map((row) => {
-                      const isWorkingDay =
-                        row.scheduled_shift !== "OFF" &&
-                        row.scheduled_shift !== "RD" &&
-                        row.scheduled_shift !== "Leave";
-
-                      let issue = "Needs Review";
-                      if (row.status === "Review Required") issue = row.review_reason || "Review Required";
-                      else if (isWorkingDay && !row.entry?.time_in && !row.entry?.time_out) issue = "Missing Time In / Out";
-                      else if (isWorkingDay && row.entry?.time_in && !row.entry?.time_out) issue = "Missing Time Out";
-                      else if (isUnscheduledShift(row.scheduled_shift)) issue = "Unscheduled Employee";
-
-                      return (
-                        <tr key={`issue-${row.key}`} className="border-t border-slate-800">
-                          <td className="px-4 py-3">
-                            <p className="font-black">{row.employee.first_name} {row.employee.last_name}</p>
-                            <p className="text-xs text-slate-500">{row.employee.employee_no || "-"}</p>
-                          </td>
-                          <td className="px-4 py-3 font-bold">{row.date}</td>
-                          <td className="px-4 py-3 font-black text-red-200">{issue}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getShiftColorClass(row.scheduled_shift)}`}>
-                              {getScheduleLabel(row.scheduled_shift)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">{row.entry?.time_in || "--:--"}</td>
-                          <td className="px-4 py-3">{row.entry?.time_out || "--:--"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-
-          {importPreview.length > 0 && (
-            <section className="mb-5 rounded-3xl border border-slate-800 bg-slate-900 p-5">
-              <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <h2 className="text-xl font-black">Import Preview</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Rows: {importPreview.length} • Matched: {matchedPreviewCount} • Missing: {missingPreviewCount}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={clearImportPreview}
-                    className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
-                  >
-                    Clear Preview
-                  </button>
-
-                  <button
-                    onClick={confirmImportPreview}
-                    disabled={attendanceLocked}
-                    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    Confirm Import
-                  </button>
-                </div>
-              </div>
-
-              <div className="max-h-[360px] overflow-auto rounded-2xl border border-slate-800">
-                <table className="w-full min-w-[1250px] text-sm">
-                  <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">Biometric ID</th>
-                      <th className="px-4 py-3">Excel Name</th>
-                      <th className="px-4 py-3">Matched Employee</th>
-                      <th className="px-4 py-3">Manual Match</th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Time In</th>
-                      <th className="px-4 py-3">Time Out</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Remarks</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {importPreview.map((row, index) => (
-                      <tr key={`${row.biometric_employee_no}-${row.attendance_date}-${index}`} className="border-t border-slate-800">
-                        <td className="px-4 py-3">{row.biometric_employee_no || "-"}</td>
-                        <td className="px-4 py-3 font-bold">{row.employee_name || "-"}</td>
-                        <td className="px-4 py-3">
-                          <p className={row.matched ? "font-black text-emerald-300" : "font-black text-red-300"}>
-                            {row.matched_employee_name || "Not matched"}
-                          </p>
-                          <p className="text-xs text-slate-500">{row.matched_employee_no || "-"}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          {!row.matched && (
-                            <select
-                              value=""
-                              onChange={(e) => applyManualBiometricMatch(index, e.target.value)}
-                              className="w-56 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
-                            >
-                              <option value="">Select employee...</option>
-                              {employees.map((emp) => (
-                                <option key={emp.id} value={emp.id}>
-                                  {emp.first_name} {emp.last_name} • {emp.employee_no || "-"}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">{row.attendance_date}</td>
-                        <td className="px-4 py-3">{row.time_in || "--:--"}</td>
-                        <td className="px-4 py-3">{row.time_out || "--:--"}</td>
-                        <td className="px-4 py-3">
-                          <span className={row.matched ? "rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-300" : "rounded-full bg-red-500/10 px-3 py-1 text-xs font-black text-red-300"}>
-                            {row.matched ? "Ready" : "Issue"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-300">{row.remarks}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-black">Attendance Review Table</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Time fields accept 0800, 8:00, 8am, 1730, or 5:30pm. Saving marks affected payroll cutoffs for regeneration.
+            <section className="mb-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Attendance Controls
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Cutoff, Filters, and Import
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Select payroll cutoff or custom range, filter employees, and
+                  import biometric files.
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-400">
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2">Present {presentCount}</span>
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2">Absent {absentCount}</span>
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2">Missing Out {missingOutRows.length}</span>
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2">Review {reviewRequiredRows.length}</span>
+              <div className="p-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1.25fr_1fr_1fr_1fr_1fr_auto]">
+                  <select
+                    value={selectedCutoffId}
+                    onChange={(e) => applyPayrollCutoff(e.target.value)}
+                    className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="CUSTOM">Custom Date Range</option>
+                    {payrollPeriods.map((period) => (
+                      <option key={period.id} value={period.id}>
+                        {period.period_name} •{" "}
+                        {String(period.start_date).slice(0, 10)} to{" "}
+                        {String(period.end_date).slice(0, 10)}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={departmentFilter}
+                    onChange={(e) => {
+                      setDepartmentFilter(e.target.value);
+                      setSelectedEmployeeId("");
+                    }}
+                    className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="ALL">All Departments</option>
+                    {departments.map((dept: any) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="">Select Employee</option>
+                    <option value="ALL_EMPLOYEES">All Employees</option>
+                    {employeeOptions.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.first_name} {emp.last_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setSelectedCutoffId("CUSTOM");
+                      setStartDate(e.target.value);
+                    }}
+                    className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setSelectedCutoffId("CUSTOM");
+                      setEndDate(e.target.value);
+                    }}
+                    className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+
+                  <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                    Import File
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      disabled={attendanceLocked}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) previewBiometrics(file);
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div className="overflow-auto rounded-2xl border border-slate-800">
-              <table className="w-full min-w-[1450px] text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Employee</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Scheduled Shift</th>
-                    <th className="px-4 py-3">Time In</th>
-                    <th className="px-4 py-3">Time Out</th>
-                    <th className="px-4 py-3 text-right">Late</th>
-                    <th className="px-4 py-3 text-right">Undertime</th>
-                    <th className="px-4 py-3 text-right">OT</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Source</th>
-                    <th className="px-4 py-3">Remarks</th>
-                    <th className="w-16 px-4 py-3 text-center">⚠</th>
-                  </tr>
-                </thead>
+            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <KpiCard
+                label="Attendance Rows"
+                value={attendanceRows.length}
+                helper={`${reviewEmployees.length} selected employee(s)`}
+              />
+              <KpiCard
+                label="Payroll Issues"
+                value={payrollIssueRows.length}
+                helper={
+                  payrollIssueRows.length > 0
+                    ? "Needs review before payroll"
+                    : "No blocking issue found"
+                }
+                tone={payrollIssueRows.length > 0 ? "danger" : "success"}
+              />
+              <KpiCard
+                label="Late Records"
+                value={lateCount}
+                helper={`${absentCount} absent row(s)`}
+                tone={lateCount > 0 ? "warning" : "neutral"}
+              />
+              <KpiCard
+                label="OT Hours"
+                value={(totalOtMinutes / 60).toFixed(2)}
+                helper={`${presentCount} present / worked row(s)`}
+                tone="info"
+              />
+            </section>
 
-                <tbody>
-                  {attendanceRows.map((row) => {
-                    const rowIsApprovedLeave = row.status === "Leave" || isLeaveShift(row.scheduled_shift);
-                    const hasIssue = payrollIssueRows.some((issue) => issue.key === row.key);
+            {reviewEmployees.length === 0 && (
+              <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  No Employee Selected
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Select an employee or choose All Employees.
+                </h2>
+                <p className="mt-2 text-sm font-medium text-slate-500">
+                  Attendance rows will appear after selecting a review scope.
+                </p>
+              </section>
+            )}
 
-                    return (
-                      <tr key={row.key} className={`border-t border-slate-800 align-middle hover:bg-slate-800/40 ${hasIssue ? "bg-red-500/5" : ""}`}>
-                        <td className="px-4 py-3 align-middle">
-                          <p className="font-black">{row.employee.first_name} {row.employee.last_name}</p>
-                          <p className="text-xs text-slate-500">{row.employee.employee_no || "-"} • {row.employee.department || "-"}</p>
-                        </td>
+            {reviewEmployees.length > 0 && payrollIssueRows.length > 0 && (
+              <section className="mb-6 rounded-3xl border border-red-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">
+                      Attendance Exceptions
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-slate-950">
+                      Payroll Blocking Issues
+                    </h2>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                      Missing: {missingEntryRows.length} • Missing out:{" "}
+                      {missingOutRows.length} • No schedule:{" "}
+                      {noScheduleRows.length} • Review:{" "}
+                      {reviewRequiredRows.length}
+                    </p>
+                  </div>
 
-                        <td className="px-4 py-3 align-middle font-bold">{row.date}</td>
-
-                        <td className="px-4 py-3 align-middle">
-                          <select
-                            value={row.scheduled_shift}
-                            disabled={attendanceLocked || rowIsApprovedLeave}
-                            onChange={(e) => updateScheduleOverride(row.employee, row.date, e.target.value)}
-                            className={`w-44 rounded-lg border px-3 py-2 text-center text-sm font-black outline-none disabled:opacity-50 ${getShiftColorClass(row.scheduled_shift)}`}
-                          >
-                            {!shiftTemplates.some((shift) => shift.shift_name === "OFF") && <option value="OFF">OFF</option>}
-
-                            {shiftTemplates.map((shift) => (
-                              <option key={shift.id} value={shift.shift_name} className="bg-slate-900 text-white">
-                                {getShiftTimeLabel(shift.shift_name)}
-                              </option>
-                            ))}
-
-                            {!shiftTemplates.some((shift) => shift.shift_name === "RD") && <option value="RD">RD</option>}
-
-                            {!shiftTemplates.some((shift) => shift.shift_name === "Leave" || shift.shift_name === "LEAVE") && <option value="Leave">LEAVE</option>}
-                          </select>
-                        </td>
-
-                        <td className="px-4 py-3 align-middle">
-                          <FriendlyTimeInput
-                            value={row.entry?.time_in || ""}
-                            disabled={attendanceLocked || rowIsApprovedLeave}
-                            placeholder="0800 / 8am"
-                            onCommit={(value: string) => updateLocalEntry(row.employee, row.date, "time_in", value)}
-                          />
-                        </td>
-
-                        <td className="px-4 py-3 align-middle">
-                          <FriendlyTimeInput
-                            value={row.entry?.time_out || ""}
-                            disabled={attendanceLocked || rowIsApprovedLeave}
-                            placeholder="1700 / 5pm"
-                            onCommit={(value: string) => updateLocalEntry(row.employee, row.date, "time_out", value)}
-                          />
-                        </td>
-
-                        <td className="px-4 py-3 text-right align-middle font-bold text-amber-300">{row.late_minutes}</td>
-                        <td className="px-4 py-3 text-right align-middle font-bold text-red-300">{row.undertime_minutes}</td>
-                        <td className="px-4 py-3 text-right align-middle font-bold text-blue-300">{row.ot_minutes}</td>
-
-                        <td className="px-4 py-3 align-middle"><StatusBadge status={row.status} /></td>
-                        <td className="px-4 py-3 align-middle"><SourceBadge source={row.entry?.attendance_source || getExistingSource(row.entry) || "-"} /></td>
-
-                        <td className="px-4 py-3 align-middle">
-                          <input
-                            value={row.entry?.remarks || ""}
-                            disabled={attendanceLocked || rowIsApprovedLeave}
-                            onChange={(e) => updateLocalEntry(row.employee, row.date, "remarks", e.target.value)}
-                            className="w-72 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
-                          />
-                        </td>
-
-                        <td className="w-16 px-4 py-3 text-center align-middle">
-                          {row.review_reason || isUnscheduledShift(row.scheduled_shift) ? (
-                            <span title={row.review_reason || "No schedule assigned"} className="inline-flex h-8 w-8 items-center justify-center rounded-full text-lg font-black text-red-300">⚠</span>
-                          ) : (
-                            <span className="inline-flex h-8 w-8 items-center justify-center text-slate-700">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {attendanceRows.length === 0 && (
-                    <tr>
-                      <td colSpan={12} className="px-4 py-14 text-center text-slate-500">
-                        Select an employee to review attendance by date range.
-                      </td>
-                    </tr>
+                  {missingEntryRows.length > 0 && (
+                    <button
+                      onClick={markMissingAsAbsent}
+                      disabled={attendanceLocked}
+                      className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Mark Missing as Absent
+                    </button>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-                  </main>
-    </div>
-  </PageGuard>
-);
+                </div>
+
+                <div className="max-h-72 overflow-auto">
+                  <table className="w-full min-w-[900px] text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                      <tr>
+                        <th className="px-6 py-4">Employee</th>
+                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4">Issue</th>
+                        <th className="px-6 py-4">Schedule</th>
+                        <th className="px-6 py-4">Time In</th>
+                        <th className="px-6 py-4">Time Out</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                      {payrollIssueRows.slice(0, 80).map((row) => {
+                        const isWorkingDay =
+                          row.scheduled_shift !== "OFF" &&
+                          row.scheduled_shift !== "RD" &&
+                          row.scheduled_shift !== "Leave";
+
+                        let issue = "Needs Review";
+                        if (row.status === "Review Required") {
+                          issue = row.review_reason || "Review Required";
+                        } else if (
+                          isWorkingDay &&
+                          !row.entry?.time_in &&
+                          !row.entry?.time_out
+                        ) {
+                          issue = "Missing Time In / Out";
+                        } else if (
+                          isWorkingDay &&
+                          row.entry?.time_in &&
+                          !row.entry?.time_out
+                        ) {
+                          issue = "Missing Time Out";
+                        } else if (isUnscheduledShift(row.scheduled_shift)) {
+                          issue = "Unscheduled Employee";
+                        }
+
+                        return (
+                          <tr
+                            key={`issue-${row.key}`}
+                            className="transition-all duration-200 hover:bg-slate-50"
+                          >
+                            <td className="px-6 py-4">
+                              <p className="font-black text-slate-950">
+                                {row.employee.first_name}{" "}
+                                {row.employee.last_name}
+                              </p>
+                              <p className="text-xs font-medium text-slate-500">
+                                {row.employee.employee_no || "-"}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4">{row.date}</td>
+                            <td className="px-6 py-4 font-black text-red-700">
+                              {issue}
+                            </td>
+                            <td className="px-6 py-4">
+                              <SchedulePill label={getScheduleLabel(row.scheduled_shift)} />
+                            </td>
+                            <td className="px-6 py-4">
+                              {row.entry?.time_in || "--:--"}
+                            </td>
+                            <td className="px-6 py-4">
+                              {row.entry?.time_out || "--:--"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {importPreview.length > 0 && (
+              <section className="mb-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Biometric Import
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-slate-950">
+                      Import Preview
+                    </h2>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                      Rows: {importPreview.length} • Matched:{" "}
+                      {matchedPreviewCount} • Missing: {missingPreviewCount}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={clearImportPreview}
+                      className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                    >
+                      Clear Preview
+                    </button>
+
+                    <button
+                      onClick={confirmImportPreview}
+                      disabled={attendanceLocked}
+                      className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Confirm Import
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-[420px] overflow-auto">
+                  <table className="w-full min-w-[1250px] text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                      <tr>
+                        <th className="px-6 py-4">Biometric ID</th>
+                        <th className="px-6 py-4">Excel Name</th>
+                        <th className="px-6 py-4">Matched Employee</th>
+                        <th className="px-6 py-4">Manual Match</th>
+                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4">Time In</th>
+                        <th className="px-6 py-4">Time Out</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4">Remarks</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                      {importPreview.map((row, index) => (
+                        <tr
+                          key={`${row.biometric_employee_no}-${row.attendance_date}-${index}`}
+                          className="transition-all duration-200 hover:bg-slate-50"
+                        >
+                          <td className="px-6 py-4">
+                            {row.biometric_employee_no || "-"}
+                          </td>
+                          <td className="px-6 py-4 font-black text-slate-950">
+                            {row.employee_name || "-"}
+                          </td>
+                          <td className="px-6 py-4">
+                            <p
+                              className={
+                                row.matched
+                                  ? "font-black text-emerald-700"
+                                  : "font-black text-red-700"
+                              }
+                            >
+                              {row.matched_employee_name || "Not matched"}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500">
+                              {row.matched_employee_no || "-"}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <select
+                              value={row.employee_id || ""}
+                              onChange={(e) =>
+                                applyManualBiometricMatch(index, e.target.value)
+                              }
+                              className="h-11 w-full min-w-[220px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            >
+                              <option value="">Select match</option>
+                              {employees.map((emp) => (
+                                <option key={emp.id} value={emp.id}>
+                                  {emp.employee_no ? `${emp.employee_no} • ` : ""}
+                                  {emp.first_name} {emp.last_name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-6 py-4">{row.attendance_date}</td>
+                          <td className="px-6 py-4">{row.time_in || "--:--"}</td>
+                          <td className="px-6 py-4">{row.time_out || "--:--"}</td>
+                          <td className="px-6 py-4">
+                            <AttendanceStatusBadge status={row.status} />
+                          </td>
+                          <td className="px-6 py-4">{row.remarks}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {reviewEmployees.length > 0 && (
+              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 px-6 py-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Attendance Workbench
+                  </p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">
+                    Attendance Rows
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Edit schedule override, time in, time out, and remarks.
+                    Save once rows are reviewed.
+                  </p>
+                </div>
+
+                <div className="overflow-auto">
+                  <table className="w-full min-w-[1500px] text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                      <tr>
+                        <th className="px-6 py-4">Employee</th>
+                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4">Schedule</th>
+                        <th className="px-6 py-4">Time In</th>
+                        <th className="px-6 py-4">Time Out</th>
+                        <th className="px-6 py-4">Late</th>
+                        <th className="px-6 py-4">Undertime</th>
+                        <th className="px-6 py-4">OT</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4">Source</th>
+                        <th className="px-6 py-4">Remarks</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                      {attendanceRows.map((row) => (
+                        <tr
+                          key={row.key}
+                          className="transition-all duration-200 hover:bg-slate-50"
+                        >
+                          <td className="px-6 py-4">
+                            <p className="font-black text-slate-950">
+                              {row.employee.first_name} {row.employee.last_name}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500">
+                              {row.employee.department || "Unassigned"} •{" "}
+                              {row.employee.employee_no || "No ID"}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4 font-black text-slate-950">
+                            {row.date}
+                          </td>
+                          <td className="px-6 py-4">
+                            <select
+                              value={row.scheduled_shift || "OFF"}
+                              disabled={attendanceLocked}
+                              onChange={(e) =>
+                                updateScheduleOverride(
+                                  row.employee,
+                                  row.date,
+                                  e.target.value,
+                                )
+                              }
+                              className="h-11 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <option value="OFF">OFF</option>
+                              <option value="RD">RD</option>
+                              {shiftTemplates.map((shift) => (
+                                <option key={shift.id} value={shift.shift_name}>
+                                  {shift.shift_name} •{" "}
+                                  {String(shift.start_time || "").slice(0, 5)}-
+                                  {String(shift.end_time || "").slice(0, 5)}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-6 py-4">
+                            <TimeInput
+                              value={row.entry?.time_in || ""}
+                              disabled={attendanceLocked}
+                              onChange={(value) =>
+                                updateLocalEntry(
+                                  row.employee,
+                                  row.date,
+                                  "time_in",
+                                  value,
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="px-6 py-4">
+                            <TimeInput
+                              value={row.entry?.time_out || ""}
+                              disabled={attendanceLocked}
+                              onChange={(value) =>
+                                updateLocalEntry(
+                                  row.employee,
+                                  row.date,
+                                  "time_out",
+                                  value,
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="px-6 py-4">
+                            {Number(row.late_minutes || 0)}
+                          </td>
+                          <td className="px-6 py-4">
+                            {Number(row.undertime_minutes || 0)}
+                          </td>
+                          <td className="px-6 py-4">
+                            {(Number(row.ot_minutes || 0) / 60).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <AttendanceStatusBadge status={row.status} />
+                          </td>
+                          <td className="px-6 py-4">
+                            <SourceBadge
+                              source={
+                                row.entry?.attendance_source ||
+                                getExistingSource(row.entry) ||
+                                getAttendanceSourcePreference(row.employee)
+                              }
+                            />
+                          </td>
+                          <td className="px-6 py-4">
+                            <input
+                              type="text"
+                              value={row.entry?.remarks || ""}
+                              disabled={attendanceLocked}
+                              onChange={(e) =>
+                                updateLocalEntry(
+                                  row.employee,
+                                  row.date,
+                                  "remarks",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-11 w-full min-w-[260px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                              placeholder="Remarks"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+
+                      {attendanceRows.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={11}
+                            className="px-6 py-14 text-center text-sm font-medium text-slate-500"
+                          >
+                            No attendance rows found for the selected filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+          </div>
+
+          <OpscoreAssistant reminders={assistantReminders} />
+        </main>
+      </div>
+    </PageGuard>
+  );
 }
 
-function FriendlyTimeInput({
+function KpiCard({
+  label,
+  value,
+  helper,
+  tone = "neutral",
+}: {
+  label: string;
+  value: any;
+  helper: string;
+  tone?: "success" | "warning" | "danger" | "info" | "neutral";
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          {label}
+        </p>
+        <StatusPill tone={tone}>
+          {tone === "danger"
+            ? "Review"
+            : tone === "success"
+              ? "Ready"
+              : tone === "warning"
+                ? "Watch"
+                : tone === "info"
+                  ? "Info"
+                  : "Normal"}
+        </StatusPill>
+      </div>
+
+      <h2 className="text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </h2>
+      <p className="mt-1 text-sm font-medium text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+function TimeInput({
   value,
   disabled,
-  placeholder,
-  onCommit,
+  onChange,
 }: {
   value: string;
-  disabled?: boolean;
-  placeholder?: string;
-  onCommit: (value: string) => void;
+  disabled: boolean;
+  onChange: (value: string) => void;
 }) {
-  const [draft, setDraft] = useState(value || "");
+  const [localValue, setLocalValue] = useState(value || "");
 
   useEffect(() => {
-    setDraft(value || "");
+    setLocalValue(value || "");
   }, [value]);
-
-  const commit = () => {
-    const parsed = parseFriendlyTimeInput(draft);
-
-    if (parsed === null) {
-      alert("Invalid time format. Use 0800, 8:00, 8am, 1730, or 5:30pm.");
-      setDraft(value || "");
-      return;
-    }
-
-    setDraft(parsed);
-    onCommit(parsed);
-  };
 
   return (
     <input
       type="text"
-      inputMode="text"
-      value={draft}
+      value={localValue}
       disabled={disabled}
-      placeholder={placeholder || "0800 / 8am"}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          commit();
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={() => {
+        const parsed = parseFriendlyTimeInput(localValue);
+        if (parsed === null) {
+          alert("Invalid time format. Use 09:00, 9am, 530pm, or 17:30.");
+          setLocalValue(value || "");
+          return;
         }
+
+        onChange(parsed || "");
       }}
-      className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none placeholder:text-slate-600 disabled:opacity-50"
+      className="h-11 w-[110px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+      placeholder="--:--"
     />
   );
 }
 
-function SummaryCard({ title, value, color = "text-white" }: any) {
+function SchedulePill({ label }: { label: string }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{title}</p>
-      <h2 className={`mt-1 text-2xl font-black ${color}`}>{value}</h2>
-    </div>
+    <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+      {label}
+    </span>
   );
 }
 
-function SourceBadge({ source }: { source: string }) {
-  const normalized = String(source || "-");
-
+function StatusPill({
+  tone,
+  children,
+}: {
+  tone: "success" | "warning" | "danger" | "info" | "neutral";
+  children: React.ReactNode;
+}) {
   const style =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : tone === "danger"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : tone === "info"
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-slate-200 bg-slate-100 text-slate-700";
+
+  return (
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${style}`}>
+      {children}
+    </span>
+  );
+}
+
+function AttendanceStatusBadge({ status }: { status: any }) {
+  const normalized = String(status || "Unreviewed");
+
+  const tone =
+    normalized === "Present" || normalized === "Overtime"
+      ? "success"
+      : normalized === "Late"
+        ? "warning"
+        : normalized === "Undertime" ||
+            normalized === "Absent" ||
+            normalized === "Unscheduled" ||
+            normalized === "Review Required"
+          ? "danger"
+          : normalized === "Leave"
+            ? "info"
+            : "neutral";
+
+  return <StatusPill tone={tone}>{normalized}</StatusPill>;
+}
+
+function SourceBadge({ source }: { source: any }) {
+  const normalized = String(source || "Manual Entry");
+
+  const tone =
     normalized === "Employee Portal"
-      ? "bg-blue-500/10 text-blue-400"
+      ? "info"
       : normalized === "Biometrics"
-        ? "bg-emerald-500/10 text-emerald-400"
+        ? "success"
         : normalized === "Mixed"
-          ? "bg-orange-500/10 text-orange-400"
-          : normalized === "Manual Entry"
-            ? "bg-purple-500/10 text-purple-400"
-            : "bg-slate-700 text-slate-300";
+          ? "warning"
+          : "neutral";
 
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${style}`}>
-      {normalized}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: any) {
-  const style =
-    status === "Present"
-      ? "bg-emerald-500/10 text-emerald-400"
-      : status === "Late"
-        ? "bg-amber-500/10 text-amber-400"
-        : status === "Undertime" || status === "Absent"
-          ? "bg-red-500/10 text-red-400"
-          : status === "Overtime"
-            ? "bg-blue-500/10 text-blue-400"
-            : status === "Review Required"
-              ? "bg-orange-500/10 text-orange-400"
-              : status === "Leave"
-                ? "bg-blue-500/10 text-blue-400"
-                : status === "RD"
-                  ? "bg-lime-500/10 text-lime-400"
-                  : status === "Unscheduled"
-                    ? "bg-red-500/10 text-red-400"
-                    : "bg-slate-700 text-slate-300";
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${style}`}>
-      {status}
-    </span>
-  );
+  return <StatusPill tone={tone}>{normalized}</StatusPill>;
 }

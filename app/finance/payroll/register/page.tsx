@@ -17,7 +17,9 @@ import {
   Users,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
+import OpscoreAssistant from "@/components/OpscoreAssistant";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 
@@ -1492,11 +1494,11 @@ ${error.message}`);
   const getBalanceSourceStyle = (balance: any) => {
     const source = String(balance.source_module || "");
 
-    if (source === "Cash Drawer") return "bg-blue-500/10 text-blue-400";
-    if (source === "Expenses") return "bg-purple-500/10 text-purple-400";
-    if (source === "Payroll Manager") return "bg-blue-500/10 text-blue-300";
+    if (source === "Cash Drawer") return "bg-blue-500/10 text-blue-700";
+    if (source === "Expenses") return "bg-blue-50 text-blue-700";
+    if (source === "Payroll Manager") return "bg-blue-500/10 text-blue-700";
 
-    return "bg-slate-700 text-slate-300";
+    return "bg-slate-100 text-slate-700";
   };
 
   const deleteEmployeeBalance = async (balance: any) => {
@@ -2265,10 +2267,10 @@ This will:
 
   const riskStyle =
     riskLevel === "High Risk"
-      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      ? "border-red-500/30 bg-red-500/10 text-red-700"
       : riskLevel === "Medium Risk"
-      ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
-      : "border-green-500/30 bg-green-500/10 text-green-300";
+      ? "border-blue-500/20 bg-blue-500/10 text-blue-700"
+      : "border-green-500/30 bg-green-500/10 text-emerald-700";
 
   const toggleRecordSelection = (id: any) => {
     const key = String(id);
@@ -2333,12 +2335,77 @@ This will:
     return [];
   };
 
+
+  const assistantReminders = [
+    ...(payrollIsOutdated
+      ? [
+          {
+            type: "Warning",
+            tone: "warning",
+            text: "Payroll is outdated. Regenerate payroll before sending to Payroll Manager.",
+          },
+        ]
+      : []),
+    ...(highAlertCount > 0
+      ? [
+          {
+            type: "Critical",
+            tone: "critical",
+            text: `${highAlertCount} high payroll audit alert(s) need review before sending.`,
+          },
+        ]
+      : []),
+    ...(mediumAlertCount > 0
+      ? [
+          {
+            type: "Warning",
+            tone: "warning",
+            text: `${mediumAlertCount} payroll warning(s) detected in attendance, OT, deduction, or schedule review.`,
+          },
+        ]
+      : []),
+    ...(pendingAdjustments.length > 0
+      ? [
+          {
+            type: "Warning",
+            tone: "warning",
+            text: `${pendingAdjustments.length} payroll adjustment(s) are still pending approval.`,
+          },
+        ]
+      : []),
+    ...(employeeBalances.length > 0
+      ? [
+          {
+            type: "Information",
+            tone: "info",
+            text: `${employeesWithBalances} employee(s) have active balance deductions totaling ${formatMoney(activeBalanceTotal)}.`,
+          },
+        ]
+      : []),
+    ...(records.length > 0
+      ? [
+          {
+            type: "Information",
+            tone: "info",
+            text: `${editableRegisterRecords.length} editable payroll record(s) loaded for ${selectedPeriod?.period_name || "selected period"}.`,
+          },
+        ]
+      : [
+          {
+            type: "Information",
+            tone: "info",
+            text: "Select or create a payroll period, then generate payroll records.",
+          },
+        ]),
+  ].slice(0, 5);
+
   return (
     <PageGuard moduleKey="payroll_register">
-      <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+        <Sidebar />
+        <TopNavbar breadcrumb="PAYROLL / PAYROLL REGISTER" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
         <style jsx global>{`
           @media print {
             @page {
@@ -2386,6 +2453,11 @@ This will:
               border: none !important;
               box-shadow: none !important;
               background: #ffffff !important;
+              font-size: 11px !important;
+            }
+
+            .payslip-print-area {
+              border: none !important;
             }
 
             .payslip-avoid-break {
@@ -2394,15 +2466,15 @@ This will:
             }
           }
         `}</style>
-        <section className="mb-5 flex flex-col gap-4 border-b border-slate-800 pb-5 xl:flex-row xl:items-end xl:justify-between">
+        <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
               Payroll Operations
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
               Payroll Register
             </h1>
-            <p className="mt-1 max-w-4xl text-sm text-slate-400">
+            <p className="mt-1 max-w-4xl text-sm font-medium text-slate-500">
               Generate payroll, review employee records, apply CA deductions, and send ready payroll to manager.
             </p>
           </div>
@@ -2411,7 +2483,7 @@ This will:
             <button
               onClick={generatePayroll}
               disabled={isSaving || !selectedPeriodId || isLocked}
-              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
+              className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {selectedPeriod?.needs_regeneration ? "Regenerate Payroll" : "Generate Payroll"}
             </button>
@@ -2419,7 +2491,7 @@ This will:
             <button
               onClick={reopenPayroll}
               disabled={isSaving || !selectedPeriodId || !isLocked}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               <RotateCcw size={15} /> Reopen
             </button>
@@ -2431,7 +2503,7 @@ This will:
                   : sendPayrollToManager("all")
               }
               disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
               <Send size={15} />
               {selectedRecordIds.length > 0
@@ -2441,13 +2513,13 @@ This will:
           </div>
         </section>
 
-        <section className="sticky top-0 z-30 mb-5 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 shadow-xl shadow-black/20 backdrop-blur">
+        <section className="sticky top-0 z-30 mb-5 rounded-3xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[260px_minmax(260px,1fr)_220px]">
               <select
                 value={selectedPeriodId}
                 onChange={(e) => setSelectedPeriodId(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               >
                 <option value="">Select payroll period</option>
                 {periods.map((period) => (
@@ -2463,14 +2535,14 @@ This will:
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search employee, department, or position..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-9 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-9 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm">
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-slate-500">Status</span>
-                  <span className="font-black text-white">{selectedPeriod?.status || "No Period"}</span>
+                  <span className="font-black text-slate-950">{selectedPeriod?.status || "No Period"}</span>
                 </div>
               </div>
             </div>
@@ -2485,11 +2557,11 @@ This will:
         </section>
 
         {selectedPeriod?.needs_regeneration && (
-          <section className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+          <section className="mb-5 rounded-3xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="font-black text-red-300">Payroll needs regeneration.</p>
-                <p className="mt-1 text-red-100/80">
+                <p className="font-black text-red-700">Payroll needs regeneration.</p>
+                <p className="mt-1 text-red-700">
                   Attendance, adjustments, or employee balances changed after the last payroll computation.
                 </p>
               </div>
@@ -2497,7 +2569,7 @@ This will:
               <button
                 onClick={generatePayroll}
                 disabled={isSaving || !selectedPeriodId || isLocked}
-                className="rounded-lg bg-red-500 px-4 py-2.5 text-sm font-black text-white hover:bg-red-400 disabled:opacity-50"
+                className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-black text-slate-950 hover:bg-red-400 disabled:opacity-50"
               >
                 Regenerate Now
               </button>
@@ -2506,12 +2578,12 @@ This will:
         )}
 
         {managerAlerts.length > 0 && (
-          <section className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <section className="mb-5 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-              <p className="font-bold text-amber-200">
+              <p className="font-bold text-amber-700">
                 {managerAlerts.length} payroll audit alert{managerAlerts.length > 1 ? "s" : ""}
               </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-100/80">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-700/80">
                 {managerAlerts.slice(0, 4).map((alert, index) => (
                   <span key={index}>
                     • {alert.employee}: {alert.type}
@@ -2523,13 +2595,13 @@ This will:
         )}
 
         {selectedRecordIds.length > 0 && (
-          <section className="sticky top-3 z-40 mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5 backdrop-blur">
+          <section className="sticky top-3 z-40 mb-6 rounded-3xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-sm font-black text-blue-300">
+                <p className="text-sm font-black text-blue-700">
                   {selectedRecordIds.length} employee(s) selected
                 </p>
-                <p className="mt-1 text-xs text-blue-100/80">
+                <p className="mt-1 text-xs font-semibold text-blue-700">
                   Gross: {formatMoney(selectedGross)} • Deductions:{" "}
                   {formatMoney(selectedDeductions)} • Computed Net:{" "}
                   {formatMoney(selectedNet)} • To Manager: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
@@ -2542,7 +2614,7 @@ This will:
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={clearSelection}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
                 >
                   Clear
                 </button>
@@ -2550,7 +2622,7 @@ This will:
                 <button
                   onClick={() => sendPayrollToManager("selected")}
                   disabled={selectedRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                  className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
                 >
                   <Send size={16} /> Send Selected to Manager
                 </button>
@@ -2560,216 +2632,250 @@ This will:
           </section>
         )}
 
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Final Payroll Register</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Review final computed payroll. Set partial CA deduction, then send selected employees to Payroll Manager for actual release.
-              </p>
+        <section className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Review Table
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">Final Payroll Register</h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Compact payroll review. Detailed attendance, rest days, OT, and deduction evidence are inside View Audit.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <button
+                  onClick={selectAllFiltered}
+                  disabled={filteredRecords.length === 0}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
+                >
+                  Select All
+                </button>
+
+                <button
+                  onClick={() =>
+                    selectedRecordIds.length > 0
+                      ? sendPayrollToManager("selected")
+                      : sendPayrollToManager("all")
+                  }
+                  disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Send size={16} />
+                  {selectedRecordIds.length > 0
+                    ? `Send Selected (${selectedRecordIds.length})`
+                    : "Send All Ready"}
+                </button>
+
+                <div className="relative lg:w-80">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search employee..."
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-9 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3 md:flex-row">
-              <button
-                onClick={selectAllFiltered}
-                disabled={filteredRecords.length === 0}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
-              >
-                Select All
-              </button>
-
-              <button
-                onClick={() =>
-                  selectedRecordIds.length > 0
-                    ? sendPayrollToManager("selected")
-                    : sendPayrollToManager("all")
-                }
-                disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
-              >
-                <Send size={16} />
-                {selectedRecordIds.length > 0
-                  ? `Send Selected (${selectedRecordIds.length})`
-                  : "Send All Ready"}
-              </button>
-
-
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-3 text-slate-500" />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search employee..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-sm outline-none xl:w-80"
-                />
-              </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+              <MiniStat label="Employees" value={filteredRecords.length} />
+              <MiniStat label="Gross" value={formatMoney(totalGross)} />
+              <MiniStat label="Deduct." value={formatMoney(totalDeductions)} danger />
+              <MiniStat label="Net Pay" value={formatMoney(totalNet)} success />
+              <MiniStat label="To Manager" value={formatMoney(totalReleaseAmount)} success />
+              <MiniStat label="Carry Fwd" value={formatMoney(totalCarryForwardAmount)} />
             </div>
           </div>
 
           {selectedPeriod?.needs_regeneration && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center text-red-200">
+            <div className="m-6 rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
               <AlertTriangle className="mx-auto mb-3" size={34} />
-              <h3 className="text-xl font-black text-red-300">Payroll table hidden because data is outdated.</h3>
-              <p className="mt-2 text-sm">
-                Attendance, CA/deductions, or carry-forward balances changed after the last generation.
-                Click Generate Payroll before reviewing employee totals.
+              <h3 className="text-xl font-black text-red-700">Payroll table hidden because data is outdated.</h3>
+              <p className="mt-2 text-sm font-semibold">
+                Attendance, CA/deductions, or carry-forward balances changed after the last generation. Click Generate Payroll before reviewing employee totals.
               </p>
             </div>
           )}
 
           {!selectedPeriod?.needs_regeneration && (
-          <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[1900px] text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Select</th>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Sched</th>
-                  <th className="px-4 py-3 text-right">Worked</th>
-                  <th className="px-4 py-3 text-right">RD/OFF</th>
-                  <th className="px-4 py-3 text-right">Absent</th>
-                  <th className="px-4 py-3 text-right">Late</th>
-                  <th className="px-4 py-3 text-right">UT</th>
-                  <th className="px-4 py-3 text-right">OT</th>
-                  <th className="px-4 py-3 text-right">Basic</th>
-                  <th className="px-4 py-3 text-right">Holiday</th>
-                  <th className="px-4 py-3 text-right">Auto Ded.</th>
-                  <th className="px-4 py-3 text-right">Manual Ded.</th>
-                  {(showGovernmentSection || showTax) && (
-                    <th className="px-4 py-3 text-right">Gov / Tax</th>
-                  )}
-                  <th className="px-4 py-3 text-right">CA Deduct This Cutoff</th>
-                  <th className="px-4 py-3 text-right">Computed Net</th>
-                  <th className="px-4 py-3 text-right">To Manager</th>
-                  <th className="px-4 py-3 text-right">Carry Forward</th>
-                  <th className="px-4 py-3">Action</th>
-                </tr>
-              </thead>
+            <div className="overflow-x-hidden">
+              <table className="w-full table-fixed text-sm">
+                <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="w-[44px] px-3 py-3">Sel</th>
+                    <th className="w-[18%] px-3 py-3">Employee</th>
+                    <th className="w-[90px] px-3 py-3">Status</th>
+                    <th className="w-[74px] px-3 py-3 text-center">Work</th>
+                    <th className="w-[86px] px-3 py-3 text-right">Late/UT</th>
+                    <th className="w-[88px] px-3 py-3 text-right">Basic</th>
+                    <th className="w-[92px] px-3 py-3 text-right">Auto Ded.</th>
+                    <th className="w-[92px] px-3 py-3 text-right">Manual</th>
+                    {(showGovernmentSection || showTax) && (
+                      <th className="w-[92px] px-3 py-3 text-right">Gov/Tax</th>
+                    )}
+                    <th className="w-[130px] px-3 py-3 text-right">CA This Cutoff</th>
+                    <th className="w-[104px] px-3 py-3 text-right">Net</th>
+                    <th className="w-[104px] px-3 py-3 text-right">To Mgr</th>
+                    <th className="w-[92px] px-3 py-3 text-right">Carry</th>
+                    <th className="w-[108px] px-3 py-3 text-right">Audit</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {filteredRecords.map((record) => {
-                  const autoDeduction = getAutoDeductionTotal(record);
-                  const governmentDeduction = getGovernmentDeductionTotal(record);
-                  const displayedNetPay = getDisplayedNetPay(record);
-                  const displayedReleaseAmount = getDisplayedReleaseAmount(record);
-                  const displayedCarryForwardAmount =
-                    getDisplayedCarryForwardAmount(record);
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {filteredRecords.map((record) => {
+                    const autoDeduction = getAutoDeductionTotal(record);
+                    const governmentDeduction = getGovernmentDeductionTotal(record);
+                    const displayedNetPay = getDisplayedNetPay(record);
+                    const displayedReleaseAmount = getDisplayedReleaseAmount(record);
+                    const displayedCarryForwardAmount = getDisplayedCarryForwardAmount(record);
+                    const selected = selectedRecordIds.includes(String(record.id));
+                    const riskCount = managerAlerts.filter((alert) => alert.employee === record.employee_name).length;
 
-                  const selected = selectedRecordIds.includes(String(record.id));
-
-                  return (
-                    <tr
-                      key={record.id}
-                      className={`border-t border-slate-800 hover:bg-slate-800/40 ${
-                        selected ? "bg-yellow-400/10" : ""
-                      } ${displayedNetPay < 0 ? "bg-red-500/10" : ""}`}
-                    >
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => toggleRecordSelection(record.id)}
-                          className="h-4 w-4 accent-yellow-400"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-black">{record.employee_name}</p>
-                        <p className="text-xs text-slate-500">
-                          {record.department} • {record.position}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={record.status || "Draft"} />
-                      </td>
-                      <td className="px-4 py-3 text-right">{record.scheduled_days || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.days_worked || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.rest_days || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.absent_days || 0}</td>
-                      <td className="px-4 py-3 text-right">{record.late_minutes || 0} min</td>
-                      <td className="px-4 py-3 text-right">{record.undertime_minutes || 0} min</td>
-                      <td className="px-4 py-3 text-right">{Number(record.ot_minutes || 0)} min</td>
-                      <td className="px-4 py-3 text-right">{formatMoney(record.basic_pay)}</td>
-                      <td className="px-4 py-3 text-right text-blue-400">{formatMoney(record.holiday_pay)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(autoDeduction)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatMoney(record.manual_deduction)}</td>
-                      {(showGovernmentSection || showTax) && (
-                        <td className="px-4 py-3 text-right text-red-400">
-                          {formatMoney(governmentDeduction)}
-                        </td>
-                      )}
-                      <td className="px-4 py-3 text-right">
-                        {(() => {
-                          const maxBalance = getMaxBalanceDeductionForRecord(record);
-                          const draftValue = balanceDrafts[record.id] ?? String(Number(record.balance_deduction || 0));
-
-                          return (
-                            <div className="flex flex-col items-end gap-1">
-                              <input
-                                type="number"
-                                min="0"
-                                max={maxBalance}
-                                value={draftValue}
-                                disabled={!canEditPayroll || maxBalance <= 0 || isSaving}
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  setBalanceDrafts((prev) => ({
-                                    ...prev,
-                                    [record.id]: value,
-                                  }));
-                                }}
-                                onBlur={(event) => updateRecordBalanceDeduction(record, event.target.value)}
-                                className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-right text-xs font-black text-blue-300 outline-none disabled:opacity-40"
-                              />
-                              <p className="text-[10px] text-slate-500">
-                                Max CA: {formatMoney(maxBalance)}
-                              </p>
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td
-                        className={`px-4 py-3 text-right font-black ${
-                          displayedNetPay < 0 ? "text-red-400" : "text-emerald-400"
+                    return (
+                      <tr
+                        key={record.id}
+                        className={`transition-all duration-200 hover:bg-slate-50 ${
+                          selected ? "bg-slate-50" : "bg-white"
                         }`}
                       >
-                        {formatMoney(displayedNetPay)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400">
-                        {formatMoney(displayedReleaseAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-blue-300">
-                        {formatMoney(displayedCarryForwardAmount)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => openEmployeeAudit(record)}
-                          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold hover:bg-blue-500"
-                        >
-                          View Audit
-                        </button>
+                        <td className="px-3 py-3 align-middle">
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => toggleRecordSelection(record.id)}
+                            className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-slate-950"
+                            aria-label={`Select ${record.employee_name}`}
+                          />
+                        </td>
+
+                        <td className="px-3 py-3 align-middle">
+                          <button
+                            onClick={() => openEmployeeAudit(record)}
+                            className="group max-w-full text-left"
+                            title="Open employee audit"
+                          >
+                            <p className="truncate font-black text-slate-950 group-hover:underline">
+                              {record.employee_name}
+                            </p>
+                            <p className="truncate text-[11px] font-bold text-slate-500">
+                              {record.department} • {record.position}
+                            </p>
+                          </button>
+                        </td>
+
+                        <td className="px-3 py-3 align-middle">
+                          <StatusBadge status={record.status || "Draft"} />
+                        </td>
+
+                        <td className="px-3 py-3 text-center align-middle">
+                          <p className="font-black text-slate-950">{record.days_worked || 0}/{record.scheduled_days || 0}</p>
+                          <p className="text-[10px] font-bold text-slate-500">worked/sched</p>
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle">
+                          <p className={Number(record.undertime_minutes || 0) + Number(record.late_minutes || 0) > 0 ? "font-black text-red-600" : "font-black text-slate-700"}>
+                            {Number(record.late_minutes || 0)}/{Number(record.undertime_minutes || 0)}m
+                          </p>
+                          {riskCount > 0 && (
+                            <p className="text-[10px] font-bold text-amber-700">{riskCount} alert/s</p>
+                          )}
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle font-black text-slate-950">
+                          {formatMoney(record.basic_pay)}
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle font-black text-red-600">
+                          {formatMoney(autoDeduction)}
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle font-black text-red-600">
+                          {formatMoney(record.manual_deduction)}
+                        </td>
+
+                        {(showGovernmentSection || showTax) && (
+                          <td className="px-3 py-3 text-right align-middle font-black text-red-600">
+                            {formatMoney(governmentDeduction)}
+                          </td>
+                        )}
+
+                        <td className="px-3 py-3 text-right align-middle">
+                          {(() => {
+                            const maxBalance = getMaxBalanceDeductionForRecord(record);
+                            const draftValue = balanceDrafts[record.id] ?? String(Number(record.balance_deduction || 0));
+
+                            return (
+                              <div className="flex flex-col items-end gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={maxBalance}
+                                  value={draftValue}
+                                  disabled={!canEditPayroll || maxBalance <= 0 || isSaving}
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    setBalanceDrafts((prev) => ({
+                                      ...prev,
+                                      [record.id]: value,
+                                    }));
+                                  }}
+                                  onBlur={(event) => updateRecordBalanceDeduction(record, event.target.value)}
+                                  className="h-8 w-24 rounded-xl border border-slate-300 bg-white px-2 text-right text-xs font-black text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-50 disabled:text-slate-400"
+                                />
+                                <p className="text-[10px] font-bold text-slate-500">
+                                  Max {formatMoney(maxBalance)}
+                                </p>
+                              </div>
+                            );
+                          })()}
+                        </td>
+
+                        <td className={`px-3 py-3 text-right align-middle font-black ${displayedNetPay < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                          {formatMoney(displayedNetPay)}
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle font-black text-emerald-700">
+                          {formatMoney(displayedReleaseAmount)}
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle font-black text-blue-700">
+                          {formatMoney(displayedCarryForwardAmount)}
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle">
+                          <button
+                            onClick={() => openEmployeeAudit(record)}
+                            className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                          >
+                            View Audit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredRecords.length === 0 && (
+                    <tr>
+                      <td colSpan={(showGovernmentSection || showTax) ? 14 : 13} className="px-4 py-14 text-center">
+                        <p className="font-black text-slate-950">No payroll records found.</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-500">Select a period, generate payroll, or adjust your search.</p>
                       </td>
                     </tr>
-                  );
-                })}
-
-                {filteredRecords.length === 0 && (
-                  <tr>
-                    <td colSpan={(showGovernmentSection || showTax) ? 20 : 19} className="px-4 py-14 text-center text-slate-500">
-                      No payroll records. Select period then click Generate.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
             <h2 className="text-xl font-bold">Payroll Period</h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-slate-500">
               Create, select, generate, reopen, or delete payroll period.
             </p>
 
@@ -2779,7 +2885,7 @@ This will:
                 onChange={(e) => setPeriodName(e.target.value)}
                 placeholder="June 1-15, 2026"
                 disabled={isLocked}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
               />
 
               <div className="grid grid-cols-2 gap-3">
@@ -2788,8 +2894,7 @@ This will:
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   disabled={isLocked}
-                  style={{ colorScheme: "dark" }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
                 />
 
                 <input
@@ -2797,15 +2902,14 @@ This will:
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   disabled={isLocked}
-                  style={{ colorScheme: "dark" }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
                 />
               </div>
 
               <button
                 onClick={createPeriod}
                 disabled={isSaving || isLocked}
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black hover:bg-blue-500 disabled:opacity-50"
+                className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 Create Period
               </button>
@@ -2813,7 +2917,7 @@ This will:
               <select
                 value={selectedPeriodId}
                 onChange={(e) => setSelectedPeriodId(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none"
               >
                 <option value="">Select payroll period</option>
                 {periods.map((period) => (
@@ -2827,7 +2931,7 @@ This will:
                 <button
                   onClick={generatePayroll}
                   disabled={isSaving || !selectedPeriodId || isLocked}
-                  className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black hover:bg-emerald-500 disabled:opacity-50"
+                  className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
                   Generate
                 </button>
@@ -2835,7 +2939,7 @@ This will:
                 <button
                   onClick={reopenPayroll}
                   disabled={isSaving || !selectedPeriodId || !isLocked}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RotateCcw size={16} /> Reopen
                 </button>
@@ -2843,34 +2947,34 @@ This will:
                 <button
                   onClick={deletePeriod}
                   disabled={isSaving || !selectedPeriodId || isLocked}
-                  className="rounded-xl bg-red-600 px-4 py-3 text-sm font-black hover:bg-red-500 disabled:opacity-50"
+                  className="rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white hover:bg-red-700 disabled:opacity-50"
                 >
                   Delete
                 </button>
               </div>
 
               {selectedPeriodId && isLocked && (
-                <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs font-semibold leading-5 text-blue-200">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-semibold leading-5 text-blue-700">
                   This payroll is locked. Click <span className="font-black">Reopen</span> to unlock attendance, regenerate payroll, or edit partial CA deductions.
                 </div>
               )}
 
               {selectedPeriod && (
-                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-bold">{selectedPeriod.period_name}</p>
                     <StatusBadge status={selectedPeriod.status} />
                   </div>
-                  <p className="mt-1 text-slate-400">
+                  <p className="mt-1 text-slate-500">
                     {selectedPeriod.start_date} to {selectedPeriod.end_date}
                   </p>
                   {selectedPeriod?.needs_regeneration && (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-red-400">
+                    <p className="mt-2 flex items-center gap-1 text-xs text-red-600">
                       <AlertTriangle size={12} /> Needs regeneration.
                     </p>
                   )}
                   {selectedPeriod?.attendance_locked && (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-blue-300">
+                    <p className="mt-2 flex items-center gap-1 text-xs text-blue-700">
                       <Lock size={12} /> Attendance locked for this cutoff. Reopen payroll to unlock.
                     </p>
                   )}
@@ -2880,7 +2984,7 @@ This will:
                     </p>
                   )}
                   {isLocked && (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-blue-300">
+                    <p className="mt-2 flex items-center gap-1 text-xs text-blue-700">
                       <Lock size={12} /> Locked. Reopen to edit.
                     </p>
                   )}
@@ -2889,23 +2993,23 @@ This will:
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-3">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-3">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h2 className="text-xl font-bold">Payroll Adjustments</h2>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-sm text-slate-500">
                   Earnings and non-liability adjustments only. Cash Advance, employee meals, salary loans, and restaurant unpaid balances should be created in Employee Balances, then deducted through payroll.
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs font-black">
-                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-blue-300">
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
                   Pending {pendingAdjustments.length}
                 </span>
-                <span className="rounded-full bg-green-500/10 px-3 py-1 text-green-300">
+                <span className="rounded-full bg-green-500/10 px-3 py-1 text-emerald-700">
                   Approved {approvedAdjustments.length}
                 </span>
-                <span className="rounded-full bg-red-500/10 px-3 py-1 text-red-300">
+                <span className="rounded-full bg-red-500/10 px-3 py-1 text-red-700">
                   Rejected {rejectedAdjustments.length}
                 </span>
               </div>
@@ -2916,7 +3020,7 @@ This will:
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
                 disabled={!canEditPayroll}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50 md:col-span-2"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50 md:col-span-2"
               >
                 <option value="">Select employee</option>
                 {employees.map((employee) => (
@@ -2930,7 +3034,7 @@ This will:
                 value={adjustmentType}
                 onChange={(e) => setAdjustmentType(e.target.value)}
                 disabled={!canEditPayroll}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
               >
                 {[...earningTypes, ...deductionTypes].map((type) => (
                   <option key={type}>{type}</option>
@@ -2943,13 +3047,13 @@ This will:
                 onChange={(e) => setAdjustmentAmount(e.target.value)}
                 placeholder="Amount"
                 disabled={!canEditPayroll}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
               />
 
               <button
                 onClick={addAdjustment}
                 disabled={isSaving || !selectedPeriodId || !canEditPayroll}
-                className="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+                className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 Save
               </button>
@@ -2959,13 +3063,13 @@ This will:
                 onChange={(e) => setAdjustmentRemarks(e.target.value)}
                 placeholder="Remarks"
                 disabled={!canEditPayroll}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none disabled:opacity-50 md:col-span-5"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50 md:col-span-5"
               />
             </div>
 
-            <div className="mt-5 max-h-64 overflow-auto rounded-xl border border-slate-800">
+            <div className="mt-5 max-h-64 overflow-auto rounded-xl border border-slate-200">
               <table className="w-full min-w-[1050px] text-xs">
-                <thead className="bg-slate-950 text-left text-slate-400">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   <tr>
                     <th className="px-3 py-2">Employee</th>
                     <th className="px-3 py-2">Type</th>
@@ -2979,19 +3083,19 @@ This will:
 
                 <tbody>
                   {adjustments.map((item) => (
-                    <tr key={item.id} className="border-t border-slate-800">
+                    <tr key={item.id} className="border-t border-slate-200">
                       <td className="px-3 py-2 font-bold">{item.employee_name}</td>
                       <td className="px-3 py-2">{item.adjustment_type}</td>
                       <td className="px-3 py-2">{item.adjustment_direction}</td>
                       <td className="px-3 py-2 text-right">{formatMoney(item.amount)}</td>
-                      <td className="px-3 py-2 text-slate-400">{item.remarks || "-"}</td>
+                      <td className="px-3 py-2 text-slate-500">{item.remarks || "-"}</td>
                       <td className="px-3 py-2">
                         <StatusBadge status={item.status || "Pending"} />
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
                           {String(item.status || "Pending") === "Pending" && (
-                            <span className="rounded-lg bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-300">
+                            <span className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
                               Pending Approval Center
                             </span>
                           )}
@@ -2999,7 +3103,7 @@ This will:
                           <button
                             onClick={() => deleteAdjustment(item.id)}
                             disabled={!canEditPayroll}
-                            className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600 disabled:opacity-50"
+                            className="rounded-xl bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600 disabled:opacity-50"
                           >
                             Delete
                           </button>
@@ -3020,30 +3124,30 @@ This will:
             </div>
 
             {pendingAdjustments.length > 0 && (
-              <p className="mt-3 text-xs text-blue-300">
+              <p className="mt-3 text-xs text-blue-700">
                 Reminder: pending adjustments will NOT affect payroll. Approve then click Generate.
               </p>
             )}
           </div>
         </section>
 
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h2 className="text-xl font-bold">Employee Balance Monitor</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-slate-500">
 Active balances are deducted through payroll only. Cancel here only when the balance link or amount is wrong; no hard delete is performed.
               </p>
             </div>
 
-            <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-sm font-black text-blue-300">
+            <div className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700">
               {employeesWithBalances} employee(s) • {formatMoney(activeBalanceTotal)}
             </div>
           </div>
 
-          <div className="max-h-[260px] overflow-auto rounded-xl border border-slate-800">
+          <div className="max-h-[260px] overflow-auto rounded-xl border border-slate-200">
             <table className="w-full min-w-[1100px] text-sm">
-              <thead className="sticky top-0 bg-slate-950 text-left text-slate-400">
+              <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
                   <th className="px-4 py-3">Type</th>
@@ -3058,7 +3162,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
 
               <tbody>
                 {employeeBalances.map((balance) => (
-                  <tr key={balance.id} className="border-t border-slate-800 hover:bg-slate-800/40">
+                  <tr key={balance.id} className="border-t border-slate-200 hover:bg-slate-50">
                     <td className="px-4 py-3 font-black">{balance.employee_name}</td>
                     <td className="px-4 py-3">{balance.balance_type || "Carry Forward Balance"}</td>
                     <td className="px-4 py-3">
@@ -3067,18 +3171,18 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">{formatMoney(balance.original_amount)}</td>
-                    <td className="px-4 py-3 text-right font-black text-blue-300">
+                    <td className="px-4 py-3 text-right font-black text-blue-700">
                       {formatMoney(balance.remaining_balance)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={balance.status || "Active"} />
                     </td>
-                    <td className="px-4 py-3 text-slate-400">{balance.remarks || "-"}</td>
+                    <td className="px-4 py-3 text-slate-500">{balance.remarks || "-"}</td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => deleteEmployeeBalance(balance)}
                         disabled={!canEditPayroll || isSaving}
-                        className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50"
+                        className="rounded-xl bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
                       >
                         Cancel
                       </button>
@@ -3099,190 +3203,264 @@ Active balances are deducted through payroll only. Cancel here only when the bal
         </section>
 
         {!selectedPeriod?.needs_regeneration && selectedAuditRecord && (
-          <section className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-6">
-            <div className="mb-5 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-blue-400">
-                  Employee Complete Audit
-                </h2>
-                <p className="text-sm text-slate-400">
-                  {selectedAuditRecord.employee_name} • {selectedAuditRecord.department} • {selectedAuditRecord.position}
-                </p>
+          <div className="fixed inset-x-0 bottom-0 top-16 z-50 flex justify-end bg-slate-950/35 payslip-no-print">
+            <button
+              type="button"
+              aria-label="Close employee audit overlay"
+              onClick={() => setSelectedAuditRecord(null)}
+              className="absolute inset-0 cursor-default"
+            />
+
+            <aside className="relative z-10 flex h-full w-full max-w-[680px] flex-col border-l border-slate-200 bg-white shadow-2xl">
+              <div className="shrink-0 border-b border-slate-100 bg-white p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+                      Employee Audit
+                    </p>
+                    <h2 className="mt-1 truncate text-2xl font-black tracking-tight text-slate-950">
+                      {selectedAuditRecord.employee_name || "Selected Employee"}
+                    </h2>
+                    <p className="mt-1 truncate text-sm font-semibold text-slate-500">
+                      {selectedAuditRecord.department || "-"} • {selectedAuditRecord.position || "-"}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-right">
+                      <p className="text-lg font-black leading-none text-emerald-700">
+                        {checkedAuditItems.filter((item) => item.startsWith(`${selectedPeriodId}-${selectedAuditRecord?.employee_id || ""}`)).length}/{auditLogs.length}
+                      </p>
+                      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                        Checked
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setSelectedAuditRecord(null)}
+                      className="h-10 w-10 rounded-xl border border-slate-200 bg-white text-lg font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                      aria-label="Close audit drawer"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-700">
+                    {auditLogs.length} items
+                  </span>
+                  <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-black text-red-700">
+                    {auditLogs.filter((log) => log.isDeduction).length} deduction item(s)
+                  </span>
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                    {formatMoney(auditLogs.reduce((sum, log) => sum + Number(log.totalAmount || 0), 0))} evidence
+                  </span>
+                </div>
               </div>
 
-              <div className="rounded-full border border-blue-500/40 px-4 py-2 text-sm font-black text-blue-400">
-                {auditLogs.filter((log) => log.isDeduction).length} deduction item/s
-              </div>
-            </div>
-
-            <div className="overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1400px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Checked</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Schedule</th>
-                    <th className="px-4 py-3">Actual Attendance</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Issue / Evidence</th>
-                    <th className="px-4 py-3 text-right">Late Ded.</th>
-                    <th className="px-4 py-3 text-right">UT Ded.</th>
-                    <th className="px-4 py-3 text-right">Absent Ded.</th>
-                    <th className="px-4 py-3 text-right">Total Ded.</th>
-                  </tr>
-                </thead>
-
-                <tbody>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <div className="space-y-3">
                   {auditLogs.map((log, index) => {
                     const key = getAuditKey(log, index);
                     const checked = checkedAuditItems.includes(key);
 
                     return (
-                      <tr
+                      <div
                         key={index}
-                        className={`border-t border-slate-800 ${
-                          checked ? "bg-emerald-500/10" : ""
+                        className={`rounded-2xl border p-3 transition-all duration-200 ${
+                          checked
+                            ? "border-emerald-200 bg-emerald-50"
+                            : log.isDeduction
+                            ? "border-red-200 bg-white"
+                            : "border-slate-200 bg-white"
                         }`}
                       >
-                        <td className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-black text-slate-950">{log.date}</p>
+                              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">
+                                {log.status}
+                              </span>
+                              {log.isDeduction && (
+                                <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-red-700">
+                                  Deduction
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 text-sm font-bold leading-5 text-slate-700">
+                              {log.issue}
+                            </p>
+
+                            <div className="mt-2 grid grid-cols-1 gap-1 text-xs font-semibold text-slate-500 sm:grid-cols-2">
+                              <p><span className="font-black text-slate-700">Schedule:</span> {log.schedule}</p>
+                              <p><span className="font-black text-slate-700">Actual:</span> {log.actual}</p>
+                            </div>
+                          </div>
+
                           <button
                             onClick={() => toggleAuditCheck(key)}
-                            className={`rounded-lg px-3 py-1 text-xs font-black ${
+                            className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-black transition-all duration-200 active:scale-[0.98] ${
                               checked
-                                ? "bg-emerald-500 text-slate-950"
-                                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                                ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                             }`}
+                            title={checked ? "Marked as checked" : "Click to mark this audit item as checked"}
                           >
-                            {checked ? "✓ Checked" : "Check"}
+                            {checked ? "✓ Checked" : "Mark Check"}
                           </button>
-                        </td>
-                        <td className="px-4 py-3 font-bold">{log.date}</td>
-                        <td className="px-4 py-3">{log.schedule}</td>
-                        <td className="px-4 py-3">{log.actual}</td>
-                        <td className="px-4 py-3">{log.status}</td>
-                        <td className="px-4 py-3 text-slate-300">{log.issue}</td>
-                        <td className="px-4 py-3 text-right text-red-400">{formatMoney(log.lateAmount)}</td>
-                        <td className="px-4 py-3 text-right text-red-400">{formatMoney(log.undertimeAmount)}</td>
-                        <td className="px-4 py-3 text-right text-red-400">{formatMoney(log.absentAmount)}</td>
-                        <td className="px-4 py-3 text-right font-black text-red-400">{formatMoney(log.totalAmount)}</td>
-                      </tr>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
+                          <div className="border-r border-slate-100 p-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Late</p>
+                            <p className="mt-1 font-black text-red-600">{formatMoney(log.lateAmount)}</p>
+                          </div>
+                          <div className="border-r border-slate-100 p-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">UT</p>
+                            <p className="mt-1 font-black text-red-600">{formatMoney(log.undertimeAmount)}</p>
+                          </div>
+                          <div className="border-r border-slate-100 p-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Absent</p>
+                            <p className="mt-1 font-black text-red-600">{formatMoney(log.absentAmount)}</p>
+                          </div>
+                          <div className="p-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</p>
+                            <p className="mt-1 font-black text-red-600">{formatMoney(log.totalAmount)}</p>
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
 
                   {auditLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
-                        No audit logs found for this employee.
-                      </td>
-                    </tr>
+                    <div className="rounded-3xl border border-slate-200 bg-white py-14 text-center">
+                      <p className="font-black text-slate-950">No audit logs found.</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">This employee has no attendance or deduction evidence for this period.</p>
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                </div>
+              </div>
+
+              <div className="shrink-0 border-t border-slate-100 bg-white/95 p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setSelectedAuditRecord(null)}
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                  >
+                    Close Audit
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                  >
+                    Print Payslip
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
         )}
 
         {!selectedPeriod?.needs_regeneration && selectedPayslip && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <div className="payslip-no-print mb-5 flex items-center justify-between">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="payslip-no-print mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Professional Payslip Preview</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Print-safe A4 payslip with release status, deductions, and liability breakdown.
+                <h2 className="text-xl font-black text-slate-950">Payslip Preview</h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Clean A4 payroll document for printing, release review, and employee signing.
                 </p>
               </div>
 
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
               >
-                <Printer size={16} /> Print Payslip Only
+                <Printer size={16} /> Print Payslip
               </button>
             </div>
 
-            <div className="payslip-print-area">
+            <div className="payslip-print-area mx-auto max-w-[920px] rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="payslip-page bg-white p-8 text-slate-950">
-                <div className="border-b-4 border-slate-900 pb-5">
-                  <div className="flex items-start justify-between gap-6">
-                    <div>
-                      <h1 className="text-2xl font-black tracking-wide">
+                <div className="payslip-avoid-break border-b-2 border-slate-950 pb-5">
+                  <div className="flex items-start justify-between gap-8">
+                    <div className="min-w-0">
+                      <h1 className="text-2xl font-black tracking-[0.08em] text-slate-950">
                         VINCENT RESORT HOTEL
                       </h1>
-                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      <p className="mt-1 text-[11px] font-black uppercase tracking-[0.28em] text-slate-500">
                         Employee Payslip
                       </p>
-                      <p className="mt-2 text-xs text-slate-600">
-                        Payroll Period: <b>{selectedPayslip.period_label || selectedPeriod?.period_name}</b>
-                      </p>
+                      <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-slate-600">
+                        <p>Payroll Period: <b className="text-slate-950">{selectedPayslip.period_label || selectedPeriod?.period_name || "-"}</b></p>
+                        <p>Generated: <b className="text-slate-950">{new Date().toLocaleDateString()}</b></p>
+                        <p>Employee No.: <b className="text-slate-950">{selectedPayslip.employee_no || "-"}</b></p>
+                        <p>Status: <b className="text-slate-950">{getPayslipReleaseStatus(selectedPayslip)}</b></p>
+                      </div>
                     </div>
 
-                    <div className="rounded-lg border border-slate-300 px-4 py-3 text-right text-xs">
-                      <p className="font-black uppercase tracking-[0.18em] text-slate-500">
-                        Payroll Status
+                    <div className="w-[210px] rounded-2xl border border-slate-300 bg-slate-50 px-5 py-4 text-right">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                        Release / Payable
                       </p>
-                      <p className="mt-2 text-lg font-black text-slate-950">
-                        {getPayslipReleaseStatus(selectedPayslip)}
-                      </p>
-                      <p className="mt-1 text-slate-500">
-                        Generated: <b>{new Date().toLocaleDateString()}</b>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="payslip-avoid-break mt-6 grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
-                  <PayslipInfoBox label="Employee Name" value={selectedPayslip.employee_name || "-"} />
-                  <PayslipInfoBox label="Employee No." value={selectedPayslip.employee_no || "-"} />
-                  <PayslipInfoBox label="Department" value={selectedPayslip.department || "-"} />
-                  <PayslipInfoBox label="Position" value={selectedPayslip.position || "-"} />
-                </div>
-
-                <div className="payslip-avoid-break mt-5 rounded-lg border border-slate-300">
-                  <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
-                    Attendance Summary
-                  </div>
-                  <div className="grid grid-cols-6 gap-px bg-slate-300 text-center text-xs">
-                    <div className="bg-white p-3"><p className="text-slate-500">Scheduled</p><b>{selectedPayslip.scheduled_days || 0}</b></div>
-                    <div className="bg-white p-3"><p className="text-slate-500">Worked</p><b>{selectedPayslip.days_worked || 0}</b></div>
-                    <div className="bg-white p-3"><p className="text-slate-500">RD/OFF</p><b>{selectedPayslip.rest_days || 0}</b></div>
-                    <div className="bg-white p-3"><p className="text-slate-500">Absent</p><b>{selectedPayslip.absent_days || 0}</b></div>
-                    <div className="bg-white p-3"><p className="text-slate-500">Late</p><b>{selectedPayslip.late_minutes || 0} min</b></div>
-                    <div className="bg-white p-3"><p className="text-slate-500">Undertime</p><b>{selectedPayslip.undertime_minutes || 0} min</b></div>
-                  </div>
-                </div>
-
-                <div className="payslip-avoid-break mt-6 rounded-lg border-2 border-slate-900">
-                  <div className="grid grid-cols-4 divide-x divide-slate-900 text-center">
-                    <div className="p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Net Pay</p>
-                      <p className={`mt-2 text-2xl font-black ${getDisplayedNetPay(selectedPayslip) < 0 ? "text-red-700" : "text-slate-950"}`}>
-                        {formatMoney(getDisplayedNetPay(selectedPayslip))}
-                      </p>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Already Released</p>
-                      <p className="mt-2 text-2xl font-black text-blue-700">
-                        {formatMoney(getPayslipReleasedAmount(selectedPayslip))}
-                      </p>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Release / Payable</p>
                       <p className="mt-2 text-2xl font-black text-emerald-700">
                         {formatMoney(getDisplayedReleaseAmount(selectedPayslip))}
                       </p>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Remaining Salary</p>
-                      <p className="mt-2 text-2xl font-black text-yellow-700">
-                        {formatMoney(getPayslipRemainingSalary(selectedPayslip))}
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        Net: {formatMoney(getDisplayedNetPay(selectedPayslip))}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="payslip-avoid-break mt-6 grid grid-cols-2 gap-6 text-xs">
-                  <div className="rounded-lg border border-slate-300">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                <div className="payslip-avoid-break mt-5 grid grid-cols-[1fr_240px] gap-5">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Employee Details</p>
+                    <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                      {selectedPayslip.employee_name || "-"}
+                    </h2>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                      <PayslipInfoBox label="Department" value={selectedPayslip.department || "-"} />
+                      <PayslipInfoBox label="Position" value={selectedPayslip.position || "-"} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Payroll Status</p>
+                    <p className="mt-3 text-xl font-black text-slate-950">{getPayslipReleaseStatus(selectedPayslip)}</p>
+                    <div className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
+                      <div className="flex justify-between"><span>Released</span><b>{formatMoney(getPayslipReleasedAmount(selectedPayslip))}</b></div>
+                      <div className="flex justify-between"><span>Remaining</span><b>{formatMoney(getPayslipRemainingSalary(selectedPayslip))}</b></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="payslip-avoid-break mt-5 overflow-hidden rounded-2xl border border-slate-200">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">
+                    Attendance Summary
+                  </div>
+                  <div className="grid grid-cols-6 divide-x divide-slate-200 text-center text-xs">
+                    <PayslipAttendance label="Scheduled" value={selectedPayslip.scheduled_days || 0} />
+                    <PayslipAttendance label="Worked" value={selectedPayslip.days_worked || 0} />
+                    <PayslipAttendance label="RD/OFF" value={selectedPayslip.rest_days || 0} />
+                    <PayslipAttendance label="Absent" value={selectedPayslip.absent_days || 0} />
+                    <PayslipAttendance label="Late" value={`${selectedPayslip.late_minutes || 0} min`} />
+                    <PayslipAttendance label="Undertime" value={`${selectedPayslip.undertime_minutes || 0} min`} />
+                  </div>
+                </div>
+
+                <div className="payslip-avoid-break mt-5 grid grid-cols-4 overflow-hidden rounded-2xl border border-slate-950 text-center">
+                  <PayslipAmountBox label="Gross Pay" value={formatMoney(selectedPayslip.gross_pay)} />
+                  <PayslipAmountBox label="Total Deductions" value={formatMoney(getDisplayedTotalDeductions(selectedPayslip))} danger />
+                  <PayslipAmountBox label="Net Pay" value={formatMoney(getDisplayedNetPay(selectedPayslip))} />
+                  <PayslipAmountBox label="Payable" value={formatMoney(getDisplayedReleaseAmount(selectedPayslip))} success />
+                </div>
+
+                <div className="payslip-avoid-break mt-5 grid grid-cols-2 gap-5 text-xs">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">
                       Earnings
                     </div>
                     <table className="w-full">
@@ -3296,8 +3474,8 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                     </table>
                   </div>
 
-                  <div className="rounded-lg border border-slate-300">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">
                       Deductions
                     </div>
                     <table className="w-full">
@@ -3318,27 +3496,27 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                 </div>
 
                 {getPayslipLiabilityRows(selectedPayslip).length > 0 && (
-                  <div className="payslip-avoid-break mt-6 rounded-lg border border-slate-300">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 font-black uppercase tracking-[0.16em] text-slate-700">
+                  <div className="payslip-avoid-break mt-5 overflow-hidden rounded-2xl border border-slate-200">
+                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">
                       Employee Liability Breakdown
                     </div>
                     <table className="w-full text-xs">
-                      <thead className="bg-white text-left text-slate-500">
+                      <thead className="bg-white text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
                         <tr>
                           <th className="px-4 py-2">Type</th>
                           <th className="px-4 py-2">Source / Remarks</th>
-                          <th className="px-4 py-2 text-right">Available / Related Amount</th>
+                          <th className="px-4 py-2 text-right">Amount</th>
                         </tr>
                       </thead>
                       <tbody>
                         {getPayslipLiabilityRows(selectedPayslip).map((item: any) => (
-                          <tr key={item.id || item.source_id || item.adjustment_type} className="border-t border-slate-200">
-                            <td className="px-4 py-2 font-bold text-slate-900">{item.adjustment_type || item.balance_type || "Employee Liability"}</td>
-                            <td className="px-4 py-2 text-slate-600">{item.remarks || "Payroll-deductible employee balance"}</td>
-                            <td className="px-4 py-2 text-right font-bold">{formatMoney(item.amount || item.remaining_balance || 0)}</td>
+                          <tr key={item.id || item.source_id || item.adjustment_type} className="border-t border-slate-100">
+                            <td className="w-[140px] px-4 py-2 font-black text-slate-950">{item.adjustment_type || item.balance_type || "Employee Liability"}</td>
+                            <td className="px-4 py-2 leading-5 text-slate-600">{item.remarks || "Payroll-deductible employee balance"}</td>
+                            <td className="w-[120px] px-4 py-2 text-right font-black text-slate-950">{formatMoney(item.amount || item.remaining_balance || 0)}</td>
                           </tr>
                         ))}
-                        <tr className="border-t-2 border-slate-900 font-black">
+                        <tr className="border-t-2 border-slate-950 bg-slate-50 font-black">
                           <td className="px-4 py-2" colSpan={2}>Deducted This Payroll</td>
                           <td className="px-4 py-2 text-right">{formatMoney(selectedPayslip?.balance_deduction)}</td>
                         </tr>
@@ -3348,23 +3526,23 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                 )}
 
                 {getDisplayedCarryForwardAmount(selectedPayslip) > 0 && (
-                  <div className="payslip-avoid-break mt-4 rounded-lg border border-blue-600 bg-blue-50 p-4 text-xs text-blue-900">
+                  <div className="payslip-avoid-break mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs font-semibold leading-5 text-blue-900">
                     <b>Carry Forward Notice:</b> Deductions exceeded available net pay. The unpaid amount will continue to the next payroll cutoff as employee balance.
                   </div>
                 )}
 
                 {getPayslipReleasedAmount(selectedPayslip) > 0 && getPayslipRemainingSalary(selectedPayslip) > 0 && (
-                  <div className="payslip-avoid-break mt-4 rounded-lg border border-blue-600 bg-blue-50 p-4 text-xs text-blue-900">
+                  <div className="payslip-avoid-break mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs font-semibold leading-5 text-blue-900">
                     <b>Partial Release Notice:</b> This payroll has already released {formatMoney(getPayslipReleasedAmount(selectedPayslip))}. Remaining salary balance is {formatMoney(getPayslipRemainingSalary(selectedPayslip))}.
                   </div>
                 )}
 
-                <div className="payslip-avoid-break mt-8 grid grid-cols-2 gap-10 text-xs">
-                  <div><div className="mt-10 border-t border-slate-900 pt-2 text-center">Prepared / Checked By</div></div>
-                  <div><div className="mt-10 border-t border-slate-900 pt-2 text-center">Employee Signature</div></div>
+                <div className="payslip-avoid-break mt-10 grid grid-cols-2 gap-12 text-xs font-semibold text-slate-600">
+                  <div><div className="mt-10 border-t border-slate-950 pt-2 text-center">Prepared / Checked By</div></div>
+                  <div><div className="mt-10 border-t border-slate-950 pt-2 text-center">Employee Signature</div></div>
                 </div>
 
-                <p className="mt-8 border-t border-slate-300 pt-3 text-center text-[10px] text-slate-500">
+                <p className="mt-8 border-t border-slate-200 pt-3 text-center text-[10px] font-medium text-slate-500">
                   {settings.payslip_footer || "This is a system-generated payslip."}
                 </p>
               </div>
@@ -3372,6 +3550,9 @@ Active balances are deducted through payroll only. Cancel here only when the bal
           </section>
         )}
       </main>
+
+      {/* OPSCORE Assistant: locked global floating signature */}
+      <OpscoreAssistant reminders={assistantReminders} />
       </div>
     </PageGuard>
   );
@@ -3381,7 +3562,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
 
 function PayslipInfoBox({ label, value }: { label: string; value: any }) {
   return (
-    <div className="rounded-lg border border-slate-300 bg-slate-50 p-3">
+    <div className="rounded-xl border border-slate-300 bg-slate-50 p-3">
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
       <p className="mt-1 break-words text-sm font-black text-slate-950">{value}</p>
     </div>
@@ -3398,13 +3579,52 @@ function PayslipLine({
   strong?: boolean;
 }) {
   return (
-    <tr className={`${strong ? "border-t-2 border-slate-900 font-black" : "border-b border-slate-200"}`}>
+    <tr className={`${strong ? "border-t-2 border-slate-900 font-black" : "border-b border-slate-100"}`}>
       <td className="px-4 py-2 text-slate-600">{label}</td>
       <td className="px-4 py-2 text-right font-bold">{value}</td>
     </tr>
   );
 }
 
+
+
+function PayslipAttendance({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="bg-white px-3 py-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function PayslipAmountBox({
+  label,
+  value,
+  danger,
+  success,
+}: {
+  label: string;
+  value: string;
+  danger?: boolean;
+  success?: boolean;
+}) {
+  return (
+    <div className="border-r border-slate-950 px-4 py-4 last:border-r-0">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p
+        className={
+          danger
+            ? "mt-2 text-xl font-black text-red-700"
+            : success
+            ? "mt-2 text-xl font-black text-emerald-700"
+            : "mt-2 text-xl font-black text-slate-950"
+        }
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
 
 function CompactMetric({
   label,
@@ -3416,19 +3636,38 @@ function CompactMetric({
   danger?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-xl border px-3 py-2 ${
-        danger ? "border-red-500/20 bg-red-500/10" : "border-slate-800 bg-slate-900"
-      }`}
-    >
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+    <div className="rounded-3xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
+      <p className={danger ? "mt-1 text-lg font-black text-red-700" : "mt-1 text-lg font-black text-slate-950"}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  danger,
+  success,
+}: {
+  label: string;
+  value: any;
+  danger?: boolean;
+  success?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p
         className={
           danger
-            ? "mt-1 text-lg font-black text-red-300"
-            : "mt-1 text-lg font-black text-white"
+            ? "mt-1 text-lg font-black text-red-700"
+            : success
+            ? "mt-1 text-lg font-black text-emerald-700"
+            : "mt-1 text-lg font-black text-slate-950"
         }
       >
         {value}
@@ -3451,22 +3690,14 @@ function KpiCard({
   danger?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        danger
-          ? "border-red-500/20 bg-red-500/10"
-          : success
-          ? "border-green-500/20 bg-green-500/10"
-          : "border-slate-800 bg-slate-900"
-      }`}
-    >
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-blue-300">
+        <div className={danger ? "rounded-2xl bg-red-50 p-3 text-red-700" : success ? "rounded-2xl bg-emerald-50 p-3 text-emerald-700" : "rounded-2xl bg-slate-100 p-3 text-slate-700"}>
           {icon}
         </div>
-        <p className="text-sm text-slate-400">{title}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{title}</p>
       </div>
-      <h2 className="text-2xl font-bold">{value}</h2>
+      <h2 className={danger ? "text-3xl font-black tracking-tight text-red-700" : "text-3xl font-black tracking-tight text-slate-950"}>{value}</h2>
     </div>
   );
 }
@@ -3475,24 +3706,23 @@ function StatusBadge({ status }: { status: string }) {
   const normalized = String(status || "Draft");
 
   const style =
-    normalized === "Active"
-      ? "bg-blue-500/10 text-blue-300"
-      : normalized === "Closed"
-      ? "bg-green-500/10 text-green-400"
-      : normalized === "Released" || normalized === "Paid"
-      ? "bg-blue-500/10 text-blue-400"
-      : normalized === "Approved" || normalized === "For Approval"
-      ? "bg-green-500/10 text-green-400"
-      : normalized === "Partially Approved"
-      ? "bg-blue-500/10 text-blue-300"
-      : normalized === "Reopened"
-      ? "bg-orange-500/10 text-orange-400"
-      : normalized === "Rejected"
-      ? "bg-red-500/10 text-red-400"
-      : "bg-slate-500/10 text-slate-300";
+    normalized === "Active" ||
+    normalized === "Approved" ||
+    normalized === "For Approval" ||
+    normalized === "Released" ||
+    normalized === "Paid"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : normalized === "Pending" ||
+        normalized === "Partially Approved" ||
+        normalized === "Reopened" ||
+        normalized === "Draft"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : normalized === "Rejected" || normalized === "Cancelled"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : "border-slate-200 bg-slate-100 text-slate-700";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ${style}`}>
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${style}`}>
       {normalized}
     </span>
   );
