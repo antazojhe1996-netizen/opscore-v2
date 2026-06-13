@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
@@ -1514,300 +1515,93 @@ export default function AttendancePage() {
     );
   };
 
-  const confirmImportPreview = () => {
-    if (attendanceLocked) {
-      alert(
-        `Attendance import is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}`,
-      );
-      return;
-    }
 
-    const matchedRows = importPreview.filter(
-      (row) => row.matched && row.employee_id,
-    );
-
-    let conflictCount = 0;
-    let skippedPortalCount = 0;
-
-    setEntries((prev) => {
-      const merged = [...prev];
-
-      matchedRows.forEach((row) => {
-        const employee = employees.find(
-          (emp) => String(emp.id) === String(row.employee_id),
-        );
-
-        const preference = getAttendanceSourcePreference(employee);
-        const incomingSource = "Biometrics";
-
-        const incoming: AttendanceEntry = {
-          employee_id: row.employee_id!,
-          attendance_date: row.attendance_date,
-          scheduled_shift: null,
-          scheduled_in: null,
-          scheduled_out: null,
-          time_in: row.time_in,
-          time_out: row.time_out,
-          late_minutes: row.late_minutes,
-          undertime_minutes: row.undertime_minutes,
-          ot_minutes: row.ot_minutes,
-          status: row.status,
-          remarks: "Imported from biometrics",
-          attendance_source: incomingSource,
-        };
-
-        const index = merged.findIndex(
-          (entry) =>
-            entry.employee_id === incoming.employee_id &&
-            entry.attendance_date === incoming.attendance_date,
-        );
-
-        if (index < 0) {
-          merged.push(incoming);
-          return;
-        }
-
-        const existing = merged[index];
-        const existingSource = getExistingSource(existing);
-        const conflict = hasTimeConflict(existing, incoming);
-
-        if (
-          preference === "Employee Portal" &&
-          existingSource === "Employee Portal" &&
-          conflict
-        ) {
-          conflictCount += 1;
-          skippedPortalCount += 1;
-
-          merged[index] = {
-            ...existing,
-            status: "Review Required",
-            remarks: buildSourceConflictRemarks(existingSource, incomingSource),
-            attendance_source: "Mixed",
-          };
-
-          return;
-        }
-
-        if (preference === "Manual Review" && conflict) {
-          conflictCount += 1;
-
-          merged[index] = {
-            ...existing,
-            status: "Review Required",
-            remarks: buildSourceConflictRemarks(
-              existingSource || "existing",
-              incomingSource,
-            ),
-            attendance_source: "Mixed",
-          };
-
-          return;
-        }
-
-        if (
-          preference === "Employee Portal" &&
-          existingSource === "Employee Portal"
-        ) {
-          skippedPortalCount += 1;
-          return;
-        }
-
-        merged[index] = {
-          ...existing,
-          ...incoming,
-          remarks:
-            existing.remarks && existing.remarks.includes("Schedule override")
-              ? `${existing.remarks} | Imported from biometrics`
-              : "Imported from biometrics",
-          attendance_source: incomingSource,
-        };
-      });
-
-      return merged;
-    });
-
-    const statusMessageParts = [
-      `Confirmed ${matchedRows.length} imported row(s).`,
-    ];
-
-    if (skippedPortalCount > 0) {
-      statusMessageParts.push(
-        `${skippedPortalCount} portal-controlled row(s) were protected from biometrics overwrite.`,
-      );
-    }
-
-    if (conflictCount > 0) {
-      statusMessageParts.push(
-        `${conflictCount} source conflict(s) marked as Review Required.`,
-      );
-    }
-
-    setImportStatus(statusMessageParts.join(" "));
-    setImportPreview([]);
+  /// EFFECTS + CALCULATIONS
+  const loadAttendanceWorkbench = async () => {
+    await Promise.all([
+      getEmployees(),
+      getBiometricMappings(),
+      getShiftTemplates(),
+      getSettings(),
+      getPayrollPeriods(),
+    ]);
   };
 
-  const clearImportPreview = () => {
-    setImportPreview([]);
-    setImportStatus("");
-  };
-
-  const markMissingAsAbsent = () => {
-    if (attendanceLocked) {
-      alert(
-        `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}`,
-      );
-      return;
-    }
-
-    if (missingEntryRows.length === 0) return;
-
-    missingEntryRows.forEach((row) => {
-      updateLocalEntry(
-        row.employee,
-        row.date,
-        "remarks",
-        "Marked absent - no biometrics entry",
-      );
-    });
-
-    alert(`Marked ${missingEntryRows.length} missing row(s) for review.`);
-  };
-
-  const saveAttendance = async () => {
-    if (attendanceLocked) {
-      alert(
-        `Attendance is locked for this cutoff because payroll was already sent for approval.\n\nLocked period(s): ${lockedPeriodNames}\n\nReopen payroll first before editing attendance.`,
-      );
-      return;
-    }
-
-    const sourceRows =
-      reviewEmployees.length > 0 && attendanceRows.length > 0
-        ? attendanceRows.map((row) => ({
-            employee_id: row.employee.id,
-            attendance_date: row.date,
-            scheduled_shift: row.scheduled_shift,
-            scheduled_in: row.scheduled_in,
-            scheduled_out: row.scheduled_out,
-            time_in: row.entry?.time_in || null,
-            time_out: row.entry?.time_out || null,
-            late_minutes: row.late_minutes,
-            undertime_minutes: row.undertime_minutes,
-            ot_minutes: row.ot_minutes,
-            status: row.status,
-            remarks: row.entry?.remarks || "",
-            attendance_source:
-              row.entry?.attendance_source ||
-              getExistingSource(row.entry) ||
-              "Manual Entry",
-          }))
-        : entries.map((entry) => ({
-            employee_id: entry.employee_id,
-            attendance_date: entry.attendance_date,
-            scheduled_shift: entry.scheduled_shift,
-            scheduled_in: entry.scheduled_in,
-            scheduled_out: entry.scheduled_out,
-            time_in: entry.time_in || null,
-            time_out: entry.time_out || null,
-            late_minutes: entry.late_minutes || 0,
-            undertime_minutes: entry.undertime_minutes || 0,
-            ot_minutes: entry.ot_minutes || 0,
-            status: entry.status || "Present",
-            remarks: entry.remarks || "",
-            attendance_source:
-              entry.attendance_source ||
-              getExistingSource(entry) ||
-              "Manual Entry",
-          }));
-
-    if (sourceRows.length === 0) {
-      alert("No attendance rows to save.");
-      return;
-    }
-
-    setIsSaving(true);
-
-    const { error } = await supabase
-      .from("attendance_entries")
-      .upsert(sourceRows, {
-        onConflict: "employee_id,attendance_date",
-      });
-
-    if (error) {
-      setIsSaving(false);
-      console.log("SAVE ATTENDANCE ERROR:", error);
-      alert(error.message);
-      return;
-    }
-
-    await markPayrollPeriodsForRegeneration(sourceRows);
-
-    setIsSaving(false);
-
-    alert(
-      `Saved ${sourceRows.length} attendance row(s). Payroll periods covering the saved dates were marked for regeneration.`,
-    );
-    getAttendanceEntries();
-  };
-
-  /// EFFECTS
   useEffect(() => {
-    getEmployees();
-    getBiometricMappings();
-    getShiftTemplates();
-    getSettings();
-    getPayrollPeriods();
+    loadAttendanceWorkbench();
   }, []);
 
   useEffect(() => {
-    getSchedules();
-    getApprovedLeaves();
-    getAttendanceEntries();
-    getLockedPayrollPeriods();
+    Promise.all([
+      getSchedules(),
+      getApprovedLeaves(),
+      getAttendanceEntries(),
+      getLockedPayrollPeriods(),
+    ]);
   }, [startDate, endDate]);
 
-  /// CALCULATIONS
-  const departments = useMemo(() => {
-    const list = employees
-      .map((emp) => String(emp.department || "").trim())
-      .filter((dept) => dept.length > 0);
+  const attendanceLocked = lockedPayrollPeriods.length > 0;
 
-    return Array.from(new Set(list)).sort();
+  const lockedPeriodNames =
+    lockedPayrollPeriods
+      .map(
+        (period) =>
+          period.period_name || period.name || "Locked Payroll Period",
+      )
+      .join(", ") || "Locked Payroll Period";
+
+  const departments = useMemo(() => {
+    return Array.from(
+      new Set(
+        employees
+          .map((employee) => String(employee.department || "Unassigned").trim())
+          .filter(Boolean),
+      ),
+    ).sort();
   }, [employees]);
 
   const employeeOptions = useMemo(() => {
-    return employees.filter((employee) => {
-      return (
-        departmentFilter === "ALL" ||
-        employee.department?.toLowerCase() === departmentFilter.toLowerCase()
+    return employees
+      .filter((employee) => {
+        if (departmentFilter === "ALL") return true;
+        return String(employee.department || "Unassigned") === departmentFilter;
+      })
+      .sort((a, b) =>
+        `${a.first_name} ${a.last_name}`.localeCompare(
+          `${b.first_name} ${b.last_name}`,
+        ),
       );
-    });
   }, [employees, departmentFilter]);
 
-  const selectedEmployee = useMemo(() => {
-    return employees.find((emp) => emp.id === selectedEmployeeId) || null;
-  }, [employees, selectedEmployeeId]);
-
   const reviewEmployees = useMemo(() => {
-    if (selectedEmployeeId === "ALL_EMPLOYEES") return employeeOptions;
-    if (selectedEmployee) return [selectedEmployee];
-    return [];
-  }, [selectedEmployeeId, selectedEmployee, employeeOptions]);
+    if (
+      selectedEmployeeId &&
+      selectedEmployeeId !== "ALL_EMPLOYEES"
+    ) {
+      return employeeOptions.filter(
+        (employee) => String(employee.id) === String(selectedEmployeeId),
+      );
+    }
+
+    return employeeOptions;
+  }, [employeeOptions, selectedEmployeeId]);
 
   const attendanceRows = useMemo(() => {
-    if (reviewEmployees.length === 0) return [];
+    const dates = getDateRange();
 
     return reviewEmployees.flatMap((employee) =>
-      getDateRange().map((date) => {
+      dates.map((date) => {
         const entry = getEntry(employee.id, date);
         const computed = computeEntry(employee, date, entry);
+
+        const sourcePreference = getAttendanceSourcePreference(employee);
 
         return {
           key: `${employee.id}-${date}`,
           employee,
           date,
           entry,
+          sourcePreference,
           ...computed,
         };
       }),
@@ -1816,133 +1610,326 @@ export default function AttendancePage() {
     reviewEmployees,
     entries,
     schedules,
+    shiftTemplates,
     approvedLeaves,
     settings,
     startDate,
     endDate,
   ]);
 
+  const payrollIssueRows = useMemo(() => {
+    return attendanceRows.filter((row) => {
+      const isWork = isWorkingShift(row.scheduled_shift);
+      const hasTimeIn = !!row.entry?.time_in;
+      const hasTimeOut = !!row.entry?.time_out;
+
+      return (
+        row.status === "Review Required" ||
+        row.status === "Unscheduled" ||
+        (isWork && (!hasTimeIn || !hasTimeOut))
+      );
+    });
+  }, [attendanceRows]);
+
+  const missingEntryRows = useMemo(() => {
+    return payrollIssueRows.filter((row) => {
+      const isWork = isWorkingShift(row.scheduled_shift);
+      return isWork && !row.entry?.time_in && !row.entry?.time_out;
+    });
+  }, [payrollIssueRows]);
+
+  const missingOutRows = useMemo(() => {
+    return payrollIssueRows.filter((row) => {
+      const isWork = isWorkingShift(row.scheduled_shift);
+      return isWork && !!row.entry?.time_in && !row.entry?.time_out;
+    });
+  }, [payrollIssueRows]);
+
+  const noScheduleRows = useMemo(() => {
+    return payrollIssueRows.filter((row) => row.status === "Unscheduled");
+  }, [payrollIssueRows]);
+
+  const reviewRequiredRows = useMemo(() => {
+    return payrollIssueRows.filter((row) => row.status === "Review Required");
+  }, [payrollIssueRows]);
+
+  const restDayRows = useMemo(
+    () =>
+      attendanceRows.filter(
+        (row) =>
+          isRestDayShift(row.scheduled_shift) ||
+          isUnscheduledShift(row.scheduled_shift),
+      ),
+    [attendanceRows],
+  );
+
   const presentCount = attendanceRows.filter((row) =>
-    ["Present", "Late", "Undertime", "Overtime"].includes(row.status),
+    ["Present", "Late", "Undertime", "Overtime"].includes(String(row.status)),
+  ).length;
+
+  const absentCount = attendanceRows.filter(
+    (row) => String(row.status) === "Absent",
   ).length;
 
   const lateCount = attendanceRows.filter(
     (row) => Number(row.late_minutes || 0) > 0,
   ).length;
 
-  const absentCount = attendanceRows.filter(
-    (row) => row.status === "Absent",
-  ).length;
-
-  const totalOtMinutes = attendanceRows.reduce(
-    (sum, row) => sum + Number(row.ot_minutes || 0),
-    0,
-  );
-
-  const payrollIssueRows = attendanceRows.filter((row) => {
-    const isWorkingDay = isWorkingShift(row.scheduled_shift);
-
-    const missingTime =
-      isWorkingDay && !row.entry?.time_in && !row.entry?.time_out;
-
-    const missingOut =
-      isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
-
-    const noSchedule = isUnscheduledShift(row.scheduled_shift);
-
-    const reviewRequired = row.status === "Review Required";
-
-    return missingTime || missingOut || noSchedule || reviewRequired;
-  });
-
-  const missingEntryRows = payrollIssueRows.filter((row) => {
-    const isWorkingDay = isWorkingShift(row.scheduled_shift);
-
-    return isWorkingDay && !row.entry?.time_in && !row.entry?.time_out;
-  });
-
-  const missingOutRows = payrollIssueRows.filter((row) => {
-    const isWorkingDay = isWorkingShift(row.scheduled_shift);
-
-    return isWorkingDay && row.entry?.time_in && !row.entry?.time_out;
-  });
-
-  const noScheduleRows = attendanceRows.filter((row) =>
-    isUnscheduledShift(row.scheduled_shift),
-  );
-
-  const restDayRows = attendanceRows.filter((row) =>
-    isRestDayShift(row.scheduled_shift),
-  );
-
-  const reviewRequiredRows = attendanceRows.filter(
-    (row) => row.status === "Review Required",
-  );
+  const otHours =
+    attendanceRows.reduce(
+      (sum, row) => sum + Number(row.ot_minutes || 0),
+      0,
+    ) / 60;
 
   const payrollReady =
     reviewEmployees.length > 0 &&
     attendanceRows.length > 0 &&
-    payrollIssueRows.length === 0;
-
-  const attendanceLocked = lockedPayrollPeriods.length > 0;
-
-  const lockedPeriodNames =
-    lockedPayrollPeriods.map((period) => period.period_name).join(", ") ||
-    "Locked payroll period";
+    payrollIssueRows.length === 0 &&
+    !attendanceLocked;
 
   const matchedPreviewCount = importPreview.filter((row) => row.matched).length;
-const missingPreviewCount = importPreview.filter(
-  (row) => !row.matched,
-).length;
+  const missingPreviewCount = importPreview.filter((row) => !row.matched).length;
 
-const otHours = totalOtMinutes / 60;
+  const limitedAssistantReminders = [
+    ...(attendanceLocked
+      ? [
+          {
+            status: "warning" as const,
+            text: `Attendance is locked for ${lockedPeriodNames}.`,
+          },
+        ]
+      : []),
+    ...(payrollIssueRows.length > 0
+      ? [
+          {
+            status: "critical" as const,
+            text: `${payrollIssueRows.length} attendance row(s) need payroll review.`,
+          },
+        ]
+      : []),
+    ...(missingEntryRows.length > 0
+      ? [
+          {
+            status: "warning" as const,
+            text: `${missingEntryRows.length} missing time in/out row(s) detected.`,
+          },
+        ]
+      : []),
+    ...(missingPreviewCount > 0
+      ? [
+          {
+            status: "warning" as const,
+            text: `${missingPreviewCount} biometric import row(s) need manual matching.`,
+          },
+        ]
+      : []),
+    ...(payrollReady
+      ? [
+          {
+            status: "success" as const,
+            text: "Attendance is payroll-ready for the selected cutoff.",
+          },
+        ]
+      : []),
+  ].slice(0, 5);
+
+  const clearImportPreview = () => {
+    setImportPreview([]);
+    setImportStatus("");
+  };
+
+  const confirmImportPreview = () => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance import is locked for this cutoff.\n\nLocked period(s): ${lockedPeriodNames}`,
+      );
+      return;
+    }
+
+    const matchedRows = importPreview.filter((row) => row.matched && row.employee_id);
+
+    if (matchedRows.length === 0) {
+      alert("No matched biometric rows to import.");
+      return;
+    }
+
+    matchedRows.forEach((row) => {
+      const employee = employees.find(
+        (item) => String(item.id) === String(row.employee_id),
+      );
+
+      if (!employee) return;
+
+      const existing = getEntry(employee.id, row.attendance_date);
+      const incomingSource = "Biometrics";
+      const existingSource = getExistingSource(existing);
+
+      const conflict = hasTimeConflict(existing, {
+        time_in: row.time_in,
+        time_out: row.time_out,
+      });
+
+      const baseEntry: AttendanceEntry = existing || {
+        employee_id: employee.id,
+        attendance_date: row.attendance_date,
+        remarks: "",
+        attendance_source: incomingSource,
+      };
+
+      const updated: AttendanceEntry = {
+        ...baseEntry,
+        time_in: row.time_in || baseEntry.time_in || "",
+        time_out: row.time_out || baseEntry.time_out || "",
+        attendance_source:
+          existingSource && existingSource !== incomingSource
+            ? "Mixed"
+            : incomingSource,
+        remarks: conflict
+          ? buildSourceConflictRemarks(existingSource || "existing", incomingSource)
+          : baseEntry.remarks || row.remarks || "Imported from biometrics.",
+      };
+
+      const computed = computeEntry(employee, row.attendance_date, updated);
+      const finalEntry = {
+        ...updated,
+        ...computed,
+      };
+
+      setEntries((prev) => {
+        const exists = prev.some(
+          (entry) =>
+            String(entry.employee_id) === String(employee.id) &&
+            String(entry.attendance_date) === String(row.attendance_date),
+        );
+
+        if (exists) {
+          return prev.map((entry) =>
+            String(entry.employee_id) === String(employee.id) &&
+            String(entry.attendance_date) === String(row.attendance_date)
+              ? finalEntry
+              : entry,
+          );
+        }
+
+        return [...prev, finalEntry];
+      });
+    });
+
+    setImportStatus(
+      `Imported ${matchedRows.length} matched row(s) into attendance review. Click Save Attendance to persist.`,
+    );
+    setImportPreview([]);
+  };
+
+  const markMissingAsAbsent = () => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance is locked for this cutoff.\n\nLocked period(s): ${lockedPeriodNames}`,
+      );
+      return;
+    }
+
+    if (missingEntryRows.length === 0) return;
+
+    missingEntryRows.forEach((row) => {
+      const baseEntry: AttendanceEntry = row.entry || {
+        employee_id: row.employee.id,
+        attendance_date: row.date,
+        time_in: "",
+        time_out: "",
+        remarks: "",
+        attendance_source: "Manual Entry",
+      };
+
+      const finalEntry: AttendanceEntry = {
+        ...baseEntry,
+        scheduled_shift: row.scheduled_shift,
+        scheduled_in: row.scheduled_in,
+        scheduled_out: row.scheduled_out,
+        time_in: "",
+        time_out: "",
+        late_minutes: 0,
+        undertime_minutes: 0,
+        ot_minutes: 0,
+        status: "Absent",
+        remarks: baseEntry.remarks || "Marked absent from attendance workbench.",
+        attendance_source: baseEntry.attendance_source || "Manual Entry",
+      };
+
+      setEntries((prev) => {
+        const exists = prev.some(
+          (entry) =>
+            String(entry.employee_id) === String(row.employee.id) &&
+            String(entry.attendance_date) === String(row.date),
+        );
+
+        if (exists) {
+          return prev.map((entry) =>
+            String(entry.employee_id) === String(row.employee.id) &&
+            String(entry.attendance_date) === String(row.date)
+              ? finalEntry
+              : entry,
+          );
+        }
+
+        return [...prev, finalEntry];
+      });
+    });
+  };
+
+  const saveAttendance = async () => {
+    if (attendanceLocked) {
+      alert(
+        `Attendance is locked for this cutoff.\n\nLocked period(s): ${lockedPeriodNames}`,
+      );
+      return;
+    }
+
+    if (reviewEmployees.length === 0) {
+      alert("Select at least one employee before saving attendance.");
+      return;
+    }
+
+    const payload = attendanceRows.map((row) => ({
+      employee_id: row.employee.id,
+      attendance_date: row.date,
+      scheduled_shift: row.scheduled_shift || null,
+      scheduled_in: row.scheduled_in || null,
+      scheduled_out: row.scheduled_out || null,
+      time_in: row.entry?.time_in || null,
+      time_out: row.entry?.time_out || null,
+      late_minutes: Number(row.late_minutes || 0),
+      undertime_minutes: Number(row.undertime_minutes || 0),
+      ot_minutes: Number(row.ot_minutes || 0),
+      status: row.status || "Unreviewed",
+      remarks: row.entry?.remarks || row.review_reason || null,
+      attendance_source: row.entry?.attendance_source || "Manual Entry",
+    }));
+
+    setIsSaving(true);
+
+    const { error } = await supabase
+      .from("attendance_entries")
+      .upsert(payload, {
+        onConflict: "employee_id,attendance_date",
+      });
+
+    if (error) {
+      console.log("SAVE ATTENDANCE ERROR:", error.message);
+      alert(`Failed to save attendance.\n\n${error.message}`);
+      setIsSaving(false);
+      return;
+    }
+
+    await markPayrollPeriodsForRegeneration(payload);
+    await getAttendanceEntries();
+
+    setIsSaving(false);
+    alert("Attendance rows saved.");
+  };
 
 
-  type AssistantReminder = {
-  type: "critical" | "warning" | "info" | "success" | "neutral";
-  text: string;
-};
-
-const assistantReminders: AssistantReminder[] = [];
-
-if (attendanceLocked) {
-  assistantReminders.push({
-    type: "critical",
-    text: `Attendance is locked for ${lockedPeriodNames}. Reopen payroll before editing.`,
-  });
-}
-
-if (payrollIssueRows.length > 0) {
-  assistantReminders.push({
-    type: "critical",
-    text: `${payrollIssueRows.length} attendance issue(s) must be reviewed before payroll.`,
-  });
-}
-
-if (missingPreviewCount > 0) {
-  assistantReminders.push({
-    type: "warning",
-    text: `${missingPreviewCount} imported biometric row(s) are not matched to employees.`,
-  });
-}
-
-if (lateCount > 0) {
-  assistantReminders.push({
-    type: "info",
-    text: `${lateCount} late attendance record(s) detected.`,
-  });
-}
-
-if (otHours > 0) {
-  assistantReminders.push({
-    type: "info",
-    text: `${otHours.toFixed(2)} OT hour(s) recorded in this cutoff.`,
-  });
-}
-
-const limitedAssistantReminders = assistantReminders.slice(0, 5);
-
-  /// UI
+    /// UI
   return (
     <PageGuard moduleKey="attendance">
       <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -1952,92 +1939,97 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
           <TopNavbar breadcrumb="PAYROLL / ATTENDANCE ENTRIES" />
 
           <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
-            <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-                  Payroll
-                </p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                  Attendance Entries
-                </h1>
-                <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
-                  Import biometrics, review exceptions, edit attendance rows,
-                  and save payroll-ready attendance.
-                </p>
-              </div>
+            <section className="mb-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                    Payroll
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <h1 className="text-3xl font-black tracking-tight text-slate-950">
+                      Attendance Workbench
+                    </h1>
+                    <StatusPill
+                      tone={
+                        attendanceLocked
+                          ? "warning"
+                          : payrollReady
+                            ? "success"
+                            : payrollIssueRows.length > 0
+                              ? "danger"
+                              : "neutral"
+                      }
+                    >
+                      {attendanceLocked
+                        ? "Locked"
+                        : payrollReady
+                          ? "Payroll Ready"
+                          : payrollIssueRows.length > 0
+                            ? "Review Required"
+                            : "Review Mode"}
+                    </StatusPill>
+                  </div>
+                  <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+                    Import biometrics, review payroll blockers, and encode attendance
+                    rows for the selected cutoff.
+                  </p>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <StatusPill
-                  tone={
-                    attendanceLocked
-                      ? "warning"
-                      : payrollReady
-                        ? "success"
-                        : "neutral"
-                  }
-                >
-                  {attendanceLocked
-                    ? "Locked"
-                    : payrollReady
-                      ? "Payroll Ready"
-                      : "Review Mode"}
-                </StatusPill>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={markMissingAsAbsent}
+                    disabled={
+                      attendanceLocked ||
+                      missingEntryRows.length === 0 ||
+                      reviewEmployees.length === 0
+                    }
+                    className="h-11 rounded-xl border border-red-200 bg-red-50 px-5 text-sm font-bold text-red-700 transition-all duration-200 hover:bg-red-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Mark Missing as Absent
+                  </button>
 
-                <button
-                  onClick={saveAttendance}
-                  disabled={isSaving || attendanceLocked}
-                  className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {attendanceLocked
-                    ? "Attendance Locked"
-                    : isSaving
-                      ? "Saving..."
-                      : payrollReady
-                        ? "Save Attendance"
-                        : "Save with Issues"}
-                </button>
+                  <button
+                    onClick={saveAttendance}
+                    disabled={isSaving || attendanceLocked || reviewEmployees.length === 0}
+                    className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {attendanceLocked
+                      ? "Attendance Locked"
+                      : isSaving
+                        ? "Saving..."
+                        : payrollIssueRows.length > 0
+                          ? "Save with Issues"
+                          : "Save Attendance"}
+                  </button>
+                </div>
               </div>
             </section>
 
-            {(attendanceLocked || importStatus) && (
-              <section className="mb-6 space-y-3">
-                {attendanceLocked && (
-                  <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
-                      Locked Cutoff
-                    </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-amber-700">
-                      Payroll was already sent for approval for{" "}
-                      <span className="font-black">{lockedPeriodNames}</span>.
-                      Reopen payroll before editing or importing attendance.
-                    </p>
-                  </div>
-                )}
-
-                {importStatus && (
-                  <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 text-sm font-semibold leading-6 text-blue-700 shadow-sm">
-                    {importStatus}
-                  </div>
-                )}
-              </section>
-            )}
-
-            <section className="mb-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <section className="mb-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-6 py-5">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                  Attendance Controls
-                </p>
-                <h2 className="mt-2 text-xl font-black text-slate-950">
-                  Cutoff, Filters, and Import
-                </h2>
-                <p className="mt-1 text-sm font-medium text-slate-500">
-                  Select payroll cutoff or custom range, filter employees, and
-                  import biometric files.
-                </p>
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Attendance Controls
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-slate-950">
+                      Cutoff, Filters, and Import
+                    </h2>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                      Select payroll cutoff, department, employee, date range, then import or encode.
+                    </p>
+                  </div>
+
+                  {importStatus && (
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-blue-700">
+                      {importStatus}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="p-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1.25fr_1fr_1fr_1fr_1fr_auto]">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1.15fr_0.9fr_0.9fr_auto]">
                   <select
                     value={selectedCutoffId}
                     onChange={(e) => applyPayrollCutoff(e.target.value)}
@@ -2046,9 +2038,7 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                     <option value="CUSTOM">Custom Date Range</option>
                     {payrollPeriods.map((period) => (
                       <option key={period.id} value={period.id}>
-                        {period.period_name} •{" "}
-                        {String(period.start_date).slice(0, 10)} to{" "}
-                        {String(period.end_date).slice(0, 10)}
+                        {period.period_name} {period.attendance_locked ? "(Locked)" : ""}
                       </option>
                     ))}
                   </select>
@@ -2057,28 +2047,27 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                     value={departmentFilter}
                     onChange={(e) => {
                       setDepartmentFilter(e.target.value);
-                      setSelectedEmployeeId("");
+                      setSelectedEmployeeId("ALL_EMPLOYEES");
                     }}
                     className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   >
                     <option value="ALL">All Departments</option>
-                    {departments.map((dept: any) => (
-                      <option key={dept} value={dept}>
-                        {dept}
+                    {departments.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
                       </option>
                     ))}
                   </select>
 
                   <select
-                    value={selectedEmployeeId}
+                    value={selectedEmployeeId || "ALL_EMPLOYEES"}
                     onChange={(e) => setSelectedEmployeeId(e.target.value)}
                     className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   >
-                    <option value="">Select Employee</option>
-                    <option value="ALL_EMPLOYEES">All Employees</option>
-                    {employeeOptions.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.first_name} {emp.last_name}
+                    <option value="ALL_EMPLOYEES">All Active Employees</option>
+                    {employeeOptions.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.first_name} {employee.last_name}
                       </option>
                     ))}
                   </select>
@@ -2118,151 +2107,129 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                     />
                   </label>
                 </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <StatusPill tone="info">
+                    {reviewEmployees.length} employee(s)
+                  </StatusPill>
+                  <StatusPill tone="neutral">
+                    {attendanceRows.length} row(s)
+                  </StatusPill>
+                  <StatusPill tone={attendanceLocked ? "warning" : "success"}>
+                    {attendanceLocked ? `Locked: ${lockedPeriodNames}` : "Editable cutoff"}
+                  </StatusPill>
+                </div>
               </div>
             </section>
 
-            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <KpiCard
+                label="Employees Included"
+                value={reviewEmployees.length}
+                helper={`${employeeOptions.length} available under filter`}
+                tone="neutral"
+              />
               <KpiCard
                 label="Attendance Rows"
                 value={attendanceRows.length}
-                helper={`${reviewEmployees.length} selected employee(s)`}
+                helper={`${presentCount} present / worked row(s)`}
+                tone={attendanceRows.length > 0 ? "success" : "neutral"}
               />
               <KpiCard
                 label="Payroll Issues"
                 value={payrollIssueRows.length}
-                helper={
-                  payrollIssueRows.length > 0
-                    ? "Needs review before payroll"
-                    : "No blocking issue found"
-                }
+                helper={`${missingEntryRows.length} missing • ${missingOutRows.length} missing out`}
                 tone={payrollIssueRows.length > 0 ? "danger" : "success"}
               />
               <KpiCard
-                label="Late Records"
-                value={lateCount}
-                helper={`${absentCount} absent row(s)`}
-                tone={lateCount > 0 ? "warning" : "neutral"}
-              />
-              <KpiCard
-                label="OT Hours"
-                value={(totalOtMinutes / 60).toFixed(2)}
-                helper={`${presentCount} present / worked row(s)`}
-                tone="info"
+                label="Payroll Ready"
+                value={payrollReady ? "Yes" : "No"}
+                helper={`${lateCount} late • ${otHours.toFixed(2)} OT hour(s)`}
+                tone={payrollReady ? "success" : payrollIssueRows.length > 0 ? "warning" : "neutral"}
               />
             </section>
 
-            {reviewEmployees.length === 0 && (
-              <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                  No Employee Selected
+            {attendanceLocked && (
+              <section className="mb-5 rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                  Attendance Locked
                 </p>
                 <h2 className="mt-2 text-xl font-black text-slate-950">
-                  Select an employee or choose All Employees.
+                  This cutoff is locked by payroll approval.
                 </h2>
-                <p className="mt-2 text-sm font-medium text-slate-500">
-                  Attendance rows will appear after selecting a review scope.
+                <p className="mt-1 text-sm font-semibold leading-6 text-amber-700">
+                  Locked period(s): {lockedPeriodNames}. Reopen payroll first before editing attendance rows.
                 </p>
               </section>
             )}
 
-            {reviewEmployees.length > 0 && payrollIssueRows.length > 0 && (
-              <section className="mb-6 rounded-3xl border border-red-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+            {payrollIssueRows.length > 0 && (
+              <section className="mb-5 rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">
-                      Attendance Exceptions
+                      Payroll Blocking Issues
                     </p>
                     <h2 className="mt-2 text-xl font-black text-slate-950">
-                      Payroll Blocking Issues
+                      {payrollIssueRows.length} row(s) need review before payroll.
                     </h2>
-                    <p className="mt-1 text-sm font-medium text-slate-500">
-                      Missing: {missingEntryRows.length} • Missing out:{" "}
-                      {missingOutRows.length} • No schedule:{" "}
-                      {noScheduleRows.length} • Review:{" "}
-                      {reviewRequiredRows.length}
+                    <p className="mt-1 text-sm font-semibold leading-6 text-red-700">
+                      Missing: {missingEntryRows.length} • Missing out: {missingOutRows.length} •
+                      No schedule: {noScheduleRows.length} • Review: {reviewRequiredRows.length}
                     </p>
                   </div>
 
-                  {missingEntryRows.length > 0 && (
-                    <button
-                      onClick={markMissingAsAbsent}
-                      disabled={attendanceLocked}
-                      className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Mark Missing as Absent
-                    </button>
-                  )}
+                  <button
+                    onClick={markMissingAsAbsent}
+                    disabled={attendanceLocked || missingEntryRows.length === 0}
+                    className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Mark Missing as Absent
+                  </button>
                 </div>
 
-                <div className="max-h-72 overflow-auto">
-                  <table className="w-full min-w-[900px] text-sm">
-                    <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                <div className="mt-4 overflow-auto rounded-2xl border border-red-200 bg-white">
+                  <table className="w-full min-w-[960px] text-sm">
+                    <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                       <tr>
-                        <th className="px-6 py-4">Employee</th>
-                        <th className="px-6 py-4">Date</th>
-                        <th className="px-6 py-4">Issue</th>
-                        <th className="px-6 py-4">Schedule</th>
-                        <th className="px-6 py-4">Time In</th>
-                        <th className="px-6 py-4">Time Out</th>
+                        <th className="px-5 py-3">Employee</th>
+                        <th className="px-5 py-3">Date</th>
+                        <th className="px-5 py-3">Issue</th>
+                        <th className="px-5 py-3">Schedule</th>
+                        <th className="px-5 py-3">Time In</th>
+                        <th className="px-5 py-3">Time Out</th>
                       </tr>
                     </thead>
-
                     <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
-                      {payrollIssueRows.slice(0, 80).map((row) => {
-                        const isWorkingDay =
-                          row.scheduled_shift !== "OFF" &&
-                          row.scheduled_shift !== "RD" &&
-                          row.scheduled_shift !== "Leave";
-
-                        let issue = "Needs Review";
-                        if (row.status === "Review Required") {
-                          issue = row.review_reason || "Review Required";
-                        } else if (
-                          isWorkingDay &&
-                          !row.entry?.time_in &&
-                          !row.entry?.time_out
-                        ) {
-                          issue = "Missing Time In / Out";
-                        } else if (
-                          isWorkingDay &&
-                          row.entry?.time_in &&
-                          !row.entry?.time_out
-                        ) {
-                          issue = "Missing Time Out";
-                        } else if (isUnscheduledShift(row.scheduled_shift)) {
-                          issue = "Unscheduled Employee";
-                        }
-
-                        return (
-                          <tr
-                            key={`issue-${row.key}`}
-                            className="transition-all duration-200 hover:bg-slate-50"
-                          >
-                            <td className="px-6 py-4">
-                              <p className="font-black text-slate-950">
-                                {row.employee.first_name}{" "}
-                                {row.employee.last_name}
-                              </p>
-                              <p className="text-xs font-medium text-slate-500">
-                                {row.employee.employee_no || "-"}
-                              </p>
-                            </td>
-                            <td className="px-6 py-4">{row.date}</td>
-                            <td className="px-6 py-4 font-black text-red-700">
-                              {issue}
-                            </td>
-                            <td className="px-6 py-4">
-                              <SchedulePill label={getScheduleLabel(row.scheduled_shift)} />
-                            </td>
-                            <td className="px-6 py-4">
-                              {row.entry?.time_in || "--:--"}
-                            </td>
-                            <td className="px-6 py-4">
-                              {row.entry?.time_out || "--:--"}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {payrollIssueRows.slice(0, 8).map((row) => (
+                        <tr key={`issue-${row.key}`} className="hover:bg-slate-50">
+                          <td className="px-5 py-4">
+                            <p className="font-black text-slate-950">
+                              {row.employee.first_name} {row.employee.last_name}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500">
+                              {row.employee.employee_no || "-"} • {row.employee.department}
+                            </p>
+                          </td>
+                          <td className="px-5 py-4 font-black text-slate-950">
+                            {row.date}
+                          </td>
+                          <td className="px-5 py-4 font-black text-red-700">
+                            {row.status === "Review Required"
+                              ? row.review_reason || "Review Required"
+                              : isUnscheduledShift(row.scheduled_shift)
+                                ? "No Schedule"
+                                : row.entry?.time_in && !row.entry?.time_out
+                                  ? "Missing Time Out"
+                                  : "Missing Time In / Out"}
+                          </td>
+                          <td className="px-5 py-4">
+                            <SchedulePill label={getScheduleLabel(row.scheduled_shift)} />
+                          </td>
+                          <td className="px-5 py-4">{row.entry?.time_in || "--:--"}</td>
+                          <td className="px-5 py-4">{row.entry?.time_out || "--:--"}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -2270,7 +2237,7 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
             )}
 
             {importPreview.length > 0 && (
-              <section className="mb-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <section className="mb-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
@@ -2280,8 +2247,7 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                       Import Preview
                     </h2>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                      Rows: {importPreview.length} • Matched:{" "}
-                      {matchedPreviewCount} • Missing: {missingPreviewCount}
+                      Rows: {importPreview.length} • Matched: {matchedPreviewCount} • Missing: {missingPreviewCount}
                     </p>
                   </div>
 
@@ -2292,10 +2258,9 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                     >
                       Clear Preview
                     </button>
-
                     <button
                       onClick={confirmImportPreview}
-                      disabled={attendanceLocked}
+                      disabled={attendanceLocked || matchedPreviewCount === 0}
                       className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Confirm Import
@@ -2303,8 +2268,8 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                   </div>
                 </div>
 
-                <div className="max-h-[420px] overflow-auto">
-                  <table className="w-full min-w-[1250px] text-sm">
+                <div className="max-h-[360px] overflow-auto">
+                  <table className="w-full min-w-[1180px] text-sm">
                     <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                       <tr>
                         <th className="px-6 py-4">Biometric ID</th>
@@ -2312,45 +2277,26 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                         <th className="px-6 py-4">Matched Employee</th>
                         <th className="px-6 py-4">Manual Match</th>
                         <th className="px-6 py-4">Date</th>
-                        <th className="px-6 py-4">Time In</th>
-                        <th className="px-6 py-4">Time Out</th>
+                        <th className="px-6 py-4">Time</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4">Remarks</th>
                       </tr>
                     </thead>
-
                     <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
                       {importPreview.map((row, index) => (
-                        <tr
-                          key={`${row.biometric_employee_no}-${row.attendance_date}-${index}`}
-                          className="transition-all duration-200 hover:bg-slate-50"
-                        >
+                        <tr key={`${row.biometric_employee_no}-${row.attendance_date}-${index}`} className="hover:bg-slate-50">
+                          <td className="px-6 py-4">{row.biometric_employee_no || "-"}</td>
+                          <td className="px-6 py-4 font-black text-slate-950">{row.employee_name || "-"}</td>
                           <td className="px-6 py-4">
-                            {row.biometric_employee_no || "-"}
-                          </td>
-                          <td className="px-6 py-4 font-black text-slate-950">
-                            {row.employee_name || "-"}
-                          </td>
-                          <td className="px-6 py-4">
-                            <p
-                              className={
-                                row.matched
-                                  ? "font-black text-emerald-700"
-                                  : "font-black text-red-700"
-                              }
-                            >
+                            <p className={row.matched ? "font-black text-emerald-700" : "font-black text-red-700"}>
                               {row.matched_employee_name || "Not matched"}
                             </p>
-                            <p className="text-xs font-medium text-slate-500">
-                              {row.matched_employee_no || "-"}
-                            </p>
+                            <p className="text-xs font-medium text-slate-500">{row.matched_employee_no || "-"}</p>
                           </td>
                           <td className="px-6 py-4">
                             <select
                               value={row.employee_id || ""}
-                              onChange={(e) =>
-                                applyManualBiometricMatch(index, e.target.value)
-                              }
+                              onChange={(e) => applyManualBiometricMatch(index, e.target.value)}
                               className="h-11 w-full min-w-[220px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                             >
                               <option value="">Select match</option>
@@ -2363,11 +2309,8 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                             </select>
                           </td>
                           <td className="px-6 py-4">{row.attendance_date}</td>
-                          <td className="px-6 py-4">{row.time_in || "--:--"}</td>
-                          <td className="px-6 py-4">{row.time_out || "--:--"}</td>
-                          <td className="px-6 py-4">
-                            <AttendanceStatusBadge status={row.status} />
-                          </td>
+                          <td className="px-6 py-4">{row.time_in || "--:--"} - {row.time_out || "--:--"}</td>
+                          <td className="px-6 py-4"><AttendanceStatusBadge status={row.status} /></td>
                           <td className="px-6 py-4">{row.remarks}</td>
                         </tr>
                       ))}
@@ -2377,23 +2320,35 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
               </section>
             )}
 
-            {reviewEmployees.length > 0 && (
-              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 px-6 py-5">
+            <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+                <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Attendance Workbench
+                    Attendance Queue
                   </p>
                   <h2 className="mt-2 text-xl font-black text-slate-950">
-                    Attendance Rows
+                    Payroll-Ready Attendance Rows
                   </h2>
                   <p className="mt-1 text-sm font-medium text-slate-500">
-                    Edit schedule override, time in, time out, and remarks.
-                    Save once rows are reviewed.
+                    Encode time in/out and schedule override. Use all employees for batch encoding.
                   </p>
                 </div>
 
+                <div className="flex flex-wrap gap-2">
+                  <StatusPill tone="neutral">RD/OFF: {restDayRows.length}</StatusPill>
+                  <StatusPill tone="danger">Absent: {absentCount}</StatusPill>
+                  <StatusPill tone="warning">Late: {lateCount}</StatusPill>
+                  <StatusPill tone="info">OT: {otHours.toFixed(2)}h</StatusPill>
+                </div>
+              </div>
+
+              {reviewEmployees.length === 0 ? (
+                <div className="px-6 py-14 text-center text-sm font-medium text-slate-500">
+                  Select All Active Employees or a specific employee to start encoding attendance.
+                </div>
+              ) : (
                 <div className="overflow-auto">
-                  <table className="w-full min-w-[1500px] text-sm">
+                  <table className="w-full min-w-[1320px] text-sm">
                     <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                       <tr>
                         <th className="px-6 py-4">Employee</th>
@@ -2402,7 +2357,7 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                         <th className="px-6 py-4">Time In</th>
                         <th className="px-6 py-4">Time Out</th>
                         <th className="px-6 py-4">Late</th>
-                        <th className="px-6 py-4">Undertime</th>
+                        <th className="px-6 py-4">UT</th>
                         <th className="px-6 py-4">OT</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4">Source</th>
@@ -2412,42 +2367,29 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
 
                     <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
                       {attendanceRows.map((row) => (
-                        <tr
-                          key={row.key}
-                          className="transition-all duration-200 hover:bg-slate-50"
-                        >
+                        <tr key={row.key} className="transition-all duration-200 hover:bg-slate-50">
                           <td className="px-6 py-4">
                             <p className="font-black text-slate-950">
                               {row.employee.first_name} {row.employee.last_name}
                             </p>
                             <p className="text-xs font-medium text-slate-500">
-                              {row.employee.department || "Unassigned"} •{" "}
-                              {row.employee.employee_no || "No ID"}
+                              {row.employee.department} • {row.employee.employee_no || "-"}
                             </p>
                           </td>
-                          <td className="px-6 py-4 font-black text-slate-950">
-                            {row.date}
-                          </td>
+                          <td className="px-6 py-4 font-black text-slate-950">{row.date}</td>
                           <td className="px-6 py-4">
                             <select
                               value={row.scheduled_shift || "OFF"}
                               disabled={attendanceLocked}
-                              onChange={(e) =>
-                                updateScheduleOverride(
-                                  row.employee,
-                                  row.date,
-                                  e.target.value,
-                                )
-                              }
+                              onChange={(e) => updateScheduleOverride(row.employee, row.date, e.target.value)}
                               className="h-11 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <option value="OFF">OFF</option>
                               <option value="RD">RD</option>
+                              <option value="Leave">LEAVE</option>
                               {shiftTemplates.map((shift) => (
-                                <option key={shift.id} value={shift.shift_name}>
-                                  {shift.shift_name} •{" "}
-                                  {String(shift.start_time || "").slice(0, 5)}-
-                                  {String(shift.end_time || "").slice(0, 5)}
+                                <option key={shift.id || shift.shift_name} value={shift.shift_name}>
+                                  {shift.shift_name} • {getShiftTimeLabel(shift.shift_name)}
                                 </option>
                               ))}
                             </select>
@@ -2455,91 +2397,49 @@ const limitedAssistantReminders = assistantReminders.slice(0, 5);
                           <td className="px-6 py-4">
                             <TimeInput
                               value={row.entry?.time_in || ""}
-                              disabled={attendanceLocked}
-                              onChange={(value) =>
-                                updateLocalEntry(
-                                  row.employee,
-                                  row.date,
-                                  "time_in",
-                                  value,
-                                )
-                              }
+                              disabled={attendanceLocked || !isWorkingShift(row.scheduled_shift)}
+                              onChange={(value) => updateLocalEntry(row.employee, row.date, "time_in", value)}
                             />
                           </td>
                           <td className="px-6 py-4">
                             <TimeInput
                               value={row.entry?.time_out || ""}
-                              disabled={attendanceLocked}
-                              onChange={(value) =>
-                                updateLocalEntry(
-                                  row.employee,
-                                  row.date,
-                                  "time_out",
-                                  value,
-                                )
-                              }
+                              disabled={attendanceLocked || !isWorkingShift(row.scheduled_shift)}
+                              onChange={(value) => updateLocalEntry(row.employee, row.date, "time_out", value)}
                             />
                           </td>
-                          <td className="px-6 py-4">
-                            {Number(row.late_minutes || 0)}
-                          </td>
-                          <td className="px-6 py-4">
-                            {Number(row.undertime_minutes || 0)}
-                          </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 font-black text-slate-950">{row.late_minutes || 0}</td>
+                          <td className="px-6 py-4 font-black text-slate-950">{row.undertime_minutes || 0}</td>
+                          <td className="px-6 py-4 font-black text-slate-950">
                             {(Number(row.ot_minutes || 0) / 60).toFixed(2)}
                           </td>
-                          <td className="px-6 py-4">
-                            <AttendanceStatusBadge status={row.status} />
-                          </td>
-                          <td className="px-6 py-4">
-                            <SourceBadge
-                              source={
-                                row.entry?.attendance_source ||
-                                getExistingSource(row.entry) ||
-                                getAttendanceSourcePreference(row.employee)
-                              }
-                            />
-                          </td>
+                          <td className="px-6 py-4"><AttendanceStatusBadge status={row.status} /></td>
+                          <td className="px-6 py-4"><SourceBadge source={row.entry?.attendance_source} /></td>
                           <td className="px-6 py-4">
                             <input
-                              type="text"
                               value={row.entry?.remarks || ""}
                               disabled={attendanceLocked}
-                              onChange={(e) =>
-                                updateLocalEntry(
-                                  row.employee,
-                                  row.date,
-                                  "remarks",
-                                  e.target.value,
-                                )
-                              }
-                              className="h-11 w-full min-w-[260px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                              onChange={(e) => updateLocalEntry(row.employee, row.date, "remarks", e.target.value)}
                               placeholder="Remarks"
+                              className="h-11 min-w-[240px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                             />
+                            {row.review_reason && (
+                              <p className="mt-1 text-xs font-bold text-red-700">
+                                {row.review_reason}
+                              </p>
+                            )}
                           </td>
                         </tr>
                       ))}
-
-                      {attendanceRows.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={11}
-                            className="px-6 py-14 text-center text-sm font-medium text-slate-500"
-                          >
-                            No attendance rows found for the selected filters.
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
-              </section>
-            )}
+              )}
+            </section>
           </div>
-
-          <OpscoreAssistant reminders={assistantReminders} />
         </main>
+
+        <OpscoreAssistant reminders={limitedAssistantReminders} />
       </div>
     </PageGuard>
   );
