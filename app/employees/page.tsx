@@ -673,13 +673,15 @@ export default function EmployeesPage() {
       return;
     }
 
-    if (employee.id === currentEmployeeId) {
-      alert("You cannot delete your own Super Admin account.");
+    if (currentEmployeeId && employee.id === currentEmployeeId) {
+      alert("You cannot delete your own employee profile.");
       return;
     }
 
-    if (!currentEmployeeId || !currentSystemUserId) {
-      alert("Current admin session is incomplete. Logout and login again before deleting employees.");
+    if (!currentSystemUserId) {
+      alert(
+        "Current admin session is incomplete. Logout and login again before deleting employees.",
+      );
       return;
     }
 
@@ -696,7 +698,7 @@ export default function EmployeesPage() {
       },
       body: JSON.stringify({
         employee_id: employee.id,
-        current_employee_id: currentEmployeeId,
+        current_employee_id: currentEmployeeId || null,
         current_system_user_id: currentSystemUserId,
       }),
     });

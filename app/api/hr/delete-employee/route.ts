@@ -21,25 +21,42 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const employeeId = String(body?.employee_id || "");
-    const currentEmployeeId = String(body?.current_employee_id || "");
-    const currentSystemUserId = String(body?.current_system_user_id || "");
+    const employeeId = String(body?.employee_id || "").trim();
+    const currentEmployeeId = String(body?.current_employee_id || "").trim();
+    const currentSystemUserId = String(
+      body?.current_system_user_id || "",
+    ).trim();
 
-    if (!employeeId || !currentEmployeeId || !currentSystemUserId) {
+    if (!employeeId || !currentSystemUserId) {
       return NextResponse.json(
         { error: "Missing required delete fields." },
         { status: 400 },
       );
     }
 
-    if (employeeId === currentEmployeeId) {
+    if (currentEmployeeId && employeeId === currentEmployeeId) {
       return NextResponse.json(
-        { error: "You cannot delete your own Super Admin account." },
+        { error: "You cannot delete your own employee profile." },
         { status: 400 },
       );
     }
 
     const supabaseAdmin = getAdminClient();
+
+    const { data: currentSystemUser, error: currentSystemUserError } =
+      await supabaseAdmin
+        .from("system_users")
+        .select("id, username, employee_id, is_active")
+        .eq("id", currentSystemUserId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+    if (currentSystemUserError || !currentSystemUser) {
+      return NextResponse.json(
+        { error: "Unable to verify current system user." },
+        { status: 403 },
+      );
+    }
 
     const { data: currentAccess, error: accessError } = await supabaseAdmin
       .from("company_users")
@@ -81,6 +98,32 @@ export async function POST(req: Request) {
       );
     }
 
+    const { data: linkedTargetSystemUsers, error: linkedTargetUserError } =
+      await supabaseAdmin
+        .from("system_users")
+        .select("id, auth_user_id, username")
+        .eq("employee_id", employeeId);
+
+    if (linkedTargetUserError) {
+      return NextResponse.json(
+        {
+          error: `System user lookup failed: ${linkedTargetUserError.message}`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const targetSystemUserIds = (linkedTargetSystemUsers || []).map(
+      (user) => user.id,
+    );
+
+    if (targetSystemUserIds.includes(currentSystemUserId)) {
+      return NextResponse.json(
+        { error: "You cannot delete the employee profile linked to your own login." },
+        { status: 400 },
+      );
+    }
+
     const linkedChecks = [
       { table: "attendance_entries", column: "employee_id" },
       { table: "leave_requests", column: "employee_id" },
@@ -107,25 +150,11 @@ export async function POST(req: Request) {
       }
     }
 
-    const { data: systemUsers, error: systemUsersError } = await supabaseAdmin
-      .from("system_users")
-      .select("id, auth_user_id")
-      .eq("employee_id", employeeId);
-
-    if (systemUsersError) {
-      return NextResponse.json(
-        { error: `System user lookup failed: ${systemUsersError.message}` },
-        { status: 400 },
-      );
-    }
-
-    const systemUserIds = (systemUsers || []).map((user) => user.id);
-
-    if (systemUserIds.length > 0) {
+    if (targetSystemUserIds.length > 0) {
       const { error: companyDeleteError } = await supabaseAdmin
         .from("company_users")
         .delete()
-        .in("user_id", systemUserIds);
+        .in("user_id", targetSystemUserIds);
 
       if (companyDeleteError) {
         return NextResponse.json(
@@ -139,7 +168,7 @@ export async function POST(req: Request) {
       const { error: systemDeleteError } = await supabaseAdmin
         .from("system_users")
         .delete()
-        .in("id", systemUserIds);
+        .in("id", targetSystemUserIds);
 
       if (systemDeleteError) {
         return NextResponse.json(
@@ -148,7 +177,7 @@ export async function POST(req: Request) {
         );
       }
 
-      for (const user of systemUsers || []) {
+      for (const user of linkedTargetSystemUsers || []) {
         if (user.auth_user_id) {
           await supabaseAdmin.auth.admin.deleteUser(user.auth_user_id);
         }
