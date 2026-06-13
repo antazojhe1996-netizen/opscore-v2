@@ -98,20 +98,28 @@ export default function PayrollRegisterPage() {
   };
 
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
-  const periodStatus = selectedPeriod?.status || "Draft";
+  const periodStatus = String(selectedPeriod?.status || "OPEN").trim().toUpperCase();
   const payrollIsOutdated = Boolean(selectedPeriod?.needs_regeneration);
 
+  // OPSCORE V1.3 lifecycle:
+  // OPEN = attendance/register editable
+  // REGISTERED = snapshot created / Manager review stage. Attendance is still editable for corrections.
+  // LOCKED = frozen review state. Attendance/register edits are blocked.
+  // RELEASED = immutable released payroll. Attendance/register edits are blocked.
+  const isOpenPeriod = ["OPEN", "REOPENED", "DRAFT"].includes(periodStatus);
+  const isRegisteredPeriod = periodStatus === "REGISTERED";
   const isLocked =
-    periodStatus === "Released" ||
-    periodStatus === "Partially Released" ||
-    periodStatus === "Paid" ||
-    (periodStatus === "Approved" && selectedPeriod?.attendance_locked === true);
+    ["LOCKED", "RELEASED", "PAID", "PARTIALLY RELEASED"].includes(periodStatus) ||
+    selectedPeriod?.attendance_locked === true;
 
-  const canEditPayroll = !isLocked;
+  const canEditPayroll = (isOpenPeriod || isRegisteredPeriod) && !isLocked;
 
   const closedRegisterStatuses = [
     "For Approval",
     "Approved",
+    "REGISTERED",
+    "LOCKED",
+    "RELEASED",
     "Released",
     "Partially Released",
     "Paid",
@@ -578,7 +586,7 @@ ${error.message}`);
         period_name: periodName.trim(),
         start_date: startDate,
         end_date: endDate,
-        status: "Draft",
+        status: "OPEN",
         attendance_locked: false,
         needs_regeneration: false,
       })
@@ -685,7 +693,7 @@ ${error.message}`);
     }
 
     const confirmed = confirm(
-      "Reopen this payroll? Records will return to Draft and can be edited/regenerated."
+      "Reopen this payroll? This will return the period to OPEN and allow a new payroll snapshot registration."
     );
 
     if (!confirmed) return;
@@ -693,7 +701,7 @@ ${error.message}`);
     const { error: periodError } = await supabase
       .from("payroll_periods")
       .update({
-        status: "Reopened",
+        status: "OPEN",
         reopen_reason: reason.trim(),
         reopened_at: new Date().toISOString(),
         attendance_locked: false,
@@ -728,12 +736,12 @@ ${error.message}`);
       userName: "OPSCORE USER",
       module: "Payroll",
       action: "Reopen Payroll Period",
-      description: `Reopened payroll period ${selectedPeriod?.period_name || selectedPeriodId}. Reason: ${reason.trim()}`,
+      description: `Reopened payroll period to OPEN ${selectedPeriod?.period_name || selectedPeriodId}. Reason: ${reason.trim()}`,
       severity: "critical",
       recordId: selectedPeriodId,
       oldValue: selectedPeriod,
       newValue: {
-        status: "Reopened",
+        status: "OPEN",
         reopen_reason: reason.trim(),
         attendance_locked: false,
       },
@@ -1246,7 +1254,7 @@ ${error.message}`);
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Payroll",
-      action: "Generate Payroll",
+      action: "Generate Register",
       description: `${generated.length} payroll record(s) generated for ${selectedPeriod?.period_name || selectedPeriodId}`,
       severity: "info",
       recordId: selectedPeriodId,
@@ -1345,7 +1353,7 @@ ${error.message}`);
       });
 
       alert(
-        `${adjustmentType} saved to Employee Balances. Generate payroll again, then set partial deduction under "Balance Deduct This Cutoff".`
+        `${adjustmentType} saved to Employee Balances. Generate register again, then set partial deduction under "Balance Deduct This Cutoff".`
       );
       return;
     }
@@ -1476,7 +1484,7 @@ ${error.message}`);
       newValue: { deleted: true },
     });
 
-    alert("Adjustment deleted. Generate payroll again to update payroll.");
+    alert("Adjustment deleted. Generate register again to update payroll.");
   };
 
 
@@ -1597,7 +1605,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
       },
     });
 
-    alert("Employee balance cancelled. Generate payroll again to update deductions.");
+    alert("Employee balance cancelled. Generate register again to update deductions.");
   };
 
   const getEmployeeAuditLogs = async (record: any) => {
@@ -1752,7 +1760,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
   
   const createPayrollSnapshots = async (
     targetRecords: any[],
-    snapshotType = "Manager Approval Snapshot"
+    snapshotType = "Payroll Register Snapshot"
   ) => {
     if (!selectedPeriodId || targetRecords.length === 0) return true;
 
@@ -1764,66 +1772,123 @@ This will remove it from future payroll deductions but keep the audit trail.`
     }
 
     const now = new Date().toISOString();
+    const snapshotNo = `SNAP-${selectedPeriodId}-${Date.now()}`;
 
-    const snapshotRows = targetRecords.map((record) => ({
-      company_id: record.company_id || currentCompanyId,
-      payroll_record_id: record.id,
-      payroll_period_id: selectedPeriodId,
-      period_id: selectedPeriodId,
-      employee_id: record.employee_id,
-
-      employee_no: record.employee_no,
-      employee_name: record.employee_name,
-      department: record.department,
-      position: record.position,
-      period_label: record.period_label || selectedPeriod?.period_name || "Payroll Period",
-
-      scheduled_days: Number(record.scheduled_days || 0),
-      rest_days: Number(record.rest_days || 0),
-      days_worked: Number(record.days_worked || 0),
-      absent_days: Number(record.absent_days || 0),
-      late_minutes: Number(record.late_minutes || 0),
-      undertime_minutes: Number(record.undertime_minutes || 0),
-      ot_minutes: Number(record.ot_minutes || 0),
-
-      basic_pay: Number(record.basic_pay || 0),
-      holiday_pay: Number(record.holiday_pay || 0),
-      ot_pay: Number(record.ot_pay || 0),
-      allowance: Number(record.allowance || 0),
-
-      late_deduction: Number(record.late_deduction || 0),
-      undertime_deduction: Number(record.undertime_deduction || 0),
-      absent_deduction: Number(record.absent_deduction || 0),
-      manual_deduction: Number(record.manual_deduction || 0),
-      balance_deduction: Number(record.balance_deduction || 0),
-
-      sss_deduction: Number(record.sss_deduction || 0),
-      philhealth_deduction: Number(record.philhealth_deduction || 0),
-      pagibig_deduction: Number(record.pagibig_deduction || 0),
-      tax_deduction: Number(record.tax_deduction || 0),
-
-      gross_pay: Number(record.gross_pay || 0),
-      total_deductions: getDisplayedTotalDeductions(record),
-      net_pay: getDisplayedNetPay(record),
-      release_amount: getDisplayedReleaseAmount(record),
-      carry_forward_amount: getDisplayedCarryForwardAmount(record),
-
-      record_status: record.status || "Draft",
-      snapshot_type: snapshotType,
-      snapshot_created_at: now,
-    }));
-
-    const { error } = await supabase
+    const { data: snapshot, error: snapshotError } = await supabase
       .from("payroll_snapshots")
-      .upsert(snapshotRows, {
-        onConflict: "payroll_record_id",
-      });
+      .insert({
+        company_id: currentCompanyId,
+        period_id: selectedPeriodId,
+        snapshot_no: snapshotNo,
+        status: "REGISTERED",
+        snapshot_date: now,
+        created_by: "OPSCORE USER",
+        created_at: now,
+      })
+      .select()
+      .single();
 
-    if (error) {
-      console.log("CREATE PAYROLL SNAPSHOT ERROR:", error);
-      alert(`Failed to create payroll snapshot.\n\n${error.message}`);
+    if (snapshotError || !snapshot) {
+      console.log("CREATE PAYROLL SNAPSHOT HEADER ERROR:", snapshotError);
+      alert(`Failed to create payroll snapshot.\n\n${snapshotError?.message || "No snapshot returned."}`);
       return false;
     }
+
+    const snapshotItems = targetRecords.map((record) => {
+      const totalDeductions = getDisplayedTotalDeductions(record);
+      const netPay = getDisplayedNetPay(record);
+
+      return {
+        company_id: record.company_id || currentCompanyId,
+        snapshot_id: snapshot.id,
+
+        employee_id: record.employee_id || null,
+        employee_name: record.employee_name || "Unknown Employee",
+        department: record.department || null,
+        position: record.position || null,
+
+        regular_days: Number(record.days_worked || record.regular_days || 0),
+        late_minutes: Number(record.late_minutes || 0),
+        undertime_minutes: Number(record.undertime_minutes || 0),
+        ot_minutes: Number(record.ot_minutes || 0),
+
+        gross_pay: Number(record.gross_pay || 0),
+        total_deductions: totalDeductions,
+        net_pay: netPay,
+
+        attendance_json: {
+          source: "attendance_entries",
+          snapshot_type: snapshotType,
+          payroll_record_id: record.id,
+          period_id: selectedPeriodId,
+          employee_no: record.employee_no || null,
+          scheduled_days: Number(record.scheduled_days || 0),
+          rest_days: Number(record.rest_days || 0),
+          days_worked: Number(record.days_worked || 0),
+          absent_days: Number(record.absent_days || 0),
+          late_minutes: Number(record.late_minutes || 0),
+          undertime_minutes: Number(record.undertime_minutes || 0),
+          ot_minutes: Number(record.ot_minutes || 0),
+          holiday_worked_dates: record.holiday_worked_dates || [],
+          remarks: record.remarks || "",
+        },
+        calculation_json: {
+          snapshot_no: snapshotNo,
+          snapshot_created_at: now,
+          payroll_record_id: record.id,
+          period_label: record.period_label || selectedPeriod?.period_name || "Payroll Period",
+          rate_type: record.rate_type || null,
+          basic_rate: Number(record.basic_rate || 0),
+          basic_pay: Number(record.basic_pay || 0),
+          holiday_pay: Number(record.holiday_pay || 0),
+          ot_pay: Number(record.ot_pay || 0),
+          allowance: Number(record.allowance || 0),
+          late_deduction: Number(record.late_deduction || 0),
+          undertime_deduction: Number(record.undertime_deduction || 0),
+          absent_deduction: Number(record.absent_deduction || 0),
+          manual_deduction: Number(record.manual_deduction || 0),
+          balance_deduction: Number(record.balance_deduction || 0),
+          sss_deduction: Number(record.sss_deduction || 0),
+          philhealth_deduction: Number(record.philhealth_deduction || 0),
+          pagibig_deduction: Number(record.pagibig_deduction || 0),
+          tax_deduction: Number(record.tax_deduction || 0),
+          gross_pay: Number(record.gross_pay || 0),
+          total_deductions: totalDeductions,
+          net_pay: netPay,
+          release_amount: getDisplayedReleaseAmount(record),
+          carry_forward_amount: getDisplayedCarryForwardAmount(record),
+          legacy_record_status: record.status || "Draft",
+        },
+        created_at: now,
+      };
+    });
+
+    const { error: itemsError } = await supabase
+      .from("payroll_snapshot_items")
+      .insert(snapshotItems);
+
+    if (itemsError) {
+      console.log("CREATE PAYROLL SNAPSHOT ITEMS ERROR:", itemsError);
+      await supabase.from("payroll_snapshots").delete().eq("id", snapshot.id);
+      alert(`Failed to create payroll snapshot items.\n\n${itemsError.message}`);
+      return false;
+    }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Create Payroll Snapshot",
+      description: `${targetRecords.length} payroll snapshot item(s) created for ${selectedPeriod?.period_name || selectedPeriodId}. Snapshot: ${snapshotNo}`,
+      severity: "warning",
+      recordId: snapshot.id,
+      newValue: {
+        snapshot,
+        itemCount: targetRecords.length,
+        totalGross: targetRecords.reduce((sum, record) => sum + Number(record.gross_pay || 0), 0),
+        totalDeductions: targetRecords.reduce((sum, record) => sum + getDisplayedTotalDeductions(record), 0),
+        totalNet: targetRecords.reduce((sum, record) => sum + getDisplayedNetPay(record), 0),
+      },
+    });
 
     return true;
   };
@@ -1831,22 +1896,28 @@ This will remove it from future payroll deductions but keep the audit trail.`
   const sendPayrollToManager = async (mode: "all" | "selected") => {
     if (!selectedPeriodId || records.length === 0) return;
 
+    if (mode !== "all") {
+      alert("OPSCORE V1.3 requires full payroll period registration. Use Register Payroll to snapshot the whole cutoff.");
+      return;
+    }
+
+    if (!canEditPayroll) {
+      alert("This payroll period is already registered, locked, or released. Reopen workflow is required.");
+      return;
+    }
+
     if (selectedPeriod?.needs_regeneration) {
       alert(
-        "Cannot send payroll. Payroll is outdated because adjustments were changed. Generate Payroll first."
+        "Cannot register payroll. Payroll is outdated because attendance, adjustments, or employee balances changed. Generate Register first."
       );
       return;
     }
 
     const sendableRecords = records.filter((record) => isRecordSendableFromRegister(record));
-
-    const targetRecords =
-      mode === "all"
-        ? sendableRecords
-        : sendableRecords.filter((record) => selectedRecordIds.includes(String(record.id)));
+    const targetRecords = sendableRecords;
 
     if (targetRecords.length === 0) {
-      alert("No selected employees.");
+      alert("No payroll records ready for registration.");
       return;
     }
 
@@ -1873,9 +1944,11 @@ This will remove it from future payroll deductions but keep the audit trail.`
         targetRecords.some((record) => record.employee_name === alert.employee)
     );
 
-    const confirmMessage = `Send Payroll to Manager?
+    const confirmMessage = `Register Payroll Snapshot?
 
-Mode: ${mode === "all" ? "Send All Ready" : "Send Selected"}
+Lifecycle:
+OPEN → REGISTERED
+
 Employees: ${targetRecords.length}
 Gross Pay: ${formatMoney(targetGross)}
 Deductions: ${formatMoney(targetDeductions)}
@@ -1883,20 +1956,19 @@ Net Pay: ${formatMoney(targetNet)}
 
 High Alerts: ${targetHighAlerts.length}
 
-Supervisor audit reminder:
-- Review OT, late, undertime, absent, leave pay, holiday pay, and high deductions before sending.
-
-This will:
-1. Create a permanent payroll snapshot
-2. Lock attendance for this cutoff
-3. Send payroll records to Payroll Manager`;
+OPSCORE V1.4 Rules:
+- This creates the payroll snapshot.
+- REGISTERED is Manager Review, not final lock.
+- Attendance remains editable until Manager locks or releases the cutoff.
+- Payroll Manager must read snapshot data only.
+- Payslips will only be allowed after payroll release.`;
 
     const confirmed = confirm(confirmMessage);
     if (!confirmed) return;
 
     if (targetHighAlerts.length > 0) {
       const proceed = confirm(
-        `There are ${targetHighAlerts.length} HIGH alert(s). Send anyway?`
+        `There are ${targetHighAlerts.length} HIGH alert(s). Register snapshot anyway?`
       );
 
       if (!proceed) return;
@@ -1908,7 +1980,7 @@ This will:
 
     const snapshotOk = await createPayrollSnapshots(
       targetRecords,
-      "Manager Approval Snapshot"
+      "Payroll Register Snapshot"
     );
 
     if (!snapshotOk) {
@@ -1919,9 +1991,9 @@ This will:
     const { error: periodError } = await supabase
       .from("payroll_periods")
       .update({
-        status: mode === "all" ? "Approved" : "Partially Approved",
-        attendance_locked: mode === "all",
-        attendance_locked_at: mode === "all" ? now : null,
+        status: "REGISTERED",
+        attendance_locked: false,
+        attendance_locked_at: null,
         snapshot_created_at: now,
         needs_regeneration: false,
       })
@@ -1929,8 +2001,8 @@ This will:
 
     if (periodError) {
       setIsSaving(false);
-      alert("Failed to update payroll period.");
-      return console.log("APPROVE PERIOD ERROR:", periodError.message);
+      alert("Failed to update payroll period to REGISTERED.");
+      return console.log("REGISTER PERIOD ERROR:", periodError.message);
     }
 
     const { error: recordsError } = await supabase
@@ -1947,14 +2019,14 @@ This will:
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
-        action: "Send Payroll To Manager Failed",
-        description: `Failed to send payroll records to Payroll Manager for ${selectedPeriod?.period_name || selectedPeriodId}: ${recordsError.message}`,
+        action: "Register Payroll Records Failed",
+        description: `Snapshot was created but legacy payroll_records failed to update for ${selectedPeriod?.period_name || selectedPeriodId}: ${recordsError.message}`,
         severity: "critical",
         recordId: selectedPeriodId,
         newValue: { error: recordsError.message, targetCount: targetRecords.length },
       });
-      alert("Records failed to send to Payroll Manager.");
-      return console.log("APPROVE RECORDS ERROR:", recordsError.message);
+      alert("Snapshot created, but legacy payroll records failed to update. Check payroll_records table.");
+      return console.log("REGISTER RECORDS ERROR:", recordsError.message);
     }
 
     setIsSaving(false);
@@ -1967,19 +2039,19 @@ This will:
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Payroll",
-      action: "Send Payroll To Manager",
-      description: `${targetRecords.length} payroll record(s) sent to Payroll Manager for ${selectedPeriod?.period_name || selectedPeriodId}`,
+      action: "Register Payroll Snapshot",
+      description: `${targetRecords.length} payroll record(s) registered into immutable snapshot for ${selectedPeriod?.period_name || selectedPeriodId}`,
       severity: "warning",
       recordId: selectedPeriodId,
       newValue: {
-        mode,
+        lifecycle: "OPEN_TO_REGISTERED_REVIEW",
         recordCount: targetRecords.length,
-        totalNet,
+        totalNet: targetNet,
         targetIds,
       },
     });
 
-    alert("Payroll snapshot created, attendance locked, and payroll sent to Payroll Manager for release.");
+    alert("Payroll REGISTERED. Snapshot created and sent to Payroll Manager review. Attendance remains editable until Manager locks or releases this cutoff.");
   };
 
   useEffect(() => {
@@ -2475,7 +2547,7 @@ This will:
               Payroll Register
             </h1>
             <p className="mt-1 max-w-4xl text-sm font-medium text-slate-500">
-              Generate payroll, review employee records, apply CA deductions, and send ready payroll to manager.
+              Prepare payroll register, review employee records, apply CA deductions, and register the payroll snapshot.
             </p>
           </div>
 
@@ -2485,7 +2557,7 @@ This will:
               disabled={isSaving || !selectedPeriodId || isLocked}
               className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              {selectedPeriod?.needs_regeneration ? "Regenerate Payroll" : "Generate Payroll"}
+              {selectedPeriod?.needs_regeneration ? "Regenerate Register" : "Generate Register"}
             </button>
 
             <button
@@ -2507,8 +2579,8 @@ This will:
             >
               <Send size={15} />
               {selectedRecordIds.length > 0
-                ? `Send Selected (${selectedRecordIds.length})`
-                : "Send All Ready"}
+                ? `Register Selected (${selectedRecordIds.length})`
+                : "Register All Ready"}
             </button>
           </div>
         </section>
@@ -2560,7 +2632,7 @@ This will:
           <section className="mb-5 rounded-3xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="font-black text-red-700">Payroll needs regeneration.</p>
+                <p className="font-black text-red-700">Payroll register needs regeneration.</p>
                 <p className="mt-1 text-red-700">
                   Attendance, adjustments, or employee balances changed after the last payroll computation.
                 </p>
@@ -2571,7 +2643,7 @@ This will:
                 disabled={isSaving || !selectedPeriodId || isLocked}
                 className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-black text-slate-950 hover:bg-red-400 disabled:opacity-50"
               >
-                Regenerate Now
+                Regenerate Register
               </button>
             </div>
           </section>
@@ -2624,7 +2696,7 @@ This will:
                   disabled={selectedRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
                   className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
                 >
-                  <Send size={16} /> Send Selected to Manager
+                  <Send size={16} /> Register Selected to Manager
                 </button>
 
               </div>
@@ -2665,8 +2737,8 @@ This will:
                 >
                   <Send size={16} />
                   {selectedRecordIds.length > 0
-                    ? `Send Selected (${selectedRecordIds.length})`
-                    : "Send All Ready"}
+                    ? `Register Selected (${selectedRecordIds.length})`
+                    : "Register All Ready"}
                 </button>
 
                 <div className="relative lg:w-80">
@@ -2696,7 +2768,7 @@ This will:
               <AlertTriangle className="mx-auto mb-3" size={34} />
               <h3 className="text-xl font-black text-red-700">Payroll table hidden because data is outdated.</h3>
               <p className="mt-2 text-sm font-semibold">
-                Attendance, CA/deductions, or carry-forward balances changed after the last generation. Click Generate Payroll before reviewing employee totals.
+                Attendance, CA/deductions, or carry-forward balances changed after the last generation. Click Generate Register before reviewing employee totals.
               </p>
             </div>
           )}
@@ -2933,7 +3005,7 @@ This will:
                   disabled={isSaving || !selectedPeriodId || isLocked}
                   className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  Generate
+                  Generate Register
                 </button>
 
                 <button
@@ -3713,6 +3785,7 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "Paid"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : normalized === "Pending" ||
+        normalized === "OPEN" ||
         normalized === "Partially Approved" ||
         normalized === "Reopened" ||
         normalized === "Draft"

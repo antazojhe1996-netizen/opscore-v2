@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Eye, Mail, Printer, Search, Send, X } from "lucide-react";
+import { Eye, Mail, Printer, Search, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
@@ -36,11 +36,28 @@ export default function PayslipsPage() {
     return String(value).slice(0, 19).replace("T", " ");
   };
 
+  const getCurrentCompanyId = () => {
+    if (typeof window === "undefined") return "";
+    return (
+      localStorage.getItem("opscore_current_company_id") ||
+      localStorage.getItem("opscore_company_id") ||
+      localStorage.getItem("company_id") ||
+      ""
+    );
+  };
+
   const getPeriodLabel = (period: any) =>
-    period?.period_name || period?.period_label || period?.payroll_period || "Payroll Period";
+    period?.period_name ||
+    period?.period_label ||
+    period?.payroll_period ||
+    period?.release_no ||
+    "Payroll Period";
 
   const getRecordPeriodLabel = (record: any) =>
-    record.period_label || record.period_name || record.payroll_period || getPeriodLabel(selectedPeriod);
+    record.period_label ||
+    record.period_name ||
+    record.payroll_period ||
+    getPeriodLabel(selectedPeriod);
 
   const getGovernmentDeductionTotal = (record: any) =>
     Number(record.sss_deduction || 0) +
@@ -54,87 +71,365 @@ export default function PayslipsPage() {
     Number(record.absent_deduction || 0);
 
   const getBalanceDeduction = (record: any) =>
-    Number(record.balance_deduction || record.cash_advance_deduction || record.ca_deduction || 0);
+    Number(
+      record.balance_deduction ||
+        record.cash_advance_deduction ||
+        record.ca_deduction ||
+        0,
+    );
 
-  const getDisplayedTotalDeductions = (record: any) => {
-    const rebuiltTotal =
-      getAutoDeductionTotal(record) +
-      Number(record.manual_deduction || 0) +
-      getBalanceDeduction(record) +
-      getGovernmentDeductionTotal(record);
+  const getDisplayedTotalDeductions = (record: any) =>
+    Number(record.deductions ?? record.total_deductions ?? 0);
 
-    const savedTotal = Number(record.total_deductions || 0);
-    return Math.max(savedTotal, rebuiltTotal);
-  };
-
-  const getDisplayedNetPay = (record: any) =>
-    Number(record.gross_pay || 0) - getDisplayedTotalDeductions(record);
+  const getDisplayedNetPay = (record: any) => Number(record.net_pay || 0);
 
   const getReleasedAmount = (record: any) =>
-    Number(record.paid_amount || record.amount_released || record.release_amount || getDisplayedNetPay(record) || 0);
+    Number(record.released_amount || record.release_amount || 0);
 
   const getRemainingAmount = (record: any) =>
     Math.max(getDisplayedNetPay(record) - getReleasedAmount(record), 0);
 
-  const isPayrollReleased = (record: any) => {
-    const status = String(record.status || "");
-    const releaseStatus = String(record.release_status || "");
-    return status === "Released" || status === "Paid" || releaseStatus === "Released" || releaseStatus === "Paid";
-  };
+  const isPayrollReleased = (record: any) =>
+    String(record.status || "").toUpperCase() === "RELEASED" ||
+    String(record.release_status || "").toUpperCase() === "RELEASED";
 
-  const getEmail = (record: any) => record.employees?.email || record.email || "";
+  const getEmail = (record: any) =>
+    record.email || record.employee_email || record.employees?.email || "";
+
+  const mapById = (rows: any[] = []) =>
+    new Map(rows.map((row) => [String(row.id), row]));
+
+  const mapEmployees = (rows: any[] = []) =>
+    new Map(rows.map((row) => [String(row.id), row]));
+
+  const findSnapshotItem = (
+    snapshotItems: any[],
+    snapshotId: string,
+    releasedItem: any,
+  ) => {
+    const employeeId = String(releasedItem.employee_id || "");
+    const employeeName = String(releasedItem.employee_name || "");
+
+    return (
+      snapshotItems.find(
+        (item) =>
+          String(item.snapshot_id) === String(snapshotId) &&
+          employeeId &&
+          String(item.employee_id) === employeeId,
+      ) ||
+      snapshotItems.find(
+        (item) =>
+          String(item.snapshot_id) === String(snapshotId) &&
+          employeeName &&
+          String(item.employee_name) === employeeName,
+      ) ||
+      null
+    );
+  };
 
   /// DATA LOADERS
   const getPeriods = async () => {
-    const { data, error } = await supabase
-      .from("payroll_periods")
+    const currentCompanyId = getCurrentCompanyId();
+
+    // OPSCORE V1.3 rule:
+    // Payslip cutoff options must come from released payroll headers,
+    // not from payroll_periods and not from payroll_snapshots.status.
+    // Partial releases may leave the snapshot as LOCKED, but the released item
+    // is still valid and must appear in Payslips.
+    let releaseQuery = supabase
+      .from("released_payrolls")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("released_at", { ascending: false });
 
-    if (error) return console.log("GET PERIODS ERROR:", error.message);
-    setPeriods(data || []);
-  };
+    if (currentCompanyId) {
+      releaseQuery = releaseQuery.eq("company_id", currentCompanyId);
+    }
 
-  const getRecords = async (periodId: string) => {
-    const { data, error } = await supabase
-      .from("payroll_records")
-      .select("*, employees(email)")
-      .eq("period_id", periodId)
-      .order("department", { ascending: true })
-      .order("employee_name", { ascending: true });
+    const { data: releaseHeaders, error: releaseError } = await releaseQuery;
 
-    if (error) return console.log("GET RECORDS ERROR:", error.message);
-    setRecords(data || []);
-  };
-
-  const getAdjustments = async (periodId: string) => {
-    const { data, error } = await supabase
-      .from("payroll_adjustments")
-      .select("*")
-      .eq("period_id", periodId);
-
-    if (error) return console.log("GET ADJUSTMENTS ERROR:", error.message);
-    setAdjustments(data || []);
-  };
-
-  /// FUNCTIONS
-  const updatePayslipStatus = async (recordId: string, status: string, emailStatus: string) => {
-    const { error } = await supabase
-      .from("payroll_records")
-      .update({
-        payslip_status: status,
-        payslip_email_status: emailStatus,
-        payslip_released_at: new Date().toISOString(),
-      })
-      .eq("id", recordId);
-
-    if (error) {
-      alert("Failed to update payslip status.");
-      console.log("UPDATE PAYSLIP STATUS ERROR:", error.message);
+    if (releaseError) {
+      console.log("GET RELEASED PAYROLL HEADERS ERROR:", releaseError.message);
+      setPeriods([]);
+      setSelectedPeriodId("");
       return;
     }
 
-    if (selectedPeriodId) await getRecords(selectedPeriodId);
+    const snapshotIds = Array.from(
+      new Set((releaseHeaders || []).map((release) => release.snapshot_id).filter(Boolean)),
+    );
+
+    if (snapshotIds.length === 0) {
+      setPeriods([]);
+      setSelectedPeriodId("");
+      return;
+    }
+
+    const { data: snapshots, error: snapshotError } = await supabase
+      .from("payroll_snapshots")
+      .select("*")
+      .in("id", snapshotIds);
+
+    if (snapshotError) {
+      console.log("GET RELEASED SNAPSHOT HEADERS ERROR:", snapshotError.message);
+      setPeriods([]);
+      setSelectedPeriodId("");
+      return;
+    }
+
+    const periodIds = Array.from(
+      new Set((snapshots || []).map((snapshot) => snapshot.period_id).filter(Boolean)),
+    );
+
+    if (periodIds.length === 0) {
+      setPeriods([]);
+      setSelectedPeriodId("");
+      return;
+    }
+
+    const { data: periodRows, error: periodError } = await supabase
+      .from("payroll_periods")
+      .select("*")
+      .in("id", periodIds)
+      .order("created_at", { ascending: false });
+
+    if (periodError) {
+      console.log("GET RELEASED PAYROLL PERIODS ERROR:", periodError.message);
+      setPeriods([]);
+      setSelectedPeriodId("");
+      return;
+    }
+
+    const snapshotsById = mapById(snapshots || []);
+
+    const releasedCountByPeriod = (releaseHeaders || []).reduce(
+      (acc: Record<string, number>, release: any) => {
+        const snapshot = snapshotsById.get(String(release.snapshot_id || ""));
+        const key = String(snapshot?.period_id || "");
+        if (!key) return acc;
+        acc[key] = Number(acc[key] || 0) + 1;
+        return acc;
+      },
+      {},
+    );
+
+    const mappedPeriods = (periodRows || []).map((period) => ({
+      ...period,
+      status: "RELEASED",
+      released_snapshot_count: releasedCountByPeriod[String(period.id)] || 0,
+    }));
+
+    setPeriods(mappedPeriods);
+
+    const selectedStillExists = mappedPeriods.some(
+      (period) => String(period.id) === String(selectedPeriodId),
+    );
+
+    if ((!selectedPeriodId || !selectedStillExists) && mappedPeriods.length > 0) {
+      setSelectedPeriodId(mappedPeriods[0].id);
+    }
+  };
+  const getRecords = async (periodId: string) => {
+    if (!periodId) {
+      setRecords([]);
+      setAdjustments([]);
+      return;
+    }
+
+    const currentCompanyId = getCurrentCompanyId();
+
+    // Load snapshots for the selected payroll period regardless of snapshot status.
+    // Partial releases can keep the snapshot as LOCKED, while released_payroll_items
+    // are already immutable and valid for payslip generation.
+    let snapshotQuery = supabase
+      .from("payroll_snapshots")
+      .select("*")
+      .eq("period_id", periodId)
+      .order("created_at", { ascending: false });
+
+    if (currentCompanyId) {
+      snapshotQuery = snapshotQuery.eq("company_id", currentCompanyId);
+    }
+
+    const { data: snapshots, error: snapshotsError } = await snapshotQuery;
+
+    if (snapshotsError) {
+      console.log("GET SNAPSHOTS FOR RELEASED PAYSLIPS ERROR:", snapshotsError.message);
+      setRecords([]);
+      setAdjustments([]);
+      return;
+    }
+
+    const snapshotIds = (snapshots || []).map((snapshot) => snapshot.id).filter(Boolean);
+
+    if (snapshotIds.length === 0) {
+      setRecords([]);
+      setAdjustments([]);
+      return;
+    }
+
+    let releasedHeadersQuery = supabase
+      .from("released_payrolls")
+      .select("*")
+      .in("snapshot_id", snapshotIds)
+      .order("released_at", { ascending: false });
+
+    if (currentCompanyId) {
+      releasedHeadersQuery = releasedHeadersQuery.eq("company_id", currentCompanyId);
+    }
+
+    const [
+      releasedHeadersResult,
+      snapshotItemsResult,
+      employeesResult,
+      periodResult,
+      adjustmentsResult,
+    ] = await Promise.all([
+      releasedHeadersQuery,
+      supabase
+        .from("payroll_snapshot_items")
+        .select("*")
+        .in("snapshot_id", snapshotIds)
+        .order("employee_name", { ascending: true }),
+      supabase.from("employees").select("*"),
+      supabase.from("payroll_periods").select("*").eq("id", periodId).maybeSingle(),
+      supabase.from("payroll_adjustments").select("*").eq("period_id", periodId),
+    ]);
+
+    if (releasedHeadersResult.error) {
+      console.log("GET RELEASED PAYROLL HEADERS ERROR:", releasedHeadersResult.error.message);
+      setRecords([]);
+      setAdjustments(adjustmentsResult.data || []);
+      return;
+    }
+
+    if (snapshotItemsResult.error) {
+      console.log("GET SNAPSHOT ITEMS FOR PAYSLIPS ERROR:", snapshotItemsResult.error.message);
+    }
+
+    if (employeesResult.error) {
+      console.log("GET EMPLOYEES FOR PAYSLIPS ERROR:", employeesResult.error.message);
+    }
+
+    if (adjustmentsResult.error) {
+      console.log("GET ADJUSTMENTS FOR PAYSLIPS ERROR:", adjustmentsResult.error.message);
+    }
+
+    const releasedHeaders = releasedHeadersResult.data || [];
+    const releaseIds = releasedHeaders.map((release) => release.id).filter(Boolean);
+
+    if (releaseIds.length === 0) {
+      setRecords([]);
+      setAdjustments(adjustmentsResult.data || []);
+      return;
+    }
+
+    const { data: releasedItems, error: releasedItemsError } = await supabase
+      .from("released_payroll_items")
+      .select("*")
+      .in("release_id", releaseIds)
+      .order("created_at", { ascending: false });
+
+    if (releasedItemsError) {
+      console.log("GET RELEASED PAYROLL ITEMS ERROR:", releasedItemsError.message);
+      setRecords([]);
+      setAdjustments(adjustmentsResult.data || []);
+      return;
+    }
+
+    const snapshotsById = mapById(snapshots || []);
+    const releasesById = mapById(releasedHeaders);
+    const employeesById = mapEmployees(employeesResult.data || []);
+    const snapshotItems = snapshotItemsResult.data || [];
+    const selectedPeriodRow = periodResult.data || periods.find((period) => period.id === periodId) || {};
+
+    const mappedRecords = (releasedItems || []).map((item: any) => {
+      const release = releasesById.get(String(item.release_id)) || {};
+      const snapshot = snapshotsById.get(String(release.snapshot_id || "")) || {};
+      const snapshotItem = findSnapshotItem(snapshotItems, String(release.snapshot_id || ""), item) || {};
+      const employee = item.employee_id
+        ? employeesById.get(String(item.employee_id)) || {}
+        : {};
+
+      const periodLabel =
+        selectedPeriodRow.period_name ||
+        selectedPeriodRow.period_label ||
+        snapshot.snapshot_no ||
+        release.release_no ||
+        "Released Payroll";
+
+      return {
+        ...snapshotItem,
+        ...item,
+        id: item.id,
+        release_id: item.release_id,
+        released_payroll_id: item.release_id,
+        snapshot_id: release.snapshot_id || snapshotItem.snapshot_id || null,
+        company_id: item.company_id || release.company_id || snapshot.company_id || currentCompanyId,
+        period_id: snapshot.period_id || periodId,
+        period_label: periodLabel,
+        payroll_period: periodLabel,
+
+        employee_id: item.employee_id || snapshotItem.employee_id || null,
+        employee_no: employee.employee_no || snapshotItem.employee_no || "",
+        employee_name: item.employee_name || snapshotItem.employee_name || "Unknown Employee",
+        employee_email: employee.email || item.email || "",
+        email: employee.email || item.email || "",
+
+        department: snapshotItem.department || employee.department || "",
+        position: snapshotItem.position || employee.position || "",
+
+        gross_pay: Number(item.gross_pay ?? snapshotItem.gross_pay ?? 0),
+        deductions: Number(item.deductions ?? snapshotItem.total_deductions ?? 0),
+        total_deductions: Number(item.deductions ?? snapshotItem.total_deductions ?? 0),
+        net_pay: Number(item.net_pay ?? snapshotItem.net_pay ?? 0),
+        released_amount: Number(item.released_amount ?? item.net_pay ?? 0),
+        release_amount: Number(item.released_amount ?? item.net_pay ?? 0),
+
+        status: "RELEASED",
+        release_status: "RELEASED",
+        payslip_status: item.payslip_status || "Released",
+        payslip_email_status: item.payslip_email_status || "Not Sent",
+
+        released_at: release.released_at || item.created_at,
+        released_by: release.released_by || "Payroll Manager",
+        release_no: release.release_no || "",
+        snapshot_no: snapshot.snapshot_no || "",
+      };
+    });
+
+    setRecords(mappedRecords);
+    setAdjustments(adjustmentsResult.data || []);
+  };
+
+  /// FUNCTIONS
+  const updateLocalPayslipStatus = (
+    recordId: string,
+    status: string,
+    emailStatus: string,
+  ) => {
+    setRecords((prev) =>
+      prev.map((record) =>
+        String(record.id) === String(recordId)
+          ? {
+              ...record,
+              payslip_status: status,
+              payslip_email_status: emailStatus,
+              payslip_released_at: new Date().toISOString(),
+            }
+          : record,
+      ),
+    );
+
+    setActivePayslip((prev: any) =>
+      prev && String(prev.id) === String(recordId)
+        ? {
+            ...prev,
+            payslip_status: status,
+            payslip_email_status: emailStatus,
+            payslip_released_at: new Date().toISOString(),
+          }
+        : prev,
+    );
   };
 
   const sendPayslip = async (record: any) => {
@@ -163,24 +458,28 @@ export default function PayslipsPage() {
             ...record,
             total_deductions: getDisplayedTotalDeductions(record),
             net_pay: getDisplayedNetPay(record),
+            released_amount: getReleasedAmount(record),
+            source_table: "released_payroll_items",
           },
-          adjustments: adjustments.filter((item) => item.employee_id === record.employee_id),
+          adjustments: adjustments.filter(
+            (item) => String(item.employee_id) === String(record.employee_id),
+          ),
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        await updatePayslipStatus(record.id, "Not Released", "Failed");
+        updateLocalPayslipStatus(record.id, "Released", "Failed");
         alert(result.error || "Failed to send payslip.");
         return;
       }
 
-      await updatePayslipStatus(record.id, "Released", "Sent");
+      updateLocalPayslipStatus(record.id, "Released", "Sent");
       alert("Payslip sent successfully.");
     } catch (error) {
       console.log("SEND PAYSLIP ERROR:", error);
-      await updatePayslipStatus(record.id, "Not Released", "Failed");
+      updateLocalPayslipStatus(record.id, "Released", "Failed");
       alert("Failed to send payslip.");
     } finally {
       setIsSending(false);
@@ -193,7 +492,7 @@ export default function PayslipsPage() {
       return;
     }
 
-    await updatePayslipStatus(record.id, "Released", record.payslip_email_status || "Not Sent");
+    updateLocalPayslipStatus(record.id, "Released", record.payslip_email_status || "Not Sent");
   };
 
   const printCleanPayslip = () => {
@@ -270,7 +569,8 @@ export default function PayslipsPage() {
             .ps-signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 10px; }
             .ps-signature { border-top: 1.5px solid #0f172a; padding-top: 3px; text-align: center; font-size: 8px; font-weight: 900; color: #334155; }
             .ps-note { margin-top: 6px; border: 1px solid #cbd5e1; background: #f8fafc; padding: 5px 6px; color: #475569; font-size: 8px; font-weight: 700; }
-            .ps-footer { display: none; }          </style>
+            .ps-footer { display: none; }
+          </style>
         </head>
         <body>
           ${printContents}
@@ -295,7 +595,6 @@ export default function PayslipsPage() {
   useEffect(() => {
     if (selectedPeriodId) {
       getRecords(selectedPeriodId);
-      getAdjustments(selectedPeriodId);
     } else {
       setRecords([]);
       setAdjustments([]);
@@ -315,9 +614,9 @@ export default function PayslipsPage() {
 
   const sentCount = records.filter((record) => record.payslip_email_status === "Sent").length;
   const failedCount = records.filter((record) => record.payslip_email_status === "Failed").length;
-  const releasedCount = records.filter((record) => record.payslip_status === "Released").length;
+  const releasedCount = records.filter((record) => isPayrollReleased(record)).length;
   const payrollReleasedCount = records.filter((record) => isPayrollReleased(record)).length;
-  const pendingReleaseCount = Math.max(records.length - releasedCount, 0);
+  const pendingReleaseCount = Math.max(records.length - payrollReleasedCount, 0);
 
   const totalNet = records.reduce((sum, record) => sum + getDisplayedNetPay(record), 0);
   const totalReleased = records.reduce((sum, record) => sum + getReleasedAmount(record), 0);
@@ -325,7 +624,7 @@ export default function PayslipsPage() {
   const getApprovedAdjustmentsForRecord = (record: any) =>
     adjustments.filter(
       (item) =>
-        item.employee_id === record.employee_id &&
+        String(item.employee_id) === String(record.employee_id) &&
         String(item.status || "").toLowerCase() === "approved",
     );
 
@@ -333,15 +632,12 @@ export default function PayslipsPage() {
     ...(failedCount > 0
       ? [{ type: "Critical", tone: "critical", text: `${failedCount} payslip email failed. Review employee email addresses.` }]
       : []),
-    ...(pendingReleaseCount > 0
-      ? [{ type: "Warning", tone: "warning", text: `${pendingReleaseCount} payslip(s) are not yet marked released.` }]
-      : []),
     ...(records.some((record) => !getEmail(record))
-      ? [{ type: "Warning", tone: "warning", text: "Some employees have no email address for payslip delivery." }]
+      ? [{ type: "Warning", tone: "warning", text: "Some released payroll items have no employee email address for payslip delivery." }]
       : []),
     ...(records.length > 0
-      ? [{ type: "Information", tone: "info", text: `${records.length} payroll record(s) loaded for ${getPeriodLabel(selectedPeriod)}.` }]
-      : [{ type: "Information", tone: "info", text: "Select a payroll period to generate payslip records." }]),
+      ? [{ type: "Information", tone: "info", text: `${records.length} released payslip record(s) loaded for ${getPeriodLabel(selectedPeriod)}.` }]
+      : [{ type: "Information", tone: "info", text: "Only released payroll appears here. Select a released payroll period to continue." }]),
   ].slice(0, 5);
 
   /// UI
@@ -358,7 +654,7 @@ export default function PayslipsPage() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Payroll Operations</p>
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Payslip Management</h1>
                 <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
-                  Generate professional A4 payroll payslips, release employee copies, email approved documents, and maintain document delivery status.
+                  Payslips are generated from immutable released payroll only. Draft, open, registered, and locked payroll records do not appear here.
                 </p>
               </div>
 
@@ -366,7 +662,7 @@ export default function PayslipsPage() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Document Status</p>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-xs font-semibold text-slate-500">Records</p>
+                    <p className="text-xs font-semibold text-slate-500">Released Items</p>
                     <p className="mt-1 text-xl font-black text-slate-950">{records.length}</p>
                   </div>
                   <div>
@@ -378,8 +674,8 @@ export default function PayslipsPage() {
                     <p className="mt-1 text-xl font-black text-slate-950">{releasedCount}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-500">Pending</p>
-                    <p className={pendingReleaseCount > 0 ? "mt-1 text-xl font-black text-amber-700" : "mt-1 text-xl font-black text-slate-950"}>{pendingReleaseCount}</p>
+                    <p className="text-xs font-semibold text-slate-500">Email Failed</p>
+                    <p className={failedCount > 0 ? "mt-1 text-xl font-black text-red-700" : "mt-1 text-xl font-black text-slate-950"}>{failedCount}</p>
                   </div>
                 </div>
               </div>
@@ -393,10 +689,10 @@ export default function PayslipsPage() {
                 onChange={(e) => setSelectedPeriodId(e.target.value)}
                 className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               >
-                <option value="">Select payroll period</option>
+                <option value="">Select released payroll period</option>
                 {periods.map((period) => (
                   <option key={period.id} value={period.id}>
-                    {getPeriodLabel(period)} ({period.status || "No status"})
+                    {getPeriodLabel(period)} ({period.status || "RELEASED"})
                   </option>
                 ))}
               </select>
@@ -422,11 +718,11 @@ export default function PayslipsPage() {
             <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-black text-slate-950">Payslip Records</h2>
-                <p className="mt-1 text-sm font-medium text-slate-500">Released payroll records ready for print, PDF save, employee email, and payslip status tracking.</p>
+                <p className="mt-1 text-sm font-medium text-slate-500">Released payroll items ready for print, PDF save, and employee email.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Sent {sentCount}</span>
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Pending {pendingReleaseCount}</span>
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Released {releasedCount}</span>
                 {failedCount > 0 && <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">Failed {failedCount}</span>}
               </div>
             </div>
@@ -466,8 +762,8 @@ export default function PayslipsPage() {
 
                         <td className="px-4 py-4 text-right font-black text-emerald-700">{formatMoney(getDisplayedNetPay(record))}</td>
                         <td className="px-4 py-4 text-right font-black text-slate-950">{formatMoney(getReleasedAmount(record))}</td>
-                        <td className="px-4 py-4"><StatusBadge value={payrollReleased ? "Released" : record.status || "Pending Release"} /></td>
-                        <td className="px-4 py-4"><StatusBadge value={record.payslip_status || "Not Released"} /></td>
+                        <td className="px-4 py-4"><StatusBadge value={payrollReleased ? "Released" : "Pending Release"} /></td>
+                        <td className="px-4 py-4"><StatusBadge value={record.payslip_status || "Released"} /></td>
                         <td className="px-4 py-4"><StatusBadge value={record.payslip_email_status || "Not Sent"} /></td>
 
                         <td className="px-4 py-4">
@@ -503,7 +799,7 @@ export default function PayslipsPage() {
                   {filteredRecords.length === 0 && (
                     <tr>
                       <td colSpan={8} className="px-4 py-14 text-center text-sm font-semibold text-slate-500">
-                        No payslip records found. Select a payroll period to continue.
+                        No released payslip records found. Payslips appear only after Payroll Manager release.
                       </td>
                     </tr>
                   )}
@@ -654,7 +950,6 @@ function CleanPayslipDocument({
   releasedAmount,
   remainingAmount,
   formatMoney,
-  formatDate,
   formatDateTime,
   getAutoDeductionTotal,
   getGovernmentDeductionTotal,
@@ -706,7 +1001,7 @@ function CleanPayslipDocument({
           <tbody>
             <tr>
               <MetricCell label="Scheduled" value={Number(record.scheduled_days || 0)} />
-              <MetricCell label="Worked" value={Number(record.days_worked || 0)} />
+              <MetricCell label="Worked" value={Number(record.days_worked || record.regular_days || 0)} />
               <MetricCell label="Rest / Off" value={Number(record.rest_days || 0)} />
               <MetricCell label="Absent" value={Number(record.absent_days || 0)} />
               <MetricCell label="Late" value={`${Number(record.late_minutes || 0)} min`} />
@@ -726,7 +1021,7 @@ function CleanPayslipDocument({
                 </tr>
               </thead>
               <tbody>
-                <MoneyRow label="Basic Pay" value={record.basic_pay} formatMoney={formatMoney} />
+                <MoneyRow label="Basic Pay" value={record.basic_pay || record.gross_pay} formatMoney={formatMoney} />
                 <MoneyRow label="Overtime Pay" value={record.ot_pay || record.overtime_pay} formatMoney={formatMoney} />
                 <MoneyRow label="Holiday Pay" value={record.holiday_pay} formatMoney={formatMoney} />
                 <MoneyRow label="Allowance / Bonus" value={record.allowance || record.allowances || record.bonus || record.incentive} formatMoney={formatMoney} />
@@ -759,11 +1054,11 @@ function CleanPayslipDocument({
 
         <div className="ps-net-band my-2 grid grid-cols-1 overflow-hidden border-2 border-slate-950 md:grid-cols-[minmax(0,1fr)_190px]">
           <div className="ps-net-copy p-2">
-            <p className="ps-net-label text-[11px] font-black uppercase tracking-[0.24em] text-slate-700">Net Pay</p>
-            <p className="ps-net-note mt-0.5 text-[10px] font-semibold text-slate-500">Amount payable after approved earnings and deductions.</p>
+            <p className="ps-net-label text-[11px] font-black uppercase tracking-[0.24em] text-slate-700">Released Amount</p>
+            <p className="ps-net-note mt-0.5 text-[10px] font-semibold text-slate-500">Payslip is available only after Payroll Manager release.</p>
           </div>
           <div className="ps-net-amount flex items-center justify-end border-t-2 border-slate-950 p-2 text-2xl font-black text-slate-950 md:border-l-2 md:border-t-0">
-            {formatMoney(netPay)}
+            {formatMoney(releasedAmount)}
           </div>
         </div>
 
@@ -773,9 +1068,9 @@ function CleanPayslipDocument({
             <tr>
               <MetricCell label="Gross Pay" value={formatMoney(grossPay)} />
               <MetricCell label="Deductions" value={formatMoney(totalDeductions)} />
+              <MetricCell label="Net Pay" value={formatMoney(netPay)} />
               <MetricCell label="Released" value={formatMoney(releasedAmount)} />
               <MetricCell label="Remaining" value={formatMoney(remainingAmount)} />
-              <MetricCell label="Status" value={record.payslip_status || "Not Released"} />
               <MetricCell label="Released By" value={record.released_by || "Payroll/Admin"} />
             </tr>
           </tbody>
@@ -864,26 +1159,10 @@ function MoneyRow({ label, value, formatMoney, bold }: any) {
   );
 }
 
-function KpiCard({ label, value, tone = "neutral" }: any) {
-  const toneClass =
-    tone === "success"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : tone === "warning"
-        ? "border-amber-200 bg-amber-50 text-amber-700"
-        : "border-slate-200 bg-slate-50 text-slate-950";
-
-  return (
-    <div className={`rounded-2xl border p-4 ${toneClass}`}>
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-80">{label}</p>
-      <p className="mt-2 text-2xl font-black tracking-tight">{value}</p>
-    </div>
-  );
-}
-
 function StatusBadge({ value }: any) {
   const normalized = String(value || "");
   const color =
-    ["Released", "Sent", "Paid", "Active", "Approved"].includes(normalized)
+    ["Released", "Sent", "Paid", "Active", "Approved", "RELEASED"].includes(normalized)
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : ["Failed", "Rejected", "No Email"].includes(normalized)
         ? "border-red-200 bg-red-50 text-red-700"

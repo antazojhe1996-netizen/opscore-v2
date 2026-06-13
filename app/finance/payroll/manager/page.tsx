@@ -239,6 +239,39 @@ export default function PayrollManagerPage() {
     return releaseStatus || status || "Pending";
   };
 
+  const getWorkflowStatus = (record: any) =>
+    String(
+      record.snapshot_status ||
+        record.workflow_status ||
+        record.status ||
+        record.release_status ||
+        ""
+    )
+      .trim()
+      .toUpperCase();
+
+  const isSnapshotItem = (record: any) =>
+    record.__recordType === "SNAPSHOT_ITEM";
+
+  const canReturnSnapshotRecord = (record: any) => {
+    const workflowStatus = getWorkflowStatus(record);
+    return (
+      isSnapshotItem(record) &&
+      ["REGISTERED", "LOCKED"].includes(workflowStatus)
+    );
+  };
+
+  const canLockSnapshotRecord = (record: any) =>
+    isSnapshotItem(record) && getWorkflowStatus(record) === "REGISTERED";
+
+  const canReleaseSnapshotRecord = (record: any) =>
+    isSnapshotItem(record) && getWorkflowStatus(record) === "LOCKED";
+
+  const canRequestReopenRecord = (record: any) =>
+    getWorkflowStatus(record) === "RELEASED" ||
+    String(record.release_status || "").toUpperCase() === "RELEASED" ||
+    record.__recordType === "RELEASED_PAYROLL_ITEM";
+
   const getReleaseDraftAmount = (record: any) => {
     const outstanding = getOutstandingPayrollAmount(record);
     const rawValue = releaseDrafts[String(record.id)];
@@ -390,15 +423,213 @@ export default function PayrollManagerPage() {
 
   /// DATA LOADERS
   const loadData = async () => {
+    const currentCompanyId = getCurrentCompanyId();
+
     const { data: employeesData } = await supabase
       .from("employees")
       .select("*");
 
-    const records = await getRowsFromTables([
-      "payroll_records",
-      "payroll_register",
-      "payroll_period_records",
-    ]);
+    const { data: periodsData } = await supabase
+      .from("payroll_periods")
+      .select("*");
+
+    let snapshotQuery = supabase
+      .from("payroll_snapshots")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (currentCompanyId) {
+      snapshotQuery = snapshotQuery.eq("company_id", currentCompanyId);
+    }
+
+    const { data: snapshotHeaders, error: snapshotHeaderError } =
+      await snapshotQuery;
+
+    if (snapshotHeaderError) {
+      console.log("LOAD PAYROLL SNAPSHOT HEADERS ERROR:", snapshotHeaderError.message);
+    }
+
+    const snapshots = snapshotHeaders || [];
+    const snapshotIds = snapshots.map((snapshot) => snapshot.id).filter(Boolean);
+
+    let snapshotItems: any[] = [];
+
+    if (snapshotIds.length > 0) {
+      const { data: snapshotItemsData, error: snapshotItemsError } =
+        await supabase
+          .from("payroll_snapshot_items")
+          .select("*")
+          .in("snapshot_id", snapshotIds)
+          .order("employee_name", { ascending: true });
+
+      if (snapshotItemsError) {
+        console.log("LOAD PAYROLL SNAPSHOT ITEMS ERROR:", snapshotItemsError.message);
+      }
+
+      snapshotItems = snapshotItemsData || [];
+    }
+
+    let releaseHeaders: any[] = [];
+    let releaseItems: any[] = [];
+
+    const { data: releaseHeaderData, error: releaseHeaderError } =
+      await supabase
+        .from("released_payrolls")
+        .select("*")
+        .order("released_at", { ascending: false });
+
+    if (releaseHeaderError) {
+      console.log("LOAD RELEASED PAYROLL HEADERS ERROR:", releaseHeaderError.message);
+    } else {
+      releaseHeaders = releaseHeaderData || [];
+    }
+
+    const releaseIds = releaseHeaders.map((release) => release.id).filter(Boolean);
+
+    if (releaseIds.length > 0) {
+      const { data: releaseItemData, error: releaseItemError } =
+        await supabase
+          .from("released_payroll_items")
+          .select("*")
+          .in("release_id", releaseIds)
+          .order("created_at", { ascending: false });
+
+      if (releaseItemError) {
+        console.log("LOAD RELEASED PAYROLL ITEMS ERROR:", releaseItemError.message);
+      } else {
+        releaseItems = releaseItemData || [];
+      }
+    }
+
+    const periodsById = new Map(
+      (periodsData || []).map((period: any) => [String(period.id), period]),
+    );
+
+    const snapshotsById = new Map(
+      snapshots.map((snapshot: any) => [String(snapshot.id), snapshot]),
+    );
+
+    const releaseHeadersById = new Map(
+      releaseHeaders.map((release: any) => [String(release.id), release]),
+    );
+
+    const releasedBySnapshotItemId = new Map<string, number>();
+
+    releaseItems.forEach((item: any) => {
+      const releaseHeader = releaseHeadersById.get(String(item.release_id));
+      const snapshotId = releaseHeader?.snapshot_id;
+      const matchKey = `${snapshotId}:${item.employee_id || item.employee_name}`;
+      releasedBySnapshotItemId.set(
+        matchKey,
+        Number(releasedBySnapshotItemId.get(matchKey) || 0) +
+          Number(item.released_amount || 0),
+      );
+    });
+
+    const snapshotRecords = snapshotItems.map((item: any) => {
+      const snapshot = snapshotsById.get(String(item.snapshot_id)) || {};
+      const period = periodsById.get(String(snapshot.period_id || "")) || {};
+      const periodLabel =
+        period.period_name ||
+        period.period_label ||
+        snapshot.snapshot_no ||
+        "Payroll Snapshot";
+
+      const releasedAmount = Number(
+        releasedBySnapshotItemId.get(
+          `${item.snapshot_id}:${item.employee_id || item.employee_name}`,
+        ) || 0,
+      );
+
+      const netPay = Number(item.net_pay || 0);
+      const remainingAmount = Math.max(netPay - releasedAmount, 0);
+      const snapshotStatus = normalizeStatus(snapshot.status || "REGISTERED");
+      const releaseStatus =
+        releasedAmount > 0 && remainingAmount > 0
+          ? "Partially Released"
+          : releasedAmount > 0
+            ? "Released"
+            : "Pending";
+
+      return {
+        ...item,
+        id: item.id,
+        __recordType: "SNAPSHOT_ITEM",
+        __snapshotId: item.snapshot_id,
+        __snapshotItemId: item.id,
+        company_id: item.company_id || snapshot.company_id || currentCompanyId,
+        period_id: snapshot.period_id || null,
+        period_label: periodLabel,
+        payroll_period: periodLabel,
+        employee_name: item.employee_name,
+        gross_pay: Number(item.gross_pay || 0),
+        total_deductions: Number(item.total_deductions || 0),
+        net_pay: netPay,
+        release_amount: Math.max(netPay, 0),
+        paid_amount: releasedAmount,
+        remaining_amount: remainingAmount,
+        remaining_payroll_balance: remainingAmount,
+        status:
+          releaseStatus === "Released"
+            ? "Released"
+            : releaseStatus === "Partially Released"
+              ? "Partially Released"
+              : snapshotStatus === "LOCKED"
+                ? "Locked"
+                : snapshotStatus === "REGISTERED"
+                  ? "Registered"
+                  : snapshotStatus,
+        workflow_status: snapshotStatus,
+        release_status:
+          releaseStatus === "Pending" && snapshotStatus === "REGISTERED"
+            ? "Manager Review"
+            : releaseStatus === "Pending" && snapshotStatus === "LOCKED"
+              ? "Ready for Release"
+              : releaseStatus,
+        snapshot_no: snapshot.snapshot_no,
+        snapshot_status: snapshotStatus,
+        snapshot_date: snapshot.snapshot_date,
+        created_at: item.created_at || snapshot.created_at,
+      };
+    });
+
+    const releasedRecords = releaseItems.map((item: any) => {
+      const releaseHeader = releaseHeadersById.get(String(item.release_id)) || {};
+      const snapshot = snapshotsById.get(String(releaseHeader.snapshot_id || "")) || {};
+      const period = periodsById.get(String(snapshot.period_id || "")) || {};
+      const periodLabel =
+        period.period_name ||
+        period.period_label ||
+        snapshot.snapshot_no ||
+        releaseHeader.release_no ||
+        "Released Payroll";
+
+      return {
+        ...item,
+        id: `RELEASED:${item.id}`,
+        __recordType: "RELEASED_PAYROLL_ITEM",
+        __releaseId: item.release_id,
+        __snapshotId: releaseHeader.snapshot_id,
+        company_id: item.company_id || releaseHeader.company_id || currentCompanyId,
+        period_id: snapshot.period_id || null,
+        period_label: periodLabel,
+        payroll_period: periodLabel,
+        employee_name: item.employee_name,
+        gross_pay: Number(item.gross_pay || 0),
+        total_deductions: Number(item.deductions || 0),
+        net_pay: Number(item.net_pay || 0),
+        paid_amount: Number(item.released_amount || 0),
+        release_amount: Number(item.released_amount || 0),
+        remaining_amount: 0,
+        remaining_payroll_balance: 0,
+        status: "Released",
+        release_status: "Released",
+        released_at: releaseHeader.released_at || item.created_at,
+        released_by: releaseHeader.released_by || "Payroll Manager",
+        snapshot_no: snapshot.snapshot_no,
+        created_at: item.created_at || releaseHeader.released_at,
+      };
+    });
 
     const adjustments = await getRowsFromTables([
       "payroll_adjustments",
@@ -414,7 +645,7 @@ export default function PayrollManagerPage() {
     ]);
 
     setEmployees(employeesData || []);
-    setPayrollRecords(records || []);
+    setPayrollRecords([...snapshotRecords, ...releasedRecords]);
     setPayrollAdjustments(adjustments || []);
     setEmployeeBalances(balances || []);
     setPayrollReleaseTransactions(releaseTransactions || []);
@@ -972,48 +1203,63 @@ export default function PayrollManagerPage() {
   const releasePayrollRecords = async (targetRecords: any[], label: string) => {
     if (processingRef.current || isProcessing) return;
 
-    if (targetRecords.length === 0) {
-      alert("No approved payroll records selected for release.");
+    const snapshotTargetRecords = targetRecords.filter(
+      (record) => record.__recordType !== "RELEASED_PAYROLL_ITEM",
+    );
+
+    if (snapshotTargetRecords.length === 0) {
+      alert("No registered payroll snapshot records selected for release.");
+      return;
+    }
+
+    const unlockedSnapshotRecords = snapshotTargetRecords.filter(
+      (record) => isSnapshotItem(record) && !canReleaseSnapshotRecord(record),
+    );
+
+    if (unlockedSnapshotRecords.length > 0) {
+      alert(
+        "Payroll must be LOCKED before release. Use Lock Payroll first, then release the locked payroll.",
+      );
       return;
     }
 
     if (pendingAdjustments.length > 0) {
       alert(
-        `${pendingAdjustments.length} payroll adjustment(s) are still pending in Payroll Register. Approve/reject them in Register first, then regenerate payroll.`,
+        `${pendingAdjustments.length} payroll adjustment(s) are still pending in Payroll Register. Approve/reject them in Register first, then register payroll again.`,
       );
       return;
     }
 
-    const negativeRecords = targetRecords.filter(
+    const negativeRecords = snapshotTargetRecords.filter(
       (record) => getRecordAmount(record) < 0,
     );
 
-    const totalGross = targetRecords.reduce(
+    const totalGross = snapshotTargetRecords.reduce(
       (sum, record) => sum + getRecordGross(record),
       0,
     );
 
-    const totalDeductions = targetRecords.reduce(
+    const totalDeductions = snapshotTargetRecords.reduce(
       (sum, record) => sum + getRecordDeduction(record),
       0,
     );
 
-    const totalOutstanding = targetRecords.reduce(
+    const totalOutstanding = snapshotTargetRecords.reduce(
       (sum, record) => sum + getOutstandingPayrollAmount(record),
       0,
     );
 
-    const totalReleaseNow = targetRecords.reduce(
+    const totalReleaseNow = snapshotTargetRecords.reduce(
       (sum, record) => sum + getReleaseDraftAmount(record),
       0,
     );
 
-    const totalRemainingSalaryBalance = targetRecords.reduce(
+    const totalRemainingSalaryBalance = snapshotTargetRecords.reduce(
       (sum, record) => sum + getRemainingAfterRelease(record),
       0,
     );
 
-    const totalCarryForward = targetRecords.reduce(
+    const totalCarryForward = snapshotTargetRecords.reduce(
       (sum, record) => sum + getCarryForwardAmount(record),
       0,
     );
@@ -1022,7 +1268,7 @@ export default function PayrollManagerPage() {
       `Release Payroll?
 
 Mode: ${label}
-Employees: ${targetRecords.length}
+Employees: ${snapshotTargetRecords.length}
 Gross Pay: ${formatPeso(totalGross)}
 Deductions: ${formatPeso(totalDeductions)}
 Outstanding Payroll: ${formatPeso(totalOutstanding)}
@@ -1032,7 +1278,7 @@ Carry Forward: ${formatPeso(totalCarryForward)}
 
 Employees with carry forward: ${negativeRecords.length}
 
-This will record the actual released amount only. Any unpaid salary balance will remain outstanding.`,
+This will create immutable released payroll records from the registered snapshot.`,
     );
 
     if (!confirmed) return;
@@ -1043,20 +1289,15 @@ This will record the actual released amount only. Any unpaid salary balance will
     processingRef.current = true;
     setIsProcessing(true);
 
-    const targetIds = targetRecords.map((record) =>
-      getActualPayrollRecordId(record),
-    );
     const periodIds = Array.from(
-      new Set(targetRecords.map((record) => record.period_id).filter(Boolean)),
+      new Set(snapshotTargetRecords.map((record) => record.period_id).filter(Boolean)),
     );
 
     let caPreviews: Record<string, any> = {};
     let caAppliedMap: Record<string, number> = {};
 
     try {
-      // Validate CA balances before touching payroll status. This prevents
-      // "Partially Released" records when the CA balance cannot be found/applied.
-      caPreviews = await previewCashAdvanceApplications(targetRecords);
+      caPreviews = await previewCashAdvanceApplications(snapshotTargetRecords);
     } catch (validationError: any) {
       setIsProcessing(false);
       processingRef.current = false;
@@ -1064,165 +1305,183 @@ This will record the actual released amount only. Any unpaid salary balance will
         userName: "OPSCORE USER",
         module: "Payroll",
         action: "Payroll Release Validation Failed",
-        description: `Release blocked before payroll status update: ${validationError?.message || validationError}`,
+        description: `Release blocked before released payroll creation: ${validationError?.message || validationError}`,
         severity: "critical",
         newValue: {
           error: validationError?.message || String(validationError),
-          targetCount: targetRecords.length,
+          targetCount: snapshotTargetRecords.length,
         },
       });
-      alert(`Release blocked before saving payroll status.
+      alert(`Release blocked before saving released payroll.
 
 ${validationError?.message || validationError}`);
       return;
     }
 
-    const statusResults = await Promise.all(
-      targetRecords.map((record) => {
-        const releaseNow = getReleaseDraftAmount(record);
-        const previousReleased = getAlreadyReleasedAmount(record);
-        const totalReleased = previousReleased + releaseNow;
-        const remainingSalaryBalance = getRemainingAfterRelease(record);
-        const newStatus =
-          remainingSalaryBalance > 0 ? "Partially Released" : "Released";
-
-        return supabase
-          .from("payroll_records")
-          .update({
-            status: newStatus,
-            release_status: newStatus,
-            paid_amount: totalReleased,
-            remaining_amount: remainingSalaryBalance,
-            remaining_payroll_balance: remainingSalaryBalance,
-            carry_forward_amount: getCarryForwardAmount(record),
-            released_at: new Date().toISOString(),
-            released_by: releasedBy.trim(),
-          })
-          .eq("id", getActualPayrollRecordId(record));
-      }),
-    );
-
-    const failedStatusUpdate = statusResults.find(
-      (result: any) => result.error,
-    );
-
-    if (failedStatusUpdate?.error) {
-      setIsProcessing(false);
-      processingRef.current = false;
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Payroll",
-        action: "Payroll Status Update Failed",
-        description: `Release blocked because payroll record update failed: ${failedStatusUpdate.error.message}`,
-        severity: "critical",
-        newValue: {
-          error: failedStatusUpdate.error.message,
-          targetCount: targetRecords.length,
-        },
-      });
-      alert(`Payroll release failed before balance update.
-
-${failedStatusUpdate.error.message}`);
-      return;
-    }
-
     try {
       caAppliedMap = await applyCashAdvanceDeductions(
-        targetRecords,
+        snapshotTargetRecords,
         caPreviews,
       );
-      await savePayrollReleaseTransactions(
-        targetRecords,
-        releasedBy.trim(),
-        caAppliedMap,
+
+      const recordsBySnapshotId = snapshotTargetRecords.reduce(
+        (acc: Record<string, any[]>, record) => {
+          const snapshotId = String(record.__snapshotId || record.snapshot_id || "");
+          if (!snapshotId) return acc;
+          if (!acc[snapshotId]) acc[snapshotId] = [];
+          acc[snapshotId].push(record);
+          return acc;
+        },
+        {},
       );
+
+      const releasedAt = new Date().toISOString();
+
+      for (const [snapshotId, recordsForSnapshot] of Object.entries(recordsBySnapshotId)) {
+        const firstRecord = recordsForSnapshot[0];
+
+        const { data: releasedHeader, error: releasedHeaderError } =
+          await supabase
+            .from("released_payrolls")
+            .insert({
+              company_id: getRecordCompanyId(firstRecord),
+              snapshot_id: snapshotId,
+              release_no: `REL-${Date.now()}-${snapshotId.slice(0, 8)}`,
+              released_by: releasedBy.trim(),
+              released_at: releasedAt,
+              status: "RELEASED",
+            })
+            .select()
+            .single();
+
+        if (releasedHeaderError || !releasedHeader) {
+          throw new Error(
+            releasedHeaderError?.message || "Failed to create released payroll header.",
+          );
+        }
+
+        const releasedItems = recordsForSnapshot.map((record) => ({
+          company_id: getRecordCompanyId(record),
+          release_id: releasedHeader.id,
+          employee_id: record.employee_id || null,
+          employee_name: getEmployeeName(record),
+          gross_pay: getRecordGross(record),
+          deductions: getRecordDeduction(record),
+          net_pay: getRecordAmount(record),
+          released_amount: getReleaseDraftAmount(record),
+        }));
+
+        const { error: releasedItemsError } = await supabase
+          .from("released_payroll_items")
+          .insert(releasedItems);
+
+        if (releasedItemsError) {
+          throw new Error(releasedItemsError.message);
+        }
+
+        const { data: allSnapshotItems, error: allSnapshotItemsError } =
+          await supabase
+            .from("payroll_snapshot_items")
+            .select("id")
+            .eq("snapshot_id", snapshotId);
+
+        if (allSnapshotItemsError) {
+          throw new Error(allSnapshotItemsError.message);
+        }
+
+        const releasedSnapshotItemIds = new Set(
+          recordsForSnapshot.map((record) => String(record.__snapshotItemId || record.id)),
+        );
+
+        const wholeSnapshotReleased =
+          (allSnapshotItems || []).length > 0 &&
+          (allSnapshotItems || []).every((item: any) =>
+            releasedSnapshotItemIds.has(String(item.id)),
+          );
+
+        const { error: snapshotStatusError } = await supabase
+          .from("payroll_snapshots")
+          .update({
+            status: wholeSnapshotReleased ? "RELEASED" : "LOCKED",
+          })
+          .eq("id", snapshotId);
+
+        if (snapshotStatusError) {
+          throw new Error(snapshotStatusError.message);
+        }
+      }
+
       await Promise.all(
-        targetRecords.map((record) =>
+        snapshotTargetRecords.map((record) =>
           createOrUpdatePayrollBalance(
             record,
             getRemainingAfterRelease(record),
           ),
         ),
       );
-    } catch (partialReleaseError: any) {
-      setIsProcessing(false);
-      processingRef.current = false;
+
+      await createCarryForwardBalances(snapshotTargetRecords);
+
+      for (const periodId of periodIds) {
+        const periodRecords = snapshotTargetRecords.filter(
+          (record) => record.period_id === periodId,
+        );
+
+        await createPayrollExpense(periodRecords);
+
+        await supabase
+          .from("payroll_periods")
+          .update({
+            status: "RELEASED",
+            released_at: releasedAt,
+          })
+          .eq("id", periodId);
+      }
+
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
-        action: "Partial Payroll Release Balance Failed",
-        description: `Payroll status was updated but CA/salary balance tracking failed: ${partialReleaseError?.message || partialReleaseError}`,
-        severity: "critical",
+        action: "Release Payroll Snapshot From Manager",
+        description: `${snapshotTargetRecords.length} payroll snapshot item(s) released from Payroll Manager (${label})`,
+        severity: "warning",
         newValue: {
-          error: partialReleaseError?.message || String(partialReleaseError),
-          targetCount: targetRecords.length,
+          label,
+          recordCount: snapshotTargetRecords.length,
+          periodIds,
+          totalGross,
+          totalDeductions,
+          totalReleaseNow,
+          totalCarryForward,
+          negativeEmployees: negativeRecords.length,
+          source: "payroll_snapshot_items",
         },
       });
-      alert(`Payroll status was updated, but CA/salary balance tracking failed.
 
-${partialReleaseError?.message || partialReleaseError}`);
-      return;
+      setSelectedRecordIds([]);
+      await loadData();
+
+      alert("Payroll released from snapshot and release records created.");
+    } catch (releaseError: any) {
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Payroll Snapshot Release Failed",
+        description: `Payroll release failed: ${releaseError?.message || releaseError}`,
+        severity: "critical",
+        newValue: {
+          error: releaseError?.message || String(releaseError),
+          targetCount: snapshotTargetRecords.length,
+          caAppliedMap,
+        },
+      });
+
+      alert(`Payroll release failed.
+
+${releaseError?.message || releaseError}`);
+    } finally {
+      setIsProcessing(false);
+      processingRef.current = false;
     }
-
-    await createCarryForwardBalances(targetRecords);
-
-    for (const periodId of periodIds) {
-      const periodRecords = targetRecords.filter(
-        (record) => record.period_id === periodId,
-      );
-
-      await createPayrollExpense(periodRecords);
-
-      const remainingApproved = payrollRecords.filter(
-        (record) =>
-          record.period_id === periodId &&
-          !targetIds.includes(record.id) &&
-          (getOutstandingPayrollAmount(record) > 0 ||
-            getCarryForwardAmount(record) > 0),
-      );
-
-      const periodHasRemainingSalaryBalance = targetRecords.some(
-        (record) =>
-          record.period_id === periodId && getRemainingAfterRelease(record) > 0,
-      );
-
-      await supabase
-        .from("payroll_periods")
-        .update({
-          status:
-            remainingApproved.length > 0 || periodHasRemainingSalaryBalance
-              ? "Partially Released"
-              : "Released",
-          released_at: new Date().toISOString(),
-        })
-        .eq("id", periodId);
-    }
-
-    setIsProcessing(false);
-    processingRef.current = false;
-    setSelectedRecordIds([]);
-    await loadData();
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Payroll",
-      action: "Release Payroll From Manager",
-      description: `${targetRecords.length} payroll record(s) released from Payroll Manager (${label})`,
-      severity: "warning",
-      newValue: {
-        label,
-        recordCount: targetRecords.length,
-        periodIds,
-        totalGross,
-        totalDeductions,
-        totalReleaseNow,
-        totalCarryForward,
-        negativeEmployees: negativeRecords.length,
-        targetIds,
-      },
-    });
-
-    alert("Payroll released and expense entry created.");
   };
 
   const releasePayroll = async (mode: "selected" | "all") => {
@@ -1246,25 +1505,236 @@ ${partialReleaseError?.message || partialReleaseError}`);
     await releasePayrollRecords([record], `Release ${getEmployeeName(record)}`);
   };
 
-  const returnPayrollToRegister = async (record: any) => {
-    const status = normalizeStatus(record.status);
-    const releaseStatus = normalizeStatus(record.release_status);
-    const alreadyReleased =
-      status === "Released" ||
-      status === "Paid" ||
-      releaseStatus === "Released" ||
-      releaseStatus === "Paid" ||
-      getAlreadyReleasedAmount(record) > 0;
+  const lockPayrollRecords = async (targetRecords: any[], label: string) => {
+    if (processingRef.current || isProcessing) return;
 
-    if (alreadyReleased) {
-      alert(
-        "Released payroll cannot be returned to Register. Use next cutoff dispute/correction instead.",
-      );
+    const lockableRecords = targetRecords.filter(canLockSnapshotRecord);
+
+    if (lockableRecords.length === 0) {
+      alert("No REGISTERED payroll snapshot records selected for locking.");
+      return;
+    }
+
+    const snapshotIds = Array.from(
+      new Set(
+        lockableRecords
+          .map((record) => record.__snapshotId || record.snapshot_id)
+          .filter(Boolean),
+      ),
+    );
+
+    const periodIds = Array.from(
+      new Set(lockableRecords.map((record) => record.period_id).filter(Boolean)),
+    );
+
+    const totalNet = lockableRecords.reduce(
+      (sum, record) => sum + getRecordAmount(record),
+      0,
+    );
+
+    const confirmed = confirm(
+      `Lock Payroll for Approval?
+
+Mode: ${label}
+Employees: ${lockableRecords.length}
+Snapshots: ${snapshotIds.length}
+Net Amount: ${formatPeso(totalNet)}
+
+This will move the payroll snapshot from REGISTERED to LOCKED. Attendance and Payroll Register should become read-only for this cutoff. Release can only happen after this step.`,
+    );
+
+    if (!confirmed) return;
+
+    const lockedBy = prompt("Locked by:", "Payroll Manager") || "Payroll Manager";
+
+    processingRef.current = true;
+    setIsProcessing(true);
+
+    try {
+      const { error: snapshotError } = await supabase
+        .from("payroll_snapshots")
+        .update({ status: "LOCKED" })
+        .in("id", snapshotIds);
+
+      if (snapshotError) throw new Error(snapshotError.message);
+
+      if (periodIds.length > 0) {
+        const { error: periodError } = await supabase
+          .from("payroll_periods")
+          .update({
+            status: "LOCKED",
+            needs_regeneration: false,
+          })
+          .in("id", periodIds);
+
+        if (periodError) throw new Error(periodError.message);
+      }
+
+      await createAuditLog({
+        userName: lockedBy.trim(),
+        module: "Payroll",
+        action: "Lock Payroll Snapshot For Approval",
+        description: `${lockableRecords.length} payroll snapshot item(s) locked for approval from Payroll Manager (${label}).`,
+        severity: "warning",
+        newValue: {
+          label,
+          snapshotIds,
+          periodIds,
+          recordCount: lockableRecords.length,
+          totalNet,
+          status: "LOCKED",
+        },
+      });
+
+      setSelectedRecordIds([]);
+      await loadData();
+      alert("Payroll locked for approval. You can now release locked payroll records.");
+    } catch (error: any) {
+      await createAuditLog({
+        userName: "OPSCORE USER",
+        module: "Payroll",
+        action: "Lock Payroll Snapshot Failed",
+        description: `Failed to lock payroll snapshot: ${error?.message || error}`,
+        severity: "critical",
+        newValue: {
+          error: error?.message || String(error),
+          snapshotIds,
+          periodIds,
+        },
+      });
+
+      alert(`Failed to lock payroll.
+
+${error?.message || error}`);
+    } finally {
+      setIsProcessing(false);
+      processingRef.current = false;
+    }
+  };
+
+  const lockPayroll = async (mode: "selected" | "all") => {
+    const sourceRows =
+      activeTab === "partial" ? partialReleasePayroll : releaseQueuePayroll;
+
+    const targetRecords =
+      mode === "all"
+        ? sourceRows.filter(canLockSnapshotRecord)
+        : sourceRows.filter(
+            (record) =>
+              selectedRecordIds.includes(String(record.id)) &&
+              canLockSnapshotRecord(record),
+          );
+
+    await lockPayrollRecords(
+      targetRecords,
+      mode === "all" ? "Lock All Registered" : "Lock Selected",
+    );
+  };
+
+  const requestReopenApproval = async (record: any) => {
+    if (!canRequestReopenRecord(record)) {
+      alert("Only released payroll can request reopen approval.");
       return;
     }
 
     const reason = prompt(
-      `Return ${getEmployeeName(record)} to Payroll Register?\n\nReason is required:`,
+      `Request reopen approval for ${getEmployeeName(record)}?
+
+Reason is required:`,
+      "Payroll correction needed",
+    );
+
+    if (!reason || !reason.trim()) {
+      alert("Reopen reason is required.");
+      return;
+    }
+
+    const confirmed = confirm(
+      `Submit Reopen Request?
+
+Employee: ${getEmployeeName(record)}
+Period: ${getPeriodLabel(record)}
+Reason: ${reason.trim()}
+
+This will NOT unlock payroll immediately. It will create an audit trail for Approval Center review.`,
+    );
+
+    if (!confirmed) return;
+
+    setIsProcessing(true);
+
+    const requestPayload = {
+      company_id: getRecordCompanyId(record),
+      module: "Payroll",
+      request_type: "Payroll Reopen",
+      title: `Payroll reopen request - ${getEmployeeName(record)}`,
+      description: reason.trim(),
+      status: "Pending",
+      requested_by: "OPSCORE USER",
+      reference_table: record.__recordType === "RELEASED_PAYROLL_ITEM" ? "released_payroll_items" : "payroll_snapshots",
+      reference_id: String(record.__releaseId || record.__snapshotId || record.id),
+      payload: {
+        employeeName: getEmployeeName(record),
+        employeeId: record.employee_id || null,
+        periodId: record.period_id || null,
+        periodLabel: getPeriodLabel(record),
+        releaseId: record.__releaseId || null,
+        snapshotId: record.__snapshotId || record.snapshot_id || null,
+        reason: reason.trim(),
+      },
+    };
+
+    let approvalSaved = false;
+
+    try {
+      const { error } = await supabase.from("approval_requests").insert(requestPayload);
+      if (!error) approvalSaved = true;
+      if (error) console.log("CREATE REOPEN APPROVAL REQUEST WARNING:", error.message);
+    } catch (error) {
+      console.log("CREATE REOPEN APPROVAL REQUEST WARNING:", error);
+    }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: approvalSaved
+        ? "Request Payroll Reopen Approval"
+        : "Request Payroll Reopen Approval Logged",
+      description: `${getEmployeeName(record)} payroll reopen requested. Reason: ${reason.trim()}`,
+      severity: "critical",
+      recordId: String(record.__releaseId || record.__snapshotId || record.id),
+      oldValue: record,
+      newValue: {
+        ...requestPayload,
+        approvalSaved,
+      },
+    });
+
+    setIsProcessing(false);
+    await loadData();
+
+    alert(
+      approvalSaved
+        ? "Reopen request submitted to Approval Center."
+        : "Reopen request logged in audit trail. Approval Center table schema needs alignment before automatic routing.",
+    );
+  };
+
+  const returnPayrollToRegister = async (record: any) => {
+    if (record.__recordType === "RELEASED_PAYROLL_ITEM") {
+      alert("Released payroll is immutable. Use a correction/reopen workflow in the next cutoff.");
+      return;
+    }
+
+    const snapshotId = record.__snapshotId || record.snapshot_id;
+
+    if (!snapshotId) {
+      alert("This row is not linked to a payroll snapshot.");
+      return;
+    }
+
+    const reason = prompt(
+      `Return ${getEmployeeName(record)} snapshot to Payroll Register review?\n\nReason is required:`,
       "Payroll correction needed",
     );
 
@@ -1274,7 +1744,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
     }
 
     const confirmed = confirm(
-      `Return to Payroll Register?\n\nEmployee: ${getEmployeeName(record)}\nPeriod: ${getPeriodLabel(record)}\nReason: ${reason.trim()}\n\nThis will remove the record from Manager queue and make it editable again in Payroll Register.`,
+      `Return snapshot to Register review?\n\nEmployee: ${getEmployeeName(record)}\nPeriod: ${getPeriodLabel(record)}\nReason: ${reason.trim()}\n\nThis will mark the snapshot as REGISTERED for review. Released payroll remains immutable.`,
     );
 
     if (!confirmed) return;
@@ -1282,14 +1752,11 @@ ${partialReleaseError?.message || partialReleaseError}`);
     setIsProcessing(true);
 
     const { error } = await supabase
-      .from("payroll_records")
+      .from("payroll_snapshots")
       .update({
-        status: "Draft",
-        release_status: "Returned",
-        reopen_reason: reason.trim(),
-        reopened_at: new Date().toISOString(),
+        status: "REGISTERED",
       })
-      .eq("id", record.id);
+      .eq("id", snapshotId);
 
     if (error) {
       setIsProcessing(false);
@@ -1297,17 +1764,16 @@ ${partialReleaseError?.message || partialReleaseError}`);
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Payroll",
-        action: "Return Payroll To Register Failed",
-        description: `Failed to return payroll record to Register: ${error.message}`,
+        action: "Return Snapshot To Register Failed",
+        description: `Failed to return payroll snapshot to Register: ${error.message}`,
         severity: "critical",
-        recordId: record.id,
+        recordId: snapshotId,
         newValue: {
           error: error.message,
-          recordId: record.id,
           reason: reason.trim(),
         },
       });
-      alert(`Failed to return payroll to Register.\n\n${error.message}`);
+      alert(`Failed to return snapshot to Register.\n\n${error.message}`);
       return;
     }
 
@@ -1315,8 +1781,8 @@ ${partialReleaseError?.message || partialReleaseError}`);
       await supabase
         .from("payroll_periods")
         .update({
-          status: "Needs Correction",
-          needs_regeneration: true,
+          status: "REGISTERED",
+          needs_regeneration: false,
         })
         .eq("id", record.period_id);
     }
@@ -1324,14 +1790,13 @@ ${partialReleaseError?.message || partialReleaseError}`);
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Payroll",
-      action: "Return Payroll To Register",
-      description: `${getEmployeeName(record)} was returned to Payroll Register for correction. Reason: ${reason.trim()}`,
+      action: "Return Payroll Snapshot To Register",
+      description: `${getEmployeeName(record)} snapshot was returned to Register review. Reason: ${reason.trim()}`,
       severity: "warning",
-      recordId: record.id,
+      recordId: snapshotId,
       oldValue: record,
       newValue: {
-        status: "Draft",
-        release_status: "Returned",
+        status: "REGISTERED",
         reason: reason.trim(),
         periodId: record.period_id || null,
       },
@@ -1342,7 +1807,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
     setSelectedRecordIds([]);
     await loadData();
 
-    alert("Payroll returned to Register for correction.");
+    alert("Payroll snapshot returned to Register review.");
   };
 
   const reopenPayroll = async () => {
@@ -1351,102 +1816,11 @@ ${partialReleaseError?.message || partialReleaseError}`);
     );
 
     if (targetRecords.length === 0) {
-      alert("Select released payroll records to reopen.");
+      alert("Select released payroll record(s) to request reopen approval.");
       return;
     }
 
-    const reason = prompt("Reason for reopening released payroll?");
-    if (!reason || !reason.trim()) {
-      alert("Reopen reason is required.");
-      return;
-    }
-
-    const confirmed = confirm(
-      `Reopen ${targetRecords.length} released payroll record(s)?`,
-    );
-
-    if (!confirmed) return;
-
-    setIsProcessing(true);
-
-    const targetIds = targetRecords.map((record) =>
-      getActualPayrollRecordId(record),
-    );
-    const periodIds = Array.from(
-      new Set(targetRecords.map((record) => record.period_id).filter(Boolean)),
-    );
-
-    const { error } = await supabase
-      .from("payroll_records")
-      .update({
-        status: "Draft",
-        reopen_reason: reason.trim(),
-        reopened_at: new Date().toISOString(),
-      })
-      .in("id", targetIds);
-
-    if (error) {
-      setIsProcessing(false);
-      processingRef.current = false;
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Payroll",
-        action: "Reopen Payroll Failed",
-        description: `Failed to reopen released payroll: ${error.message}`,
-        severity: "critical",
-        newValue: {
-          error: error.message,
-          targetCount: targetRecords.length,
-          targetIds,
-        },
-      });
-      alert("Failed to reopen payroll.");
-      return console.log("REOPEN PAYROLL ERROR:", error.message);
-    }
-
-    for (const periodId of periodIds) {
-      await supabase
-        .from("payroll_periods")
-        .update({
-          status: "Reopened",
-          reopen_reason: reason.trim(),
-          reopened_at: new Date().toISOString(),
-          needs_regeneration: true,
-        })
-        .eq("id", periodId);
-    }
-
-    await supabase
-      .from("employee_balances")
-      .update({
-        status: "Cancelled",
-        remaining_balance: 0,
-        cancelled_at: new Date().toISOString(),
-        cancel_reason: `Payroll reopened: ${reason.trim()}`,
-      })
-      .eq("source_module", "Payroll Manager")
-      .in("source_id", targetIds);
-
-    setIsProcessing(false);
-    processingRef.current = false;
-    setSelectedRecordIds([]);
-    await loadData();
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Payroll",
-      action: "Reopen Released Payroll",
-      description: `${targetRecords.length} released payroll record(s) reopened. Reason: ${reason.trim()}`,
-      severity: "critical",
-      newValue: {
-        reason: reason.trim(),
-        recordCount: targetRecords.length,
-        periodIds,
-        targetIds,
-      },
-    });
-
-    alert("Payroll reopened. Review Payroll Register before release.");
+    await requestReopenApproval(targetRecords[0]);
   };
 
   /// EFFECTS
@@ -2139,6 +2513,18 @@ ${partialReleaseError?.message || partialReleaseError}`);
           <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[auto_minmax(280px,1fr)_260px_auto] 2xl:items-center">
             <div className="flex flex-wrap gap-2">
               <button
+                onClick={() => lockPayroll("selected")}
+                disabled={
+                  isProcessing ||
+                  selectedRecordIds.length === 0 ||
+                  activeTab === "history"
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Lock size={16} /> Lock Selected
+              </button>
+
+              <button
                 onClick={() => releasePayroll("selected")}
                 disabled={
                   isProcessing ||
@@ -2152,16 +2538,28 @@ ${partialReleaseError?.message || partialReleaseError}`);
               </button>
 
               <button
+                onClick={() => lockPayroll("all")}
+                disabled={
+                  isProcessing ||
+                  activeTab === "history" ||
+                  visibleReleaseRows.filter(canLockSnapshotRecord).length === 0
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CheckCircle2 size={16} /> Lock All
+              </button>
+
+              <button
                 onClick={() => releasePayroll("all")}
                 disabled={
                   isProcessing ||
                   releaseActionRequired ||
                   activeTab === "history" ||
-                  visibleReleaseRows.length === 0
+                  visibleReleaseRows.filter(canReleaseSnapshotRecord).length === 0
                 }
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <CheckCircle2 size={16} /> Release All
+                <Send size={16} /> Release All Locked
               </button>
 
               <button
@@ -2625,7 +3023,7 @@ ${partialReleaseError?.message || partialReleaseError}`);
                           )}
 
                           <div className="flex flex-col items-end gap-2">
-                            {!isPartialSalaryBalanceRecord(record) && (
+                            {canReturnSnapshotRecord(record) && (
                               <button
                                 onClick={() => returnPayrollToRegister(record)}
                                 disabled={isProcessing}
@@ -2634,13 +3032,36 @@ ${partialReleaseError?.message || partialReleaseError}`);
                                 Return
                               </button>
                             )}
-                            <button
-                              onClick={() => releaseSinglePayroll(record)}
-                              disabled={isProcessing || releaseActionRequired}
-                              className="rounded-lg bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50"
-                            >
-                              Release
-                            </button>
+
+                            {canLockSnapshotRecord(record) && (
+                              <button
+                                onClick={() => lockPayrollRecords([record], `Lock ${getEmployeeName(record)}`)}
+                                disabled={isProcessing}
+                                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                              >
+                                Lock
+                              </button>
+                            )}
+
+                            {canReleaseSnapshotRecord(record) && (
+                              <button
+                                onClick={() => releaseSinglePayroll(record)}
+                                disabled={isProcessing || releaseActionRequired}
+                                className="rounded-lg bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+                              >
+                                Release
+                              </button>
+                            )}
+
+                            {canRequestReopenRecord(record) && (
+                              <button
+                                onClick={() => requestReopenApproval(record)}
+                                disabled={isProcessing}
+                                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                              >
+                                Request Reopen
+                              </button>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -3485,11 +3906,17 @@ function StatusBadge({ status }: { status: string }) {
         ? "border-red-200 bg-red-50 text-red-700"
         : normalized === "Partially Released"
           ? "border-amber-200 bg-amber-50 text-amber-700"
-          : normalized === "Approved" ||
-              normalized === "For Approval" ||
-              normalized === "Active"
+          : normalized === "Registered" || normalized === "REGISTERED"
             ? "border-blue-200 bg-blue-50 text-blue-700"
-            : "border-slate-300 bg-slate-100 text-slate-600";
+            : normalized === "Locked" || normalized === "LOCKED"
+              ? "border-violet-200 bg-violet-50 text-violet-700"
+              : normalized === "Approved" ||
+                  normalized === "For Approval" ||
+                  normalized === "Active" ||
+                  normalized === "Ready for Release" ||
+                  normalized === "Manager Review"
+                ? "border-blue-200 bg-blue-50 text-blue-700"
+                : "border-slate-300 bg-slate-100 text-slate-600";
 
   return (
     <span
