@@ -2,7 +2,8 @@
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { FileSpreadsheet, Pencil, Search, Trash2 } from "lucide-react";
+import { Eye, FileSpreadsheet, Pencil, Search, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
@@ -49,6 +50,8 @@ type Employee = {
 };
 
 export default function EmployeesPage() {
+  const router = useRouter();
+
   /// STATES
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -1023,14 +1026,12 @@ export default function EmployeesPage() {
 
   const missingEmailCount = activeEmployeeRows.filter((emp) => !emp.email).length;
 
-  const incomplete201Count = activeEmployeeRows.filter(
+const incomplete201Count = activeEmployeeRows.filter(
     (emp) =>
       !emp.contact_number ||
       !emp.hire_date ||
       !emp.emergency_contact_name ||
-      !emp.emergency_contact_number ||
-      !emp.has_valid_id ||
-      !emp.has_contract,
+      !emp.emergency_contact_number,
   ).length;
 
   const missingGovInfoCount = activeEmployeeRows.filter(
@@ -1052,9 +1053,8 @@ export default function EmployeesPage() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
-  const employeesWithIssues = activeEmployeeRows.filter(
+const employeesWithIssues = activeEmployeeRows.filter(
     (emp) =>
-      !emp.email ||
       !emp.department ||
       !emp.position ||
       !emp.employment_type ||
@@ -1062,9 +1062,7 @@ export default function EmployeesPage() {
       !emp.contact_number ||
       !emp.hire_date ||
       !emp.emergency_contact_name ||
-      !emp.emergency_contact_number ||
-      !emp.has_valid_id ||
-      !emp.has_contract,
+      !emp.emergency_contact_number,
   );
 
   const filteredEmployees = useMemo(() => {
@@ -1392,6 +1390,15 @@ export default function EmployeesPage() {
 
                           <td className="px-4 py-3 align-top text-right">
                             <div className="flex flex-wrap justify-end gap-2">
+                              <button
+                                onClick={() =>
+                                  router.push(`/human-resources/employees/${emp.id}`)
+                                }
+                                className="inline-flex h-9 items-center gap-1 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition-all duration-200 hover:bg-blue-100 active:scale-[0.98]"
+                              >
+                                <Eye size={12} /> View 201
+                              </button>
+
                               {canEdit && (
                                 <button
                                   onClick={() => editEmployee(emp)}

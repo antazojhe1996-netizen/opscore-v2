@@ -9,93 +9,64 @@ type CleanupTable = {
 };
 
 const cleanupTables: CleanupTable[] = [
-  {
-    key: "released_payroll_items",
-    label: "Released Payroll Items",
-    table: "released_payroll_items",
-    group: "Payroll",
-  },
-  {
-    key: "released_payrolls",
-    label: "Released Payrolls",
-    table: "released_payrolls",
-    group: "Payroll",
-  },
-  {
-    key: "payroll_records",
-    label: "Payroll Records",
-    table: "payroll_records",
-    group: "Payroll",
-  },
-  {
-    key: "payroll_snapshots",
-    label: "Payroll Snapshots",
-    table: "payroll_snapshots",
-    group: "Payroll",
-  },
-  {
-    key: "payroll_periods",
-    label: "Payroll Periods",
-    table: "payroll_periods",
-    group: "Payroll",
-  },
-  {
-    key: "attendance_entries",
-    label: "Attendance Entries",
-    table: "attendance_entries",
-    group: "Attendance",
-  },
-  {
-    key: "leave_requests",
-    label: "Leave Requests",
-    table: "leave_requests",
-    group: "Leave",
-  },
-  {
-    key: "employee_leave_credits",
-    label: "Leave Credits",
-    table: "employee_leave_credits",
-    group: "Leave",
-  },
-  {
-    key: "approval_requests",
-    label: "Approval Requests",
-    table: "approval_requests",
-    group: "Approvals",
-  },
-  {
-    key: "activity_logs",
-    label: "Activity Logs",
-    table: "activity_logs",
-    group: "Audit",
-  },
-  {
-    key: "audit_logs",
-    label: "Audit Logs",
-    table: "audit_logs",
-    group: "Audit",
-  },
-  {
-    key: "company_users",
-    label: "Company Users",
-    table: "company_users",
-    group: "Accounts",
-  },
-  {
-    key: "system_users",
-    label: "System Users",
-    table: "system_users",
-    group: "Accounts",
-  },
-  {
-    key: "employees",
-    label: "Employees",
-    table: "employees",
-    group: "Employees",
-  },
+  { key: "pos_order_items", label: "POS Order Items", table: "pos_order_items", group: "POS" },
+  { key: "pos_payments", label: "POS Payments", table: "pos_payments", group: "POS" },
+  { key: "pos_voids", label: "POS Voids", table: "pos_voids", group: "POS" },
+  { key: "pos_orders", label: "POS Orders", table: "pos_orders", group: "POS" },
+  { key: "pos_sessions", label: "POS Sessions", table: "pos_sessions", group: "POS" },
+
+  { key: "released_payroll_items", label: "Released Payroll Items", table: "released_payroll_items", group: "Payroll" },
+  { key: "released_payrolls", label: "Released Payrolls", table: "released_payrolls", group: "Payroll" },
+  { key: "payroll_release_transactions", label: "Payroll Release Transactions", table: "payroll_release_transactions", group: "Payroll" },
+  { key: "payroll_release_history", label: "Payroll Release History", table: "payroll_release_history", group: "Payroll" },
+  { key: "payroll_snapshot_items", label: "Payroll Snapshot Items", table: "payroll_snapshot_items", group: "Payroll" },
+  { key: "payroll_records", label: "Payroll Records", table: "payroll_records", group: "Payroll" },
+  { key: "payroll_adjustments", label: "Payroll Adjustments", table: "payroll_adjustments", group: "Payroll" },
+  { key: "payroll_snapshots", label: "Payroll Snapshots", table: "payroll_snapshots", group: "Payroll" },
+  { key: "payroll_periods", label: "Payroll Periods", table: "payroll_periods", group: "Payroll" },
+
+  { key: "attendance_entries", label: "Attendance Entries", table: "attendance_entries", group: "Attendance" },
+  { key: "schedules", label: "Schedules", table: "schedules", group: "Scheduling" },
+  { key: "schedule_publications", label: "Schedule Publications", table: "schedule_publications", group: "Scheduling" },
+
+  { key: "leave_requests", label: "Leave Requests", table: "leave_requests", group: "Leave" },
+  { key: "approval_requests", label: "Approval Requests", table: "approval_requests", group: "Approvals" },
+
+  { key: "cash_advance_requests", label: "Cash Advance Requests", table: "cash_advance_requests", group: "Finance" },
+  { key: "employee_balances", label: "Employee Balances", table: "employee_balances", group: "Finance" },
+  { key: "expense_requests", label: "Expense Requests", table: "expense_requests", group: "Finance" },
+  { key: "expenses", label: "Expenses", table: "expenses", group: "Finance" },
+  { key: "finance_bills", label: "Finance Bills", table: "finance_bills", group: "Finance" },
+  { key: "finance_cash_counts", label: "Cash Counts", table: "finance_cash_counts", group: "Finance" },
+  { key: "finance_cash_drawers", label: "Cash Drawers", table: "finance_cash_drawers", group: "Finance" },
+  { key: "finance_cash_management", label: "Cash Management", table: "finance_cash_management", group: "Finance" },
+  { key: "finance_cash_movements", label: "Cash Movements", table: "finance_cash_movements", group: "Finance" },
+  { key: "finance_hotel_reservations", label: "Hotel Reservations Revenue", table: "finance_hotel_reservations", group: "Finance" },
+  { key: "finance_hotel_revenue", label: "Hotel Revenue", table: "finance_hotel_revenue", group: "Finance" },
+  { key: "restaurant_sales", label: "Restaurant Sales", table: "restaurant_sales", group: "Finance" },
+
+  { key: "activity_logs", label: "Activity Logs", table: "activity_logs", group: "Audit" },
+  { key: "audit_logs", label: "Audit Logs", table: "audit_logs", group: "Audit" },
 ];
 
-const CONFIRM_TEXT = "DELETE OPSCORE TEST DATA";
+const protectedTables = [
+  "companies",
+  "employees",
+  "system_users",
+  "company_users",
+  "system_roles",
+  "role_permissions",
+  "departments",
+  "positions",
+  "employment_statuses",
+  "employment_types",
+  "employee_leave_credits",
+  "leave_settings",
+  "payroll_settings",
+  "finance_settings",
+];
+
+const CONFIRM_TEXT = "PRODUCTION GO-LIVE RESET";
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -132,7 +103,12 @@ export async function GET() {
       }),
     );
 
-    return NextResponse.json({ tables: results });
+    return NextResponse.json({
+      mode: "PRODUCTION_GO_LIVE_RESET",
+      confirmation_phrase: CONFIRM_TEXT,
+      tables: results,
+      protected_tables: protectedTables,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Scan failed." },
@@ -144,30 +120,11 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
     const confirmation = String(body?.confirmation || "");
-    const keepCurrentSuperAdmin = Boolean(body?.keep_current_super_admin);
-
-    const protectedEmployeeId = String(body?.protected_employee_id || "");
-    const protectedSystemUserId = String(body?.protected_system_user_id || "");
-    const protectedCompanyUserId = String(body?.protected_company_user_id || "");
 
     if (confirmation !== CONFIRM_TEXT) {
       return NextResponse.json(
-        { error: "Invalid confirmation phrase." },
-        { status: 400 },
-      );
-    }
-
-    if (
-      keepCurrentSuperAdmin &&
-      (!protectedEmployeeId || !protectedSystemUserId || !protectedCompanyUserId)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Current Super Admin protection is enabled, but protected IDs are incomplete.",
-        },
+        { error: `Invalid confirmation phrase. Type: ${CONFIRM_TEXT}` },
         { status: 400 },
       );
     }
@@ -186,6 +143,11 @@ export async function POST(req: Request) {
         return;
       }
 
+      if (!beforeCount || beforeCount <= 0) {
+        deleted[table] = 0;
+        return;
+      }
+
       const { error } = await supabaseAdmin
         .from(table)
         .delete()
@@ -196,124 +158,21 @@ export async function POST(req: Request) {
         return;
       }
 
-      deleted[table] = beforeCount || 0;
-    };
-
-    const deleteCompanyUsers = async () => {
-      const { count: beforeCount, error: countError } = await supabaseAdmin
-        .from("company_users")
-        .select("id", { count: "exact", head: true });
-
-      if (countError) {
-        skipped.company_users = countError.message;
-        return;
-      }
-
-      let query = supabaseAdmin.from("company_users").delete().not("id", "is", null);
-
-      if (keepCurrentSuperAdmin) {
-        query = query.neq("id", protectedCompanyUserId);
-      }
-
-      const { error } = await query;
-
-      if (error) {
-        skipped.company_users = error.message;
-        return;
-      }
-
-      deleted.company_users = keepCurrentSuperAdmin
-        ? Math.max((beforeCount || 0) - 1, 0)
-        : beforeCount || 0;
-    };
-
-    const deleteSystemUsers = async () => {
-      const { count: beforeCount, error: countError } = await supabaseAdmin
-        .from("system_users")
-        .select("id", { count: "exact", head: true });
-
-      if (countError) {
-        skipped.system_users = countError.message;
-        return;
-      }
-
-      let query = supabaseAdmin.from("system_users").delete().not("id", "is", null);
-
-      if (keepCurrentSuperAdmin) {
-        query = query.neq("id", protectedSystemUserId);
-      }
-
-      const { error } = await query;
-
-      if (error) {
-        skipped.system_users = error.message;
-        return;
-      }
-
-      deleted.system_users = keepCurrentSuperAdmin
-        ? Math.max((beforeCount || 0) - 1, 0)
-        : beforeCount || 0;
-    };
-
-    const deleteEmployees = async () => {
-      const { count: beforeCount, error: countError } = await supabaseAdmin
-        .from("employees")
-        .select("id", { count: "exact", head: true });
-
-      if (countError) {
-        skipped.employees = countError.message;
-        return;
-      }
-
-      let query = supabaseAdmin.from("employees").delete().not("id", "is", null);
-
-      if (keepCurrentSuperAdmin) {
-        query = query.neq("id", protectedEmployeeId);
-      }
-
-      const { error } = await query;
-
-      if (error) {
-        skipped.employees = error.message;
-        return;
-      }
-
-      deleted.employees = keepCurrentSuperAdmin
-        ? Math.max((beforeCount || 0) - 1, 0)
-        : beforeCount || 0;
+      deleted[table] = beforeCount;
     };
 
     for (const item of cleanupTables) {
-      if (item.table === "company_users") {
-        await deleteCompanyUsers();
-        continue;
-      }
-
-      if (item.table === "system_users") {
-        await deleteSystemUsers();
-        continue;
-      }
-
-      if (item.table === "employees") {
-        await deleteEmployees();
-        continue;
-      }
-
       await deleteStandardTable(item.table);
     }
 
     return NextResponse.json({
       success: true,
-      keep_current_super_admin: keepCurrentSuperAdmin,
-      protected: keepCurrentSuperAdmin
-        ? {
-            employee_id: protectedEmployeeId,
-            system_user_id: protectedSystemUserId,
-            company_user_id: protectedCompanyUserId,
-          }
-        : null,
+      mode: "PRODUCTION_GO_LIVE_RESET",
       deleted,
       skipped,
+      protected_tables: protectedTables,
+      message:
+        "Production go-live reset completed. Master data, employees, system users, company users, roles, and settings were protected.",
     });
   } catch (error) {
     return NextResponse.json(

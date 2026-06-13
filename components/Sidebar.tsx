@@ -14,12 +14,12 @@ import {
   Clock,
   Database,
   FileText,
+  FolderOpen,
   Hotel,
   KeyRound,
   LayoutDashboard,
   Megaphone,
   Menu,
-  Package,
   Receipt,
   Settings,
   ShieldCheck,
@@ -27,6 +27,7 @@ import {
   Sparkles,
   Store,
   UserCheck,
+  UserPlus,
   Users,
   Wallet,
   Wrench,
@@ -41,14 +42,37 @@ const menuSections = [
     items: [],
   },
   {
+  title: "Human Resources",
+  icon: Users,
+  items: [
+    {
+      label: "Employee 201",
+      href: "/human-resources/employees",
+      icon: FileText,
+    },
+    {
+      label: "Pending Registration",
+      href: "/human-resources/pending-registration",
+      icon: ClipboardList,
+    },
+    {
+      label: "Leave Management",
+      href: "/leave-management",
+      icon: ClipboardList,
+    },
+    {
+      label: "Employee Portal",
+      href: "/employee-portal",
+      icon: Users,
+    },
+  ],
+},
+  {
     title: "Workforce",
     icon: Users,
     items: [
-      { label: "Employee 201", href: "/employees", icon: FileText },
-      { label: "Scheduling", href: "/scheduling", icon: CalendarDays },
-      { label: "Leave Management", href: "/leave-management", icon: ClipboardList },
-      { label: "Employee Portal", href: "/employee-portal", icon: Users },
       { label: "Workforce Dashboard", href: "/workforce", icon: Users },
+      { label: "Scheduling", href: "/scheduling", icon: CalendarDays },
     ],
   },
   {
@@ -158,7 +182,16 @@ const menuSections = [
     icon: Settings,
     items: [
       { label: "General Settings", href: "/settings", icon: Settings },
-      { label: "Session Inspector", href: "/settings/current-user", icon: UserCheck },
+      {
+        label: "Registration Settings",
+        href: "/settings/registration-settings",
+        icon: UserPlus,
+      },
+      {
+        label: "Session Inspector",
+        href: "/settings/current-user",
+        icon: UserCheck,
+      },
       { label: "Property Settings", href: "/settings/property", icon: Hotel },
       { label: "User Credentials", href: "/settings/user-credentials", icon: KeyRound },
       { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck },
@@ -220,7 +253,13 @@ export default function Sidebar() {
             : "border-transparent text-slate-300 hover:border-blue-300/10 hover:bg-blue-500/10 hover:text-white",
         ].join(" ")}
       >
-        <span className={active ? "rounded-lg bg-white/10 p-1.5" : "rounded-lg bg-slate-900/70 p-1.5"}>
+        <span
+          className={
+            active
+              ? "rounded-lg bg-white/10 p-1.5"
+              : "rounded-lg bg-slate-900/70 p-1.5"
+          }
+        >
           <Icon size={14} />
         </span>
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -247,7 +286,13 @@ export default function Sidebar() {
                   : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white",
               ].join(" ")}
             >
-              <span className={sectionActive ? "rounded-xl bg-white/10 p-1.5" : "rounded-xl bg-slate-900/60 p-1.5"}>
+              <span
+                className={
+                  sectionActive
+                    ? "rounded-xl bg-white/10 p-1.5"
+                    : "rounded-xl bg-slate-900/60 p-1.5"
+                }
+              >
                 <Icon size={15} />
               </span>
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
@@ -266,7 +311,13 @@ export default function Sidebar() {
                   : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white",
               ].join(" ")}
             >
-              <span className={sectionActive ? "rounded-xl bg-blue-500/15 p-1.5" : "rounded-xl bg-slate-900/60 p-1.5"}>
+              <span
+                className={
+                  sectionActive
+                    ? "rounded-xl bg-blue-500/15 p-1.5"
+                    : "rounded-xl bg-slate-900/60 p-1.5"
+                }
+              >
                 <Icon size={15} />
               </span>
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
@@ -277,7 +328,10 @@ export default function Sidebar() {
                 </span>
               )}
 
-              <ChevronRight size={13} className="shrink-0 opacity-60 transition-all duration-200 group-hover:translate-x-0.5" />
+              <ChevronRight
+                size={13}
+                className="shrink-0 opacity-60 transition-all duration-200 group-hover:translate-x-0.5"
+              />
             </button>
 
             <div className="pointer-events-none absolute left-full top-0 h-full w-4" />
@@ -340,7 +394,10 @@ export default function Sidebar() {
             >
               <Icon size={15} />
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
-              <ChevronRight size={13} className={expanded ? "rotate-90 transition" : "transition"} />
+              <ChevronRight
+                size={13}
+                className={expanded ? "rotate-90 transition" : "transition"}
+              />
             </button>
 
             {expanded && (

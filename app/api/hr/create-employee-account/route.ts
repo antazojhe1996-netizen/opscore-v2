@@ -7,6 +7,10 @@ type SystemRole = {
   name?: string | null;
 };
 
+function generateTemporaryPassword() {
+  return "Welcome123!";
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -44,51 +48,57 @@ export async function POST(req: Request) {
       },
     });
 
-    let companyId = incomingCompanyId || null;
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-    if (!companyId) {
-      const { data: employeeData, error: employeeError } = await supabaseAdmin
-        .from("employees")
-        .select("company_id")
-        .eq("id", employee_id)
-        .maybeSingle();
+    const { data: employeeData, error: employeeError } = await supabaseAdmin
+      .from("employees")
+      .select("id, company_id, system_role_id, portal_enabled")
+      .eq("id", employee_id)
+      .maybeSingle();
 
-      if (employeeError) {
-        return NextResponse.json(
-          { error: `Employee company lookup failed: ${employeeError.message}` },
-          { status: 400 },
-        );
-      }
-
-      companyId = employeeData?.company_id || null;
+    if (employeeError || !employeeData) {
+      return NextResponse.json(
+        { error: employeeError?.message || "Employee not found." },
+        { status: 404 },
+      );
     }
 
-    if (!companyId) {
-      const { data: companyData, error: companyError } = await supabaseAdmin
-        .from("companies")
-        .select("id")
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (companyError) {
-        return NextResponse.json(
-          { error: `Company fallback lookup failed: ${companyError.message}` },
-          { status: 400 },
-        );
-      }
-
-      companyId = companyData?.id || null;
-    }
+    const companyId = incomingCompanyId || employeeData.company_id;
 
     if (!companyId) {
       return NextResponse.json(
-        { error: "No company_id found. Please create or link a company first." },
+        { error: "Employee has no company_id. Complete employee profile first." },
         { status: 400 },
       );
     }
 
-    let resolvedRoleId = incomingRoleId || null;
+    const { data: existingEmployeeAccount } = await supabaseAdmin
+      .from("system_users")
+      .select("id")
+      .eq("employee_id", employee_id)
+      .maybeSingle();
+
+    if (existingEmployeeAccount?.id) {
+      return NextResponse.json(
+        { error: "This employee already has a portal account." },
+        { status: 409 },
+      );
+    }
+
+    const { data: existingEmailAccount } = await supabaseAdmin
+      .from("system_users")
+      .select("id")
+      .eq("username", normalizedEmail)
+      .maybeSingle();
+
+    if (existingEmailAccount?.id) {
+      return NextResponse.json(
+        { error: "This email is already linked to another system user." },
+        { status: 409 },
+      );
+    }
+
+    let resolvedRoleId = incomingRoleId || employeeData.system_role_id || null;
 
     if (!resolvedRoleId) {
       const { data: rolesData, error: rolesError } = await supabaseAdmin
@@ -104,37 +114,37 @@ export async function POST(req: Request) {
 
       const roles = (rolesData || []) as SystemRole[];
 
-      const superAdminRole = roles.find((role) => {
+      const employeeRole = roles.find((role) => {
         const roleLabel = String(role.role_name || role.name || "")
           .trim()
           .toLowerCase();
 
         return (
-          roleLabel === "super admin" ||
-          roleLabel === "superadmin" ||
-          roleLabel === "administrator" ||
-          roleLabel === "admin"
+          roleLabel === "employee" ||
+          roleLabel === "staff" ||
+          roleLabel === "employee portal" ||
+          roleLabel === "employee self service"
         );
       });
 
-      resolvedRoleId = superAdminRole?.id || null;
+      resolvedRoleId = employeeRole?.id || null;
     }
 
     if (!resolvedRoleId) {
       return NextResponse.json(
         {
           error:
-            "No role_id found. Please create a Super Admin role or pass role_id from the UI.",
+            "No Employee role found. Assign a System Role in Employee 201 or create a role named Employee.",
         },
         { status: 400 },
       );
     }
 
-    const temporaryPassword = "Temp123!";
+    const temporaryPassword = generateTemporaryPassword();
 
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: normalizedEmail,
         password: temporaryPassword,
         email_confirm: true,
         user_metadata: {
@@ -143,12 +153,11 @@ export async function POST(req: Request) {
           last_name,
           company_id: companyId,
           role_id: resolvedRoleId,
+          account_type: "employee_portal",
         },
       });
 
     if (authError) {
-      console.error("AUTH ERROR:", authError);
-
       return NextResponse.json(
         { error: `Auth create failed: ${authError.message}` },
         { status: 400 },
@@ -168,7 +177,7 @@ export async function POST(req: Request) {
       .from("system_users")
       .insert({
         employee_id,
-        username: email,
+        username: normalizedEmail,
         is_active: true,
         must_change_password: true,
         company_id: companyId,
@@ -178,8 +187,6 @@ export async function POST(req: Request) {
       .single();
 
     if (systemUserError) {
-      console.error("SYSTEM USER ERROR:", systemUserError);
-
       await supabaseAdmin.auth.admin.deleteUser(authUserId);
 
       return NextResponse.json(
@@ -202,14 +209,30 @@ export async function POST(req: Request) {
       });
 
     if (companyUserError) {
-      console.error("COMPANY USER ERROR:", companyUserError);
-
       await supabaseAdmin.from("system_users").delete().eq("id", systemUserId);
       await supabaseAdmin.auth.admin.deleteUser(authUserId);
 
       return NextResponse.json(
         { error: `Company access create failed: ${companyUserError.message}` },
         { status: 400 },
+      );
+    }
+
+    const { error: employeeUpdateError } = await supabaseAdmin
+      .from("employees")
+      .update({
+        portal_enabled: true,
+        system_role_id: resolvedRoleId,
+      })
+      .eq("id", employee_id);
+
+    if (employeeUpdateError) {
+      return NextResponse.json(
+        {
+          error: `Portal account was created, but employee update failed: ${employeeUpdateError.message}`,
+          temporary_password: temporaryPassword,
+        },
+        { status: 207 },
       );
     }
 
@@ -220,10 +243,9 @@ export async function POST(req: Request) {
       company_id: companyId,
       role_id: resolvedRoleId,
       temporary_password: temporaryPassword,
+      message: "Employee portal account created successfully.",
     });
   } catch (error: any) {
-    console.error("UNEXPECTED ACCOUNT CREATE ERROR:", error);
-
     return NextResponse.json(
       { error: error?.message || "Unexpected server error." },
       { status: 500 },

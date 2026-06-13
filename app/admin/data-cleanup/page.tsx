@@ -26,7 +26,7 @@ type CleanupRow = {
   error: string | null;
 };
 
-const CONFIRM_TEXT = "DELETE OPSCORE TEST DATA";
+const CONFIRM_TEXT = "PRODUCTION GO-LIVE RESET";
 
 export default function DataCleanupPage() {
   const [rows, setRows] = useState<CleanupRow[]>([]);
@@ -90,8 +90,8 @@ export default function DataCleanupPage() {
     let companyUserId = "";
     let displayName = "Current Super Admin";
 
-    const savedEmployee = localStorage.getItem(employeeSessionKey);
     const savedUser = localStorage.getItem(currentUserKey);
+    const savedEmployee = localStorage.getItem(employeeSessionKey);
 
     if (savedUser) {
       try {
@@ -125,7 +125,7 @@ export default function DataCleanupPage() {
   const deleteData = async () => {
     if (keepCurrentSuperAdmin && !protectionReady) {
       setErrorMessage(
-        "Current Super Admin protection is enabled, but your system user or company access ID is missing. Logout and login again, then retry.",
+        "Production access protection is enabled, but your system user or company access ID is missing. Logout and login again, then retry.",
       );
       return;
     }
@@ -153,15 +153,15 @@ export default function DataCleanupPage() {
     setDeleting(false);
 
     if (!response.ok) {
-      setErrorMessage(result.error || "Cleanup failed.");
+      setErrorMessage(result.error || "Production reset failed.");
       return;
     }
 
     setMessage(
-      keepCurrentSuperAdmin
-        ? "Test data cleanup completed. Current Super Admin system access was protected."
-        : "Test data cleanup completed. Tables are still intact.",
+      result.message ||
+        "Production go-live reset completed. Master data and user access were protected.",
     );
+
     setConfirmation("");
     scanDatabase();
   };
@@ -179,14 +179,15 @@ export default function DataCleanupPage() {
         <section className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-              SYSTEM / DATA MAINTENANCE
+              SYSTEM / PRODUCTION LAUNCH
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-              Data Cleanup Center
+              Production Launch Center
             </h1>
             <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
-              Preview and remove test records before production encoding. This
-              deletes data rows only, not tables.
+              Preview and reset pilot testing transactions before official
+              production launch. Employees, system users, company users, roles,
+              permissions, and settings remain protected.
             </p>
           </div>
 
@@ -203,23 +204,23 @@ export default function DataCleanupPage() {
         <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
           <SummaryCard
             icon={<Database size={20} />}
-            label="Rows Detected"
+            label="Resettable Rows"
             value={String(totalRows)}
-            helper="Total rows found in cleanup preview."
+            helper="Pilot transaction rows detected."
           />
           <SummaryCard
             icon={<CheckCircle2 size={20} />}
-            label="Tables Safe"
-            value="Yes"
-            helper="Cleanup uses DELETE only. No DROP TABLE."
+            label="Master Data"
+            value="Protected"
+            helper="Employees and access records are not reset."
           />
           <SummaryCard
             icon={<UserCheck size={20} />}
-            label="Admin Protection"
+            label="Access Protection"
             value={keepCurrentSuperAdmin ? "On" : "Off"}
             helper={
               protectionReady
-                ? "Current system access can be excluded."
+                ? "Current production access is protected."
                 : "System access IDs incomplete."
             }
           />
@@ -227,7 +228,7 @@ export default function DataCleanupPage() {
             icon={<ShieldAlert size={20} />}
             label="Confirmation"
             value={confirmation === CONFIRM_TEXT ? "Ready" : "Locked"}
-            helper="Type the exact phrase before delete is enabled."
+            helper="Type the exact phrase before reset is enabled."
           />
         </section>
 
@@ -235,11 +236,15 @@ export default function DataCleanupPage() {
           <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-5">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                Cleanup Preview
+                Reset Preview
               </p>
               <h2 className="mt-1 text-xl font-black text-slate-950">
-                Records that will be deleted
+                Pilot transactions that will be reset
               </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                These rows come from testing activity. Master records remain
+                intact.
+              </p>
             </div>
 
             <div className="space-y-5 p-6">
@@ -263,10 +268,15 @@ export default function DataCleanupPage() {
                           <p className="text-xs font-semibold text-slate-500">
                             {row.table}
                           </p>
+                          {row.error && (
+                            <p className="mt-1 text-xs font-bold text-red-600">
+                              {row.error}
+                            </p>
+                          )}
                         </div>
 
                         <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
-                          {row.count}
+                          {row.available ? row.count : "N/A"}
                         </span>
                       </div>
                     ))}
@@ -280,7 +290,7 @@ export default function DataCleanupPage() {
                     No scan result yet.
                   </p>
                   <p className="mt-1 text-sm font-medium text-slate-500">
-                    Click Scan Database to preview cleanup impact.
+                    Click Scan Database to preview reset impact.
                   </p>
                 </div>
               )}
@@ -296,10 +306,10 @@ export default function DataCleanupPage() {
 
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">
-                    Danger Zone
+                    Go-Live Control
                   </p>
                   <h2 className="text-xl font-black text-red-950">
-                    Delete Test Data
+                    Production Go-Live Reset
                   </h2>
                 </div>
               </div>
@@ -318,11 +328,11 @@ export default function DataCleanupPage() {
                   />
                   <span>
                     <span className="block text-sm font-black text-emerald-800">
-                      Keep Current Super Admin Access
+                      Protect Production Access
                     </span>
                     <span className="mt-1 block text-xs font-bold leading-5 text-emerald-700">
-                      Protects your current system user and company access
-                      record. Employee link is optional.
+                      Protects the active system user and company access record.
+                      Employee link is optional.
                     </span>
                   </span>
                 </label>
@@ -334,13 +344,25 @@ export default function DataCleanupPage() {
                   <br />
                   Company User: {currentCompanyUserId || "Missing"}
                   <br />
-                  Employee: {currentEmployeeId || "NULL / Not linked"}
+                  Employee: {currentEmployeeId || "Not Required"}
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-black text-slate-950">
+                  Protected master data
+                </p>
+                <p className="mt-2 text-xs font-bold leading-5 text-slate-600">
+                  Employees, system users, company users, roles, permissions,
+                  departments, positions, leave settings, payroll settings, and
+                  finance settings remain protected.
+                </p>
+              </div>
+
               <p className="text-sm font-bold leading-6 text-red-800">
-                This will permanently delete previewed test rows. Tables and
-                columns will remain intact.
+                This will permanently reset previewed pilot transaction rows.
+                This is intended after stress testing and before official
+                production usage.
               </p>
 
               <div>
@@ -380,7 +402,7 @@ export default function DataCleanupPage() {
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={17} />
-                {deleting ? "Deleting..." : "Delete Test Data"}
+                {deleting ? "Resetting..." : "Run Go-Live Reset"}
               </button>
             </div>
           </aside>
