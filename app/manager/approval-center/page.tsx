@@ -530,6 +530,7 @@ export default function ApprovalCenterPage() {
       REFUND_OUT: "Refund",
       ADJUSTMENT_OUT: "Adjustment",
       PAYROLL_ADJUSTMENT: "Payroll Adjustment",
+      PAYROLL_REOPEN: "Payroll Reopen",
       LEAVE_REQUEST: "Leave Request",
       LEAVE_CANCELLATION: "Leave Cancellation",
     };
@@ -542,6 +543,8 @@ export default function ApprovalCenterPage() {
       return "border-blue-200 bg-blue-50 text-blue-700";
     if (type === "PAYROLL_ADJUSTMENT")
       return "border-blue-200 bg-blue-50 text-blue-700";
+    if (type === "PAYROLL_REOPEN")
+      return "border-amber-200 bg-amber-50 text-amber-700";
     if (type === "LEAVE_REQUEST")
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
     if (type === "LEAVE_CANCELLATION")
@@ -571,6 +574,7 @@ export default function ApprovalCenterPage() {
     if (request.request_type === "REFUND_OUT") return "CASH_DRAWER_OUT";
     if (request.request_type === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
     if (request.request_type === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
+    if (request.request_type === "PAYROLL_REOPEN") return "PAYROLL_ADJUSTMENT";
 
     return request.request_type;
   };
@@ -639,7 +643,10 @@ export default function ApprovalCenterPage() {
       return "CASH";
     }
 
-    if (requestType === "PAYROLL_ADJUSTMENT") {
+    if (
+      requestType === "PAYROLL_ADJUSTMENT" ||
+      requestType === "PAYROLL_REOPEN"
+    ) {
       return "PAYROLL";
     }
 
@@ -1194,6 +1201,247 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
+  const syncPayrollReopenApproval = async (request: any) => {
+    if (request.request_type !== "PAYROLL_REOPEN") {
+      return true;
+    }
+
+    const payload = getPayload(request) || {};
+    const snapshotId = String(
+      payload.snapshot_id ||
+        payload.snapshotId ||
+        request.reference_id ||
+        "",
+    ).trim();
+
+    let periodId = String(
+      payload.period_id ||
+        payload.periodId ||
+        "",
+    ).trim();
+
+    const reopenType = String(
+      payload.reopen_type ||
+        payload.reopenType ||
+        payload.correction_type ||
+        "PAYROLL_ONLY",
+    ).toUpperCase();
+
+    const normalizedReopenType =
+      reopenType === "WITH_ATTENDANCE" ||
+      reopenType === "ATTENDANCE" ||
+      reopenType === "ATTENDANCE_CORRECTION"
+        ? "WITH_ATTENDANCE"
+        : "PAYROLL_ONLY";
+
+    const targetStatus =
+      normalizedReopenType === "WITH_ATTENDANCE" ? "OPEN" : "REGISTERED";
+
+    const reopenTypeLabel =
+      normalizedReopenType === "WITH_ATTENDANCE"
+        ? "Attendance / Time Entries Correction"
+        : "Payroll Values Only Correction";
+
+    const reason = String(
+      payload.reason ||
+        request.description ||
+        "Payroll reopen approved.",
+    ).trim();
+
+    if (!snapshotId) {
+      alert("Payroll reopen approval failed. Missing payroll snapshot ID.");
+      return false;
+    }
+
+    const { data: snapshotData, error: snapshotFetchError } = await supabase
+      .from("payroll_snapshots")
+      .select("*")
+      .eq("id", snapshotId)
+      .maybeSingle();
+
+    if (snapshotFetchError) {
+      console.log(
+        "FETCH PAYROLL SNAPSHOT FOR REOPEN ERROR:",
+        snapshotFetchError.message,
+      );
+      alert(
+        `Payroll reopen failed before snapshot check. ${snapshotFetchError.message}`,
+      );
+      return false;
+    }
+
+    if (!snapshotData) {
+      alert("Payroll reopen failed. Linked payroll snapshot was not found.");
+      return false;
+    }
+
+    if (!periodId) {
+      periodId = String(snapshotData.period_id || "").trim();
+    }
+
+    const snapshotStatus = String(snapshotData.status || "").toUpperCase();
+
+    const { data: releasedHeader, error: releasedHeaderError } = await supabase
+      .from("released_payrolls")
+      .select("id, status")
+      .eq("snapshot_id", snapshotId)
+      .order("released_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (releasedHeaderError) {
+      console.log(
+        "FETCH RELEASED PAYROLL HEADER FOR REOPEN ERROR:",
+        releasedHeaderError.message,
+      );
+      alert(
+        `Payroll reopen failed before released payroll check. ${releasedHeaderError.message}`,
+      );
+      return false;
+    }
+
+    const hasReleasedPayroll = Boolean(releasedHeader?.id);
+
+    if (snapshotStatus !== "RELEASED" && !hasReleasedPayroll) {
+      alert(
+        "Payroll reopen blocked. Only payroll with released records can be reopened from Approval Center.",
+      );
+      return false;
+    }
+
+    const { error: snapshotError } = await supabase
+      .from("payroll_snapshots")
+      .update({
+        status: targetStatus,
+      })
+      .eq("id", snapshotId);
+
+    if (snapshotError) {
+      console.log("SYNC PAYROLL REOPEN SNAPSHOT ERROR:", snapshotError.message);
+      alert(`Payroll snapshot reopen failed. ${snapshotError.message}`);
+      return false;
+    }
+
+    if (!periodId) {
+      await createAuditLog({
+        userName: currentEmployeeName || "OPSCORE USER",
+        module: "Approval Center",
+        action: "Payroll Reopen Period Missing",
+        description:
+          "Payroll snapshot was reopened, but no linked payroll period was found for attendance unlock.",
+        severity: "critical",
+        recordId: request.id,
+        oldValue: request,
+        newValue: {
+          snapshotId,
+          snapshotData,
+          targetStatus,
+          reopenType: normalizedReopenType,
+          payload,
+        },
+      });
+
+      alert(
+        "Payroll snapshot reopened, but no linked payroll period was found. Attendance unlock was skipped.",
+      );
+      return false;
+    }
+
+    const periodUpdate =
+      normalizedReopenType === "WITH_ATTENDANCE"
+        ? {
+            status: "OPEN",
+            attendance_locked: false,
+            needs_regeneration: true,
+          }
+        : {
+            status: "REGISTERED",
+            attendance_locked: false,
+            needs_regeneration: false,
+          };
+
+    const { error: periodError } = await supabase
+      .from("payroll_periods")
+      .update(periodUpdate)
+      .eq("id", periodId);
+
+    if (periodError) {
+      console.log("SYNC PAYROLL REOPEN PERIOD ERROR:", periodError.message);
+      alert(`Payroll period reopen failed. ${periodError.message}`);
+      return false;
+    }
+
+    // Archive the previous released payroll header from the active release lane.
+    // The immutable release rows remain stored for audit/version history.
+    if (releasedHeader?.id) {
+      const { error: archiveError } = await supabase
+        .from("released_payrolls")
+        .update({
+          status: "REOPENED",
+        })
+        .eq("id", releasedHeader.id);
+
+      if (archiveError) {
+        console.log(
+          "ARCHIVE RELEASED PAYROLL FOR REOPEN ERROR:",
+          archiveError.message,
+        );
+        alert(
+          `Payroll reopened, but old released payroll archive failed. ${archiveError.message}`,
+        );
+        return false;
+      }
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Approve Payroll Reopen",
+      description: `${request.title || "Payroll Reopen"} approved as ${reopenTypeLabel}. Payroll returned to ${targetStatus}. Reason: ${reason}`,
+      severity: "critical",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: targetStatus,
+        snapshotId,
+        periodId,
+        reopenType: normalizedReopenType,
+        reopenTypeLabel,
+        attendance_locked: false,
+        needs_regeneration: true,
+        archivedReleaseId: releasedHeader?.id || null,
+        payload,
+      },
+    });
+
+    return true;
+  };
+
+  const syncPayrollReopenRejection = async (request: any, reason: string) => {
+    if (request.request_type !== "PAYROLL_REOPEN") {
+      return true;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Reject Payroll Reopen",
+      description: `${request.title || "Payroll Reopen"} rejected. Released payroll remains immutable. Reason: ${reason}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "REOPEN_REJECTED",
+        rejectedBy: currentEmployeeName || "Manager Approval Center",
+        rejectionReason: reason,
+        payload: getPayload(request),
+      },
+    });
+
+    return true;
+  };
+
+
   const approveRequest = async (request: any) => {
     if (!request?.id || isProcessing) return;
 
@@ -1319,6 +1567,16 @@ export default function ApprovalCenterPage() {
       }
     }
 
+    if (request.request_type === "PAYROLL_REOPEN") {
+      const synced = await syncPayrollReopenApproval(request);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("approval_requests")
       .update({
@@ -1412,6 +1670,16 @@ export default function ApprovalCenterPage() {
 
     if (request.request_type === "LEAVE_CANCELLATION") {
       const synced = await syncLeaveCancellationRejection(request, finalReason);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
+    if (request.request_type === "PAYROLL_REOPEN") {
+      const synced = await syncPayrollReopenRejection(request, finalReason);
 
       if (!synced) {
         setIsProcessing(false);
@@ -2110,6 +2378,42 @@ function ApprovalRequestDetails({ request, payload, formatMoney }: any) {
         <ApprovalInfoRow label="Urgency" value={payload?.urgency || "-"} />
         <ApprovalInfoRow
           label="Reason / Purpose"
+          value={payload?.reason || request?.description || "-"}
+          wide
+        />
+      </div>
+    );
+  }
+
+  if (requestType === "PAYROLL_REOPEN") {
+    return (
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+        <ApprovalInfoRow
+          label="Employee"
+          value={payload?.employee_name || payload?.employeeName || request?.requested_by || "-"}
+        />
+        <ApprovalInfoRow
+          label="Payroll Period"
+          value={payload?.period_label || payload?.periodLabel || "-"}
+        />
+        <ApprovalInfoRow
+          label="Target Status"
+          value={payload?.reopen_target_status || "REGISTERED"}
+        />
+        <ApprovalInfoRow
+          label="Attendance Lock"
+          value={
+            payload?.attendance_locked === false
+              ? "Unlock attendance"
+              : "Unlock after approval"
+          }
+        />
+        <ApprovalInfoRow
+          label="Needs Regeneration"
+          value={payload?.needs_regeneration === false ? "No" : "Yes"}
+        />
+        <ApprovalInfoRow
+          label="Reason"
           value={payload?.reason || request?.description || "-"}
           wide
         />

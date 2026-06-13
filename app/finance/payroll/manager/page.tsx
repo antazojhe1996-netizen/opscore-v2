@@ -484,7 +484,33 @@ export default function PayrollManagerPage() {
       releaseHeaders = releaseHeaderData || [];
     }
 
-    const releaseIds = releaseHeaders.map((release) => release.id).filter(Boolean);
+    const latestActiveReleaseBySnapshotId = new Map<string, any>();
+
+    releaseHeaders.forEach((release: any) => {
+      const snapshotId = String(release.snapshot_id || "");
+      const releaseStatus = String(release.status || "RELEASED").toUpperCase();
+
+      if (!snapshotId) return;
+      if (["REOPENED", "ARCHIVED", "CANCELLED", "CANCELED", "VOID"].includes(releaseStatus)) {
+        return;
+      }
+
+      // releaseHeaders is ordered by released_at desc, so the first active release
+      // per snapshot is the current active payroll release. Older releases remain
+      // in the database for audit but must not be counted as active History rows.
+      if (!latestActiveReleaseBySnapshotId.has(snapshotId)) {
+        latestActiveReleaseBySnapshotId.set(snapshotId, release);
+      }
+    });
+
+    const activeReleaseHeaders = releaseHeaders.filter((release: any) => {
+      const snapshotId = String(release.snapshot_id || "");
+      const activeRelease = latestActiveReleaseBySnapshotId.get(snapshotId);
+
+      return Boolean(activeRelease?.id && String(activeRelease.id) === String(release.id));
+    });
+
+    const releaseIds = activeReleaseHeaders.map((release) => release.id).filter(Boolean);
 
     if (releaseIds.length > 0) {
       const { data: releaseItemData, error: releaseItemError } =
@@ -510,7 +536,7 @@ export default function PayrollManagerPage() {
     );
 
     const releaseHeadersById = new Map(
-      releaseHeaders.map((release: any) => [String(release.id), release]),
+      activeReleaseHeaders.map((release: any) => [String(release.id), release]),
     );
 
     const releasedBySnapshotItemId = new Map<string, number>();
@@ -542,12 +568,18 @@ export default function PayrollManagerPage() {
       );
 
       const netPay = Number(item.net_pay || 0);
-      const remainingAmount = Math.max(netPay - releasedAmount, 0);
       const snapshotStatus = normalizeStatus(snapshot.status || "REGISTERED");
+      const periodStatus = normalizeStatus(period.status || "").toUpperCase();
+      const isReopenedWorkflow =
+        releasedAmount > 0 &&
+        ["REGISTERED", "LOCKED"].includes(snapshotStatus.toUpperCase()) &&
+        ["REGISTERED", "LOCKED", "REOPENED"].includes(periodStatus);
+      const effectiveReleasedAmount = isReopenedWorkflow ? 0 : releasedAmount;
+      const remainingAmount = Math.max(netPay - effectiveReleasedAmount, 0);
       const releaseStatus =
-        releasedAmount > 0 && remainingAmount > 0
+        effectiveReleasedAmount > 0 && remainingAmount > 0
           ? "Partially Released"
-          : releasedAmount > 0
+          : effectiveReleasedAmount > 0
             ? "Released"
             : "Pending";
 
@@ -566,7 +598,7 @@ export default function PayrollManagerPage() {
         total_deductions: Number(item.total_deductions || 0),
         net_pay: netPay,
         release_amount: Math.max(netPay, 0),
-        paid_amount: releasedAmount,
+        paid_amount: effectiveReleasedAmount,
         remaining_amount: remainingAmount,
         remaining_payroll_balance: remainingAmount,
         status:
@@ -588,12 +620,35 @@ export default function PayrollManagerPage() {
               : releaseStatus,
         snapshot_no: snapshot.snapshot_no,
         snapshot_status: snapshotStatus,
+        period_status: periodStatus,
+        attendance_locked: Boolean(period.attendance_locked),
+        needs_regeneration: Boolean(period.needs_regeneration),
+        is_attendance_reopen_blocked:
+          snapshotStatus.toUpperCase() === "OPEN" ||
+          periodStatus === "OPEN" ||
+          Boolean(period.needs_regeneration),
         snapshot_date: snapshot.snapshot_date,
         created_at: item.created_at || snapshot.created_at,
       };
     });
 
-    const releasedRecords = releaseItems.map((item: any) => {
+    const releasedRecords = releaseItems
+      .filter((item: any) => {
+        const releaseHeader = releaseHeadersById.get(String(item.release_id)) || {};
+        const snapshot = snapshotsById.get(String(releaseHeader.snapshot_id || "")) || {};
+        const period = periodsById.get(String(snapshot.period_id || "")) || {};
+        const snapshotStatus = normalizeStatus(snapshot.status || "").toUpperCase();
+        const periodStatus = normalizeStatus(period.status || "").toUpperCase();
+
+        // Once a released payroll is approved for reopen, the immutable release rows
+        // remain in the database for audit, but they must not stay visible as active
+        // Released History rows while the same snapshot is back in Manager Review.
+        return !(
+          ["REGISTERED", "LOCKED"].includes(snapshotStatus) &&
+          ["REGISTERED", "LOCKED", "REOPENED"].includes(periodStatus)
+        );
+      })
+      .map((item: any) => {
       const releaseHeader = releaseHeadersById.get(String(item.release_id)) || {};
       const snapshot = snapshotsById.get(String(releaseHeader.snapshot_id || "")) || {};
       const period = periodsById.get(String(snapshot.period_id || "")) || {};
@@ -1340,6 +1395,19 @@ ${validationError?.message || validationError}`);
       for (const [snapshotId, recordsForSnapshot] of Object.entries(recordsBySnapshotId)) {
         const firstRecord = recordsForSnapshot[0];
 
+        // Version-control rule:
+        // a snapshot can only have one ACTIVE released payroll header.
+        // When releasing again after an approved reopen, archive previous release
+        // headers so they remain audit records but no longer count as active History.
+        const { error: archiveReleaseError } = await supabase
+          .from("released_payrolls")
+          .update({ status: "REOPENED" })
+          .eq("snapshot_id", snapshotId);
+
+        if (archiveReleaseError) {
+          throw new Error(archiveReleaseError.message);
+        }
+
         const { data: releasedHeader, error: releasedHeaderError } =
           await supabase
             .from("released_payrolls")
@@ -1434,6 +1502,8 @@ ${validationError?.message || validationError}`);
           .update({
             status: "RELEASED",
             released_at: releasedAt,
+            attendance_locked: true,
+            needs_regeneration: false,
           })
           .eq("id", periodId);
       }
@@ -1637,11 +1707,73 @@ ${error?.message || error}`);
       return;
     }
 
+    const companyId = getRecordCompanyId(record);
+    const snapshotId = String(record.__snapshotId || record.snapshot_id || "");
+    const releaseId = record.__releaseId || null;
+    const periodId = record.period_id || null;
+
+    if (!companyId) {
+      alert("No company selected. Please login again before requesting payroll reopen.");
+      return;
+    }
+
+    if (!snapshotId) {
+      alert("This released payroll is not linked to a payroll snapshot. Reopen request cannot continue.");
+      return;
+    }
+
+    const reopenTypeInput = prompt(
+      `What needs correction for ${getEmployeeName(record)}?
+
+Type 1 for Payroll values only:
+- allowance
+- deduction
+- cash advance
+- payroll amount correction
+
+Type 2 for Attendance / time entries:
+- missing time-in/time-out
+- overtime correction
+- schedule / attendance correction
+
+Enter 1 or 2:`,
+      "1",
+    );
+
+    if (!reopenTypeInput) {
+      alert("Reopen type is required.");
+      return;
+    }
+
+    const reopenType = reopenTypeInput.trim() === "2"
+      ? "WITH_ATTENDANCE"
+      : reopenTypeInput.trim() === "1"
+        ? "PAYROLL_ONLY"
+        : "";
+
+    if (!reopenType) {
+      alert("Invalid reopen type. Please enter 1 for Payroll values only or 2 for Attendance / time entries.");
+      return;
+    }
+
+    const reopenTypeLabel =
+      reopenType === "WITH_ATTENDANCE"
+        ? "Attendance / Time Entries Correction"
+        : "Payroll Values Only Correction";
+
+    const approvedTargetStatus =
+      reopenType === "WITH_ATTENDANCE" ? "OPEN" : "REGISTERED";
+
     const reason = prompt(
       `Request reopen approval for ${getEmployeeName(record)}?
 
+Reopen Type: ${reopenTypeLabel}
+Target after approval: ${approvedTargetStatus}
+
 Reason is required:`,
-      "Payroll correction needed",
+      reopenType === "WITH_ATTENDANCE"
+        ? "Attendance correction needed"
+        : "Payroll correction needed",
     );
 
     if (!reason || !reason.trim()) {
@@ -1654,44 +1786,70 @@ Reason is required:`,
 
 Employee: ${getEmployeeName(record)}
 Period: ${getPeriodLabel(record)}
+Reopen Type: ${reopenTypeLabel}
+After Approval: ${approvedTargetStatus}
 Reason: ${reason.trim()}
 
-This will NOT unlock payroll immediately. It will create an audit trail for Approval Center review.`,
+This will NOT unlock payroll immediately. Approval Center must approve it first.`,
     );
 
     if (!confirmed) return;
 
+    processingRef.current = true;
     setIsProcessing(true);
 
+    const trimmedReason = reason.trim();
+
+    const reopenPayload = {
+      employee_id: record.employee_id || null,
+      employee_name: getEmployeeName(record),
+      period_id: periodId,
+      period_label: getPeriodLabel(record),
+      release_id: releaseId,
+      snapshot_id: snapshotId,
+      reason: trimmedReason,
+      source_module: "Payroll Manager",
+      workflow: "PAYROLL_REOPEN_APPROVAL",
+      reopen_type: reopenType,
+      reopen_type_label: reopenTypeLabel,
+      current_status: "RELEASED",
+      requested_status: "PENDING",
+      approved_target_status: approvedTargetStatus,
+      attendance_locked_after_approval: false,
+      needs_regeneration_after_approval: true,
+      payroll_manager_note:
+        reopenType === "WITH_ATTENDANCE"
+          ? "Approval should return the payroll period to OPEN so Attendance and Payroll Register can be regenerated."
+          : "Approval should return the payroll snapshot to REGISTERED for Manager Review without reopening attendance.",
+    };
+
     const requestPayload = {
-      company_id: getRecordCompanyId(record),
+      company_id: companyId,
       module: "Payroll",
-      request_type: "Payroll Reopen",
-      title: `Payroll reopen request - ${getEmployeeName(record)}`,
-      description: reason.trim(),
-      status: "Pending",
-      requested_by: "OPSCORE USER",
-      reference_table: record.__recordType === "RELEASED_PAYROLL_ITEM" ? "released_payroll_items" : "payroll_snapshots",
-      reference_id: String(record.__releaseId || record.__snapshotId || record.id),
-      payload: {
-        employeeName: getEmployeeName(record),
-        employeeId: record.employee_id || null,
-        periodId: record.period_id || null,
-        periodLabel: getPeriodLabel(record),
-        releaseId: record.__releaseId || null,
-        snapshotId: record.__snapshotId || record.snapshot_id || null,
-        reason: reason.trim(),
-      },
+      request_type: "PAYROLL_REOPEN",
+      title: `Payroll Reopen - ${getEmployeeName(record)}`,
+      description: `${getPeriodLabel(record)} | ${reopenTypeLabel} | ${trimmedReason}`,
+      status: "PENDING",
+      requested_by: "Payroll Manager",
+      reference_id: snapshotId,
+      request_payload: reopenPayload,
     };
 
     let approvalSaved = false;
+    let approvalErrorMessage = "";
 
     try {
-      const { error } = await supabase.from("approval_requests").insert(requestPayload);
-      if (!error) approvalSaved = true;
-      if (error) console.log("CREATE REOPEN APPROVAL REQUEST WARNING:", error.message);
-    } catch (error) {
-      console.log("CREATE REOPEN APPROVAL REQUEST WARNING:", error);
+      const { error } = await supabase
+        .from("approval_requests")
+        .insert(requestPayload);
+
+      if (error) {
+        approvalErrorMessage = error.message;
+      } else {
+        approvalSaved = true;
+      }
+    } catch (error: any) {
+      approvalErrorMessage = error?.message || String(error);
     }
 
     await createAuditLog({
@@ -1699,25 +1857,32 @@ This will NOT unlock payroll immediately. It will create an audit trail for Appr
       module: "Payroll",
       action: approvalSaved
         ? "Request Payroll Reopen Approval"
-        : "Request Payroll Reopen Approval Logged",
-      description: `${getEmployeeName(record)} payroll reopen requested. Reason: ${reason.trim()}`,
+        : "Payroll Reopen Request Failed",
+      description: approvalSaved
+        ? `${getEmployeeName(record)} payroll reopen requested. Type: ${reopenTypeLabel}. Reason: ${trimmedReason}`
+        : `Payroll reopen request failed for ${getEmployeeName(record)}: ${approvalErrorMessage}`,
       severity: "critical",
-      recordId: String(record.__releaseId || record.__snapshotId || record.id),
+      recordId: String(releaseId || snapshotId || record.id),
       oldValue: record,
       newValue: {
-        ...requestPayload,
+        requestPayload,
         approvalSaved,
+        error: approvalErrorMessage || null,
       },
     });
 
     setIsProcessing(false);
+    processingRef.current = false;
     await loadData();
 
-    alert(
-      approvalSaved
-        ? "Reopen request submitted to Approval Center."
-        : "Reopen request logged in audit trail. Approval Center table schema needs alignment before automatic routing.",
-    );
+    if (!approvalSaved) {
+      alert(`Reopen request failed.
+
+${approvalErrorMessage || "Approval Center table schema needs alignment."}`);
+      return;
+    }
+
+    alert("Reopen request submitted to Approval Center.");
   };
 
   const returnPayrollToRegister = async (record: any) => {
@@ -1847,6 +2012,9 @@ This will NOT unlock payroll immediately. It will create an audit trail for Appr
   const approvedPayroll = payrollRecords.filter((record) => {
     const status = normalizeStatus(record.status);
     const releaseStatus = normalizeStatus(record.release_status);
+    const workflowStatus = getWorkflowStatus(record);
+    const periodStatus = String(record.period_status || "").toUpperCase();
+    const needsRegeneration = Boolean(record.needs_regeneration);
     const blockedStatuses = [
       "Draft",
       "Rejected",
@@ -1855,10 +2023,21 @@ This will NOT unlock payroll immediately. It will create an audit trail for Appr
       "Released",
       "Paid",
       "Partially Released",
+      "Open",
+      "OPEN",
     ];
     const blockedReleaseStatuses = ["Released", "Paid", "Partially Released"];
     const outstandingPayroll = getOutstandingPayrollAmount(record);
     const carryForward = getCarryForwardAmount(record);
+
+    if (isSnapshotItem(record)) {
+      // Attendance reopen must go back to Attendance / Payroll Register first.
+      // It must not be releasable from Payroll Manager until the register is regenerated.
+      if (workflowStatus === "OPEN") return false;
+      if (periodStatus === "OPEN") return false;
+      if (needsRegeneration) return false;
+      if (!["REGISTERED", "LOCKED"].includes(workflowStatus)) return false;
+    }
 
     if (blockedStatuses.includes(status)) return false;
     if (blockedReleaseStatuses.includes(releaseStatus)) return false;

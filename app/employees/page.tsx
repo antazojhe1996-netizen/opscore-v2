@@ -2,17 +2,7 @@
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  BadgeCheck,
-  Briefcase,
-  FileSpreadsheet,
-  Mail,
-  Pencil,
-  Search,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { FileSpreadsheet, Pencil, Search } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
@@ -21,6 +11,7 @@ import * as XLSX from "xlsx";
 
 type Employee = {
   id: string;
+  company_id?: string;
   employee_no: string;
   first_name: string;
   last_name: string;
@@ -38,12 +29,10 @@ type Employee = {
   attendance_source_preference?: string;
   hire_date: string;
   contact_number: string;
-
   sss_no?: string;
   philhealth_no?: string;
   pagibig_no?: string;
   tin_no?: string;
-
   birth_date?: string;
   gender?: string;
   civil_status?: string;
@@ -51,7 +40,6 @@ type Employee = {
   emergency_contact_name?: string;
   emergency_contact_number?: string;
   emergency_contact_relationship?: string;
-
   has_resume?: boolean;
   has_valid_id?: boolean;
   has_contract?: boolean;
@@ -67,7 +55,6 @@ export default function EmployeesPage() {
   const [positions, setPositions] = useState<any[]>([]);
   const [employmentStatuses, setEmploymentStatuses] = useState<any[]>([]);
   const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
-
   const [editingEmployeeNo, setEditingEmployeeNo] = useState("");
   const [employeeNo, setEmployeeNo] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -79,29 +66,24 @@ export default function EmployeesPage() {
   const [employmentType, setEmploymentType] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [hireDate, setHireDate] = useState("");
-
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState("");
   const [civilStatus, setCivilStatus] = useState("");
   const [address, setAddress] = useState("");
-
   const [emergencyContactName, setEmergencyContactName] = useState("");
   const [emergencyContactNumber, setEmergencyContactNumber] = useState("");
   const [emergencyContactRelationship, setEmergencyContactRelationship] =
     useState("");
-
   const [sssNo, setSssNo] = useState("");
   const [philhealthNo, setPhilhealthNo] = useState("");
   const [pagibigNo, setPagibigNo] = useState("");
   const [tinNo, setTinNo] = useState("");
-
   const [hasResume, setHasResume] = useState("No");
   const [hasValidId, setHasValidId] = useState("No");
   const [hasContract, setHasContract] = useState("No");
   const [hasNbiClearance, setHasNbiClearance] = useState("No");
   const [hasMedical, setHasMedical] = useState("No");
   const [hasTrainingRecords, setHasTrainingRecords] = useState("No");
-
   const [rateType, setRateType] = useState("Daily");
   const [basicRate, setBasicRate] = useState("");
   const [payrollActive, setPayrollActive] = useState("Yes");
@@ -109,20 +91,17 @@ export default function EmployeesPage() {
   const [portalEnabled, setPortalEnabled] = useState("Yes");
   const [attendanceSourcePreference, setAttendanceSourcePreference] =
     useState("Biometrics");
-
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("Active");
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-
   const [previewRows, setPreviewRows] = useState<any[]>([]);
   const [fileName, setFileName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
-
-  /// STATES - PERMISSIONS
   const [permissions, setPermissions] = useState<any>(null);
+
   const canCreate = permissions?.can_create === true;
   const canEdit = permissions?.can_edit === true;
   const canDelete = permissions?.can_delete === true;
@@ -180,6 +159,65 @@ export default function EmployeesPage() {
     if (isNaN(parsed.getTime())) return null;
 
     return parsed.toISOString().split("T")[0];
+  };
+
+  const getCurrentCompanyId = () => {
+    if (typeof window === "undefined") return null;
+
+    return (
+      localStorage.getItem("opscore_current_company_id") ||
+      localStorage.getItem("opscore_company_id") ||
+      localStorage.getItem("company_id")
+    );
+  };
+
+  const createEmployeeAccount = async (employee: Employee) => {
+    if (!employee.email || employee.portal_enabled === false) {
+      return {
+        skipped: true,
+        message: "Portal account skipped because email or portal access is missing.",
+      };
+    }
+
+    const companyId = employee.company_id || getCurrentCompanyId();
+
+    if (!companyId) {
+      return {
+        skipped: true,
+        message:
+          "Employee saved, but account was not created because company_id was not found.",
+      };
+    }
+
+    const response = await fetch("/api/hr/create-employee-account", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        employee_id: employee.id,
+        email: employee.email,
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        role: "employee",
+        company_id: companyId,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        skipped: false,
+        error: result?.error || "Failed to create employee account.",
+      };
+    }
+
+    return {
+      skipped: false,
+      success: true,
+      temporaryPassword: result?.temporary_password || "Temp123!",
+    };
   };
 
   const getCurrentPermissions = async () => {
@@ -320,6 +358,11 @@ export default function EmployeesPage() {
       return false;
     }
 
+    if (portalEnabled === "Yes" && !email.trim()) {
+      setFormError("Email is required when Portal Access is enabled.");
+      return false;
+    }
+
     if (Number(basicRate || 0) <= 0) {
       setFormError("Basic rate must be greater than zero.");
       return false;
@@ -333,23 +376,22 @@ export default function EmployeesPage() {
     if (isSaving) return;
 
     if (editingEmployeeNo && !canEdit) {
-      alert(
-        "Access denied. You do not have permission to update employee records.",
-      );
+      alert("Access denied. You do not have permission to update employee records.");
       return;
     }
 
     if (!editingEmployeeNo && !canCreate) {
-      alert(
-        "Access denied. You do not have permission to create employee records.",
-      );
+      alert("Access denied. You do not have permission to create employee records.");
       return;
     }
+
     if (!validateForm()) return;
 
     setIsSaving(true);
 
-    const payload = {
+    const companyId = getCurrentCompanyId();
+
+    const payload: any = {
       employee_no: employeeNo.trim() || `EMP-${Date.now()}`,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
@@ -386,28 +428,68 @@ export default function EmployeesPage() {
       attendance_source_preference: attendanceSourcePreference,
     };
 
+    if (companyId) {
+      payload.company_id = companyId;
+    }
+
     const oldEmployee = editingEmployeeNo
       ? employees.find((employee) => employee.employee_no === editingEmployeeNo)
       : null;
 
-    const query = editingEmployeeNo
-      ? supabase
-          .from("employees")
-          .update(payload)
-          .eq("employee_no", editingEmployeeNo)
-      : supabase.from("employees").insert({
+    let savedEmployee: Employee | null = null;
+
+    if (editingEmployeeNo) {
+      const { data, error } = await supabase
+        .from("employees")
+        .update(payload)
+        .eq("employee_no", editingEmployeeNo)
+        .select("*")
+        .single();
+
+      if (error) {
+        setIsSaving(false);
+        console.log("SAVE EMPLOYEE ERROR:", error.message);
+        alert("Failed to save employee.");
+        return;
+      }
+
+      savedEmployee = data;
+    } else {
+      const { data, error } = await supabase
+        .from("employees")
+        .insert({
           ...payload,
           created_at: new Date().toISOString(),
-        });
+        })
+        .select("*")
+        .single();
 
-    const { error } = await query;
+      if (error) {
+        setIsSaving(false);
+        console.log("SAVE EMPLOYEE ERROR:", error.message);
+        alert("Failed to save employee.");
+        return;
+      }
 
-    setIsSaving(false);
+      savedEmployee = data;
+    }
 
-    if (error) {
-      console.log("SAVE EMPLOYEE ERROR:", error.message);
-      alert("Failed to save employee.");
-      return;
+    let accountMessage = "";
+
+    if (!editingEmployeeNo && savedEmployee?.portal_enabled !== false && savedEmployee?.email) {
+      const accountResult = await createEmployeeAccount(savedEmployee);
+
+      if (accountResult.success) {
+        accountMessage = `\n\nPortal account created.\nTemporary password: ${accountResult.temporaryPassword}`;
+      }
+
+      if (accountResult.error) {
+        accountMessage = `\n\nEmployee was saved, but portal account creation failed:\n${accountResult.error}`;
+      }
+
+      if (accountResult.skipped && accountResult.message) {
+        accountMessage = `\n\n${accountResult.message}`;
+      }
     }
 
     await createAuditLog({
@@ -423,16 +505,21 @@ export default function EmployeesPage() {
       newValue: payload,
     });
 
+    setIsSaving(false);
     clearForm();
     setShowEmployeeForm(false);
-    getEmployees();
+    await getEmployees();
+
+    alert(
+      editingEmployeeNo
+        ? "Employee updated successfully."
+        : `Employee saved successfully.${accountMessage}`,
+    );
   };
 
   const editEmployee = (employee: Employee) => {
     if (!canEdit) {
-      alert(
-        "Access denied. You do not have permission to edit employee records.",
-      );
+      alert("Access denied. You do not have permission to edit employee records.");
       return;
     }
 
@@ -453,9 +540,7 @@ export default function EmployeesPage() {
     setAddress(employee.address || "");
     setEmergencyContactName(employee.emergency_contact_name || "");
     setEmergencyContactNumber(employee.emergency_contact_number || "");
-    setEmergencyContactRelationship(
-      employee.emergency_contact_relationship || "",
-    );
+    setEmergencyContactRelationship(employee.emergency_contact_relationship || "");
     setSssNo(employee.sss_no || "");
     setPhilhealthNo(employee.philhealth_no || "");
     setPagibigNo(employee.pagibig_no || "");
@@ -471,9 +556,7 @@ export default function EmployeesPage() {
     setPayrollActive(employee.payroll_active === false ? "No" : "Yes");
     setPayrollNotes(employee.payroll_notes || "");
     setPortalEnabled(employee.portal_enabled === false ? "No" : "Yes");
-    setAttendanceSourcePreference(
-      employee.attendance_source_preference || "Biometrics",
-    );
+    setAttendanceSourcePreference(employee.attendance_source_preference || "Biometrics");
 
     setShowEmployeeForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -481,9 +564,7 @@ export default function EmployeesPage() {
 
   const archiveEmployee = async (employee: Employee) => {
     if (!canDelete) {
-      alert(
-        "Access denied. You do not have permission to archive employee records.",
-      );
+      alert("Access denied. You do not have permission to archive employee records.");
       return;
     }
 
@@ -528,9 +609,7 @@ export default function EmployeesPage() {
 
   const restoreEmployee = async (employee: Employee) => {
     if (!canEdit) {
-      alert(
-        "Access denied. You do not have permission to restore employee records.",
-      );
+      alert("Access denied. You do not have permission to restore employee records.");
       return;
     }
 
@@ -575,9 +654,7 @@ export default function EmployeesPage() {
 
   const handleImportFile = async (file: File) => {
     if (!canCreate) {
-      alert(
-        "Access denied. You do not have permission to import employee records.",
-      );
+      alert("Access denied. You do not have permission to import employee records.");
       return;
     }
 
@@ -641,40 +718,27 @@ export default function EmployeesPage() {
           employee_no: employeeNoValue,
           first_name: firstNameValue,
           last_name: lastNameValue,
-          email: String(
-            getValue(row, ["Email", "email", "Email Address"]),
-          ).trim(),
-          department: String(
-            getValue(row, ["Department", "department"]),
-          ).trim(),
+          email: String(getValue(row, ["Email", "email", "Email Address"])).trim(),
+          department: String(getValue(row, ["Department", "department"])).trim(),
           position: String(getValue(row, ["Position", "position"])).trim(),
           employment_status:
             String(
-              getValue(row, [
-                "Status",
-                "Employment Status",
-                "employment_status",
-              ]),
+              getValue(row, ["Status", "Employment Status", "employment_status"]),
             ).trim() || "Active",
           employment_type:
-            String(
-              getValue(row, ["Employment Type", "employment_type"]),
-            ).trim() || "Regular",
+            String(getValue(row, ["Employment Type", "employment_type"])).trim() ||
+            "Regular",
           contact_number: String(
             getValue(row, ["Contact", "Contact Number", "contact_number"]),
           ).trim(),
           hire_date:
-            cleanDate(
-              getValue(row, ["Hire Date", "Date Hired", "hire_date"]),
-            ) || null,
+            cleanDate(getValue(row, ["Hire Date", "Date Hired", "hire_date"])) ||
+            null,
           birth_date:
-            cleanDate(
-              getValue(row, ["Birth Date", "Birthday", "birth_date"]),
-            ) || null,
+            cleanDate(getValue(row, ["Birth Date", "Birthday", "birth_date"])) ||
+            null,
           gender: String(getValue(row, ["Gender", "gender"])).trim(),
-          civil_status: String(
-            getValue(row, ["Civil Status", "civil_status"]),
-          ).trim(),
+          civil_status: String(getValue(row, ["Civil Status", "civil_status"])).trim(),
           address: String(getValue(row, ["Address", "address"])).trim(),
           emergency_contact_name: String(
             getValue(row, ["Emergency Contact Name", "emergency_contact_name"]),
@@ -703,17 +767,14 @@ export default function EmployeesPage() {
             String(getValue(row, ["Has Resume", "Resume"])).toLowerCase() ===
             "yes",
           has_valid_id:
-            String(
-              getValue(row, ["Has Valid ID", "Valid ID"]),
-            ).toLowerCase() === "yes",
+            String(getValue(row, ["Has Valid ID", "Valid ID"])).toLowerCase() ===
+            "yes",
           has_contract:
-            String(
-              getValue(row, ["Has Contract", "Contract"]),
-            ).toLowerCase() === "yes",
+            String(getValue(row, ["Has Contract", "Contract"])).toLowerCase() ===
+            "yes",
           has_nbi_clearance:
-            String(
-              getValue(row, ["Has NBI", "NBI Clearance"]),
-            ).toLowerCase() === "yes",
+            String(getValue(row, ["Has NBI", "NBI Clearance"])).toLowerCase() ===
+            "yes",
           has_medical:
             String(getValue(row, ["Has Medical", "Medical"])).toLowerCase() ===
             "yes",
@@ -722,14 +783,11 @@ export default function EmployeesPage() {
               getValue(row, ["Has Training Records", "Training Records"]),
             ).toLowerCase() === "yes",
           daily_rate: basicRateValue,
-          rate_type: rateTypes.includes(rateTypeValue)
-            ? rateTypeValue
-            : "Daily",
+          rate_type: rateTypes.includes(rateTypeValue) ? rateTypeValue : "Daily",
           basic_rate: basicRateValue,
           payroll_active:
-            String(
-              getValue(row, ["Payroll Active", "payroll_active"]),
-            ).toLowerCase() === "no"
+            String(getValue(row, ["Payroll Active", "payroll_active"])).toLowerCase() ===
+            "no"
               ? false
               : true,
           payroll_notes: String(
@@ -763,9 +821,7 @@ export default function EmployeesPage() {
 
   const importEmployees = async () => {
     if (!canCreate) {
-      alert(
-        "Access denied. You do not have permission to import employee records.",
-      );
+      alert("Access denied. You do not have permission to import employee records.");
       return;
     }
 
@@ -790,7 +846,9 @@ export default function EmployeesPage() {
       userName: "OPSCORE USER",
       module: "Employees",
       action: "Import Employees",
-      description: `${previewRows.length} employee record(s) imported from ${fileName || "uploaded file"}`,
+      description: `${previewRows.length} employee record(s) imported from ${
+        fileName || "uploaded file"
+      }`,
       severity: "info",
       recordId: fileName || null,
       newValue: {
@@ -874,9 +932,7 @@ export default function EmployeesPage() {
   );
 
   const archivedEmployeeRows = employees.filter((emp) =>
-    inactiveStatuses.includes(
-      String(emp.employment_status || "").toLowerCase(),
-    ),
+    inactiveStatuses.includes(String(emp.employment_status || "").toLowerCase()),
   );
 
   const totalEmployees = employees.length;
@@ -887,9 +943,7 @@ export default function EmployeesPage() {
     (emp) => emp.payroll_active !== false,
   ).length;
 
-  const missingEmailCount = activeEmployeeRows.filter(
-    (emp) => !emp.email,
-  ).length;
+  const missingEmailCount = activeEmployeeRows.filter((emp) => !emp.email).length;
 
   const incomplete201Count = activeEmployeeRows.filter(
     (emp) =>
@@ -905,16 +959,6 @@ export default function EmployeesPage() {
     (emp) =>
       !emp.sss_no || !emp.philhealth_no || !emp.pagibig_no || !emp.tin_no,
   ).length;
-
-  const totalMonthlyPayrollEstimate = activeEmployeeRows.reduce((sum, emp) => {
-    const rate = Number(emp.basic_rate || emp.daily_rate || 0);
-
-    if ((emp.rate_type || "Daily") === "Daily") return sum + rate * 26;
-    if ((emp.rate_type || "Daily") === "Weekly") return sum + rate * 4;
-    if ((emp.rate_type || "Daily") === "Monthly") return sum + rate;
-
-    return sum;
-  }, 0);
 
   const departmentCounts = activeEmployeeRows.reduce(
     (acc: Record<string, number>, emp) => {
@@ -946,9 +990,7 @@ export default function EmployeesPage() {
   );
 
   const filteredEmployees = useMemo(() => {
-    const normalizedStatusFilter = String(
-      statusFilter || "Active",
-    ).toLowerCase();
+    const normalizedStatusFilter = String(statusFilter || "Active").toLowerCase();
 
     const sourceEmployees =
       normalizedStatusFilter === "archived"
@@ -1054,10 +1096,7 @@ export default function EmployeesPage() {
             <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(260px,1fr)_220px_180px]">
                 <div className="relative">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-3 text-slate-500"
-                  />
+                  <Search size={16} className="absolute left-3 top-3 text-slate-500" />
                   <input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -1251,7 +1290,7 @@ export default function EmployeesPage() {
                             emp.philhealth_no &&
                             emp.pagibig_no &&
                             emp.tin_no ? (
-                              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                                 Complete
                               </span>
                             ) : (
@@ -1263,7 +1302,7 @@ export default function EmployeesPage() {
 
                           <td className="px-4 py-3 align-top">
                             {emp.has_valid_id && emp.has_contract ? (
-                              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                                 Ready
                               </span>
                             ) : (
@@ -1512,11 +1551,7 @@ export default function EmployeesPage() {
                               setValue={setCivilStatus}
                               options={civilStatusOptions}
                             />
-                            <Input
-                              label="Address"
-                              value={address}
-                              setValue={setAddress}
-                            />
+                            <Input label="Address" value={address} setValue={setAddress} />
                           </div>
                         </FormPanel>
 
@@ -1590,7 +1625,7 @@ export default function EmployeesPage() {
                           ? "Saving..."
                           : editingEmployeeNo
                             ? "Update Employee"
-                            : "Save Employee"}
+                            : "Save Employee + Account"}
                       </button>
 
                       <button
@@ -1608,7 +1643,7 @@ export default function EmployeesPage() {
               )}
 
               {canCreate && (
-                <section className="rounded-3xl border border-slate-200 bg-white shadow-sm p-5">
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <h2 className="flex items-center gap-2 text-xl font-black text-slate-950">
                     <FileSpreadsheet size={18} /> Import Employees
                   </h2>
@@ -1634,12 +1669,15 @@ export default function EmployeesPage() {
                     >
                       {isImporting
                         ? "Importing..."
-                        : `Import ${previewRows.length} Preview Row${previewRows.length === 1 ? "" : "s"}`}
+                        : `Import ${previewRows.length} Preview Row${
+                            previewRows.length === 1 ? "" : "s"
+                          }`}
                     </button>
 
                     {fileName && (
                       <p className="text-sm font-medium text-slate-500">
-                        Selected: <span className="font-bold text-slate-950">{fileName}</span>
+                        Selected:{" "}
+                        <span className="font-bold text-slate-950">{fileName}</span>
                       </p>
                     )}
                   </div>
@@ -1679,8 +1717,10 @@ export default function EmployeesPage() {
                 </section>
               )}
 
-              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm p-5">
-                <h2 className="text-xl font-black text-slate-950">Record Health</h2>
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-xl font-black text-slate-950">
+                  Record Health
+                </h2>
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <MiniStat title="Total Records" value={totalEmployees} />
                   <MiniStat title="Archived" value={archivedEmployees} />
@@ -1755,51 +1795,6 @@ function CompactMetric({
   );
 }
 
-function DollarSignIcon() {
-  return <span className="text-xl font-black">₱</span>;
-}
-
-function KpiCard({
-  icon,
-  title,
-  value,
-  subtitle,
-  success,
-  danger,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: any;
-  subtitle?: string;
-  success?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
-          {icon}
-        </div>
-
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-          {title}
-        </p>
-      </div>
-
-      <h2
-        className={[
-          "text-3xl font-black tracking-tight",
-          danger ? "text-red-700" : success ? "text-emerald-700" : "text-slate-950",
-        ].join(" ")}
-      >
-        {value}
-      </h2>
-
-      {subtitle && <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>}
-    </div>
-  );
-}
-
 function FormPanel({
   title,
   children,
@@ -1828,7 +1823,9 @@ function MiniStat({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{title}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
       <h3
         className={[
           "mt-1 text-2xl font-black tracking-tight",
@@ -1903,7 +1900,9 @@ function StatusBadge({ status }: { status: string }) {
           : "border-slate-200 bg-slate-100 text-slate-700";
 
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${style}`}>
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${style}`}
+    >
       {status || "No Status"}
     </span>
   );

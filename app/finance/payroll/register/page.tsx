@@ -261,16 +261,58 @@ export default function PayrollRegisterPage() {
     return mapped;
   };
 
-  const getEmployees = async () => {
-    const { data, error } = await supabase
+  const isPayrollEligibleEmployee = (employee: any) => {
+    const payrollActive = employee?.payroll_active;
+
+    if (payrollActive === false || String(payrollActive).toLowerCase() === "false") {
+      return false;
+    }
+
+    const employeeStatus = normalize(
+      employee?.employment_status ||
+        employee?.status ||
+        employee?.employee_status ||
+        ""
+    );
+
+    if (
+      employeeStatus.includes("resigned") ||
+      employeeStatus.includes("terminated") ||
+      employeeStatus.includes("inactive") ||
+      employeeStatus.includes("separated")
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const loadPayrollEligibleEmployees = async () => {
+    let query = supabase
       .from("employees")
       .select("*")
-      .eq("payroll_active", true)
       .order("department", { ascending: true })
       .order("first_name", { ascending: true });
 
-    if (error) return console.log("GET EMPLOYEES ERROR:", error.message);
-    setEmployees(data || []);
+    const currentCompanyId = getCurrentCompanyId();
+
+    if (currentCompanyId) {
+      query = query.eq("company_id", currentCompanyId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.log("GET EMPLOYEES ERROR:", error.message);
+      return [];
+    }
+
+    return (data || []).filter(isPayrollEligibleEmployee);
+  };
+
+  const getEmployees = async () => {
+    const eligibleEmployees = await loadPayrollEligibleEmployees();
+    setEmployees(eligibleEmployees);
   };
 
   const getSettings = async () => {
@@ -1053,16 +1095,25 @@ ${error.message}`);
       return;
     }
 
-    if (employees.length === 0) {
-      alert("No payroll active employees.");
-      return;
-    }
-
     const currentCompanyId = getCurrentCompanyId();
 
     if (!currentCompanyId) {
       alert("No company selected. Please login again before generating payroll.");
       return;
+    }
+
+    const payrollEmployees =
+      employees.length > 0 ? employees : await loadPayrollEligibleEmployees();
+
+    if (payrollEmployees.length === 0) {
+      alert(
+        "No payroll eligible employees found. Check employee status, company_id, or payroll_active values."
+      );
+      return;
+    }
+
+    if (employees.length === 0) {
+      setEmployees(payrollEmployees);
     }
 
     const confirmGenerate = confirm(
@@ -1102,26 +1153,33 @@ ${error.message}`);
       return console.log("CHECK EXISTING PAYROLL RECORDS ERROR:", existingRecordsError.message);
     }
 
-    const protectedExistingRecords = (existingPeriodRecords || []).filter((record) => {
-      const status = String(record.status || "");
-      const releaseStatus = String(record.release_status || "");
-      const paidAmount = Number(record.paid_amount || 0);
-      const remainingAmount = Number(record.remaining_amount || 0);
+    const isAttendanceReopenRegeneration =
+      ["OPEN", "REOPENED", "DRAFT"].includes(periodStatus) &&
+      selectedPeriod?.attendance_locked === false &&
+      selectedPeriod?.needs_regeneration === true;
 
-      return (
-        status === "For Approval" ||
-        status === "Approved" ||
-        status === "Released" ||
-        status === "Paid" ||
-        status === "Partially Released" ||
-        releaseStatus === "For Approval" ||
-        releaseStatus === "Approved" ||
-        releaseStatus === "Released" ||
-        releaseStatus === "Partially Released" ||
-        paidAmount > 0 ||
-        (remainingAmount > 0 && status !== "Draft")
-      );
-    });
+    const protectedExistingRecords = isAttendanceReopenRegeneration
+      ? []
+      : (existingPeriodRecords || []).filter((record) => {
+          const status = String(record.status || "");
+          const releaseStatus = String(record.release_status || "");
+          const paidAmount = Number(record.paid_amount || 0);
+          const remainingAmount = Number(record.remaining_amount || 0);
+
+          return (
+            status === "For Approval" ||
+            status === "Approved" ||
+            status === "Released" ||
+            status === "Paid" ||
+            status === "Partially Released" ||
+            releaseStatus === "For Approval" ||
+            releaseStatus === "Approved" ||
+            releaseStatus === "Released" ||
+            releaseStatus === "Partially Released" ||
+            paidAmount > 0 ||
+            (remainingAmount > 0 && status !== "Draft")
+          );
+        });
 
     const protectedEmployeeIds = new Set(
       protectedExistingRecords.map((record) => String(record.employee_id))
@@ -1144,7 +1202,7 @@ ${error.message}`);
       }
     }
 
-    const employeesToGenerate = employees.filter(
+    const employeesToGenerate = payrollEmployees.filter(
       (employee) => !protectedEmployeeIds.has(String(employee.id))
     );
 
@@ -1262,6 +1320,7 @@ ${error.message}`);
         period: selectedPeriod,
         generatedCount: generated.length,
         preservedReleasedCount: protectedExistingRecords.length,
+        attendanceReopenRegeneration: isAttendanceReopenRegeneration,
         totalGross: generated.reduce((sum, record) => sum + Number(record.gross_pay || 0), 0),
         totalDeductions: generated.reduce((sum, record) => sum + Number(record.total_deductions || 0), 0),
         totalRelease: generated.reduce((sum, record) => sum + Number(record.release_amount || 0), 0),

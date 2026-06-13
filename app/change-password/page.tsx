@@ -171,8 +171,8 @@ export default function ChangePasswordPage() {
 
     localStorage.setItem(mustChangePasswordKey, "false");
     window.dispatchEvent(new Event("storage"));
-    setSaving(false);
 
+    setSaving(false);
     router.replace("/dashboard");
   };
 
@@ -184,8 +184,8 @@ export default function ChangePasswordPage() {
   /// UI
   if (checking) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-sm text-slate-300">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-200 px-5 text-slate-900">
+        <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 text-sm font-bold text-slate-500 shadow-sm backdrop-blur">
           Checking session...
         </div>
       </main>
@@ -193,27 +193,31 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
-      <section className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-black/40">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="rounded-2xl bg-amber-400/10 p-3 text-amber-300">
-            <ShieldCheck size={24} />
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-200 px-5 py-10 text-slate-900">
+      <section className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white/85 shadow-2xl shadow-slate-950/10 backdrop-blur">
+        <div className="border-b border-slate-100 bg-slate-50/80 p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-sm">
+              <ShieldCheck size={23} />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                OPSCORE V3 Security
+              </p>
+              <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">
+                Change Password
+              </h1>
+            </div>
           </div>
 
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-amber-400">
-              OPSCORE V3 Security
-            </p>
-            <h1 className="mt-1 text-3xl font-black">Change Password</h1>
-          </div>
+          <p className="mt-5 text-sm font-medium leading-6 text-slate-500">
+            You are using a temporary password. Create your own secure password
+            before continuing to OPSCORE.
+          </p>
         </div>
 
-        <p className="text-sm leading-6 text-slate-400">
-          You are using a temporary password. Create your own secure password
-          before continuing to OPSCORE.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <PasswordInput
             label="Current Password"
             value={currentPassword}
@@ -238,27 +242,29 @@ export default function ChangePasswordPage() {
           <button
             type="button"
             onClick={() => setShowPasswords((prev) => !prev)}
-            className="flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
+            className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white/80 px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
           >
-            {showPasswords ? <EyeOff size={15} /> : <Eye size={15} />}
+            {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
             {showPasswords ? "Hide Passwords" : "Show Passwords"}
           </button>
 
           {errorMessage && (
-            <div className="flex gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+            <div className="flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold leading-5 text-red-700">
               <AlertCircle size={18} className="mt-0.5 shrink-0" />
               <p>{errorMessage}</p>
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-4 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
-          >
-            <Save size={18} />
-            {saving ? "Saving..." : "Save New Password"}
-          </button>
+          <div className="border-t border-slate-100 pt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Save size={18} />
+              {saving ? "Saving..." : "Save New Password"}
+            </button>
+          </div>
         </form>
       </section>
     </main>
@@ -278,18 +284,18 @@ function PasswordInput({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-semibold text-slate-300">
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </label>
 
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 focus-within:border-amber-400">
-        <LockKeyhole size={18} className="text-slate-500" />
+      <div className="flex h-11 items-center gap-3 rounded-xl border border-slate-300 bg-white/80 px-3 transition-all duration-200 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
+        <LockKeyhole size={17} className="text-slate-400" />
 
         <input
           type={show ? "text" : "password"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
+          className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
         />
       </div>
     </div>

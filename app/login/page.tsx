@@ -50,12 +50,14 @@ type CompanyUser = {
 export default function LoginPage() {
   const router = useRouter();
 
+  /// STATES
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  /// DATA
   const employeeSessionKey = "opscore_current_employee";
   const employeeIdKey = "opscore_current_employee_id";
   const employeeNameKey = "opscore_current_employee_name";
@@ -65,6 +67,7 @@ export default function LoginPage() {
   const companyIdKey = "opscore_current_company_id";
   const roleIdKey = "opscore_current_role_id";
 
+  /// FUNCTIONS
   const normalize = (value: string) => value.trim().toLowerCase();
 
   useEffect(() => {
@@ -171,7 +174,9 @@ export default function LoginPage() {
     }
 
     const companyUser = companyUserData as CompanyUser;
-    const employeeName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+    const employeeName = `${employee.first_name || ""} ${
+      employee.last_name || ""
+    }`.trim();
     const mustChangePassword = Boolean(systemUser.must_change_password);
 
     localStorage.removeItem(employeeSessionKey);
@@ -201,6 +206,7 @@ export default function LoginPage() {
     localStorage.setItem(companyIdKey, String(systemUser.company_id || ""));
     localStorage.setItem(roleIdKey, String(companyUser.role_id || ""));
     localStorage.setItem(mustChangePasswordKey, String(mustChangePassword));
+
     localStorage.setItem(
       currentUserKey,
       JSON.stringify({
@@ -213,7 +219,7 @@ export default function LoginPage() {
         name: employeeName,
         username: systemUser.username,
         email: authData.user.email || employee.email || null,
-      }),
+      })
     );
 
     await supabase
@@ -237,26 +243,29 @@ export default function LoginPage() {
     login();
   };
 
+  /// UI
   return (
-    <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
+    <main className="min-h-screen overflow-hidden bg-[#080D1A] text-white">
       <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.24),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.16),transparent_32%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-blue-950/40 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.28),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.88),transparent_42%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(15,23,42,0.95),rgba(30,41,59,0.92),rgba(49,46,129,0.28))]" />
+        <div className="absolute left-10 top-10 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-10 right-10 h-80 w-80 rounded-full bg-slate-400/10 blur-3xl" />
 
-        <section className="relative grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-blue-500/20 bg-slate-950/95 shadow-2xl shadow-black/60 backdrop-blur xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="relative hidden min-h-[720px] overflow-hidden border-r border-blue-500/20 bg-slate-900/70 p-10 xl:block">
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(37,99,235,0.24),transparent_42%),linear-gradient(315deg,rgba(14,165,233,0.12),transparent_38%)]" />
-            <div className="absolute bottom-0 left-0 right-0 h-48 bg-[radial-gradient(circle_at_bottom,rgba(59,130,246,0.25),transparent_65%)]" />
+        <section className="relative grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 shadow-2xl shadow-black/60 backdrop-blur-xl xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="relative hidden min-h-[720px] overflow-hidden border-r border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/80 p-10 xl:block">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(148,163,184,0.12),transparent_38%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-indigo-950/50 to-transparent" />
 
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/10 text-blue-300">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-300/20 bg-white/10 text-indigo-200 shadow-lg shadow-indigo-950/30">
                     <Hotel size={30} />
                   </div>
 
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.28em] text-blue-300">
+                    <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-200">
                       OPSCORE V3
                     </p>
                     <h1 className="text-2xl font-black text-white">
@@ -267,10 +276,12 @@ export default function LoginPage() {
 
                 <h2 className="mt-12 text-5xl font-black leading-tight tracking-tight text-white">
                   Business Operations
-                  <span className="block text-blue-400">Command Center</span>
+                  <span className="block bg-gradient-to-r from-indigo-200 to-slate-300 bg-clip-text text-transparent">
+                    Command Center
+                  </span>
                 </h2>
 
-                <p className="mt-5 max-w-xl text-base leading-7 text-slate-400">
+                <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-300">
                   Centralized access for workforce, payroll, finance,
                   approvals, apartment operations, and audit control.
                 </p>
@@ -302,27 +313,18 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3 rounded-3xl border border-blue-500/20 bg-slate-950/70 p-4">
-                <div>
-                  <p className="text-2xl font-black text-blue-300">1</p>
-                  <p className="text-xs text-slate-400">Platform</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-blue-300">100%</p>
-                  <p className="text-xs text-slate-400">Controlled Access</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-blue-300">Pilot</p>
-                  <p className="text-xs text-slate-400">Ready</p>
-                </div>
+              <div className="grid grid-cols-3 gap-3 rounded-3xl border border-white/10 bg-slate-950/55 p-4 shadow-lg shadow-black/20">
+                <Metric value="1" label="Platform" />
+                <Metric value="100%" label="Controlled Access" />
+                <Metric value="Pilot" label="Ready" />
               </div>
             </div>
           </div>
 
-          <div className="relative p-6 sm:p-10 xl:p-12">
+          <div className="relative bg-slate-950/55 p-6 sm:p-10 xl:p-12">
             <div className="mx-auto flex min-h-[620px] max-w-md flex-col justify-center">
               <div className="mb-8">
-                <p className="text-xs font-black uppercase tracking-[0.28em] text-blue-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-200">
                   Secure Login
                 </p>
 
@@ -330,46 +332,51 @@ export default function LoginPage() {
                   Welcome back
                 </h2>
 
-                <p className="mt-3 text-sm leading-6 text-slate-400">
+                <p className="mt-3 text-sm font-medium leading-6 text-slate-400">
                   Sign in to access the OPSCORE operations dashboard.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-300">
+                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
                     Email
                   </label>
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-blue-400">
+
+                  <div className="flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-3 transition-all duration-200 focus-within:border-indigo-300/60 focus-within:ring-4 focus-within:ring-indigo-500/10">
                     <UserCheck size={18} className="text-slate-500" />
+
                     <input
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="Enter OPSCORE email"
                       autoComplete="email"
-                      className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
+                      className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-slate-600"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-300">
+                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
                     Password
                   </label>
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 focus-within:border-blue-400">
+
+                  <div className="flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-3 transition-all duration-200 focus-within:border-indigo-300/60 focus-within:ring-4 focus-within:ring-indigo-500/10">
                     <LockKeyhole size={18} className="text-slate-500" />
+
                     <input
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter password"
                       autoComplete="current-password"
-                      className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
+                      className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-slate-600"
                     />
+
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
-                      className="rounded-lg p-1 text-slate-500 hover:bg-slate-800 hover:text-white"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all duration-200 hover:bg-white/10 hover:text-white"
                     >
                       {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                     </button>
@@ -377,7 +384,7 @@ export default function LoginPage() {
                 </div>
 
                 {errorMessage && (
-                  <div className="flex gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                  <div className="flex gap-3 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm font-bold leading-5 text-red-200">
                     <AlertCircle size={18} className="mt-0.5 shrink-0" />
                     <p>{errorMessage}</p>
                   </div>
@@ -386,17 +393,17 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-5 text-sm font-black text-slate-950 shadow-lg shadow-black/25 transition-all duration-200 hover:bg-indigo-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isLoading ? "Checking access..." : "Sign In"}
                   {!isLoading && <ArrowRight size={18} />}
                 </button>
               </form>
 
-              <div className="mt-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
-                <div className="text-center text-xs text-blue-100/70">
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+                <div className="text-center text-xs font-medium leading-5 text-slate-400">
                   <p>Need access? Contact the system administrator.</p>
-                  <p className="mt-1 font-semibold text-blue-100">
+                  <p className="mt-1 font-bold text-slate-200">
                     Powered by OPSCORE · Developed & Designed by Jherome Antazo
                   </p>
                 </div>
@@ -419,19 +426,28 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border border-blue-500/20 bg-slate-950/70 p-5">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-lg shadow-black/10 transition-all duration-200 hover:border-indigo-300/30 hover:bg-white/[0.08]">
       <div className="flex items-start gap-4">
-        <div className="rounded-xl bg-blue-500/10 p-3 text-blue-300">
+        <div className="rounded-xl border border-white/10 bg-indigo-400/10 p-3 text-indigo-200">
           {icon}
         </div>
 
         <div>
           <h3 className="font-black text-white">{title}</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">
+          <p className="mt-1 text-sm font-medium leading-6 text-slate-400">
             {description}
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Metric({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <p className="text-2xl font-black text-indigo-200">{value}</p>
+      <p className="text-xs font-semibold text-slate-400">{label}</p>
     </div>
   );
 }
