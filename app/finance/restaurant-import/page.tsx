@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import * as XLSX from "xlsx";
 import { supabase } from "@/app/lib/supabase";
 
@@ -50,7 +51,7 @@ export default function RestaurantImportPage() {
           .replaceAll("₱", "")
           .replaceAll("PHP", "")
           .replace(/,/g, "")
-          .trim(),
+          .trim()
       ) || 0
     );
   };
@@ -86,7 +87,7 @@ export default function RestaurantImportPage() {
       if (!excelDate) return null;
 
       return `${excelDate.y}-${String(excelDate.m).padStart(2, "0")}-${String(
-        excelDate.d,
+        excelDate.d
       ).padStart(2, "0")}`;
     }
 
@@ -101,7 +102,7 @@ export default function RestaurantImportPage() {
 
     for (const target of possibleKeys) {
       const foundKey = keys.find(
-        (key) => key.toLowerCase().trim() === target.toLowerCase().trim(),
+        (key) => key.toLowerCase().trim() === target.toLowerCase().trim()
       );
 
       if (foundKey) return row[foundKey];
@@ -113,17 +114,17 @@ export default function RestaurantImportPage() {
   const getSummary = (rows: RestaurantSale[]) => {
     const totalRevenue = rows.reduce(
       (sum, row) => sum + Number(row.revenue || 0),
-      0,
+      0
     );
 
     const totalReceipts = rows.reduce(
       (sum, row) => sum + Number(row.receipts || 0),
-      0,
+      0
     );
 
     const totalCustomers = rows.reduce(
       (sum, row) => sum + Number(row.customers || 0),
-      0,
+      0
     );
 
     const averageReceipt = totalReceipts > 0 ? totalRevenue / totalReceipts : 0;
@@ -143,27 +144,36 @@ export default function RestaurantImportPage() {
 
     rows.forEach((row, index) => {
       const saleDate = normalizeDate(
-        getValue(row, ["Date", "date", "Sale Date", "Sales Date", "Business Date"]),
+        getValue(row, ["Date", "date", "Sale Date", "Sales Date", "Business Date"])
       );
 
       const revenue = cleanNumber(
-        getValue(row, ["Revenue", "revenue", "Sales", "Net Sales", "Gross Sales"]),
+        getValue(row, ["Revenue", "revenue", "Sales", "Net Sales", "Gross Sales"])
       );
 
       const receipts = cleanNumber(
-        getValue(row, ["Receipts", "receipts", "Transactions", "Orders"]),
+        getValue(row, ["Receipts", "receipts", "Transactions", "Orders"])
       );
 
       const customers = cleanNumber(
-        getValue(row, ["Customers", "customers", "Guests", "Guest Count"]),
+        getValue(row, ["Customers", "customers", "Guests", "Guest Count"])
       );
 
       const averageReceipt = cleanNumber(
-        getValue(row, ["Average Receipt", "average_receipt", "Avg Receipt", "Average Check"]),
+        getValue(row, [
+          "Average Receipt",
+          "average_receipt",
+          "Avg Receipt",
+          "Average Check",
+        ])
       );
 
       if (!saleDate) {
-        rejectedRows.push({ rowNumber: index + 2, reason: "Missing or invalid date", row });
+        rejectedRows.push({
+          rowNumber: index + 2,
+          reason: "Missing or invalid date",
+          row,
+        });
         return;
       }
 
@@ -186,7 +196,7 @@ export default function RestaurantImportPage() {
     action: string,
     description: string,
     newValue?: any,
-    severity: "info" | "warning" | "critical" = "info",
+    severity: "info" | "warning" | "critical" = "info"
   ) => {
     const { error } = await supabase.from(AUDIT_TABLE).insert({
       module: "Restaurant Sales Workbench",
@@ -311,7 +321,7 @@ export default function RestaurantImportPage() {
             sourceRows: rows.length,
             rejectedRows: rejectedRows.length,
           },
-          "warning",
+          "warning"
         );
         alert("No valid restaurant sales rows found. Please check the file columns.");
       }
@@ -326,7 +336,7 @@ export default function RestaurantImportPage() {
           fileName: file.name,
           error: String(error),
         },
-        "warning",
+        "warning"
       );
       alert("Excel preview failed.");
     } finally {
@@ -346,7 +356,7 @@ export default function RestaurantImportPage() {
     }
 
     const confirmClear = window.confirm(
-      `Delete all ${restaurantSales.length} imported restaurant sales records?\n\nThis will be recorded in Audit Trail.`,
+      `Delete all ${restaurantSales.length} imported restaurant sales records?\n\nThis will be recorded in Audit Trail.`
     );
 
     if (!confirmClear) return;
@@ -369,7 +379,7 @@ export default function RestaurantImportPage() {
           error,
           beforeSummary,
         },
-        "critical",
+        "critical"
       );
       alert("Failed to clear restaurant sales.");
       setIsImporting(false);
@@ -380,7 +390,7 @@ export default function RestaurantImportPage() {
       "DELETE_ALL_RECORDS",
       "Deleted all imported restaurant sales records",
       beforeSummary,
-      "warning",
+      "warning"
     );
 
     setRestaurantSales([]);
@@ -409,7 +419,7 @@ export default function RestaurantImportPage() {
           fileName: previewFileName,
           invalidRows: invalidRows.length,
         },
-        "warning",
+        "warning"
       );
       alert("Please upload a Poster export first.");
       return;
@@ -420,9 +430,13 @@ export default function RestaurantImportPage() {
 
     const confirmMessage = `${
       importMode === "replace" ? "Replace" : "Append / Update"
-    } restaurant sales?\n\nFile: ${previewFileName}\nRows: ${previewSummary.rows}\nRevenue: ${formatMoney(
-      previewSummary.totalRevenue,
-    )}\nReceipts: ${previewSummary.totalReceipts}\nCustomers: ${previewSummary.totalCustomers}\n\nInvalid rows skipped: ${invalidRows.length}`;
+    } restaurant sales?\n\nFile: ${previewFileName}\nRows: ${
+      previewSummary.rows
+    }\nRevenue: ${formatMoney(previewSummary.totalRevenue)}\nReceipts: ${
+      previewSummary.totalReceipts
+    }\nCustomers: ${previewSummary.totalCustomers}\n\nInvalid rows skipped: ${
+      invalidRows.length
+    }`;
 
     if (!window.confirm(confirmMessage)) return;
 
@@ -444,7 +458,7 @@ export default function RestaurantImportPage() {
             existingSummary,
             previewSummary,
           },
-          "critical",
+          "critical"
         );
         alert("Replace import failed while clearing existing records.");
         setIsImporting(false);
@@ -470,7 +484,7 @@ export default function RestaurantImportPage() {
             error,
             previewSummary,
           },
-          "critical",
+          "critical"
         );
         alert(`Import failed at rows ${i + 1} to ${i + batch.length}.`);
         setIsImporting(false);
@@ -480,7 +494,9 @@ export default function RestaurantImportPage() {
 
     await createAuditEntry(
       importMode === "replace" ? "IMPORT_REPLACE" : "IMPORT_APPEND",
-      `${importMode === "replace" ? "Replaced" : "Imported/updated"} restaurant sales from Poster POS file: ${previewFileName}`,
+      `${
+        importMode === "replace" ? "Replaced" : "Imported/updated"
+      } restaurant sales from Poster POS file: ${previewFileName}`,
       {
         fileName: previewFileName,
         mode: importMode,
@@ -488,7 +504,7 @@ export default function RestaurantImportPage() {
         imported: previewSummary,
         invalidRows: invalidRows.length,
       },
-      importMode === "replace" ? "warning" : "info",
+      importMode === "replace" ? "warning" : "info"
     );
 
     alert("Restaurant sales imported successfully.");
@@ -517,7 +533,7 @@ export default function RestaurantImportPage() {
 
     XLSX.writeFile(
       workbook,
-      `restaurant-sales-${selectedMonth}-${new Date().toISOString().split("T")[0]}.xlsx`,
+      `restaurant-sales-${selectedMonth}-${new Date().toISOString().split("T")[0]}.xlsx`
     );
 
     await createAuditEntry("EXPORT_EXCEL", "Exported restaurant sales Excel report", {
@@ -546,7 +562,9 @@ export default function RestaurantImportPage() {
   const filteredSales = useMemo(() => {
     if (selectedMonth === "all") return restaurantSales;
 
-    return restaurantSales.filter((row) => String(row.sale_date).startsWith(selectedMonth));
+    return restaurantSales.filter((row) =>
+      String(row.sale_date).startsWith(selectedMonth)
+    );
   }, [restaurantSales, selectedMonth]);
 
   const summary = useMemo(() => getSummary(filteredSales), [filteredSales]);
@@ -566,232 +584,387 @@ export default function RestaurantImportPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 space-y-6 overflow-x-hidden p-6">
-        <div className="flex flex-col gap-4 border-b border-slate-800 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-              Finance Workbench
-            </p>
-            <h1 className="mt-2 text-3xl font-bold">Restaurant Sales</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Import, validate, review, export, and audit Poster POS restaurant sales records.
-            </p>
-          </div>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="FINANCE / RESTAURANT SALES" />
 
-          <div className="flex flex-col gap-2 lg:items-end">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none lg:w-64"
-            >
-              <option value="all">All months</option>
-              {monthOptions.map((month) => (
-                <option key={month} value={month}>
-                  {month}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex gap-2">
-              <button
-                onClick={exportExcel}
-                disabled={isLoading || filteredSales.length === 0}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Export Excel
-              </button>
-
-              {canDelete && (
-                <button
-                  onClick={clearRestaurantSales}
-                  disabled={isImporting || restaurantSales.length === 0}
-                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Clear Data
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
-            title="Total Revenue"
-            value={formatMoney(summary.totalRevenue)}
-            subtitle="Based on imported restaurant sales"
-            success
-          />
-          <SummaryCard
-            title="Total Receipts"
-            value={String(summary.totalReceipts)}
-            subtitle="Number of paid transactions"
-          />
-          <SummaryCard
-            title="Customers"
-            value={String(summary.totalCustomers)}
-            subtitle="Guest/customer count from POS"
-          />
-          <SummaryCard
-            title="Average Receipt"
-            value={formatMoney(summary.averageReceipt)}
-            subtitle="Revenue divided by receipts"
-            warning
-          />
-        </section>
-
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="text-xl font-bold">Poster POS Import Panel</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Upload Excel or CSV file from Poster POS. Preview first, then append/update or replace.
-            </p>
-
-            {!canCreate && (
-              <div className="mt-4 rounded-xl border border-blue-500/20 bg-yellow-500/10 p-4 text-sm text-blue-100">
-                View-only access. Import and replace actions are disabled for your role.
-              </div>
-            )}
-
-            <div className="mt-5 rounded-xl border border-dashed border-slate-700 bg-slate-950 p-5">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleFileUpload}
-                disabled={isImporting || !canCreate}
-                className="w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
-              />
-
-              <div className="mt-5 rounded-xl bg-slate-900 p-4 text-sm">
-                <p className="font-semibold text-white">Expected columns</p>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-slate-400">
-                  <p>Date</p>
-                  <p>Revenue</p>
-                  <p>Receipts</p>
-                  <p>Customers</p>
-                  <p>Average Receipt</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl border border-slate-800 bg-slate-950 p-3">
-              <button
-                onClick={() => setImportMode("append")}
-                className={`rounded-lg px-3 py-2 text-sm font-bold ${
-                  importMode === "append"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-900 text-slate-400 hover:text-white"
-                }`}
-              >
-                Append / Update
-              </button>
-              <button
-                onClick={() => {
-                  if (!canDelete) {
-                    denyAccess("replace restaurant sales data");
-                    return;
-                  }
-
-                  setImportMode("replace");
-                }}
-                disabled={!canDelete}
-                className={`rounded-lg px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 ${
-                  importMode === "replace"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-900 text-slate-400 hover:text-white"
-                }`}
-              >
-                Replace All
-              </button>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-sm text-slate-400">Preview Summary</p>
-              <h3 className="mt-2 text-2xl font-bold">{previewSummary.rows} rows</h3>
-              <p className="mt-1 text-sm text-emerald-400">
-                {formatMoney(previewSummary.totalRevenue)} total preview revenue
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Invalid rows skipped: {invalidRows.length}
-              </p>
-              {previewFileName && (
-                <p className="mt-1 truncate text-xs text-slate-500">File: {previewFileName}</p>
-              )}
-            </div>
-
-            <button
-              onClick={importData}
-              disabled={isImporting || !canCreate || previewData.length === 0}
-              className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isImporting
-                ? "Importing..."
-                : importMode === "replace"
-                  ? "Confirm Replace Import"
-                  : "Confirm Append / Update"}
-            </button>
-          </section>
-
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg xl:col-span-2">
-            <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 className="text-xl font-bold">File Preview</h2>
-                <p className="text-sm text-slate-400">
-                  Check the uploaded data before saving.
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  FINANCE
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  Restaurant Sales
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+                  Import, validate, review, export, and audit Poster POS restaurant
+                  sales records for Vincent Resort operations.
                 </p>
               </div>
 
-              {previewData.length > 0 && (
-                <button
-                  onClick={clearPreview}
-                  className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800"
+              <div className="flex flex-col gap-3 sm:flex-row lg:items-center">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 >
-                  Clear Preview
+                  <option value="all">All months</option>
+                  {monthOptions.map((month) => (
+                    <option key={month} value={month}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={exportExcel}
+                  disabled={isLoading || filteredSales.length === 0}
+                  className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Export Excel
                 </button>
+
+                {canDelete && (
+                  <button
+                    onClick={clearRestaurantSales}
+                    disabled={isImporting || restaurantSales.length === 0}
+                    className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Clear Data
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              title="Total Revenue"
+              value={formatMoney(summary.totalRevenue)}
+              subtitle="Based on imported restaurant sales."
+            />
+            <SummaryCard
+              title="Total Receipts"
+              value={String(summary.totalReceipts)}
+              subtitle="Number of paid transactions."
+            />
+            <SummaryCard
+              title="Customers"
+              value={String(summary.totalCustomers)}
+              subtitle="Guest/customer count from POS."
+            />
+            <SummaryCard
+              title="Average Receipt"
+              value={formatMoney(summary.averageReceipt)}
+              subtitle="Revenue divided by receipts."
+            />
+          </section>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Import Preview
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">
+                      File Preview
+                    </h2>
+                    <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                      Check the uploaded Poster POS data before saving.
+                    </p>
+                  </div>
+
+                  {previewData.length > 0 && (
+                    <button
+                      onClick={clearPreview}
+                      className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                    >
+                      Clear Preview
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-b border-slate-100 p-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <MiniStat title="Rows" value={String(previewSummary.rows)} />
+                  <MiniStat
+                    title="Revenue"
+                    value={formatMoney(previewSummary.totalRevenue)}
+                  />
+                  <MiniStat
+                    title="Receipts"
+                    value={String(previewSummary.totalReceipts)}
+                  />
+                  <MiniStat
+                    title="Invalid"
+                    value={String(invalidRows.length)}
+                    danger={invalidRows.length > 0}
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-auto">
+                <table className="w-full min-w-[760px]">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4 text-right">Revenue</th>
+                      <th className="px-6 py-4 text-right">Receipts</th>
+                      <th className="px-6 py-4 text-right">Customers</th>
+                      <th className="px-6 py-4 text-right">Avg Receipt</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                    {previewData.slice(0, DISPLAY_LIMIT).map((row, index) => (
+                      <tr
+                        key={`${row.sale_date}-${index}`}
+                        className="transition-all duration-200 hover:bg-slate-50"
+                      >
+                        <td className="px-6 py-4 font-black text-slate-950">
+                          {formatDate(row.sale_date)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-black text-slate-950">
+                          {formatMoney(row.revenue)}
+                        </td>
+                        <td className="px-6 py-4 text-right">{row.receipts}</td>
+                        <td className="px-6 py-4 text-right">{row.customers}</td>
+                        <td className="px-6 py-4 text-right">
+                          {formatMoney(row.average_receipt)}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {previewData.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-14 text-center">
+                          <p className="text-sm font-black text-slate-950">
+                            No preview data
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-slate-500">
+                            Upload a Poster export to preview restaurant sales data.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {previewData.length > DISPLAY_LIMIT && (
+                <p className="border-t border-slate-100 px-6 py-4 text-xs font-medium text-slate-500">
+                  Showing first {DISPLAY_LIMIT} preview rows only. Full import
+                  includes all {previewData.length} rows.
+                </p>
               )}
+            </section>
+
+            <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Poster POS Import
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Import Panel
+              </h2>
+              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                Upload Excel or CSV from Poster POS. Preview first, then append,
+                update, or replace.
+              </p>
+
+              {!canCreate && (
+                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                  View-only access. Import and replace actions are disabled for your
+                  role.
+                </div>
+              )}
+
+              <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5">
+                <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Upload File
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFileUpload}
+                  disabled={isImporting || !canCreate}
+                  className="mt-2 h-11 w-full cursor-pointer rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 file:mr-4 file:h-9 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:text-xs file:font-bold file:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                />
+
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Expected Columns
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-700">
+                    <p>Date</p>
+                    <p>Revenue</p>
+                    <p>Receipts</p>
+                    <p>Customers</p>
+                    <p>Average Receipt</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3">
+                <button
+                  onClick={() => setImportMode("append")}
+                  className={`h-11 rounded-xl px-5 text-sm font-bold transition-all duration-200 active:scale-[0.98] ${
+                    importMode === "append"
+                      ? "bg-slate-950 text-white hover:bg-slate-800"
+                      : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Append / Update
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!canDelete) {
+                      denyAccess("replace restaurant sales data");
+                      return;
+                    }
+
+                    setImportMode("replace");
+                  }}
+                  disabled={!canDelete}
+                  className={`h-11 rounded-xl px-5 text-sm font-bold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+                    importMode === "replace"
+                      ? "bg-slate-950 text-white hover:bg-slate-800"
+                      : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Replace All
+                </button>
+              </div>
+
+              <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Preview Summary
+                </p>
+                <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  {previewSummary.rows} rows
+                </h3>
+                <p className="mt-2 text-sm font-semibold text-slate-700">
+                  {formatMoney(previewSummary.totalRevenue)} total preview revenue
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  Invalid rows skipped: {invalidRows.length}
+                </p>
+                {previewFileName && (
+                  <p className="mt-1 truncate text-xs font-bold text-slate-500">
+                    File: {previewFileName}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={importData}
+                disabled={isImporting || !canCreate || previewData.length === 0}
+                className="mt-5 h-11 w-full rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isImporting
+                  ? "Importing..."
+                  : importMode === "replace"
+                    ? "Confirm Replace Import"
+                    : "Confirm Append / Update"}
+              </button>
+            </aside>
+          </div>
+
+          {invalidRows.length > 0 && (
+            <section className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                Import Validation Warning
+              </p>
+              <h2 className="mt-1 text-xl font-black text-amber-700">
+                Rows Skipped
+              </h2>
+              <p className="mt-2 text-sm font-bold leading-6 text-amber-700">
+                {invalidRows.length} row(s) were skipped because the date was
+                missing or invalid.
+              </p>
+            </section>
+          )}
+
+          <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Sales Ledger
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    Restaurant Sales Ledger
+                  </h2>
+                  <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                    Saved daily sales records from Supabase.
+                  </p>
+                </div>
+
+                <p className="text-sm font-medium text-slate-500">
+                  Showing{" "}
+                  <span className="font-black text-slate-950">
+                    {filteredSales.length}
+                  </span>{" "}
+                  records
+                </p>
+              </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-              <MiniStat title="Rows" value={String(previewSummary.rows)} />
-              <MiniStat title="Revenue" value={formatMoney(previewSummary.totalRevenue)} />
-              <MiniStat title="Receipts" value={String(previewSummary.totalReceipts)} />
-              <MiniStat title="Invalid" value={String(invalidRows.length)} danger={invalidRows.length > 0} />
-            </div>
-
-            <div className="max-h-[420px] overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[760px] border-collapse text-sm">
-                <thead className="sticky top-0 bg-slate-950">
-                  <tr className="text-left text-slate-400">
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3 text-right">Revenue</th>
-                    <th className="px-4 py-3 text-right">Receipts</th>
-                    <th className="px-4 py-3 text-right">Customers</th>
-                    <th className="px-4 py-3 text-right">Avg Receipt</th>
+            <div className="overflow-auto">
+              <table className="w-full min-w-[820px]">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4 text-right">Revenue</th>
+                    <th className="px-6 py-4 text-right">Receipts</th>
+                    <th className="px-6 py-4 text-right">Customers</th>
+                    <th className="px-6 py-4 text-right">Avg Receipt</th>
+                    <th className="px-6 py-4">Source</th>
                   </tr>
                 </thead>
 
-                <tbody>
-                  {previewData.slice(0, DISPLAY_LIMIT).map((row, index) => (
-                    <tr key={`${row.sale_date}-${index}`} className="border-t border-slate-800 text-slate-200">
-                      <td className="px-4 py-3">{formatDate(row.sale_date)}</td>
-                      <td className="px-4 py-3 text-right text-emerald-400">
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {filteredSales.slice(0, DISPLAY_LIMIT).map((row) => (
+                    <tr
+                      key={row.id || row.sale_date}
+                      className="transition-all duration-200 hover:bg-slate-50"
+                    >
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {formatDate(row.sale_date)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-slate-950">
                         {formatMoney(row.revenue)}
                       </td>
-                      <td className="px-4 py-3 text-right">{row.receipts}</td>
-                      <td className="px-4 py-3 text-right">{row.customers}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-6 py-4 text-right">{row.receipts}</td>
+                      <td className="px-6 py-4 text-right">{row.customers}</td>
+                      <td className="px-6 py-4 text-right">
                         {formatMoney(row.average_receipt)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                          {row.source || "Poster POS"}
+                        </span>
                       </td>
                     </tr>
                   ))}
 
-                  {previewData.length === 0 && (
+                  {filteredSales.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-16 text-center text-slate-500">
-                        Upload a Poster export to preview restaurant sales data.
+                      <td colSpan={6} className="px-6 py-14 text-center">
+                        <p className="text-sm font-black text-slate-950">
+                          No restaurant sales found
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-slate-500">
+                          Upload restaurant sales or adjust the month filter.
+                        </p>
                       </td>
                     </tr>
                   )}
@@ -799,92 +972,14 @@ export default function RestaurantImportPage() {
               </table>
             </div>
 
-            {previewData.length > DISPLAY_LIMIT && (
-              <p className="mt-3 text-xs text-slate-400">
-                Showing first {DISPLAY_LIMIT} preview rows only. Full import includes all {previewData.length} rows.
+            {filteredSales.length > DISPLAY_LIMIT && (
+              <p className="border-t border-slate-100 px-6 py-4 text-xs font-medium text-slate-500">
+                Showing first {DISPLAY_LIMIT} rows only. Export Excel still includes
+                all {filteredSales.length} records.
               </p>
             )}
           </section>
         </div>
-
-        {invalidRows.length > 0 && (
-          <section className="rounded-2xl border border-blue-700 bg-blue-950/20 p-5">
-            <h2 className="text-xl font-black text-blue-200">Import Validation Warning</h2>
-            <p className="mt-2 text-sm text-blue-100">
-              {invalidRows.length} row(s) were skipped because the date was missing or invalid.
-            </p>
-          </section>
-        )}
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Restaurant Sales Ledger</h2>
-              <p className="text-sm text-slate-400">
-                Saved daily sales records from Supabase.
-              </p>
-            </div>
-
-            <p className="text-sm text-slate-400">
-              Showing <span className="font-semibold text-white">{filteredSales.length}</span> records
-            </p>
-          </div>
-
-          <div className="overflow-auto rounded-xl border border-slate-800">
-            <table className="w-full min-w-[820px] border-collapse text-sm">
-              <thead className="bg-slate-950">
-                <tr className="text-left text-slate-400">
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3 text-right">Revenue</th>
-                  <th className="px-4 py-3 text-right">Receipts</th>
-                  <th className="px-4 py-3 text-right">Customers</th>
-                  <th className="px-4 py-3 text-right">Avg Receipt</th>
-                  <th className="px-4 py-3">Source</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredSales.slice(0, DISPLAY_LIMIT).map((row) => (
-                  <tr
-                    key={row.id || row.sale_date}
-                    className="border-t border-slate-800 text-slate-200 transition hover:bg-slate-800/40"
-                  >
-                    <td className="px-4 py-3 font-medium text-white">
-                      {formatDate(row.sale_date)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-emerald-400">
-                      {formatMoney(row.revenue)}
-                    </td>
-                    <td className="px-4 py-3 text-right">{row.receipts}</td>
-                    <td className="px-4 py-3 text-right">{row.customers}</td>
-                    <td className="px-4 py-3 text-right">
-                      {formatMoney(row.average_receipt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                        {row.source || "Poster POS"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-
-                {filteredSales.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-16 text-center text-slate-500">
-                      No restaurant sales found for this filter.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredSales.length > DISPLAY_LIMIT && (
-            <p className="mt-3 text-xs text-slate-400">
-              Showing first {DISPLAY_LIMIT} rows only. Export Excel still includes all {filteredSales.length} records.
-            </p>
-          )}
-        </section>
       </main>
     </div>
   );
@@ -894,30 +989,24 @@ function SummaryCard({
   title,
   value,
   subtitle,
-  success = false,
-  warning = false,
 }: {
   title: string;
   value: string;
   subtitle?: string;
-  success?: boolean;
-  warning?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        success
-          ? "border-emerald-500/20 bg-emerald-500/10"
-          : warning
-            ? "border-blue-500/20 bg-blue-500/10"
-            : "border-slate-800 bg-slate-900"
-      }`}
-    >
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-3 text-3xl font-bold ${success ? "text-emerald-400" : warning ? "text-blue-300" : "text-white"}`}>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
         {value}
       </h2>
-      {subtitle && <p className="mt-2 text-xs text-slate-500">{subtitle}</p>}
+      {subtitle && (
+        <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }
@@ -932,9 +1021,25 @@ function MiniStat({
   danger?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <p className="text-xs text-slate-500">{title}</p>
-      <h3 className={`mt-1 text-lg font-black ${danger ? "text-red-400" : "text-white"}`}>
+    <div
+      className={`rounded-2xl border px-4 py-3 ${
+        danger
+          ? "border-red-200 bg-red-50"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <p
+        className={`text-[11px] font-bold uppercase tracking-[0.16em] ${
+          danger ? "text-red-700" : "text-slate-500"
+        }`}
+      >
+        {title}
+      </p>
+      <h3
+        className={`mt-1 text-lg font-black ${
+          danger ? "text-red-700" : "text-slate-950"
+        }`}
+      >
         {value}
       </h3>
     </div>

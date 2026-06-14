@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 
@@ -51,20 +52,20 @@ export default function FinanceSettingsPage() {
       .select("*")
       .order("name", { ascending: true });
 
-    const { data: cashMovementSourcesData, error: cashMovementSourcesError } = await supabase
-      .from("finance_cash_sources")
-      .select("*")
-      .order("name", { ascending: true });
-
+    const { data: cashMovementSourcesData, error: cashMovementSourcesError } =
+      await supabase
+        .from("finance_cash_sources")
+        .select("*")
+        .order("name", { ascending: true });
 
     if (categoriesError) console.log("GET CATEGORIES ERROR:", categoriesError);
     if (paymentsError) console.log("GET PAYMENTS ERROR:", paymentsError);
     if (areasError) console.log("GET AREAS ERROR:", areasError);
     if (sourcesError) console.log("GET SOURCES ERROR:", sourcesError);
     if (revenueError) console.log("GET REVENUE ERROR:", revenueError);
-    if (cashMovementSourcesError) console.log("GET CASH MOVEMENT SOURCES ERROR:", cashMovementSourcesError);
-
-    console.log("EXPENSE CATEGORIES COUNT:", categories?.length);
+    if (cashMovementSourcesError) {
+      console.log("GET CASH MOVEMENT SOURCES ERROR:", cashMovementSourcesError);
+    }
 
     setExpenseCategories(categories || []);
     setPaymentMethods(payments || []);
@@ -87,7 +88,10 @@ export default function FinanceSettingsPage() {
       is_active: true,
     };
 
-    if (table === "expense_categories" && value.toLowerCase().includes("cash advance")) {
+    if (
+      table === "expense_categories" &&
+      value.toLowerCase().includes("cash advance")
+    ) {
       payload.description = "Employee cash advance linked to payroll deduction.";
       payload.is_employee_related = true;
       payload.is_payroll_deductible = true;
@@ -124,7 +128,6 @@ export default function FinanceSettingsPage() {
     getFinanceSettings();
   };
 
-
   const deleteItem = async (table: string, id: string, name: string) => {
     const confirmed = window.confirm(
       `Delete "${name}"? This should only be used for newly added or unused settings.`
@@ -132,14 +135,13 @@ export default function FinanceSettingsPage() {
 
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from(table).delete().eq("id", id);
 
     if (error) {
       console.log("DELETE ITEM ERROR:", error);
-      alert("Failed to delete item. It may already be linked to existing records. Use Disable instead.");
+      alert(
+        "Failed to delete item. It may already be linked to existing records. Use Disable instead."
+      );
       return;
     }
 
@@ -170,7 +172,6 @@ export default function FinanceSettingsPage() {
 
   const inactiveMasterData = Math.max(totalMasterData - totalActiveMasterData, 0);
 
-
   useEffect(() => {
     getFinanceSettings();
   }, []);
@@ -178,193 +179,216 @@ export default function FinanceSettingsPage() {
   /// UI
   return (
     <PageGuard moduleKey="finance_settings">
-      <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+        <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-              Finance Administration
-            </p>
-            <h1 className="mt-2 text-3xl font-bold">Finance Settings</h1>
-            <p className="mt-2 max-w-5xl text-sm text-slate-400">
-              Maintain controlled master data for expenses, cash movements, revenue sources, and finance reports.
-            </p>
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="FINANCE / SETTINGS" />
+
+          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                    FINANCE
+                  </p>
+                  <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                    Finance Settings
+                  </h1>
+                  <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+                    Maintain controlled master data for expenses, cash movements,
+                    revenue sources, and finance reports.
+                  </p>
+                </div>
+
+                <button
+                  onClick={getFinanceSettings}
+                  disabled={loading}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {loading ? "Refreshing..." : "Refresh Settings"}
+                </button>
+              </div>
+            </section>
+
+            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryCard title="Master Data Items" value={totalMasterData} />
+              <SummaryCard title="Active Items" value={totalActiveMasterData} />
+              <SummaryCard title="Inactive Items" value={inactiveMasterData} />
+              <SummaryCard title="Payroll Rules" value={payrollDeductibleCategories} />
+            </section>
+
+            <section className="mb-6 rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">
+                Finance Control Center
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Master Data Governance
+              </h2>
+              <p className="mt-2 max-w-4xl text-sm font-bold leading-6 text-blue-700">
+                Use Disable for master data already connected to historical records.
+                Delete should only be used for newly added or unused items.
+              </p>
+            </section>
+
+            <SectionHeader
+              title="Expense Settings"
+              description="Used by expense requests, manual expenses, approvals, cash releases, liquidation, payroll deductions, and reports."
+            />
+
+            <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <SettingsPanel
+                title="Expense Categories"
+                description="Master list used by the Expenses page category dropdown."
+                inputValue={newCategory}
+                setInputValue={setNewCategory}
+                items={expenseCategories}
+                tableName="expense_categories"
+                addItem={() =>
+                  addItem("expense_categories", newCategory, () =>
+                    setNewCategory("")
+                  )
+                }
+                toggleItem={toggleItem}
+                deleteItem={deleteItem}
+                loading={loading}
+              />
+
+              <SettingsPanel
+                title="Expense Areas"
+                description="Where the expense should be charged."
+                inputValue={newExpenseArea}
+                setInputValue={setNewExpenseArea}
+                items={expenseAreas}
+                tableName="finance_expense_areas"
+                addItem={() =>
+                  addItem("finance_expense_areas", newExpenseArea, () =>
+                    setNewExpenseArea("")
+                  )
+                }
+                toggleItem={toggleItem}
+                deleteItem={deleteItem}
+                loading={loading}
+              />
+
+              <SettingsPanel
+                title="Expense Sources"
+                description="Supplier, store, vendor, or purchase source."
+                inputValue={newExpenseSource}
+                setInputValue={setNewExpenseSource}
+                items={expenseSources}
+                tableName="finance_expense_sources"
+                addItem={() =>
+                  addItem("finance_expense_sources", newExpenseSource, () =>
+                    setNewExpenseSource("")
+                  )
+                }
+                toggleItem={toggleItem}
+                deleteItem={deleteItem}
+                loading={loading}
+              />
+
+              <SettingsPanel
+                title="Payment Methods"
+                description="How the expense was paid."
+                inputValue={newPaymentMethod}
+                setInputValue={setNewPaymentMethod}
+                items={paymentMethods}
+                tableName="finance_payment_methods"
+                addItem={() =>
+                  addItem("finance_payment_methods", newPaymentMethod, () =>
+                    setNewPaymentMethod("")
+                  )
+                }
+                toggleItem={toggleItem}
+                deleteItem={deleteItem}
+                loading={loading}
+              />
+            </section>
+
+            <SectionHeader
+              title="Cash Movement Settings"
+              description="Used by Cash Management source dropdowns. Add or disable sources without editing code."
+            />
+
+            <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <SettingsPanel
+                title="Cash Movement Sources"
+                description="Master list used by the Cash Management source dropdown."
+                inputValue={newCashMovementSource}
+                setInputValue={setNewCashMovementSource}
+                items={cashMovementSources}
+                tableName="finance_cash_sources"
+                addItem={() =>
+                  addItem("finance_cash_sources", newCashMovementSource, () =>
+                    setNewCashMovementSource("")
+                  )
+                }
+                toggleItem={toggleItem}
+                deleteItem={deleteItem}
+                loading={loading}
+              />
+            </section>
+
+            <SectionHeader
+              title="Revenue Settings"
+              description="Used for sales and future profit dashboard grouping."
+            />
+
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <SettingsPanel
+                title="Revenue Sources"
+                description="Where the business income came from."
+                inputValue={newRevenueSource}
+                setInputValue={setNewRevenueSource}
+                items={revenueSources}
+                tableName="finance_revenue_sources"
+                addItem={() =>
+                  addItem("finance_revenue_sources", newRevenueSource, () =>
+                    setNewRevenueSource("")
+                  )
+                }
+                toggleItem={toggleItem}
+                deleteItem={deleteItem}
+                loading={loading}
+              />
+            </section>
           </div>
-
-          <button
-            onClick={getFinanceSettings}
-            disabled={loading}
-            className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-          >
-            {loading ? "Refreshing..." : "Refresh Settings"}
-          </button>
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Master Data Items" value={totalMasterData} />
-          <SummaryCard title="Active Items" value={totalActiveMasterData} color="text-blue-300" />
-          <SummaryCard title="Inactive Items" value={inactiveMasterData} color="text-slate-300" />
-          <SummaryCard title="Payroll Rules" value={payrollDeductibleCategories} color="text-blue-300" />
-        </section>
-
-        <section className="mb-8 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
-          <p className="text-sm font-bold text-blue-200">Finance Control Center</p>
-          <p className="mt-1 max-w-5xl text-sm leading-6 text-blue-100/80">
-            Use Disable for master data already connected to historical records. Delete should only be used for newly added or unused items.
-          </p>
-        </section>
-
-        <section className="mb-8">
-          <SectionHeader
-            title="Expense Settings"
-            description="Used by expense requests, manual expenses, approvals, cash releases, liquidation, payroll deductions, and reports."
-          />
-
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <SettingsPanel
-              title="Expense Categories"
-              description="Master list used by the Expenses page category dropdown."
-              inputValue={newCategory}
-              setInputValue={setNewCategory}
-              items={expenseCategories}
-              tableName="expense_categories"
-              addItem={() =>
-                addItem("expense_categories", newCategory, () =>
-                  setNewCategory("")
-                )
-              }
-              toggleItem={toggleItem}
-              deleteItem={deleteItem}
-              loading={loading}
-            />
-
-            <SettingsPanel
-              title="Expense Areas"
-              description="Where the expense should be charged."
-              inputValue={newExpenseArea}
-              setInputValue={setNewExpenseArea}
-              items={expenseAreas}
-              tableName="finance_expense_areas"
-              addItem={() =>
-                addItem("finance_expense_areas", newExpenseArea, () =>
-                  setNewExpenseArea("")
-                )
-              }
-              toggleItem={toggleItem}
-              deleteItem={deleteItem}
-              loading={loading}
-            />
-
-            <SettingsPanel
-              title="Expense Sources"
-              description="Supplier, store, vendor, or purchase source."
-              inputValue={newExpenseSource}
-              setInputValue={setNewExpenseSource}
-              items={expenseSources}
-              tableName="finance_expense_sources"
-              addItem={() =>
-                addItem("finance_expense_sources", newExpenseSource, () =>
-                  setNewExpenseSource("")
-                )
-              }
-              toggleItem={toggleItem}
-              deleteItem={deleteItem}
-              loading={loading}
-            />
-
-            <SettingsPanel
-              title="Payment Methods"
-              description="How the expense was paid."
-              inputValue={newPaymentMethod}
-              setInputValue={setNewPaymentMethod}
-              items={paymentMethods}
-              tableName="finance_payment_methods"
-              addItem={() =>
-                addItem("finance_payment_methods", newPaymentMethod, () =>
-                  setNewPaymentMethod("")
-                )
-              }
-              toggleItem={toggleItem}
-              deleteItem={deleteItem}
-              loading={loading}
-            />
-          </div>
-        </section>
-
-        <section className="mb-8">
-          <SectionHeader
-            title="Cash Movement Settings"
-            description="Used by Cash Management source dropdowns. Add or disable sources without editing code."
-          />
-
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <SettingsPanel
-              title="Cash Movement Sources"
-              description="Master list used by the Cash Management source dropdown."
-              inputValue={newCashMovementSource}
-              setInputValue={setNewCashMovementSource}
-              items={cashMovementSources}
-              tableName="finance_cash_sources"
-              addItem={() =>
-                addItem("finance_cash_sources", newCashMovementSource, () =>
-                  setNewCashMovementSource("")
-                )
-              }
-              toggleItem={toggleItem}
-              deleteItem={deleteItem}
-              loading={loading}
-            />
-          </div>
-        </section>
-
-        <section>
-          <SectionHeader
-            title="Revenue Settings"
-            description="Used for sales and future profit dashboard grouping."
-          />
-
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <SettingsPanel
-              title="Revenue Sources"
-              description="Where the business income came from."
-              inputValue={newRevenueSource}
-              setInputValue={setNewRevenueSource}
-              items={revenueSources}
-              tableName="finance_revenue_sources"
-              addItem={() =>
-                addItem("finance_revenue_sources", newRevenueSource, () =>
-                  setNewRevenueSource("")
-                )
-              }
-              toggleItem={toggleItem}
-              deleteItem={deleteItem}
-              loading={loading}
-            />
-          </div>
-        </section>
-      </main>
+        </main>
       </div>
     </PageGuard>
   );
 }
 
-
-function SummaryCard({ title, value, color = "text-white" }: any) {
+function SummaryCard({ title, value }: { title: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`mt-2 text-2xl font-bold ${color}`}>{value}</h2>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </h2>
     </div>
   );
 }
 
-function SectionHeader({ title, description }: any) {
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div className="mb-4">
-      <h2 className="text-xl font-bold">{title}</h2>
-      <p className="mt-1 max-w-4xl text-sm text-slate-400">{description}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        Settings Group
+      </p>
+      <h2 className="mt-1 text-xl font-black text-slate-950">{title}</h2>
+      <p className="mt-1 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+        {description}
+      </p>
     </div>
   );
 }
@@ -385,58 +409,65 @@ function SettingsPanel({
   const inactiveCount = items.length - activeCount;
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-      <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h3 className="text-lg font-bold">{title}</h3>
-          <p className="mt-1 text-sm text-slate-400">{description}</p>
-          <p className="mt-2 text-xs text-slate-500">
-            Table: <span className="text-blue-300">{tableName}</span>
-          </p>
-        </div>
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-6 py-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              Master Data
+            </p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">{title}</h3>
+            <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+              {description}
+            </p>
+            <p className="mt-2 text-xs font-bold text-slate-400">
+              Table: <span className="text-slate-700">{tableName}</span>
+            </p>
+          </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-400">
-          Total: <span className="font-bold text-white">{items.length}</span>{" "}
-          · Active:{" "}
-          <span className="font-bold text-emerald-400">{activeCount}</span> ·
-          Inactive:{" "}
-          <span className="font-bold text-red-400">{inactiveCount}</span>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+            Total: <span className="text-slate-950">{items.length}</span> · Active:{" "}
+            <span className="text-emerald-700">{activeCount}</span> · Inactive:{" "}
+            <span className="text-red-700">{inactiveCount}</span>
+          </div>
         </div>
       </div>
 
-      <div className="mb-5 flex gap-2">
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Add new item..."
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
-        />
+      <div className="border-b border-slate-100 p-6">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Add new item..."
+            className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+          />
 
-        <button
-          onClick={addItem}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
-        >
-          Add
-        </button>
+          <button
+            onClick={addItem}
+            className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+          >
+            Add
+          </button>
+        </div>
       </div>
 
-      <div className="max-h-[520px] overflow-auto rounded-xl border border-slate-800">
-        <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 bg-slate-900">
-            <tr className="border-b border-slate-800 text-left text-slate-400">
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Rules</th>
-              <th className="px-4 py-3">Action</th>
+      <div className="max-h-[520px] overflow-auto">
+        <table className="w-full min-w-[760px]">
+          <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+            <tr>
+              <th className="px-6 py-4">Name</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4">Rules</th>
+              <th className="px-6 py-4 text-right">Action</th>
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
             {loading && (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-slate-500">
-                  Loading...
+                <td colSpan={4} className="px-6 py-14 text-center">
+                  <p className="text-sm font-black text-slate-950">Loading...</p>
                 </td>
               </tr>
             )}
@@ -445,54 +476,58 @@ function SettingsPanel({
               items.map((item: any) => (
                 <tr
                   key={item.id}
-                  className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
+                  className="transition-all duration-200 hover:bg-slate-50"
                 >
-                  <td className="px-4 py-3 font-medium">{item.name}</td>
-
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex w-24 justify-center rounded-full border px-3 py-1 text-xs font-semibold ${
-                        item.is_active
-                          ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
-                          : "border-slate-600 bg-slate-800 text-slate-300"
-                      }`}
-                    >
-                      {item.is_active ? "Active" : "Inactive"}
-                    </span>
+                  <td className="px-6 py-4 font-black text-slate-950">
+                    {item.name}
                   </td>
 
-                  <td className="px-4 py-3">
-                    {item.is_payroll_deductible ? (
-                      <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-blue-300">
-                        Payroll Deductible
-                      </span>
-                    ) : item.is_employee_related ? (
-                      <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-400">
-                        Employee Related
+                  <td className="px-6 py-4">
+                    {item.is_active ? (
+                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                        Active
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-500">Standard</span>
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                        Inactive
+                      </span>
                     )}
                   </td>
 
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
+                  <td className="px-6 py-4">
+                    {item.is_payroll_deductible ? (
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                        Payroll Deductible
+                      </span>
+                    ) : item.is_employee_related ? (
+                      <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                        Employee Related
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                        Standard
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <button
                         onClick={() =>
                           toggleItem(tableName, item.id, item.is_active)
                         }
-                        className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                        className={
                           item.is_active
-                            ? "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                            : "bg-blue-500/10 text-blue-300 hover:bg-blue-600 hover:text-white"
-                        }`}
+                            ? "h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                            : "h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98]"
+                        }
                       >
                         {item.is_active ? "Disable" : "Enable"}
                       </button>
 
                       <button
                         onClick={() => deleteItem(tableName, item.id, item.name)}
-                        className="rounded-lg bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-red-600 hover:text-white"
+                        className="h-10 rounded-xl bg-red-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
                       >
                         Delete
                       </button>
@@ -503,8 +538,13 @@ function SettingsPanel({
 
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-slate-500">
-                  No items found.
+                <td colSpan={4} className="px-6 py-14 text-center">
+                  <p className="text-sm font-black text-slate-950">
+                    No items found
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Add a new item using the field above.
+                  </p>
                 </td>
               </tr>
             )}

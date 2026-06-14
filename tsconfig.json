@@ -35,7 +35,7 @@
     "**/*.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "components/TopNavbarTemp"  ],
   "exclude": [
     "node_modules",
     ".next"

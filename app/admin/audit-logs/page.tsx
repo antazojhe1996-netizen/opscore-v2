@@ -10,6 +10,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 
 type Severity = "info" | "warning" | "critical";
@@ -59,27 +60,41 @@ export default function AuditLogsPage() {
   };
 
   const getSeverityStyle = (severity: Severity) => {
-    if (severity === "critical") return "bg-blue-500/10 text-blue-300 border-blue-500/30";
-    if (severity === "warning") return "bg-blue-500/10 text-blue-300 border-blue-500/30";
-    return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+    if (severity === "critical") {
+      return "border-red-200 bg-red-50 text-red-700";
+    }
+
+    if (severity === "warning") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+
+    return "border-blue-200 bg-blue-50 text-blue-700";
   };
 
   const getActionStyle = (action: string) => {
     const value = String(action || "").toLowerCase();
 
-    if (value.includes("delete") || value.includes("void") || value.includes("cancel")) {
-      return "text-blue-300";
+    if (
+      value.includes("delete") ||
+      value.includes("void") ||
+      value.includes("cancel")
+    ) {
+      return "text-red-700";
     }
 
     if (value.includes("update") || value.includes("edit")) {
-      return "text-blue-300";
+      return "text-amber-700";
     }
 
-    if (value.includes("create") || value.includes("insert") || value.includes("record")) {
-      return "text-blue-300";
+    if (
+      value.includes("create") ||
+      value.includes("insert") ||
+      value.includes("record")
+    ) {
+      return "text-emerald-700";
     }
 
-    return "text-slate-300";
+    return "text-slate-950";
   };
 
   const getUserName = (log: any) =>
@@ -90,17 +105,10 @@ export default function AuditLogsPage() {
     "System / Unknown";
 
   const getModuleName = (log: any) =>
-    log.module_name ||
-    log.module ||
-    log.module_key ||
-    "General";
+    log.module_name || log.module || log.module_key || "General";
 
   const getDescription = (log: any) =>
-    log.description ||
-    log.summary ||
-    log.details ||
-    log.action_description ||
-    "-";
+    log.description || log.summary || log.details || log.action_description || "-";
 
   /// CALCULATIONS
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -128,8 +136,8 @@ export default function AuditLogsPage() {
     });
   }, [logs, moduleFilter, severityFilter, searchTerm]);
 
-  const logsToday = logs.filter((log) =>
-    String(log.created_at || "").slice(0, 10) === todayKey
+  const logsToday = logs.filter(
+    (log) => String(log.created_at || "").slice(0, 10) === todayKey
   );
 
   const criticalLogs = logs.filter(
@@ -159,244 +167,280 @@ export default function AuditLogsPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <div className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/20 lg:p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
-              OPSCORE Admin
-            </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="ADMIN / AUDIT LOGS" />
 
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Audit Logs</h1>
-
-            <p className="mt-2 text-slate-400">
-              Track sensitive actions across finance, payroll, employees, apartment, cash drawer, and system settings.
-            </p>
-          </div>
-
-          <button
-            onClick={loadLogs}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800"
-          >
-            {loading ? "Loading..." : "Refresh Logs"}
-          </button>
-        </div>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
-            title="Actions Today"
-            value={logsToday.length}
-            icon={<ClipboardList size={22} />}
-            color="text-blue-400"
-          />
-
-          <SummaryCard
-            title="Users Active Today"
-            value={uniqueUsersToday}
-            icon={<UserCheck size={22} />}
-            color="text-blue-300"
-          />
-
-          <SummaryCard
-            title="Warning Logs"
-            value={warningLogs.length}
-            icon={<AlertTriangle size={22} />}
-            color="text-blue-300"
-          />
-
-          <SummaryCard
-            title="Critical Logs"
-            value={criticalLogs.length}
-            icon={<ShieldCheck size={22} />}
-            color="text-blue-300"
-          />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <div className="mb-4 flex items-center gap-3">
-              <Database className="text-blue-300" size={26} />
-
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 className="text-2xl font-black">Audit Trail</h2>
-                <p className="text-sm text-slate-400">
-                  Latest 500 audit entries from the database.
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  ADMIN
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  Audit Logs
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+                  Track sensitive actions across finance, payroll, employees,
+                  apartment, cash drawer, reservations, and system settings.
                 </p>
               </div>
-            </div>
 
-            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search user, action, module..."
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none md:col-span-2"
-              />
-
-              <select
-                value={moduleFilter}
-                onChange={(e) => setModuleFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+              <button
+                onClick={loadLogs}
+                disabled={loading}
+                className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <option value="all">All Modules</option>
-                {moduleOptions.map((module) => (
-                  <option key={module} value={module}>
-                    {module}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={severityFilter}
-                onChange={(e) => setSeverityFilter(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-              >
-                <option value="all">All Severity</option>
-                <option value="info">Info</option>
-                <option value="warning">Warning</option>
-                <option value="critical">Critical</option>
-              </select>
+                {loading ? "Loading..." : "Refresh Logs"}
+              </button>
             </div>
+          </section>
 
-            <div className="overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1100px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Date / Time</th>
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Module</th>
-                    <th className="px-4 py-3">Action</th>
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3">Severity</th>
-                  </tr>
-                </thead>
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              title="Actions Today"
+              value={logsToday.length}
+              icon={<ClipboardList size={22} />}
+            />
 
-                <tbody>
-                  {filteredLogs.map((log) => {
-                    const severity = String(log.severity || "info").toLowerCase() as Severity;
+            <SummaryCard
+              title="Users Active Today"
+              value={uniqueUsersToday}
+              icon={<UserCheck size={22} />}
+            />
 
-                    return (
-                      <tr
-                        key={log.id}
-                        className="border-t border-slate-800 hover:bg-slate-800/40"
-                      >
-                        <td className="px-4 py-3 text-slate-300">
-                          {formatDateTime(log.created_at)}
-                        </td>
+            <SummaryCard
+              title="Warning Logs"
+              value={warningLogs.length}
+              icon={<AlertTriangle size={22} />}
+            />
 
-                        <td className="px-4 py-3 font-bold text-white">
-                          {getUserName(log)}
-                        </td>
+            <SummaryCard
+              title="Critical Logs"
+              value={criticalLogs.length}
+              icon={<ShieldCheck size={22} />}
+            />
+          </section>
 
-                        <td className="px-4 py-3">
-                          {getModuleName(log)}
-                        </td>
+          <section className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <div className="flex items-center gap-3">
+                  <Database className="h-6 w-6 text-slate-700" />
 
-                        <td className={`px-4 py-3 font-bold ${getActionStyle(log.action)}`}>
-                          {log.action || "-"}
-                        </td>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Audit Trail
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">
+                      Latest Audit Entries
+                    </h2>
+                    <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                      Latest 500 audit entries from the database.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-                        <td className="px-4 py-3 text-slate-400">
-                          {getDescription(log)}
-                        </td>
+              <div className="border-b border-slate-100 p-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search user, action, module..."
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 md:col-span-2"
+                  />
 
-                        <td className="px-4 py-3">
-                          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getSeverityStyle(severity)}`}>
-                            {severity.toUpperCase()}
-                          </span>
+                  <select
+                    value={moduleFilter}
+                    onChange={(e) => setModuleFilter(e.target.value)}
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="all">All Modules</option>
+                    {moduleOptions.map((module) => (
+                      <option key={module} value={module}>
+                        {module}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={severityFilter}
+                    onChange={(e) => setSeverityFilter(e.target.value)}
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="all">All Severity</option>
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-auto">
+                <table className="w-full min-w-[1100px]">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-6 py-4">Date / Time</th>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Module</th>
+                      <th className="px-6 py-4">Action</th>
+                      <th className="px-6 py-4">Description</th>
+                      <th className="px-6 py-4">Severity</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                    {filteredLogs.map((log) => {
+                      const severity = String(
+                        log.severity || "info"
+                      ).toLowerCase() as Severity;
+
+                      return (
+                        <tr
+                          key={log.id}
+                          className="transition-all duration-200 hover:bg-slate-50"
+                        >
+                          <td className="px-6 py-4">
+                            {formatDateTime(log.created_at)}
+                          </td>
+
+                          <td className="px-6 py-4 font-black text-slate-950">
+                            {getUserName(log)}
+                          </td>
+
+                          <td className="px-6 py-4">{getModuleName(log)}</td>
+
+                          <td
+                            className={`px-6 py-4 font-black ${getActionStyle(
+                              log.action
+                            )}`}
+                          >
+                            {log.action || "-"}
+                          </td>
+
+                          <td className="px-6 py-4 text-slate-500">
+                            {getDescription(log)}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <span
+                              className={`rounded-full border px-3 py-1 text-xs font-bold ${getSeverityStyle(
+                                severity
+                              )}`}
+                            >
+                              {severity.toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {filteredLogs.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-14 text-center">
+                          <p className="text-sm font-black text-slate-950">
+                            {loading ? "Loading audit logs..." : "No audit logs found"}
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-slate-500">
+                            Audit entries will appear here once sensitive actions are
+                            logged.
+                          </p>
                         </td>
                       </tr>
-                    );
-                  })}
-
-                  {filteredLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
-                        {loading
-                          ? "Loading audit logs..."
-                          : "No audit logs found. Create the audit_logs table and start logging sensitive actions."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <section className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="text-blue-300" size={24} />
-                <h2 className="text-xl font-black text-white">Critical Changes</h2>
+                    )}
+                  </tbody>
+                </table>
               </div>
+            </section>
 
-              <div className="mt-5 space-y-3">
-                {recentCritical.length > 0 ? (
-                  recentCritical.map((log) => (
-                    <div key={log.id} className="rounded-xl border border-blue-500/20 bg-slate-950/60 p-4">
-                      <p className="text-sm font-bold text-blue-200">
-                        {log.action || "Critical Action"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {formatDateTime(log.created_at)} • {getUserName(log)}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-300">
-                        {getDescription(log)}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-5 text-sm text-blue-200">
-                    No critical changes found.
+            <aside className="space-y-6">
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="h-6 w-6 text-slate-700" />
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Critical Monitor
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">
+                      Critical Changes
+                    </h2>
                   </div>
-                )}
-              </div>
-            </section>
+                </div>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-              <div className="flex items-center gap-3">
-                <Eye className="text-blue-300" size={24} />
-                <h2 className="text-xl font-black">Audit Standard</h2>
-              </div>
+                <div className="mt-5 space-y-3">
+                  {recentCritical.length > 0 ? (
+                    recentCritical.map((log) => (
+                      <div
+                        key={log.id}
+                        className="rounded-2xl border border-red-200 bg-red-50 p-4"
+                      >
+                        <p className="text-sm font-black text-red-700">
+                          {log.action || "Critical Action"}
+                        </p>
+                        <p className="mt-1 text-xs font-bold text-red-700">
+                          {formatDateTime(log.created_at)} • {getUserName(log)}
+                        </p>
+                        <p className="mt-2 text-sm font-bold leading-6 text-red-700">
+                          {getDescription(log)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm font-bold text-emerald-700">
+                      No critical changes found.
+                    </div>
+                  )}
+                </div>
+              </section>
 
-              <div className="mt-5 space-y-3 text-sm text-slate-300">
-                <AuditStandardRow label="Employees" value="create, update, archive" />
-                <AuditStandardRow label="Payroll" value="generate, approve, release" />
-                <AuditStandardRow label="Cash Drawer" value="open, close, variance, delete" />
-                <AuditStandardRow label="Expenses" value="create, update, delete" />
-                <AuditStandardRow label="Apartment" value="bill, payment, delete" />
-                <AuditStandardRow label="Reservations" value="create, edit, cancel, payment" />
-              </div>
-            </section>
-          </aside>
-        </section>
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <Eye className="h-6 w-6 text-slate-700" />
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Audit Coverage
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">
+                      Audit Standard
+                    </h2>
+                  </div>
+                </div>
 
-        <section className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-          <h2 className="text-xl font-black text-blue-200">Next Step</h2>
-          <p className="mt-2 text-sm text-blue-100">
-            After this page is working, create the audit_logs table in Supabase, then add an audit helper so sensitive actions automatically create logs.
-          </p>
+                <div className="mt-5 space-y-3">
+                  <AuditStandardRow label="Employees" value="create, update, archive" />
+                  <AuditStandardRow label="Payroll" value="generate, approve, release" />
+                  <AuditStandardRow
+                    label="Cash Drawer"
+                    value="open, close, variance, delete"
+                  />
+                  <AuditStandardRow label="Expenses" value="create, update, delete" />
+                  <AuditStandardRow label="Apartment" value="bill, payment, delete" />
+                  <AuditStandardRow
+                    label="Reservations"
+                    value="create, edit, cancel, payment"
+                  />
+                </div>
+              </section>
 
-          <pre className="mt-4 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-300">
-{`create table if not exists audit_logs (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz default now(),
-  user_id uuid,
-  user_name text,
-  module text not null,
-  action text not null,
-  description text,
-  severity text default 'info',
-  record_id text,
-  old_value jsonb,
-  new_value jsonb,
-  ip_address text,
-  user_agent text
-);`}
-          </pre>
-        </section>
+              <section className="rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">
+                  System Note
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Audit Logging Standard
+                </h2>
+                <p className="mt-2 text-sm font-bold leading-6 text-blue-700">
+                  Sensitive actions should automatically create audit entries through
+                  the shared audit helper.
+                </p>
+              </section>
+            </aside>
+          </section>
+        </div>
       </main>
     </div>
   );
@@ -406,32 +450,34 @@ function SummaryCard({
   title,
   value,
   icon,
-  color,
 }: {
   title: string;
   value: any;
   icon: React.ReactNode;
-  color: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-slate-400">{title}</p>
-        <div className="rounded-full bg-slate-800 p-3 text-blue-300">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          {title}
+        </p>
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700">
           {icon}
         </div>
       </div>
 
-      <h2 className={`text-3xl font-black ${color}`}>{value}</h2>
+      <h2 className="text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </h2>
     </div>
   );
 }
 
 function AuditStandardRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-      <p className="font-bold text-white">{label}</p>
-      <p className="mt-1 text-xs text-slate-400">{value}</p>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="font-black text-slate-950">{label}</p>
+      <p className="mt-1 text-xs font-bold text-slate-500">{value}</p>
     </div>
   );
 }

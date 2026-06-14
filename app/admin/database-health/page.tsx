@@ -4,21 +4,31 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  ClipboardCheck,
   Database,
   Home,
-  Receipt,
-  ShieldAlert,
-  Users,
-  Wallet,
   LockKeyhole,
-  ClipboardCheck,
+  Receipt,
+  RefreshCcw,
+  ShieldAlert,
+  ShieldCheck,
+  Users,
   Utensils,
+  Wallet,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 
 type HealthStatus = "Healthy" | "Warning" | "Critical";
 type Severity = "good" | "warning" | "critical";
+
+type CheckItem = {
+  module: string;
+  label: string;
+  count: number;
+  severity: Severity;
+};
 
 export default function DatabaseHealthPage() {
   /// STATES
@@ -52,15 +62,29 @@ export default function DatabaseHealthPage() {
 
   /// DATA
   const allowedEmployeeStatuses = ["active", "inactive", "resigned", "terminated"];
-  const allowedApartmentStatuses = ["active", "occupied", "vacant", "maintenance", "inactive"];
+  const allowedApartmentStatuses = [
+    "active",
+    "occupied",
+    "vacant",
+    "maintenance",
+    "inactive",
+  ];
   const allowedDrawerStatuses = ["open", "closed", "voided"];
 
   /// FUNCTIONS
   const getRowsFromTables = async (tableNames: string[]) => {
     for (const tableName of tableNames) {
       const { data, error } = await supabase.from(tableName).select("*");
-      if (!error && data) return data || [];
+
+      if (!error && data) {
+        return data || [];
+      }
+
+      if (error) {
+        console.log(`DATABASE HEALTH LOAD ${tableName} ERROR:`, error.message);
+      }
     }
+
     return [];
   };
 
@@ -94,23 +118,18 @@ export default function DatabaseHealthPage() {
       getRowsFromTables(["system_users"]),
       getRowsFromTables(["system_roles"]),
       getRowsFromTables(["role_permissions"]),
-
       getRowsFromTables(["approval_assignments"]),
       getRowsFromTables(["approval_workflows"]),
-
       getRowsFromTables(["employee_leave_credits"]),
       getRowsFromTables(["leave_requests"]),
       getRowsFromTables(["leave_types"]),
-
       getRowsFromTables(["payroll_records"]),
       getRowsFromTables(["payroll_periods"]),
-
       getRowsFromTables(["pos_settings"]),
       getRowsFromTables(["pos_categories"]),
       getRowsFromTables(["pos_products"]),
       getRowsFromTables(["pos_order_types"]),
       getRowsFromTables(["pos_payment_methods"]),
-
       getRowsFromTables(["apartment_units"]),
       getRowsFromTables(["apartment_bills"]),
       getRowsFromTables(["apartment_payments"]),
@@ -179,14 +198,12 @@ export default function DatabaseHealthPage() {
 
   const getDrawerVariance = (drawer: any) => {
     const saved = drawer.variance ?? drawer.cash_variance ?? drawer.difference;
-    if (saved !== undefined && saved !== null) return Number(saved || 0);
-    return getDrawerActualCash(drawer) - getDrawerExpectedCash(drawer);
-  };
 
-  const getSeverityStyle = (severity: Severity) => {
-    if (severity === "good") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
-    if (severity === "warning") return "border-amber-500/40 bg-amber-500/10 text-amber-200";
-    return "border-red-500/40 bg-red-500/10 text-red-200";
+    if (saved !== undefined && saved !== null) {
+      return Number(saved || 0);
+    }
+
+    return getDrawerActualCash(drawer) - getDrawerExpectedCash(drawer);
   };
 
   const getHealthStatus = (score: number): HealthStatus => {
@@ -195,24 +212,22 @@ export default function DatabaseHealthPage() {
     return "Critical";
   };
 
-  const getHealthStyle = (status: HealthStatus) => {
-    if (status === "Healthy") return "border-emerald-500/40 bg-emerald-500/10 text-emerald-200";
-    if (status === "Warning") return "border-amber-500/40 bg-amber-500/10 text-amber-200";
-    return "border-red-500/40 bg-red-500/10 text-red-200";
-  };
-
   /// CALCULATIONS
   const duplicateEmployees = useMemo(() => {
     const map: Record<string, any[]> = {};
 
     employees.forEach((employee) => {
       const name = getFullName(employee).toLowerCase().trim();
+
       if (!name || name === "unnamed employee") return;
+
       if (!map[name]) map[name] = [];
       map[name].push(employee);
     });
 
-    return Object.values(map).filter((group) => group.length > 1).flat();
+    return Object.values(map)
+      .filter((group) => group.length > 1)
+      .flat();
   }, [employees]);
 
   const employeesMissingDepartment = employees.filter(
@@ -224,7 +239,10 @@ export default function DatabaseHealthPage() {
   );
 
   const employeesInvalidStatus = employees.filter((employee) => {
-    const status = String(employee.employment_status || employee.status || "active").toLowerCase();
+    const status = String(
+      employee.employment_status || employee.status || "active"
+    ).toLowerCase();
+
     return !allowedEmployeeStatuses.includes(status);
   });
 
@@ -240,16 +258,22 @@ export default function DatabaseHealthPage() {
 
   const unitsNoBills = apartmentUnits.filter((unit) => {
     const status = String(unit.status || "").toLowerCase();
+
     if (!["active", "occupied", "maintenance"].includes(status)) return false;
-    return !apartmentBills.some((bill) => String(bill.unit_id) === String(unit.id));
+
+    return !apartmentBills.some(
+      (bill) => String(bill.unit_id) === String(unit.id)
+    );
   });
 
   const billsWithoutUnit = apartmentBills.filter(
-    (bill) => !apartmentUnits.some((unit) => String(unit.id) === String(bill.unit_id))
+    (bill) =>
+      !apartmentUnits.some((unit) => String(unit.id) === String(bill.unit_id))
   );
 
   const paymentsWithoutBill = apartmentPayments.filter(
-    (payment) => !apartmentBills.some((bill) => String(bill.id) === String(payment.bill_id))
+    (payment) =>
+      !apartmentBills.some((bill) => String(bill.id) === String(payment.bill_id))
   );
 
   const negativeApartmentBills = apartmentBills.filter((bill) => {
@@ -288,13 +312,20 @@ export default function DatabaseHealthPage() {
 
     payrollRows.forEach((row) => {
       const key = `${row.employee_id || "no-employee"}-${
-        row.period_id || row.cutoff_id || row.payroll_period_id || row.start_date || ""
+        row.period_id ||
+        row.cutoff_id ||
+        row.payroll_period_id ||
+        row.start_date ||
+        ""
       }-${row.end_date || ""}`;
+
       if (!map[key]) map[key] = [];
       map[key].push(row);
     });
 
-    return Object.values(map).filter((group) => group.length > 1).flat();
+    return Object.values(map)
+      .filter((group) => group.length > 1)
+      .flat();
   }, [payrollRows]);
 
   const openDrawers = cashDrawers.filter((drawer) =>
@@ -315,7 +346,9 @@ export default function DatabaseHealthPage() {
   );
 
   const leaveCreditMismatch =
-    employees.length > 0 && leaveCredits.length > 0 && leaveCredits.length !== employees.length;
+    employees.length > 0 &&
+    leaveCredits.length > 0 &&
+    leaveCredits.length !== employees.length;
 
   const deploymentBlockers = [
     { label: "System Users", count: systemUsers.length, required: true },
@@ -328,60 +361,181 @@ export default function DatabaseHealthPage() {
     { label: "POS Payment Methods", count: posPaymentMethods.length, required: true },
   ].filter((item) => item.required && item.count === 0);
 
-  const warningBlockers = [
-    ...(leaveCreditMismatch
-      ? [
-          {
-            label: "Leave Credits Mismatch",
-            note: `${leaveCredits.length} credits vs ${employees.length} employees`,
-          },
-        ]
-      : []),
-    ...(approvalAssignments.length === 0
-      ? [{ label: "Approval Assignments", note: "No approval assignment records found" }]
-      : []),
-    ...(approvalWorkflows.length === 0
-      ? [{ label: "Approval Workflows", note: "No approval workflow records found" }]
-      : []),
-  ];
-
-  const checks = [
-    { module: "Security", label: "System users missing", count: systemUsers.length === 0 ? 1 : 0, severity: "critical" as const },
-    { module: "Security", label: "System roles missing", count: systemRoles.length === 0 ? 1 : 0, severity: "critical" as const },
-    { module: "Security", label: "Role permissions missing", count: rolePermissions.length === 0 ? 1 : 0, severity: "critical" as const },
-
-    { module: "Leave", label: "Leave credits missing", count: leaveCredits.length === 0 ? 1 : 0, severity: "critical" as const },
-    { module: "Leave", label: "Leave credits mismatch", count: leaveCreditMismatch ? 1 : 0, severity: "warning" as const },
-
-    { module: "POS", label: "POS settings missing", count: posSettings.length === 0 ? 1 : 0, severity: "critical" as const },
-    { module: "POS", label: "POS order types missing", count: posOrderTypes.length === 0 ? 1 : 0, severity: "critical" as const },
-    { module: "POS", label: "POS payment methods missing", count: posPaymentMethods.length === 0 ? 1 : 0, severity: "critical" as const },
-
-    { module: "Employees", label: "Duplicate employee records", count: duplicateEmployees.length, severity: "critical" as const },
-    { module: "Employees", label: "Missing department", count: employeesMissingDepartment.length, severity: "warning" as const },
-    { module: "Employees", label: "Missing position", count: employeesMissingPosition.length, severity: "warning" as const },
-    { module: "Employees", label: "Invalid employee status", count: employeesInvalidStatus.length, severity: "critical" as const },
-
-    { module: "Apartment", label: "Occupied units without tenant", count: occupiedNoTenant.length, severity: "critical" as const },
-    { module: "Apartment", label: "Invalid apartment unit status", count: unitsInvalidStatus.length, severity: "critical" as const },
-    { module: "Apartment", label: "Active/occupied units without bills", count: unitsNoBills.length, severity: "warning" as const },
-    { module: "Apartment", label: "Bills without matching unit", count: billsWithoutUnit.length, severity: "critical" as const },
-    { module: "Apartment", label: "Payments without matching bill", count: paymentsWithoutBill.length, severity: "critical" as const },
-    { module: "Apartment", label: "Negative apartment bills", count: negativeApartmentBills.length, severity: "critical" as const },
-
-    { module: "Finance", label: "Uncategorized expenses", count: uncategorizedExpenses.length, severity: "warning" as const },
-    { module: "Finance", label: "Negative expense amount", count: negativeExpenses.length, severity: "critical" as const },
-    { module: "Finance", label: "Expenses missing date", count: expensesMissingDate.length, severity: "warning" as const },
-
-    { module: "Payroll", label: "Payroll periods missing", count: payrollPeriods.length === 0 ? 1 : 0, severity: "warning" as const },
-    { module: "Payroll", label: "Payroll rows missing employee", count: payrollMissingEmployee.length, severity: "critical" as const },
-    { module: "Payroll", label: "Negative payroll rows", count: negativePayroll.length, severity: "critical" as const },
-    { module: "Payroll", label: "Duplicate payroll rows", count: duplicatePayrollRows.length, severity: "critical" as const },
-
-    { module: "Cash Drawer", label: "Open drawers", count: openDrawers.length, severity: openDrawers.length > 1 ? "critical" as const : "warning" as const },
-    { module: "Cash Drawer", label: "Invalid drawer status", count: invalidDrawerStatus.length, severity: "critical" as const },
-    { module: "Cash Drawer", label: "Missing cashier / holder", count: missingDrawerCashier.length, severity: "critical" as const },
-    { module: "Cash Drawer", label: "Drawer variance found", count: drawersWithVariance.length, severity: "warning" as const },
+  const checks: CheckItem[] = [
+    {
+      module: "Security",
+      label: "System users missing",
+      count: systemUsers.length === 0 ? 1 : 0,
+      severity: "critical",
+    },
+    {
+      module: "Security",
+      label: "System roles missing",
+      count: systemRoles.length === 0 ? 1 : 0,
+      severity: "critical",
+    },
+    {
+      module: "Security",
+      label: "Role permissions missing",
+      count: rolePermissions.length === 0 ? 1 : 0,
+      severity: "critical",
+    },
+    {
+      module: "Leave",
+      label: "Leave credits missing",
+      count: leaveCredits.length === 0 ? 1 : 0,
+      severity: "critical",
+    },
+    {
+      module: "Leave",
+      label: "Leave credits mismatch",
+      count: leaveCreditMismatch ? 1 : 0,
+      severity: "warning",
+    },
+    {
+      module: "POS",
+      label: "POS settings missing",
+      count: posSettings.length === 0 ? 1 : 0,
+      severity: "critical",
+    },
+    {
+      module: "POS",
+      label: "POS order types missing",
+      count: posOrderTypes.length === 0 ? 1 : 0,
+      severity: "critical",
+    },
+    {
+      module: "POS",
+      label: "POS payment methods missing",
+      count: posPaymentMethods.length === 0 ? 1 : 0,
+      severity: "critical",
+    },
+    {
+      module: "Employees",
+      label: "Duplicate employee records",
+      count: duplicateEmployees.length,
+      severity: "critical",
+    },
+    {
+      module: "Employees",
+      label: "Missing department",
+      count: employeesMissingDepartment.length,
+      severity: "warning",
+    },
+    {
+      module: "Employees",
+      label: "Missing position",
+      count: employeesMissingPosition.length,
+      severity: "warning",
+    },
+    {
+      module: "Employees",
+      label: "Invalid employee status",
+      count: employeesInvalidStatus.length,
+      severity: "critical",
+    },
+    {
+      module: "Apartment",
+      label: "Occupied units without tenant",
+      count: occupiedNoTenant.length,
+      severity: "critical",
+    },
+    {
+      module: "Apartment",
+      label: "Invalid apartment unit status",
+      count: unitsInvalidStatus.length,
+      severity: "critical",
+    },
+    {
+      module: "Apartment",
+      label: "Active/occupied units without bills",
+      count: unitsNoBills.length,
+      severity: "warning",
+    },
+    {
+      module: "Apartment",
+      label: "Bills without matching unit",
+      count: billsWithoutUnit.length,
+      severity: "critical",
+    },
+    {
+      module: "Apartment",
+      label: "Payments without matching bill",
+      count: paymentsWithoutBill.length,
+      severity: "critical",
+    },
+    {
+      module: "Apartment",
+      label: "Negative apartment bills",
+      count: negativeApartmentBills.length,
+      severity: "critical",
+    },
+    {
+      module: "Finance",
+      label: "Uncategorized expenses",
+      count: uncategorizedExpenses.length,
+      severity: "warning",
+    },
+    {
+      module: "Finance",
+      label: "Negative expense amount",
+      count: negativeExpenses.length,
+      severity: "critical",
+    },
+    {
+      module: "Finance",
+      label: "Expenses missing date",
+      count: expensesMissingDate.length,
+      severity: "warning",
+    },
+    {
+      module: "Payroll",
+      label: "Payroll periods missing",
+      count: payrollPeriods.length === 0 ? 1 : 0,
+      severity: "warning",
+    },
+    {
+      module: "Payroll",
+      label: "Payroll rows missing employee",
+      count: payrollMissingEmployee.length,
+      severity: "critical",
+    },
+    {
+      module: "Payroll",
+      label: "Negative payroll rows",
+      count: negativePayroll.length,
+      severity: "critical",
+    },
+    {
+      module: "Payroll",
+      label: "Duplicate payroll rows",
+      count: duplicatePayrollRows.length,
+      severity: "critical",
+    },
+    {
+      module: "Cash Drawer",
+      label: "Open drawers",
+      count: openDrawers.length,
+      severity: openDrawers.length > 1 ? "critical" : "warning",
+    },
+    {
+      module: "Cash Drawer",
+      label: "Invalid drawer status",
+      count: invalidDrawerStatus.length,
+      severity: "critical",
+    },
+    {
+      module: "Cash Drawer",
+      label: "Missing cashier / holder",
+      count: missingDrawerCashier.length,
+      severity: "critical",
+    },
+    {
+      module: "Cash Drawer",
+      label: "Drawer variance found",
+      count: drawersWithVariance.length,
+      severity: "warning",
+    },
   ];
 
   const totalIssues = checks.reduce((sum, check) => sum + check.count, 0);
@@ -421,181 +575,6 @@ export default function DatabaseHealthPage() {
     expenses.length +
     cashDrawers.length;
 
-  const countGroups = [
-    {
-      title: "Core Security",
-      icon: <LockKeyhole size={18} />,
-      rows: [
-        ["System Users", systemUsers.length, systemUsers.length === 0 ? "critical" : "good"],
-        ["System Roles", systemRoles.length, systemRoles.length === 0 ? "critical" : "good"],
-        ["Role Permissions", rolePermissions.length, rolePermissions.length === 0 ? "critical" : "good"],
-      ],
-    },
-    {
-      title: "HR / Leave",
-      icon: <Users size={18} />,
-      rows: [
-        ["Employees", employees.length, employees.length === 0 ? "critical" : "good"],
-        ["Leave Credits", leaveCredits.length, leaveCredits.length === 0 ? "critical" : leaveCreditMismatch ? "warning" : "good"],
-        ["Leave Requests", leaveRequests.length, "good"],
-        ["Leave Types", leaveTypes.length, "good"],
-      ],
-    },
-    {
-      title: "Approvals",
-      icon: <ClipboardCheck size={18} />,
-      rows: [
-        ["Assignments", approvalAssignments.length, approvalAssignments.length === 0 ? "warning" : "good"],
-        ["Workflows", approvalWorkflows.length, approvalWorkflows.length === 0 ? "warning" : "good"],
-      ],
-    },
-    {
-      title: "Payroll",
-      icon: <ShieldAlert size={18} />,
-      rows: [
-        ["Periods", payrollPeriods.length, payrollPeriods.length === 0 ? "warning" : "good"],
-        ["Records", payrollRows.length, payrollRows.length === 0 ? "warning" : "good"],
-      ],
-    },
-    {
-      title: "POS",
-      icon: <Utensils size={18} />,
-      rows: [
-        ["Settings", posSettings.length, posSettings.length === 0 ? "critical" : "good"],
-        ["Categories", posCategories.length, "good"],
-        ["Products", posProducts.length, "good"],
-        ["Order Types", posOrderTypes.length, posOrderTypes.length === 0 ? "critical" : "good"],
-        ["Payment Methods", posPaymentMethods.length, posPaymentMethods.length === 0 ? "critical" : "good"],
-      ],
-    },
-    {
-      title: "Finance / Apartment",
-      icon: <Receipt size={18} />,
-      rows: [
-        ["Expenses", expenses.length, "good"],
-        ["Cash Drawers", cashDrawers.length, "good"],
-        ["Apartment Units", apartmentUnits.length, "good"],
-        ["Apartment Bills", apartmentBills.length, "good"],
-        ["Apartment Payments", apartmentPayments.length, "good"],
-      ],
-    },
-  ];
-
-  const moduleCards = [
-    {
-      title: "Security",
-      icon: <LockKeyhole size={20} />,
-      issues:
-        (systemUsers.length === 0 ? 1 : 0) +
-        (systemRoles.length === 0 ? 1 : 0) +
-        (rolePermissions.length === 0 ? 1 : 0),
-      details: [
-        ["Users", systemUsers.length],
-        ["Roles", systemRoles.length],
-        ["Permissions", rolePermissions.length],
-      ],
-    },
-    {
-      title: "Employees",
-      icon: <Users size={20} />,
-      issues:
-        duplicateEmployees.length +
-        employeesMissingDepartment.length +
-        employeesMissingPosition.length +
-        employeesInvalidStatus.length,
-      details: [
-        ["Records", employees.length],
-        ["Duplicates", duplicateEmployees.length],
-        ["Missing Dept", employeesMissingDepartment.length],
-        ["Invalid Status", employeesInvalidStatus.length],
-      ],
-    },
-    {
-      title: "Leave",
-      icon: <ClipboardCheck size={20} />,
-      issues: (leaveCredits.length === 0 ? 1 : 0) + (leaveCreditMismatch ? 1 : 0),
-      details: [
-        ["Credits", leaveCredits.length],
-        ["Requests", leaveRequests.length],
-        ["Types", leaveTypes.length],
-        ["Mismatch", leaveCreditMismatch ? "Yes" : "No"],
-      ],
-    },
-    {
-      title: "Payroll",
-      icon: <ShieldAlert size={20} />,
-      issues:
-        payrollMissingEmployee.length +
-        negativePayroll.length +
-        duplicatePayrollRows.length +
-        (payrollPeriods.length === 0 ? 1 : 0),
-      details: [
-        ["Periods", payrollPeriods.length],
-        ["Rows", payrollRows.length],
-        ["Negative", negativePayroll.length],
-        ["Duplicate", duplicatePayrollRows.length],
-      ],
-    },
-    {
-      title: "POS",
-      icon: <Utensils size={20} />,
-      issues:
-        (posSettings.length === 0 ? 1 : 0) +
-        (posOrderTypes.length === 0 ? 1 : 0) +
-        (posPaymentMethods.length === 0 ? 1 : 0),
-      details: [
-        ["Settings", posSettings.length],
-        ["Products", posProducts.length],
-        ["Order Types", posOrderTypes.length],
-        ["Payments", posPaymentMethods.length],
-      ],
-    },
-    {
-      title: "Apartment",
-      icon: <Home size={20} />,
-      issues:
-        occupiedNoTenant.length +
-        unitsInvalidStatus.length +
-        unitsNoBills.length +
-        billsWithoutUnit.length +
-        paymentsWithoutBill.length +
-        negativeApartmentBills.length,
-      details: [
-        ["Units", apartmentUnits.length],
-        ["Bills", apartmentBills.length],
-        ["Payments", apartmentPayments.length],
-        ["Issues", occupiedNoTenant.length + unitsInvalidStatus.length + unitsNoBills.length + billsWithoutUnit.length + paymentsWithoutBill.length],
-      ],
-    },
-    {
-      title: "Finance",
-      icon: <Receipt size={20} />,
-      issues: uncategorizedExpenses.length + negativeExpenses.length + expensesMissingDate.length,
-      details: [
-        ["Expenses", expenses.length],
-        ["Uncategorized", uncategorizedExpenses.length],
-        ["Negative", negativeExpenses.length],
-        ["Missing Date", expensesMissingDate.length],
-      ],
-    },
-    {
-      title: "Cash Drawer",
-      icon: <Wallet size={20} />,
-      issues:
-        openDrawers.length +
-        invalidDrawerStatus.length +
-        missingDrawerCashier.length +
-        drawersWithVariance.length,
-      details: [
-        ["Drawers", cashDrawers.length],
-        ["Open", openDrawers.length],
-        ["Variance", drawersWithVariance.length],
-        ["No Cashier", missingDrawerCashier.length],
-      ],
-    },
-  ];
-
-
   const attentionItems = checks
     .filter((check) => check.count > 0)
     .map((check) => ({
@@ -607,10 +586,17 @@ export default function DatabaseHealthPage() {
     }));
 
   const getModuleBoardStatus = (moduleTitle: string): Severity => {
-    const relatedChecks = checks.filter((check) => check.module === moduleTitle && check.count > 0);
+    const relatedChecks = checks.filter(
+      (check) => check.module === moduleTitle && check.count > 0
+    );
 
-    if (relatedChecks.some((check) => check.severity === "critical")) return "critical";
-    if (relatedChecks.some((check) => check.severity === "warning")) return "warning";
+    if (relatedChecks.some((check) => check.severity === "critical")) {
+      return "critical";
+    }
+
+    if (relatedChecks.some((check) => check.severity === "warning")) {
+      return "warning";
+    }
 
     return "good";
   };
@@ -666,6 +652,94 @@ export default function DatabaseHealthPage() {
     },
   ];
 
+  const countGroups = [
+    {
+      title: "Core Security",
+      icon: <LockKeyhole size={18} />,
+      rows: [
+        ["System Users", systemUsers.length, systemUsers.length === 0 ? "critical" : "good"],
+        ["System Roles", systemRoles.length, systemRoles.length === 0 ? "critical" : "good"],
+        [
+          "Role Permissions",
+          rolePermissions.length,
+          rolePermissions.length === 0 ? "critical" : "good",
+        ],
+      ],
+    },
+    {
+      title: "HR / Leave",
+      icon: <Users size={18} />,
+      rows: [
+        ["Employees", employees.length, employees.length === 0 ? "critical" : "good"],
+        [
+          "Leave Credits",
+          leaveCredits.length,
+          leaveCredits.length === 0
+            ? "critical"
+            : leaveCreditMismatch
+              ? "warning"
+              : "good",
+        ],
+        ["Leave Requests", leaveRequests.length, "good"],
+        ["Leave Types", leaveTypes.length, "good"],
+      ],
+    },
+    {
+      title: "Approvals",
+      icon: <ClipboardCheck size={18} />,
+      rows: [
+        [
+          "Assignments",
+          approvalAssignments.length,
+          approvalAssignments.length === 0 ? "warning" : "good",
+        ],
+        [
+          "Workflows",
+          approvalWorkflows.length,
+          approvalWorkflows.length === 0 ? "warning" : "good",
+        ],
+      ],
+    },
+    {
+      title: "Payroll",
+      icon: <ShieldAlert size={18} />,
+      rows: [
+        ["Periods", payrollPeriods.length, payrollPeriods.length === 0 ? "warning" : "good"],
+        ["Records", payrollRows.length, payrollRows.length === 0 ? "warning" : "good"],
+      ],
+    },
+    {
+      title: "POS",
+      icon: <Utensils size={18} />,
+      rows: [
+        ["Settings", posSettings.length, posSettings.length === 0 ? "critical" : "good"],
+        ["Categories", posCategories.length, "good"],
+        ["Products", posProducts.length, "good"],
+        [
+          "Order Types",
+          posOrderTypes.length,
+          posOrderTypes.length === 0 ? "critical" : "good",
+        ],
+        [
+          "Payment Methods",
+          posPaymentMethods.length,
+          posPaymentMethods.length === 0 ? "critical" : "good",
+        ],
+      ],
+    },
+    {
+      title: "Finance / Apartment",
+      icon: <Receipt size={18} />,
+      rows: [
+        ["Expenses", expenses.length, "good"],
+        ["Cash Drawers", cashDrawers.length, "good"],
+        ["Apartment Units", apartmentUnits.length, "good"],
+        ["Apartment Bills", apartmentBills.length, "good"],
+        ["Apartment Payments", apartmentPayments.length, "good"],
+      ],
+    },
+  ];
+
   const opscoreInsights = [
     deploymentBlockers.length === 0
       ? "No critical deployment blockers detected."
@@ -673,7 +747,9 @@ export default function DatabaseHealthPage() {
     rolePermissions.length > 0
       ? "Security roles and permissions are available."
       : "Security permissions need restoration.",
-    posSettings.length > 0 && posOrderTypes.length > 0 && posPaymentMethods.length > 0
+    posSettings.length > 0 &&
+    posOrderTypes.length > 0 &&
+    posPaymentMethods.length > 0
       ? "POS master records are complete for current audit requirements."
       : "POS master records need validation before POS use.",
     criticalIssues === 0
@@ -695,332 +771,397 @@ export default function DatabaseHealthPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-7">
-        <section className="mb-5 overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/20">
-          <div className="grid grid-cols-1 gap-0 xl:grid-cols-[1.25fr_0.75fr]">
-            <div className="p-6 sm:p-7">
-              <p className="text-base font-black uppercase tracking-[0.22em] text-slate-200">
-                OPSCORE
-              </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="ADMIN / DATABASE HEALTH" />
 
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                Operations Management System
-              </h1>
-
-              <p className="mt-2 text-lg font-semibold text-slate-300">
-                System Health Monitor
-              </p>
-
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <span
-                  className={`rounded-2xl border px-5 py-3 text-lg font-black ${
-                    deploymentReady
-                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-100"
-                      : "border-red-500/40 bg-red-500/15 text-red-100"
-                  }`}
-                >
-                  {deploymentReady ? "🟢 READY FOR OPERATIONS" : "🔴 ACTION REQUIRED"}
-                </span>
-
-                <button
-                  onClick={loadData}
-                  className="rounded-2xl border border-slate-600 bg-slate-950 px-5 py-3 text-base font-black text-white hover:bg-slate-800"
-                >
-                  {loading ? "Checking..." : "Refresh Check"}
-                </button>
-              </div>
-            </div>
-
-            <div className={`border-t border-slate-700 p-6 sm:p-7 xl:border-l xl:border-t-0 ${getHealthStyle(healthStatus)}`}>
-              <p className="text-base font-black uppercase tracking-[0.2em] text-white/80">
-                System Health
-              </p>
-
-              <div className="mt-3 flex items-end gap-2">
-                <span className="text-6xl font-black leading-none text-white sm:text-7xl">
-                  {healthScore}
-                </span>
-                <span className="pb-2 text-3xl font-black text-white">%</span>
-              </div>
-
-              <p className="mt-3 text-xl font-black text-white">{healthStatus}</p>
-
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                <StatusMetric label="Critical" value={criticalIssues} status={criticalIssues > 0 ? "critical" : "good"} />
-                <StatusMetric label="Review" value={warningIssues} status={warningIssues > 0 ? "warning" : "good"} />
-                <StatusMetric label="Records" value={totalRecords} status="good" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6">
-            <div className="mb-4 flex items-center gap-3">
-              <AlertTriangle className="text-amber-200" size={30} />
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 className="text-2xl font-black text-white">Attention Required</h2>
-                <p className="text-base font-semibold text-amber-100">
-                  Items that need review before or during operations.
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  ADMIN
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  Database Health
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+                  Read-only system health monitor for master data, deployment
+                  blockers, operational records, and database integrity.
                 </p>
               </div>
+
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
+                {loading ? "Checking..." : "Refresh Check"}
+              </button>
+            </div>
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700">
+                  <Database size={24} />
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    System Health
+                  </p>
+                  <div className="mt-1 flex items-end gap-1">
+                    <h2 className="text-4xl font-black tracking-tight text-slate-950">
+                      {healthScore}
+                    </h2>
+                    <p className="pb-1 text-xl font-black text-slate-950">%</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Readiness
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge
+                    status={deploymentReady ? "good" : "critical"}
+                    label={
+                      deploymentReady
+                        ? "Ready for Operations"
+                        : "Action Required"
+                    }
+                  />
+                  <StatusBadge status={statusToSeverity(healthStatus)} label={healthStatus} />
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm font-medium leading-6 text-slate-500">
+                Critical records and database relationships must be reviewed before
+                staff-wide use.
+              </p>
             </div>
 
-            {attentionItems.length === 0 ? (
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-lg font-black text-emerald-100">
-                ✅ No attention items found.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {attentionItems.slice(0, 6).map((item) => (
-                  <div
-                    key={`${item.module}-${item.label}`}
-                    className={`rounded-2xl border p-4 ${
-                      item.severity === "critical"
-                        ? "border-red-500/40 bg-red-500/10"
-                        : "border-amber-500/40 bg-slate-950/50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-black text-white">
-                          {item.module}: {toTitleCase(item.label)}
-                        </p>
-                        <p className="mt-1 text-base font-semibold text-slate-200">
-                          {item.action}
-                        </p>
-                      </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <MetricCard
+                title="Critical Issues"
+                value={criticalIssues}
+                status={criticalIssues > 0 ? "critical" : "good"}
+              />
+              <MetricCard
+                title="Review Items"
+                value={warningIssues}
+                status={warningIssues > 0 ? "warning" : "good"}
+              />
+              <MetricCard title="Records Checked" value={totalRecords} status="good" />
+            </div>
+          </section>
 
-                      <span
-                        className={`shrink-0 rounded-full border px-3 py-1 text-sm font-black ${
-                          item.severity === "critical"
-                            ? "border-red-400/40 bg-red-500/15 text-red-100"
-                            : "border-amber-400/40 bg-amber-500/15 text-amber-100"
-                        }`}
-                      >
-                        {item.count}
-                      </span>
-                    </div>
+          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-amber-700" />
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Attention Queue
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    Attention Required
+                  </h2>
+                  <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                    Items that need review before or during operations.
+                  </p>
+                </div>
+              </div>
+
+              {attentionItems.length === 0 ? (
+                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-700" />
+                    <p className="text-sm font-black text-emerald-700">
+                      No attention items found.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {attentionItems.slice(0, 6).map((item) => (
+                    <AttentionItem key={`${item.module}-${item.label}`} item={item} />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex items-center gap-3">
+                <ShieldCheck className="h-6 w-6 text-slate-700" />
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    OPSCORE Review
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    OPSCORE Insights
+                  </h2>
+                  <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                    System assessment and recommended focus.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {opscoreInsights.map((insight) => (
+                  <div
+                    key={insight}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  >
+                    <p className="text-sm font-semibold leading-6 text-slate-700">
+                      {insight}
+                    </p>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
 
-          <div className="rounded-3xl border border-slate-700 bg-slate-900 p-6">
-            <div className="mb-4 flex items-center gap-3">
-              <Database className="text-emerald-200" size={30} />
+              <div className="mt-5 rounded-3xl border border-blue-200 bg-blue-50 p-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">
+                  Recommended Actions
+                </p>
+
+                <ol className="mt-3 space-y-2 pl-5 text-sm font-bold leading-6 text-blue-700">
+                  {(recommendedActions.length > 0
+                    ? recommendedActions
+                    : ["Continue monitoring. No immediate action required."]
+                  ).map((action) => (
+                    <li key={action} className="list-decimal">
+                      {action}
+                    </li>
+                  ))}
+                </ol>
+
+                <p className="mt-4 text-xs font-bold text-blue-700">
+                  Estimated review time:{" "}
+                  {attentionItems.length > 0 ? "10-15 minutes" : "0-5 minutes"}.
+                </p>
+              </div>
+            </section>
+          </section>
+
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Module Board
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Operations Modules
+              </h2>
+              <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                Quick readiness view by work area.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {operationsModules.map((module) => (
+                <OperationsModuleCard key={module.title} module={module} />
+              ))}
+            </div>
+          </section>
+
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3">
+              <Database className="h-6 w-6 text-slate-700" />
               <div>
-                <h2 className="text-2xl font-black text-white">OPSCORE Insights</h2>
-                <p className="text-base font-semibold text-slate-300">
-                  System assessment and recommended focus.
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Record Counts
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  System Overview
+                </h2>
+                <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                  Master records and operational data counts.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-3">
-              {opscoreInsights.map((insight) => (
-                <div key={insight} className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                  <p className="text-base font-semibold leading-relaxed text-slate-100">
-                    {insight}
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {countGroups.map((group) => (
+                <MasterCountCard key={group.title} group={group} />
               ))}
             </div>
+          </section>
 
-            <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-              <h3 className="text-lg font-black text-emerald-100">Recommended Actions</h3>
-
-              <ol className="mt-3 space-y-2 pl-5 text-base font-semibold text-emerald-50">
-                {(recommendedActions.length > 0 ? recommendedActions : ["Continue monitoring. No immediate action required."]).map((action) => (
-                  <li key={action} className="list-decimal">
-                    {action}
-                  </li>
-                ))}
-              </ol>
-
-              <p className="mt-4 text-sm font-bold text-emerald-100/80">
-                Estimated review time: {attentionItems.length > 0 ? "10-15 minutes" : "0-5 minutes"}.
+          <section className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Detailed Audit
+              </p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                Database Checks
+              </h2>
+              <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                Total issues found: {totalIssues}. This page is read-only and safe
+                for live database review.
               </p>
             </div>
-          </div>
-        </section>
 
-        <section className="mb-5 rounded-3xl border border-slate-700 bg-slate-900 p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-black text-white">Operations Modules</h2>
-              <p className="text-base font-semibold text-slate-300">
-                Quick readiness view by work area.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {operationsModules.map((module) => (
-              <OperationsModuleCard key={module.title} module={module} />
-            ))}
-          </div>
-        </section>
-
-        <section className="mb-5 rounded-3xl border border-slate-700 bg-slate-900 p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <Database className="text-slate-200" size={28} />
-            <div>
-              <h2 className="text-2xl font-black text-white">System Overview</h2>
-              <p className="text-base font-semibold text-slate-300">
-                Master records and operational data counts.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {countGroups.map((group) => (
-              <MasterCountCard key={group.title} group={group} />
-            ))}
-          </div>
-        </section>
-
-        <details className="mb-5 rounded-3xl border border-slate-700 bg-slate-900 p-6">
-          <summary className="cursor-pointer text-2xl font-black text-white">
-            View Detailed Audit
-          </summary>
-
-          <div className="mt-5">
-            <div className="max-h-[420px] overflow-auto rounded-2xl border border-slate-700">
-              <table className="w-full min-w-[900px] text-base">
-                <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-200">
+            <div className="overflow-auto">
+              <table className="w-full min-w-[900px]">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   <tr>
-                    <th className="px-4 py-4">Module</th>
-                    <th className="px-4 py-4">Check</th>
-                    <th className="px-4 py-4 text-right">Issues</th>
-                    <th className="px-4 py-4">Severity</th>
-                    <th className="px-4 py-4">Recommended Action</th>
+                    <th className="px-6 py-4">Module</th>
+                    <th className="px-6 py-4">Check</th>
+                    <th className="px-6 py-4 text-right">Issues</th>
+                    <th className="px-6 py-4">Severity</th>
+                    <th className="px-6 py-4">Recommended Action</th>
                   </tr>
                 </thead>
 
-                <tbody>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
                   {checks.map((check) => (
-                    <tr key={`${check.module}-${check.label}`} className="border-t border-slate-800 hover:bg-slate-800/40">
-                      <td className="px-4 py-4 font-black text-white">{check.module}</td>
-                      <td className="px-4 py-4 font-semibold text-slate-200">{toTitleCase(check.label)}</td>
-                      <td className={`px-4 py-4 text-right text-lg font-black ${check.count > 0 ? "text-red-200" : "text-emerald-200"}`}>
+                    <tr
+                      key={`${check.module}-${check.label}`}
+                      className="transition-all duration-200 hover:bg-slate-50"
+                    >
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {check.module}
+                      </td>
+                      <td className="px-6 py-4">{toTitleCase(check.label)}</td>
+                      <td
+                        className={`px-6 py-4 text-right font-black ${
+                          check.count > 0 ? "text-red-700" : "text-emerald-700"
+                        }`}
+                      >
                         {check.count}
                       </td>
-                      <td className="px-4 py-4">
-                        <span className={`rounded-full border px-3 py-1 text-sm font-black ${getSeverityStyle(check.count === 0 ? "good" : check.severity)}`}>
-                          {check.count === 0 ? "OK" : check.severity.toUpperCase()}
-                        </span>
+                      <td className="px-6 py-4">
+                        <StatusBadge
+                          status={check.count === 0 ? "good" : check.severity}
+                          label={check.count === 0 ? "OK" : check.severity.toUpperCase()}
+                        />
                       </td>
-                      <td className="px-4 py-4 font-semibold text-slate-300">
-                        {check.count === 0 ? "No action needed." : getRecommendedAction(check.label)}
+                      <td className="px-6 py-4">
+                        {check.count === 0
+                          ? "No action needed."
+                          : getRecommendedAction(check.label)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          </section>
 
-            <p className="mt-3 text-sm font-semibold text-slate-400">
-              Total issues found: {totalIssues}. This page is read-only and safe for live database review.
+          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <DetailPanel
+              title="Employee Records to Review"
+              empty="No employee issues found."
+              rows={[
+                ...duplicateEmployees.slice(0, 5).map((employee) => ({
+                  title: getFullName(employee),
+                  subtitle: "Possible duplicate employee record",
+                })),
+                ...employeesInvalidStatus.slice(0, 5).map((employee) => ({
+                  title: getFullName(employee),
+                  subtitle: `Invalid status: ${
+                    employee.employment_status || employee.status || "-"
+                  }`,
+                })),
+                ...employeesMissingDepartment.slice(0, 5).map((employee) => ({
+                  title: getFullName(employee),
+                  subtitle: "Missing department",
+                })),
+              ]}
+            />
+
+            <DetailPanel
+              title="Apartment Records to Review"
+              empty="No apartment issues found."
+              rows={[
+                ...occupiedNoTenant.slice(0, 5).map((unit) => ({
+                  title: unit.unit_name || "Unnamed Unit",
+                  subtitle: "Occupied but no tenant name",
+                })),
+                ...unitsNoBills.slice(0, 5).map((unit) => ({
+                  title: unit.unit_name || "Unnamed Unit",
+                  subtitle: "Active/occupied/maintenance but no bill found",
+                })),
+                ...paymentsWithoutBill.slice(0, 5).map((payment) => ({
+                  title: `Payment ${formatMoney(payment.amount)}`,
+                  subtitle: "Payment has no matching bill",
+                })),
+              ]}
+            />
+
+            <DetailPanel
+              title="Cash Drawer Records to Review"
+              empty="No cash drawer issues found."
+              rows={[
+                ...drawersWithVariance.slice(0, 8).map((drawer) => ({
+                  title: getDrawerHolder(drawer) || "Missing cashier",
+                  subtitle: `Variance ${formatMoney(getDrawerVariance(drawer))}`,
+                })),
+                ...missingDrawerCashier.slice(0, 5).map((drawer) => ({
+                  title: drawer.id || "Drawer record",
+                  subtitle: "Missing cashier / holder",
+                })),
+              ]}
+            />
+
+            <DetailPanel
+              title="Finance / Payroll Records to Review"
+              empty="No finance or payroll issues found."
+              rows={[
+                ...uncategorizedExpenses.slice(0, 5).map((expense) => ({
+                  title: expense.description || expense.particulars || "Expense",
+                  subtitle: "Missing category",
+                })),
+                ...negativeExpenses.slice(0, 5).map((expense) => ({
+                  title: expense.description || expense.particulars || "Expense",
+                  subtitle: `Negative amount ${formatMoney(expense.amount)}`,
+                })),
+                ...negativePayroll.slice(0, 5).map((row) => ({
+                  title: row.employee_name || row.employee_id || "Payroll Row",
+                  subtitle: "Negative payroll amount",
+                })),
+              ]}
+            />
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              Deployment Rules
             </p>
-          </div>
-        </details>
+            <h2 className="mt-1 text-xl font-black text-slate-950">
+              Deployment Data Standard
+            </h2>
 
-        <section className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <DetailPanel
-            title="Employee Records to Review"
-            empty="No employee issues found."
-            rows={[
-              ...duplicateEmployees.slice(0, 5).map((employee) => ({
-                title: getFullName(employee),
-                subtitle: "Possible duplicate employee record",
-              })),
-              ...employeesInvalidStatus.slice(0, 5).map((employee) => ({
-                title: getFullName(employee),
-                subtitle: `Invalid status: ${employee.employment_status || employee.status || "-"}`,
-              })),
-              ...employeesMissingDepartment.slice(0, 5).map((employee) => ({
-                title: getFullName(employee),
-                subtitle: "Missing department",
-              })),
-            ]}
-          />
-
-          <DetailPanel
-            title="Apartment Records to Review"
-            empty="No apartment issues found."
-            rows={[
-              ...occupiedNoTenant.slice(0, 5).map((unit) => ({
-                title: unit.unit_name || "Unnamed Unit",
-                subtitle: "Occupied but no tenant name",
-              })),
-              ...unitsNoBills.slice(0, 5).map((unit) => ({
-                title: unit.unit_name || "Unnamed Unit",
-                subtitle: "Active/occupied/maintenance but no bill found",
-              })),
-              ...paymentsWithoutBill.slice(0, 5).map((payment) => ({
-                title: `Payment ${formatMoney(payment.amount)}`,
-                subtitle: "Payment has no matching bill",
-              })),
-            ]}
-          />
-
-          <DetailPanel
-            title="Cash Drawer Records to Review"
-            empty="No cash drawer issues found."
-            rows={[
-              ...drawersWithVariance.slice(0, 8).map((drawer) => ({
-                title: getDrawerHolder(drawer) || "Missing cashier",
-                subtitle: `Variance ${formatMoney(getDrawerVariance(drawer))}`,
-              })),
-              ...missingDrawerCashier.slice(0, 5).map((drawer) => ({
-                title: drawer.id || "Drawer record",
-                subtitle: "Missing cashier / holder",
-              })),
-            ]}
-          />
-
-          <DetailPanel
-            title="Finance / Payroll Records to Review"
-            empty="No finance or payroll issues found."
-            rows={[
-              ...uncategorizedExpenses.slice(0, 5).map((expense) => ({
-                title: expense.description || expense.particulars || "Expense",
-                subtitle: "Missing category",
-              })),
-              ...negativeExpenses.slice(0, 5).map((expense) => ({
-                title: expense.description || expense.particulars || "Expense",
-                subtitle: `Negative amount ${formatMoney(expense.amount)}`,
-              })),
-              ...negativePayroll.slice(0, 5).map((row) => ({
-                title: row.employee_name || row.employee_id || "Payroll Row",
-                subtitle: "Negative payroll amount",
-              })),
-            ]}
-          />
-        </section>
-
-        <section className="rounded-3xl border border-slate-700 bg-slate-900 p-6">
-          <h2 className="text-2xl font-black text-white">Deployment Data Standard</h2>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StandardBox title="Employee Status" values={["active", "inactive", "resigned", "terminated"]} />
-            <StandardBox title="Apartment Status" values={["active", "occupied", "vacant", "maintenance", "inactive"]} />
-            <StandardBox title="Bill Status" values={["unpaid", "partial", "paid", "cancelled"]} />
-            <StandardBox title="Cash Drawer Status" values={["open", "closed", "voided"]} />
-          </div>
-        </section>
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StandardBox
+                title="Employee Status"
+                values={["active", "inactive", "resigned", "terminated"]}
+              />
+              <StandardBox
+                title="Apartment Status"
+                values={["active", "occupied", "vacant", "maintenance", "inactive"]}
+              />
+              <StandardBox
+                title="Bill Status"
+                values={["unpaid", "partial", "paid", "cancelled"]}
+              />
+              <StandardBox
+                title="Cash Drawer Status"
+                values={["open", "closed", "voided"]}
+              />
+            </div>
+          </section>
+        </div>
       </main>
     </div>
   );
 }
-
-
-
 
 function toTitleCase(value: string) {
   return value
@@ -1031,137 +1172,244 @@ function toTitleCase(value: string) {
     .join(" ");
 }
 
-function StatusMetric({
-  label,
+function getRecommendedAction(label: string) {
+  const value = label.toLowerCase();
+
+  if (value.includes("system users")) {
+    return "Restore or create required system user records.";
+  }
+
+  if (value.includes("system roles")) {
+    return "Restore role master records before using access control.";
+  }
+
+  if (value.includes("role permissions")) {
+    return "Restore permissions before staff login testing.";
+  }
+
+  if (value.includes("pos settings")) {
+    return "Restore POS settings master data.";
+  }
+
+  if (value.includes("pos order types")) {
+    return "Restore POS order types such as Dine-in, Takeout, Room Charge.";
+  }
+
+  if (value.includes("pos payment methods")) {
+    return "Restore POS payment methods such as Cash, GCash, Bank, Terminal.";
+  }
+
+  if (value.includes("leave credits")) {
+    return "Review employee leave credit records.";
+  }
+
+  if (value.includes("duplicate")) {
+    return "Review and merge/archive duplicate records.";
+  }
+
+  if (value.includes("missing")) {
+    return "Complete required field before live deployment.";
+  }
+
+  if (value.includes("invalid")) {
+    return "Standardize value based on allowed status list.";
+  }
+
+  if (value.includes("negative")) {
+    return "Review amount and correct imported or encoded value.";
+  }
+
+  if (value.includes("open drawers")) {
+    return "Close or verify cash drawers before daily closing.";
+  }
+
+  if (value.includes("variance")) {
+    return "Review remittance, receipts, and expected cash computation.";
+  }
+
+  if (value.includes("without matching")) {
+    return "Review linked records and repair missing relationships.";
+  }
+
+  if (value.includes("without tenant")) {
+    return "Assign tenant name or change unit status.";
+  }
+
+  if (value.includes("without bills")) {
+    return "Create missing billing records or update unit status.";
+  }
+
+  return "Review and correct affected records.";
+}
+
+function statusToSeverity(status: HealthStatus): Severity {
+  if (status === "Healthy") return "good";
+  if (status === "Warning") return "warning";
+  return "critical";
+}
+
+function StatusBadge({ status, label }: { status: Severity; label: string }) {
+  const className =
+    status === "critical"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : status === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+  return (
+    <span className={`rounded-full border px-3 py-1 text-xs font-bold ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function MetricCard({
+  title,
   value,
   status,
 }: {
-  label: string;
+  title: string;
   value: any;
   status: Severity;
 }) {
-  const style =
+  const valueClass =
     status === "critical"
-      ? "border-red-500/40 bg-red-500/15 text-red-100"
+      ? "text-red-700"
       : status === "warning"
-        ? "border-amber-500/40 bg-amber-500/15 text-amber-100"
-        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100";
+        ? "text-amber-700"
+        : "text-slate-950";
+
+  const cardClass =
+    status === "critical"
+      ? "border-red-200 bg-red-50"
+      : status === "warning"
+        ? "border-amber-200 bg-amber-50"
+        : "border-slate-200 bg-white";
 
   return (
-    <div className={`rounded-2xl border p-3 text-center ${style}`}>
-      <p className="text-sm font-black uppercase tracking-wide opacity-90">{label}</p>
-      <p className="mt-1 text-3xl font-black text-white">{value}</p>
+    <div className={`rounded-3xl border p-5 shadow-sm ${cardClass}`}>
+      <p
+        className={`text-[11px] font-bold uppercase tracking-[0.18em] ${
+          status === "critical"
+            ? "text-red-700"
+            : status === "warning"
+              ? "text-amber-700"
+              : "text-slate-500"
+        }`}
+      >
+        {title}
+      </p>
+      <h2 className={`mt-3 text-3xl font-black tracking-tight ${valueClass}`}>
+        {value}
+      </h2>
+    </div>
+  );
+}
+
+function AttentionItem({ item }: { item: any }) {
+  return (
+    <div
+      className={`rounded-3xl border p-4 ${
+        item.severity === "critical"
+          ? "border-red-200 bg-red-50"
+          : "border-amber-200 bg-amber-50"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge status={item.severity} label={item.severity.toUpperCase()} />
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700">
+              {item.module}
+            </span>
+          </div>
+
+          <p
+            className={`mt-3 text-sm font-black ${
+              item.severity === "critical" ? "text-red-700" : "text-amber-700"
+            }`}
+          >
+            {toTitleCase(item.label)}
+          </p>
+          <p
+            className={`mt-1 text-sm font-bold leading-6 ${
+              item.severity === "critical" ? "text-red-700" : "text-amber-700"
+            }`}
+          >
+            {item.action}
+          </p>
+        </div>
+
+        <span
+          className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${
+            item.severity === "critical"
+              ? "border-red-200 bg-white text-red-700"
+              : "border-amber-200 bg-white text-amber-700"
+          }`}
+        >
+          {item.count}
+        </span>
+      </div>
     </div>
   );
 }
 
 function OperationsModuleCard({ module }: any) {
-  const style =
-    module.status === "critical"
-      ? "border-red-500/40 bg-red-500/10"
-      : module.status === "warning"
-        ? "border-amber-500/40 bg-amber-500/10"
-        : "border-emerald-500/30 bg-emerald-500/10";
-
-  const badge =
-    module.status === "critical"
-      ? "🔴 Action Required"
-      : module.status === "warning"
-        ? "🟡 Needs Review"
-        : "🟢 Ready";
-
   return (
-    <div className={`rounded-2xl border p-5 ${style}`}>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xl font-black text-white">{module.title}</p>
-          <p className="mt-1 text-base font-semibold text-slate-200">{module.subtitle}</p>
+          <p className="text-lg font-black text-slate-950">{module.title}</p>
+          <p className="mt-1 text-sm font-medium text-slate-500">{module.subtitle}</p>
         </div>
 
-        <div className="rounded-2xl bg-slate-950/70 p-3 text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700">
           {module.icon}
         </div>
       </div>
 
-      <p className="mt-5 text-lg font-black text-white">{badge}</p>
-    </div>
-  );
-}
-
-
-function getRecommendedAction(label: string) {
-  const value = label.toLowerCase();
-
-  if (value.includes("system users")) return "Restore or create required system user records.";
-  if (value.includes("system roles")) return "Restore role master records before using access control.";
-  if (value.includes("role permissions")) return "Restore permissions before staff login testing.";
-  if (value.includes("pos settings")) return "Restore POS settings master data.";
-  if (value.includes("pos order types")) return "Restore POS order types such as Dine-in, Takeout, Room Charge.";
-  if (value.includes("pos payment methods")) return "Restore POS payment methods such as Cash, GCash, Bank, Terminal.";
-  if (value.includes("leave credits")) return "Review employee leave credit records.";
-  if (value.includes("duplicate")) return "Review and merge/archive duplicate records.";
-  if (value.includes("missing")) return "Complete required field before live deployment.";
-  if (value.includes("invalid")) return "Standardize value based on allowed status list.";
-  if (value.includes("without matching")) return "Check foreign key relation and repair orphan record.";
-  if (value.includes("without tenant")) return "Add tenant name or change unit status.";
-  if (value.includes("without bills")) return "Create billing record or set unit as vacant/inactive.";
-  if (value.includes("negative")) return "Verify amount. Use adjustment entry instead of negative value when possible.";
-  if (value.includes("variance")) return "Review cashier drawer and attach explanation.";
-  if (value.includes("open drawers")) return "Close old drawers before generating owner reports.";
-
-  return "Review record and correct data standard.";
-}
-
-function CompactMetric({
-  label,
-  value,
-  warning,
-  danger,
-}: {
-  label: string;
-  value: any;
-  warning?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-3 py-2 ${
-        danger
-          ? "border-red-500/40 bg-red-500/10"
-          : warning
-            ? "border-amber-500/40 bg-amber-500/10"
-            : "border-white/10 bg-black/20"
-      }`}
-    >
-      <p className="text-[11px] font-bold uppercase tracking-wide opacity-80">{label}</p>
-      <p className="mt-1 text-2xl font-black text-white">{value}</p>
+      <div className="mt-5">
+        <StatusBadge
+          status={module.status}
+          label={
+            module.status === "critical"
+              ? "Action Required"
+              : module.status === "warning"
+                ? "Needs Review"
+                : "Ready"
+          }
+        />
+      </div>
     </div>
   );
 }
 
 function MasterCountCard({ group }: any) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="rounded-lg bg-slate-950 p-2 text-slate-300">{group.icon}</div>
-        <h3 className="font-black text-white">{group.title}</h3>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700">
+          {group.icon}
+        </div>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+            Data Group
+          </p>
+          <h3 className="mt-1 text-lg font-black text-slate-950">{group.title}</h3>
+        </div>
       </div>
 
       <div className="space-y-2">
-        {group.rows.map(([label, value, status]: any) => (
-          <div key={label} className="flex items-center justify-between rounded-lg bg-slate-950 px-3 py-2">
-            <span className="text-sm text-slate-400">{label}</span>
-            <span
-              className={`text-lg font-black ${
-                status === "critical"
-                  ? "text-red-300"
-                  : status === "warning"
-                    ? "text-amber-300"
-                    : "text-emerald-300"
-              }`}
-            >
-              {value}
-            </span>
+        {group.rows.map((row: any[]) => (
+          <div
+            key={row[0]}
+            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+          >
+            <p className="text-sm font-bold text-slate-700">{row[0]}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-black text-slate-950">{row[1]}</p>
+              <StatusDot status={row[2] as Severity} />
+            </div>
           </div>
         ))}
       </div>
@@ -1169,64 +1417,48 @@ function MasterCountCard({ group }: any) {
   );
 }
 
-function ModuleHealthCard({ module }: any) {
-  const clean = module.issues === 0;
+function StatusDot({ status }: { status: Severity }) {
+  const className =
+    status === "critical"
+      ? "bg-red-600"
+      : status === "warning"
+        ? "bg-amber-500"
+        : "bg-emerald-600";
 
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        clean ? "border-emerald-500/20 bg-emerald-500/10" : "border-red-500/30 bg-red-500/10"
-      }`}
-    >
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-slate-300">{module.title}</p>
-          <h3 className="mt-1 text-xl font-black text-white">
-            {clean ? "Healthy" : `${module.issues} issue(s)`}
-          </h3>
-        </div>
-
-        <div className="rounded-full bg-slate-950/60 p-3 text-white">{module.icon}</div>
-      </div>
-
-      <div className="space-y-1.5">
-        {module.details.map(([label, value]: any) => (
-          <div key={label} className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-1.5 text-sm">
-            <span className="text-slate-400">{label}</span>
-            <span className="font-black text-white">{value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <span className={`h-2.5 w-2.5 rounded-full ${className}`} />;
 }
 
 function DetailPanel({
   title,
-  rows,
   empty,
+  rows,
 }: {
   title: string;
-  rows: { title: string; subtitle: string }[];
   empty: string;
+  rows: { title: string; subtitle: string }[];
 }) {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-      <h2 className="mb-3 text-lg font-black">{title}</h2>
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        Review Panel
+      </p>
+      <h2 className="mt-1 text-xl font-black text-slate-950">{title}</h2>
 
-      <div className="max-h-[260px] space-y-2 overflow-auto pr-1">
-        {rows.length > 0 ? (
-          rows.slice(0, 10).map((row, index) => (
-            <div key={`${row.title}-${index}`} className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-              <p className="font-bold text-white">{row.title}</p>
-              <p className="mt-1 text-sm text-slate-400">{row.subtitle}</p>
-            </div>
-          ))
-        ) : (
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-6 text-center text-sm text-emerald-200">
-            <CheckCircle2 className="mx-auto mb-2" size={24} />
+      <div className="mt-5 space-y-3">
+        {rows.length === 0 ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
             {empty}
           </div>
+        ) : (
+          rows.map((row, index) => (
+            <div
+              key={`${row.title}-${row.subtitle}-${index}`}
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+            >
+              <p className="font-black text-slate-950">{row.title}</p>
+              <p className="mt-1 text-sm font-medium text-slate-500">{row.subtitle}</p>
+            </div>
+          ))
         )}
       </div>
     </section>
@@ -1235,14 +1467,14 @@ function DetailPanel({
 
 function StandardBox({ title, values }: { title: string; values: string[] }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <h3 className="font-bold text-white">{title}</h3>
+    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+      <p className="text-sm font-black text-slate-950">{title}</p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {values.map((value) => (
           <span
             key={value}
-            className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300"
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700"
           >
             {value}
           </span>

@@ -630,13 +630,129 @@ export default function Sidebar() {
 
   const isActive = (href: string) => {
     const path = normalizePath(href);
+
+    if (path === "/finance") {
+      return currentPath === "/finance";
+    }
+
+    if (path === "/settings") {
+      return currentPath === "/settings";
+    }
+
+    if (path === "/finance/payroll") {
+      return currentPath === "/finance/payroll" || currentPath.startsWith("/finance/payroll/");
+    }
+
     return currentPath === path || currentPath.startsWith(`${path}/`);
   };
 
-  const isSectionActive = (section: any) => {
-    if (section.href) return isActive(section.href);
-    return section.items?.some((item: any) => isActive(item.href));
+  const hrSettingsRoutes = [
+    "/settings/departments",
+    "/settings/positions",
+    "/settings/employment-types",
+    "/settings/employment-statuses",
+    "/settings/leave-settings",
+    "/settings/leave-credits",
+  ];
+
+  const salesRoutes = [
+    "/finance/room-sales",
+    "/finance/apartment",
+    "/finance/restaurant-import",
+  ];
+
+  const approvalsRoutes = [
+    "/manager/approval-center",
+    "/settings/approval-controls",
+    "/settings/approval-assignments",
+  ];
+
+  const auditRoutes = [
+    "/audit",
+    "/activity-logs",
+    "/admin/audit-logs",
+    "/admin/database-health",
+  ];
+
+  const systemRoutes = [
+    "/settings",
+    "/settings/registration-settings",
+    "/settings/current-user",
+    "/settings/property",
+    "/settings/user-credentials",
+    "/settings/user-roles",
+    "/admin/data-cleanup",
+    "/backup",
+    "/settings/shifts",
+    "/settings/hc-rules",
+  ];
+
+  const isInRouteFamily = (routes: string[]) =>
+    routes.some((route) => currentPath === route || currentPath.startsWith(`${route}/`));
+
+  const getActiveSectionTitle = () => {
+    if (currentPath === "/dashboard" || currentPath.startsWith("/dashboard/")) {
+      return "Dashboard";
+    }
+
+    if (
+      currentPath.startsWith("/human-resources/") ||
+      currentPath === "/leave-management" ||
+      currentPath.startsWith("/leave-management/") ||
+      currentPath === "/employee-portal" ||
+      currentPath.startsWith("/employee-portal/")
+    ) {
+      return "Human Resources";
+    }
+
+    if (
+      currentPath === "/workforce" ||
+      currentPath.startsWith("/workforce/") ||
+      currentPath === "/scheduling" ||
+      currentPath.startsWith("/scheduling/")
+    ) {
+      return "Workforce";
+    }
+
+    if (currentPath === "/finance/payroll" || currentPath.startsWith("/finance/payroll/")) {
+      return "Payroll";
+    }
+
+    if (isInRouteFamily(salesRoutes)) {
+      return "Sales";
+    }
+
+    if (
+      (currentPath === "/finance" || currentPath.startsWith("/finance/")) &&
+      !currentPath.startsWith("/finance/payroll") &&
+      !isInRouteFamily(salesRoutes)
+    ) {
+      return "Finance";
+    }
+
+    if (isInRouteFamily(approvalsRoutes)) {
+      return "Approvals";
+    }
+
+    if (isInRouteFamily(auditRoutes)) {
+      return "Audit";
+    }
+
+    if (isInRouteFamily(hrSettingsRoutes)) {
+      return "HR Settings";
+    }
+
+    if (isInRouteFamily(systemRoutes)) {
+      return "System";
+    }
+
+    return "";
   };
+
+  const activeSectionTitle = getActiveSectionTitle();
+
+  const isSectionActive = (section: any) =>
+    String(section.title || "") === activeSectionTitle;
 
   const getSectionBadge = (section: any) => {
     if (section.title !== "Approvals") return null;
@@ -661,7 +777,7 @@ export default function Sidebar() {
         className={[
           "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-[11px] font-semibold transition-all duration-200",
           active
-            ? "border-blue-300/20 bg-blue-600 text-white shadow-lg shadow-blue-600/10"
+            ? "border-transparent bg-blue-600 text-white shadow-lg shadow-blue-600/10"
             : "border-transparent text-slate-300 hover:border-blue-300/10 hover:bg-blue-500/10 hover:text-white",
         ].join(" ")}
       >
@@ -694,8 +810,8 @@ export default function Sidebar() {
               className={[
                 "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-[11px] font-bold transition-all duration-200",
                 sectionActive
-                  ? "border-blue-300/20 bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                  : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white",
+                  ? "border-transparent bg-blue-600 text-white shadow-sm"
+                  : "border-transparent text-slate-400 hover:bg-white/[0.025] hover:text-slate-100",
               ].join(" ")}
             >
               <span
@@ -719,14 +835,14 @@ export default function Sidebar() {
               className={[
                 "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[11px] font-bold transition-all duration-200",
                 sectionActive
-                  ? "border-blue-300/20 bg-white/[0.06] text-blue-100 shadow-lg shadow-black/10"
-                  : "border-transparent text-slate-400 hover:border-blue-300/10 hover:bg-white/[0.04] hover:text-white",
+                  ? "border-transparent bg-blue-600 text-white shadow-sm"
+                  : "border-transparent text-slate-400 hover:bg-white/[0.025] hover:text-slate-100",
               ].join(" ")}
             >
               <span
                 className={
                   sectionActive
-                    ? "rounded-xl bg-blue-500/15 p-1.5"
+                    ? "rounded-xl bg-white/10 p-1.5"
                     : "rounded-xl bg-slate-900/60 p-1.5"
                 }
               >
@@ -745,7 +861,7 @@ export default function Sidebar() {
 
             <div className="pointer-events-none absolute left-full top-0 h-full w-4" />
 
-            <div className="invisible absolute left-full top-1/2 z-[10050] ml-2 w-[280px] -translate-y-1/2 translate-x-2 rounded-2xl border border-slate-200/10 bg-[#08111f]/98 p-2 opacity-0 shadow-2xl shadow-black/50 backdrop-blur-xl transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
+            <div className="invisible absolute left-full top-0 z-[60] ml-2 w-[280px] translate-x-2 rounded-2xl border border-slate-200/10 bg-[#08111f]/98 p-2 opacity-0 shadow-2xl shadow-black/50 backdrop-blur-xl transition-all duration-150 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
               <div className="mb-2 rounded-xl border border-slate-200/10 bg-white/[0.04] px-3 py-2.5">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                   {section.title}
@@ -753,7 +869,7 @@ export default function Sidebar() {
                 <p className="mt-1 text-sm font-black text-white">Open module</p>
               </div>
 
-              <div className="max-h-[58vh] space-y-1 overflow-y-auto pr-1">
+              <div className="max-h-[calc(100vh-180px)] space-y-1 overflow-y-auto pr-1">
                 {section.items.map((item: any) => renderFlyoutItem(section, item))}
               </div>
             </div>
@@ -780,8 +896,8 @@ export default function Sidebar() {
               className={[
                 "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-[11px] font-bold transition-all duration-200",
                 sectionActive
-                  ? "border-blue-300/20 bg-blue-600 text-white"
-                  : "border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-white",
+                  ? "border-transparent bg-blue-600 text-white"
+                  : "border-transparent text-slate-400 hover:bg-white/[0.025] hover:text-slate-100",
               ].join(" ")}
             >
               <Icon size={15} />
@@ -797,9 +913,11 @@ export default function Sidebar() {
               onClick={() => setOpenMobileSection(expanded ? null : section.title)}
               className={[
                 "flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[11px] font-bold transition-all duration-200",
-                sectionActive || expanded
-                  ? "border-blue-300/20 bg-white/[0.06] text-blue-100"
-                  : "border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-white",
+                sectionActive
+                  ? "border-transparent bg-blue-600 text-white"
+                  : expanded
+                    ? "border-transparent bg-white/[0.035] text-slate-100"
+                    : "border-transparent text-slate-400 hover:bg-white/[0.025] hover:text-slate-100",
               ].join(" ")}
             >
               <Icon size={15} />
@@ -838,22 +956,25 @@ export default function Sidebar() {
 
   const LogoBlock = () => (
     <div className="shrink-0 px-3 pb-3 pt-3">
-      <div className="rounded-2xl border border-slate-200/10 bg-[#0b1220] px-3 py-3 shadow-xl shadow-black/20">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-300/15 bg-blue-600 text-[13px] font-black text-white shadow-lg shadow-blue-950/30">
-            O
+      <div className="rounded-2xl border border-slate-200/10 bg-[#0b1220] px-2.5 py-2.5 shadow-xl shadow-black/20">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-300/15 bg-white text-[10px] font-black text-slate-950 shadow-lg shadow-black/20">
+            VR
           </div>
 
-          <div className="min-w-0">
-            <p className="truncate text-sm font-black tracking-tight text-white">
-              OPSCORE
-            </p>
-            <p className="truncate text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-              Enterprise Suite
-            </p>
-          </div>
+          <p className="min-w-0 truncate text-[11px] font-black uppercase tracking-[0.08em] text-white">
+            VRH
+          </p>
         </div>
       </div>
+    </div>
+  );
+
+  const SidebarFooter = () => (
+    <div className="shrink-0 border-t border-slate-200/10 px-4 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">
+        Powered by OPSCORE
+      </p>
     </div>
   );
 
@@ -889,13 +1010,15 @@ export default function Sidebar() {
 
             <LogoBlock />
             {renderMobileSections()}
+            <SidebarFooter />
           </aside>
         </div>
       )}
 
-      <aside className="hidden h-screen w-[220px] shrink-0 overflow-visible border-r border-slate-200/10 bg-[#070d19]/95 text-white shadow-xl shadow-black/20 backdrop-blur lg:sticky lg:top-0 lg:z-[9999] lg:flex lg:flex-col">
+      <aside className="hidden h-screen w-[220px] shrink-0 overflow-visible border-r border-slate-200/10 bg-[#070d19]/95 text-white shadow-xl shadow-black/20 backdrop-blur lg:sticky lg:top-0 lg:z-40 lg:flex lg:flex-col">
         <LogoBlock />
         {renderDesktopSections()}
+        <SidebarFooter />
       </aside>
     </>
   );
