@@ -90,6 +90,7 @@ export default function CashManagementPage() {
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [currentRoleName, setCurrentRoleName] = useState("");
   const [currentCompanyId, setCurrentCompanyId] = useState("");
+  const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
 
   /// DATA - OPTIONS
   const movementTypes = [
@@ -924,6 +925,50 @@ export default function CashManagementPage() {
     return String(value).slice(0, 16).replace("T", " ");
   };
 
+  const parseAmountValue = (value: any) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
+
+  const getApprovalPayload = (request: any) => {
+    return request?.request_payload || request?.payload || request?.details || {};
+  };
+
+  const getApprovalAmount = (request: any) => {
+    const payload = getApprovalPayload(request);
+    return Number(
+      request?.amount ||
+        request?.request_amount ||
+        payload?.amount ||
+        payload?.amount_value ||
+        payload?.total_amount ||
+        0,
+    );
+  };
+
+  const getApprovalRejectionReason = (request: any) => {
+    const payload = getApprovalPayload(request);
+
+    return String(
+      request?.rejection_reason ||
+        request?.reject_reason ||
+        request?.decline_reason ||
+        request?.decision_reason ||
+        request?.approval_remarks ||
+        request?.review_remarks ||
+        request?.manager_remarks ||
+        request?.remarks ||
+        payload?.rejection_reason ||
+        payload?.reject_reason ||
+        payload?.decline_reason ||
+        payload?.decision_reason ||
+        payload?.approval_remarks ||
+        payload?.review_remarks ||
+        payload?.manager_remarks ||
+        "",
+    ).trim();
+  };
+
   const getMovementStyle = (type: string) => {
     if (type === "Opening Float") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
     if (type === "Cash In") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
@@ -1099,6 +1144,15 @@ export default function CashManagementPage() {
     }
 
     setApprovalRequests(data || []);
+  };
+
+  const refreshCashManagement = async () => {
+    await Promise.all([
+      getCashMovements(),
+      getDrawers(),
+      getApprovalRequests(),
+      getPayrollPeriods(),
+    ]);
   };
 
   /// FUNCTIONS - RESET
@@ -1655,8 +1709,15 @@ export default function CashManagementPage() {
       return;
     }
 
-    if (!drawerHolder || !openingFloat) {
+    if (!drawerHolder || openingFloat === "") {
       alert("Please select drawer holder and opening float.");
+      return;
+    }
+
+    const openingFloatValue = parseAmountValue(openingFloat);
+
+    if (!Number.isFinite(openingFloatValue) || openingFloatValue <= 0) {
+      alert("Opening float must be greater than zero. Negative, zero, and invalid amounts are not allowed.");
       return;
     }
 
@@ -1685,7 +1746,7 @@ export default function CashManagementPage() {
       .from("finance_cash_drawers")
       .insert({
         holder_name: drawerHolder,
-        opening_float: Number(openingFloat || 0),
+        opening_float: openingFloatValue,
         status: "OPEN",
         remarks: drawerRemarks.trim(),
       })
@@ -1704,7 +1765,7 @@ export default function CashManagementPage() {
         severity: "critical",
         newValue: {
           holder: drawerHolder,
-          openingFloat: Number(openingFloat || 0),
+          openingFloat: openingFloatValue,
           remarks: drawerRemarks.trim(),
           error: drawerError.message,
         },
@@ -1722,7 +1783,7 @@ export default function CashManagementPage() {
         movement_type: "Opening Float",
         source: "Petty Cash",
         payment_type: "Cash",
-        amount: Number(openingFloat || 0),
+        amount: openingFloatValue,
         from_person: "",
         to_person: drawerHolder,
         encoded_by: currentEmployeeName || drawerHolder,
@@ -1756,13 +1817,13 @@ export default function CashManagementPage() {
       userName: "OPSCORE USER",
       module: "Cash Management",
       action: "Open Drawer",
-      description: `${drawerHolder} opened cash drawer with float ${formatMoney(openingFloat)}`,
+      description: `${drawerHolder} opened cash drawer with float ${formatMoney(openingFloatValue)}`,
       severity: "warning",
       recordId: drawerData.id,
       newValue: {
         drawerId: drawerData.id,
         holder: drawerHolder,
-        openingFloat: Number(openingFloat || 0),
+        openingFloat: openingFloatValue,
         remarks: drawerRemarks.trim(),
       },
     });
@@ -1770,8 +1831,7 @@ export default function CashManagementPage() {
     resetDrawerForm();
     setShowOpenDrawer(false);
     setHolderFilter("AUTO");
-    await getDrawers();
-    await getCashMovements();
+    await refreshCashManagement();
   };
 
   /// FUNCTIONS - CLOSE DRAWER
@@ -1790,22 +1850,25 @@ export default function CashManagementPage() {
       return;
     }
 
-    if (!actualClosingCash) {
+    if (actualClosingCash === "") {
       alert("Please enter actual closing cash.");
       return;
     }
 
-    const actualCashValue = Number(actualClosingCash || 0);
-    const remittanceValue = Number(closingRemittanceAmount || 0);
+    const actualCashValue = parseAmountValue(actualClosingCash);
+    const remittanceValue =
+      closingRemittanceAmount === ""
+        ? 0
+        : parseAmountValue(closingRemittanceAmount);
     const receiverName = closingRemittanceReceivedBy.trim();
 
-    if (actualCashValue < 0) {
-      alert("Actual closing cash cannot be negative.");
+    if (!Number.isFinite(actualCashValue) || actualCashValue < 0) {
+      alert("Actual closing cash cannot be negative or invalid.");
       return;
     }
 
-    if (remittanceValue < 0) {
-      alert("Remittance amount cannot be negative.");
+    if (!Number.isFinite(remittanceValue) || remittanceValue < 0) {
+      alert("Remittance amount cannot be negative or invalid.");
       return;
     }
 
@@ -1975,8 +2038,7 @@ export default function CashManagementPage() {
 
     resetDrawerForm();
     setShowCloseDrawer(false);
-    await getCashMovements();
-    await getDrawers();
+    await refreshCashManagement();
   };
 
   /// FUNCTIONS - DUPLICATE SAFETY
@@ -2066,10 +2128,10 @@ export default function CashManagementPage() {
       return;
     }
 
-    const amountValue = Number(amount);
+    const amountValue = parseAmountValue(amount);
 
-    if (amountValue <= 0) {
-      alert("Amount must be greater than zero.");
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      alert("Amount must be greater than zero. Negative, zero, and invalid amounts are not allowed.");
       savingRef.current = false;
       return;
     }
@@ -2357,9 +2419,7 @@ export default function CashManagementPage() {
       });
 
       resetForm();
-      await getApprovalRequests();
-      await getCashMovements();
-      await getDrawers();
+      await refreshCashManagement();
       alert(
         "Cash movement sent to Manager Approval Center. No drawer deduction was made yet.",
       );
@@ -3110,6 +3170,31 @@ export default function CashManagementPage() {
   }, []);
 
   useEffect(() => {
+    const channel = supabase
+      .channel("cash-management-live-refresh")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "finance_cash_movements" },
+        () => refreshCashManagement(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "finance_cash_drawers" },
+        () => refreshCashManagement(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "approval_requests" },
+        () => refreshCashManagement(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
     if (sourceOptions.length === 0) {
       if (source) setSource("");
       return;
@@ -3622,23 +3707,35 @@ export default function CashManagementPage() {
                   <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                       <tr>
-                        {['Request','Requested By','Amount','Date','Status'].map((head) => (
+                        {['Request','Requested By','Amount','Date','Status','Actions'].map((head) => (
                           <th key={head} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{head}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {cashApprovalRequests.slice(0, 12).map((request) => (
-                        <tr key={request.id} className="transition-all duration-200 hover:bg-slate-50">
-                          <td className="max-w-[260px] truncate px-4 py-3 text-sm font-semibold text-slate-800">{request.title || request.request_type || "Cash Request"}</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-slate-700">{request.requested_by || "-"}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(request.amount || request.request_amount || 0)}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-700">{formatDateTime(request.created_at)}</td>
-                          <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getApprovalStatusStyle(request.status)}`}>{request.status || "PENDING"}</span></td>
-                        </tr>
-                      ))}
+                      {cashApprovalRequests.slice(0, 12).map((request) => {
+                        const requestStatus = String(request.status || "PENDING").toUpperCase();
+                        return (
+                          <tr key={request.id} className="transition-all duration-200 hover:bg-slate-50">
+                            <td className="max-w-[260px] truncate px-4 py-3 text-sm font-semibold text-slate-800">{request.title || request.request_type || "Cash Request"}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-slate-700">{request.requested_by || "-"}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(getApprovalAmount(request))}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-700">{formatDateTime(request.created_at)}</td>
+                            <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getApprovalStatusStyle(request.status)}`}>{requestStatus}</span></td>
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedApprovalRequest(request)}
+                                className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {cashApprovalRequests.length === 0 && (
-                        <tr><td colSpan={5} className="px-4 py-10 text-center"><p className="text-sm font-black text-slate-950">No records found</p><p className="mt-1 text-sm font-medium text-slate-500">No cash approval requests yet.</p></td></tr>
+                        <tr><td colSpan={6} className="px-4 py-10 text-center"><p className="text-sm font-black text-slate-950">No records found</p><p className="mt-1 text-sm font-medium text-slate-500">No cash approval requests yet.</p></td></tr>
                       )}
                     </tbody>
                   </table>
@@ -3647,6 +3744,69 @@ export default function CashManagementPage() {
             </section>
 
             {/* MODALS */}
+            {selectedApprovalRequest && (() => {
+              const payload = getApprovalPayload(selectedApprovalRequest);
+              const rejectionReason = getApprovalRejectionReason(selectedApprovalRequest);
+              const requestStatus = String(selectedApprovalRequest.status || "PENDING").toUpperCase();
+
+              return (
+                <Modal title="Cash Approval Request Details" onClose={() => setSelectedApprovalRequest(null)}>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Request</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{selectedApprovalRequest.title || selectedApprovalRequest.request_type || "Cash Request"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Status</p>
+                      <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getApprovalStatusStyle(selectedApprovalRequest.status)}`}>
+                        {requestStatus}
+                      </span>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Requested By</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{selectedApprovalRequest.requested_by || payload.encoded_by || "-"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Amount</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{formatMoney(getApprovalAmount(selectedApprovalRequest))}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Date</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{formatDateTime(selectedApprovalRequest.created_at)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Payment Type</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{payload.payment_type || "-"}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Description / Remarks</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-700">
+                      {selectedApprovalRequest.description || payload.remarks || payload.expense_description || "-"}
+                    </p>
+                  </div>
+
+                  {requestStatus === "REJECTED" && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">Rejected Reason</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm font-black text-red-800">
+                        {rejectionReason || "No rejection reason was encoded."}
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedApprovalRequest(null)}
+                    className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-black text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                  >
+                    Close
+                  </button>
+                </Modal>
+              );
+            })()}
+
             {showDrawerHolderSettings && (
               <Modal title="Drawer Holder Settings" onClose={() => setShowDrawerHolderSettings(false)}>
                 <p className="text-sm font-medium text-slate-500">
