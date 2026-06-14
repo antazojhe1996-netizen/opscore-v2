@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
+import OpscoreAssistant from "@/components/OpscoreAssistant";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 
@@ -28,8 +30,7 @@ export default function ApartmentPaymentsPage() {
   const getBills = async () => {
     const { data, error } = await supabase
       .from("apartment_bills")
-      .select(
-        `
+      .select(`
         *,
         apartment_units (
           id,
@@ -42,12 +43,11 @@ export default function ApartmentPaymentsPage() {
           amount,
           status
         )
-      `,
-      )
+      `)
       .order("due_date", { ascending: false });
 
     if (error) {
-      console.log("GET PAYMENT BILLS ERROR:", error);
+      console.log("GET PAYMENT BILLS ERROR:", error.message);
       alert(error.message);
       return;
     }
@@ -58,8 +58,7 @@ export default function ApartmentPaymentsPage() {
   const getPayments = async () => {
     const { data, error } = await supabase
       .from("apartment_payments")
-      .select(
-        `
+      .select(`
         *,
         apartment_bills (
           id,
@@ -76,12 +75,11 @@ export default function ApartmentPaymentsPage() {
             tenant_name
           )
         )
-      `,
-      )
+      `)
       .order("payment_date", { ascending: false });
 
     if (error) {
-      console.log("GET PAYMENTS ERROR:", error);
+      console.log("GET PAYMENTS ERROR:", error.message);
       alert(error.message);
       return;
     }
@@ -112,11 +110,11 @@ export default function ApartmentPaymentsPage() {
     return (bill.apartment_payments || [])
       .filter(
         (payment: any) =>
-          String(payment.status || "ACTIVE").toUpperCase() !== "VOIDED",
+          String(payment.status || "ACTIVE").toUpperCase() !== "VOIDED"
       )
       .reduce(
         (sum: number, payment: any) => sum + Number(payment.amount || 0),
-        0,
+        0
       );
   };
 
@@ -137,11 +135,13 @@ export default function ApartmentPaymentsPage() {
   };
 
   const getStatusStyle = (status: string) => {
-    if (status === "PAID") return "bg-emerald-500/10 text-emerald-400";
-    if (status === "PARTIAL") return "bg-amber-500/10 text-amber-400";
-    if (status === "OVERDUE") return "bg-red-500/10 text-red-400";
-    if (status === "UNPAID") return "bg-orange-500/10 text-orange-400";
-    return "bg-slate-700 text-slate-300";
+    if (status === "PAID") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (status === "PARTIAL") return "border-amber-200 bg-amber-50 text-amber-700";
+    if (status === "OVERDUE") return "border-red-200 bg-red-50 text-red-700";
+    if (status === "UNPAID") return "border-slate-200 bg-slate-100 text-slate-700";
+    if (status === "VOIDED") return "border-red-200 bg-red-50 text-red-700";
+    if (status === "ACTIVE") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-blue-200 bg-blue-50 text-blue-700";
   };
 
   const selectedBill = bills.find((bill) => String(bill.id) === String(billId));
@@ -169,9 +169,7 @@ export default function ApartmentPaymentsPage() {
     }
 
     if (selectedBill && paymentAmount > selectedBalance) {
-      alert(
-        `Payment is higher than the remaining balance: ${formatMoney(selectedBalance)}`,
-      );
+      alert(`Payment is higher than the remaining balance: ${formatMoney(selectedBalance)}`);
       return;
     }
 
@@ -201,8 +199,6 @@ export default function ApartmentPaymentsPage() {
     setSaving(false);
 
     if (error) {
-      console.log("ADD PAYMENT ERROR:", error);
-
       await createAuditLog({
         userName: "OPSCORE USER",
         module: "Apartment Payments",
@@ -282,17 +278,15 @@ export default function ApartmentPaymentsPage() {
       return;
     }
 
-    const unitName =
-      payment?.apartment_bills?.apartment_units?.unit_name || "-";
-    const tenantName =
-      payment?.apartment_bills?.apartment_units?.tenant_name || "-";
+    const unitName = payment?.apartment_bills?.apartment_units?.unit_name || "-";
+    const tenantName = payment?.apartment_bills?.apartment_units?.tenant_name || "-";
     const billMonth = payment?.apartment_bills?.bill_month || "-";
     const paymentAmount = Number(payment?.amount || 0);
     const voidedBy = getCurrentUserName();
     const voidedAt = new Date().toISOString();
 
     const reason = window.prompt(
-      `Void this apartment payment?\n\n${unitName} (${tenantName}) ${billMonth}\nAmount: ${formatMoney(paymentAmount)}\n\nReason is required:`,
+      `Void this apartment payment?\n\n${unitName} (${tenantName}) ${billMonth}\nAmount: ${formatMoney(paymentAmount)}\n\nReason is required:`
     );
 
     if (reason === null) return;
@@ -305,10 +299,11 @@ export default function ApartmentPaymentsPage() {
     }
 
     const oldRemarks = String(payment?.remarks || "").trim();
-    const voidTrail = `[VOIDED by ${voidedBy} at ${voidedAt.slice(0, 16).replace("T", " ")}] Reason: ${cleanReason}`;
-    const updatedRemarks = oldRemarks
-      ? `${oldRemarks} ${voidTrail}`
-      : voidTrail;
+    const voidTrail = `[VOIDED by ${voidedBy} at ${voidedAt
+      .slice(0, 16)
+      .replace("T", " ")}] Reason: ${cleanReason}`;
+
+    const updatedRemarks = oldRemarks ? `${oldRemarks} ${voidTrail}` : voidTrail;
 
     setSaving(true);
 
@@ -326,8 +321,6 @@ export default function ApartmentPaymentsPage() {
     setSaving(false);
 
     if (error) {
-      console.log("VOID PAYMENT ERROR:", error);
-
       await createAuditLog({
         userName: voidedBy,
         module: "Apartment Payments",
@@ -373,13 +366,11 @@ export default function ApartmentPaymentsPage() {
   const unpaidBills = bills.filter((bill) => getBalance(bill) > 0);
 
   const totalBilled = bills.reduce((sum, bill) => sum + getTotalBill(bill), 0);
-  const totalCollected = bills.reduce(
-    (sum, bill) => sum + getTotalPaid(bill),
-    0,
-  );
+  const totalCollected = bills.reduce((sum, bill) => sum + getTotalPaid(bill), 0);
   const totalBalance = totalBilled - totalCollected;
+
   const overdueCount = bills.filter(
-    (bill) => getBillStatus(bill) === "OVERDUE",
+    (bill) => getBillStatus(bill) === "OVERDUE"
   ).length;
 
   const tenantLedger = useMemo(() => {
@@ -425,9 +416,21 @@ export default function ApartmentPaymentsPage() {
     });
 
     return Object.values(ledgerMap).sort((a: any, b: any) =>
-      String(a.unitName || "").localeCompare(String(b.unitName || "")),
+      String(a.unitName || "").localeCompare(String(b.unitName || ""))
     );
   }, [bills]);
+
+  const assistantReminders = [
+    ...(overdueCount > 0
+      ? [{ type: "critical", text: `${overdueCount} apartment bill(s) are overdue.` }]
+      : []),
+    ...(totalBalance > 0
+      ? [{ type: "warning", text: `${formatMoney(totalBalance)} apartment balance remains outstanding.` }]
+      : []),
+    ...(unpaidBills.length === 0
+      ? [{ type: "success", text: "No unpaid apartment bills are currently pending." }]
+      : []),
+  ].slice(0, 5);
 
   /// EFFECTS
   useEffect(() => {
@@ -436,342 +439,86 @@ export default function ApartmentPaymentsPage() {
 
   /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 xl:p-8">
-        <div className="mx-auto w-full max-w-[1800px]">
-          <section className="mb-5 flex flex-col gap-4 border-b border-slate-800 pb-5 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
-                Apartment Operations
-              </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
-                Apartment Payments
-              </h1>
-              <p className="mt-1 max-w-3xl text-sm text-slate-400">
-                Record tenant payments, monitor unpaid balances, review ledger totals, and void incorrect receipts with audit trail.
-              </p>
-            </div>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="FINANCE / APARTMENT PAYMENTS" />
 
-            <div className="flex flex-wrap gap-2">
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              FINANCE
+            </p>
+
+            <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h1 className="text-3xl font-black tracking-tight text-slate-950">
+                  Apartment Payments
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                  Workbench for recording tenant payments, monitoring balances, and preserving payment audit trails.
+                </p>
+              </div>
+
               <Link
                 href="/finance/apartment"
-                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-800"
+                className="flex h-11 items-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
-                Back to Apartment
+                Back to Apartment Center
               </Link>
-              <a
-                href="#record-payment"
-                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500"
-              >
-                Record Payment
-              </a>
             </div>
           </section>
 
-          <section className="sticky top-0 z-30 mb-5 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 shadow-xl shadow-black/20 backdrop-blur">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <CompactMetric label="Billed" value={formatMoney(totalBilled)} />
-              <CompactMetric label="Collected" value={formatMoney(totalCollected)} />
-              <CompactMetric label="Balance" value={formatMoney(totalBalance)} danger={totalBalance > 0} />
-              <CompactMetric label="Overdue" value={overdueCount} danger={overdueCount > 0} />
-            </div>
-          </section>
+          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 p-6">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Payment Workbench
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Record Apartment Payment
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Post tenant payments against unpaid apartment bills only.
+                </p>
+              </div>
 
-          <section className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="min-w-0 space-y-5">
-              <section className="rounded-2xl border border-slate-800 bg-slate-900">
-                <div className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div>
-                    <h2 className="text-xl font-black text-white">Unpaid Bills Queue</h2>
-                    <p className="mt-1 text-sm text-slate-400">
-                      {unpaidBills.length} bill{unpaidBills.length === 1 ? "" : "s"} available for payment posting.
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
-                    Select a bill in the right panel to post payment.
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-sm">
-                    <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Unit</th>
-                        <th className="px-4 py-3">Tenant</th>
-                        <th className="px-4 py-3">Month</th>
-                        <th className="px-4 py-3">Due Date</th>
-                        <th className="px-4 py-3 text-right">Total Bill</th>
-                        <th className="px-4 py-3 text-right">Paid</th>
-                        <th className="px-4 py-3 text-right">Balance</th>
-                        <th className="px-4 py-3">Status</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {unpaidBills.map((bill) => {
-                        const status = getBillStatus(bill);
-                        const active = String(bill.id) === String(billId);
-
-                        return (
-                          <tr
-                            key={bill.id}
-                            onClick={() => setBillId(String(bill.id))}
-                            className={`cursor-pointer border-t border-slate-800 hover:bg-slate-800/50 ${
-                              active ? "bg-blue-500/10" : ""
-                            }`}
-                          >
-                            <td className="px-4 py-3 font-black text-white">
-                              {bill.apartment_units?.unit_name || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-slate-300">
-                              {bill.apartment_units?.tenant_name || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-slate-300">{bill.bill_month}</td>
-                            <td className="px-4 py-3 text-slate-300">{bill.due_date}</td>
-                            <td className="px-4 py-3 text-right text-slate-200">
-                              {formatMoney(getTotalBill(bill))}
-                            </td>
-                            <td className="px-4 py-3 text-right text-emerald-300">
-                              {formatMoney(getTotalPaid(bill))}
-                            </td>
-                            <td className="px-4 py-3 text-right font-black text-white">
-                              {formatMoney(getBalance(bill))}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(status)}`}>
-                                {status}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      {unpaidBills.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-14 text-center text-slate-500">
-                            No unpaid apartment bills.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-slate-800 bg-slate-900">
-                <div className="border-b border-slate-800 p-4">
-                  <h2 className="text-xl font-black text-white">Tenant Ledger</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Running balance by unit and tenant.
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1000px] text-sm">
-                    <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Unit</th>
-                        <th className="px-4 py-3">Tenant</th>
-                        <th className="px-4 py-3">Unit Status</th>
-                        <th className="px-4 py-3 text-right">Bills</th>
-                        <th className="px-4 py-3 text-right">Total Bill</th>
-                        <th className="px-4 py-3 text-right">Total Paid</th>
-                        <th className="px-4 py-3 text-right">Balance</th>
-                        <th className="px-4 py-3">Latest Due</th>
-                        <th className="px-4 py-3 text-right">Overdue</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {tenantLedger.map((row: any) => (
-                        <tr key={row.unitName} className="border-t border-slate-800 hover:bg-slate-800/40">
-                          <td className="px-4 py-3 font-black text-white">{row.unitName}</td>
-                          <td className="px-4 py-3 text-slate-300">{row.tenantName}</td>
-                          <td className="px-4 py-3 text-slate-300">{row.unitStatus}</td>
-                          <td className="px-4 py-3 text-right text-slate-300">{row.billCount}</td>
-                          <td className="px-4 py-3 text-right text-slate-300">{formatMoney(row.totalBill)}</td>
-                          <td className="px-4 py-3 text-right text-emerald-300">{formatMoney(row.totalPaid)}</td>
-                          <td className="px-4 py-3 text-right font-black text-white">{formatMoney(row.totalBalance)}</td>
-                          <td className="px-4 py-3 text-slate-300">{row.latestDueDate || "-"}</td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-300">{row.overdueCount}</td>
-                        </tr>
-                      ))}
-
-                      {tenantLedger.length === 0 && (
-                        <tr>
-                          <td colSpan={9} className="px-4 py-14 text-center text-slate-500">
-                            No tenant ledger records yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-slate-800 bg-slate-900">
-                <div className="border-b border-slate-800 p-4">
-                  <h2 className="text-xl font-black text-white">Payment History</h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Voided payments remain visible for audit review.
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1050px] text-sm">
-                    <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Date</th>
-                        <th className="px-4 py-3">Unit</th>
-                        <th className="px-4 py-3">Tenant</th>
-                        <th className="px-4 py-3">Bill Month</th>
-                        <th className="px-4 py-3 text-right">Amount</th>
-                        <th className="px-4 py-3">Method</th>
-                        <th className="px-4 py-3">Remarks</th>
-                        <th className="px-4 py-3 text-center">Status</th>
-                        <th className="px-4 py-3 text-center">Action</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {payments.map((payment) => {
-                        const isVoided = isVoidedPayment(payment);
-
-                        return (
-                          <tr
-                            key={payment.id}
-                            className={`border-t border-slate-800 hover:bg-slate-800/40 ${
-                              isVoided ? "bg-red-950/10 opacity-60" : ""
-                            }`}
-                          >
-                            <td className="px-4 py-3 text-slate-300">{payment.payment_date}</td>
-                            <td className="px-4 py-3 font-bold text-white">
-                              {payment.apartment_bills?.apartment_units?.unit_name || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-slate-300">
-                              {payment.apartment_bills?.apartment_units?.tenant_name || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-slate-300">
-                              {payment.apartment_bills?.bill_month || "-"}
-                            </td>
-                            <td className={`px-4 py-3 text-right font-bold ${isVoided ? "text-slate-500 line-through" : "text-emerald-300"}`}>
-                              {formatMoney(payment.amount)}
-                            </td>
-                            <td className="px-4 py-3 text-slate-300">{payment.payment_method || "-"}</td>
-                            <td className="max-w-[360px] px-4 py-3 text-slate-400">
-                              <span className={isVoided ? "line-through text-slate-500" : "line-clamp-2"}>
-                                {payment.remarks || "-"}
-                              </span>
-                              {isVoided && payment.void_reason && (
-                                <div className="mt-1 text-xs font-semibold text-red-300">
-                                  Void reason: {payment.void_reason}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {isVoided ? (
-                                <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
-                                  VOIDED
-                                </span>
-                              ) : (
-                                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                                  ACTIVE
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {isVoided ? (
-                                <span className="text-xs font-semibold text-slate-500">—</span>
-                              ) : (
-                                <button
-                                  onClick={() => voidPayment(payment.id)}
-                                  disabled={saving}
-                                  className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-                                >
-                                  Void
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      {payments.length === 0 && (
-                        <tr>
-                          <td colSpan={9} className="px-4 py-14 text-center text-slate-500">
-                            No apartment payments recorded yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            </div>
-
-            <aside id="record-payment" className="space-y-5">
-              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="mb-4">
-                  <h2 className="text-lg font-black text-white">Record Payment</h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Post payments against unpaid apartment bills only.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
+              <div className="p-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <Field label="Unpaid Bill">
                     <select
                       value={billId}
                       onChange={(e) => setBillId(e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                     >
                       <option value="">Select unpaid bill</option>
                       {unpaidBills.map((bill) => (
                         <option key={bill.id} value={bill.id}>
-                          {bill.apartment_units?.unit_name} - {bill.apartment_units?.tenant_name || "No tenant"} - {bill.bill_month} - Balance {formatMoney(getBalance(bill))}
+                          {bill.apartment_units?.unit_name} -{" "}
+                          {bill.apartment_units?.tenant_name || "No tenant"} -{" "}
+                          {bill.bill_month} - Balance {formatMoney(getBalance(bill))}
                         </option>
                       ))}
                     </select>
                   </Field>
-
-                  {selectedBill && (
-                    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
-                      <div className="flex justify-between gap-3">
-                        <span className="text-slate-400">Selected Balance</span>
-                        <span className="font-black text-white">{formatMoney(selectedBalance)}</span>
-                      </div>
-                      <div className="mt-2 flex justify-between gap-3">
-                        <span className="text-slate-400">Due Date</span>
-                        <span className="text-slate-300">{selectedBill.due_date || "-"}</span>
-                      </div>
-                      <div className="mt-2 flex justify-between gap-3">
-                        <span className="text-slate-400">Bill Status</span>
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${getStatusStyle(getBillStatus(selectedBill))}`}>
-                          {getBillStatus(selectedBill)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
 
                   <Field label="Payment Date">
                     <input
                       type="date"
                       value={paymentDate}
                       onChange={(e) => setPaymentDate(e.target.value)}
-                      style={{ colorScheme: "dark" }}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                     />
                   </Field>
 
                   <Field label="Amount">
                     <input
                       type="number"
-                      placeholder="Payment amount"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      placeholder="0.00"
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                     />
                   </Field>
 
@@ -779,7 +526,7 @@ export default function ApartmentPaymentsPage() {
                     <select
                       value={paymentMethod}
                       onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                     >
                       <option value="">Payment method</option>
                       <option value="Cash">Cash</option>
@@ -790,57 +537,287 @@ export default function ApartmentPaymentsPage() {
                     </select>
                   </Field>
 
-                  <Field label="Remarks / Reference Number">
-                    <textarea
-                      placeholder="Optional remarks"
-                      value={remarks}
-                      onChange={(e) => setRemarks(e.target.value)}
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                    />
-                  </Field>
+                  <div className="md:col-span-2">
+                    <Field label="Remarks / Reference Number">
+                      <textarea
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                        placeholder="Optional remarks"
+                        className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+                  <button
+                    onClick={resetForm}
+                    type="button"
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                  >
+                    Reset
+                  </button>
 
                   <button
                     onClick={addPayment}
                     disabled={saving}
-                    className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50"
+                    type="button"
+                    className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {saving ? "Saving..." : "Save Payment"}
                   </button>
                 </div>
-              </section>
+              </div>
+            </div>
 
-              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <h2 className="text-lg font-black text-white">Payment Controls</h2>
-                <div className="mt-4 space-y-3 text-sm text-slate-400">
-                  <p className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                    Payments cannot exceed the remaining balance of the selected bill.
-                  </p>
-                  <p className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                    Voided payments stay in history and reopen bill balance through active-payment totals.
-                  </p>
-                </div>
-              </section>
-            </aside>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Workbench Summary
+              </p>
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Selected Bill
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Live payment control for the selected apartment bill.
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <SummaryRow label="Selected Balance" value={formatMoney(selectedBalance)} danger={selectedBalance > 0} />
+                <SummaryRow label="Bill Status" value={selectedBill ? getBillStatus(selectedBill) : "-"} />
+                <SummaryRow label="Due Date" value={selectedBill?.due_date || "-"} />
+                <SummaryRow label="Payment Amount" value={formatMoney(amount)} />
+              </div>
+
+              <p className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-blue-700">
+                Payments cannot exceed the remaining balance. Voided payments remain visible in history.
+              </p>
+            </div>
           </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <KpiCard label="Total Billed" value={formatMoney(totalBilled)} helper={`${bills.length} bill(s) recorded`} />
+            <KpiCard label="Total Collected" value={formatMoney(totalCollected)} helper={`${payments.length} payment record(s)`} />
+            <KpiCard label="Outstanding Balance" value={formatMoney(totalBalance)} helper={`${unpaidBills.length} unpaid bill(s)`} danger={totalBalance > 0} />
+            <KpiCard label="Overdue Bills" value={overdueCount} helper="Needs follow-up" danger={overdueCount > 0} />
+          </section>
+
+          <TableCard
+            label="Payment Queue"
+            title="Unpaid Bills Queue"
+            subtitle={`${unpaidBills.length} bill${unpaidBills.length === 1 ? "" : "s"} available for payment posting.`}
+            className="mb-6"
+          >
+            <table className="w-full min-w-[980px] text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Unit</th>
+                  <th className="px-4 py-3">Tenant</th>
+                  <th className="px-4 py-3">Month</th>
+                  <th className="px-4 py-3">Due Date</th>
+                  <th className="px-4 py-3 text-right">Total Bill</th>
+                  <th className="px-4 py-3 text-right">Paid</th>
+                  <th className="px-4 py-3 text-right">Balance</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                {unpaidBills.map((bill) => {
+                  const status = getBillStatus(bill);
+                  const active = String(bill.id) === String(billId);
+
+                  return (
+                    <tr
+                      key={bill.id}
+                      onClick={() => setBillId(String(bill.id))}
+                      className={`cursor-pointer transition-all duration-200 hover:bg-slate-50 ${
+                        active ? "bg-blue-50" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-black text-slate-950">
+                        {bill.apartment_units?.unit_name || "-"}
+                      </td>
+                      <td className="px-4 py-3">{bill.apartment_units?.tenant_name || "-"}</td>
+                      <td className="px-4 py-3">{bill.bill_month}</td>
+                      <td className="px-4 py-3">{bill.due_date}</td>
+                      <td className="px-4 py-3 text-right font-black text-slate-950">{formatMoney(getTotalBill(bill))}</td>
+                      <td className="px-4 py-3 text-right font-black text-slate-950">{formatMoney(getTotalPaid(bill))}</td>
+                      <td className="px-4 py-3 text-right font-black text-slate-950">{formatMoney(getBalance(bill))}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusStyle(status)}`}>
+                          {status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {unpaidBills.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-14 text-center">
+                      <p className="font-black text-slate-950">No records found</p>
+                      <p className="mt-1 text-sm font-medium text-slate-500">
+                        No unpaid apartment bills.
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableCard>
+
+          <TableCard
+            label="Payment History"
+            title="Apartment Payment History"
+            subtitle="Voided payments remain visible for audit review."
+            className="mb-6"
+          >
+            <table className="w-full min-w-[1050px] text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Unit</th>
+                  <th className="px-4 py-3">Tenant</th>
+                  <th className="px-4 py-3">Bill Month</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3">Method</th>
+                  <th className="px-4 py-3">Remarks</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3 text-center">Action</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                {payments.map((payment) => {
+                  const isVoided = isVoidedPayment(payment);
+
+                  return (
+                    <tr key={payment.id} className={isVoided ? "bg-red-50/40" : "transition-all duration-200 hover:bg-slate-50"}>
+                      <td className="px-4 py-3">{payment.payment_date}</td>
+                      <td className="px-4 py-3 font-black text-slate-950">
+                        {payment.apartment_bills?.apartment_units?.unit_name || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {payment.apartment_bills?.apartment_units?.tenant_name || "-"}
+                      </td>
+                      <td className="px-4 py-3">{payment.apartment_bills?.bill_month || "-"}</td>
+                      <td className={`px-4 py-3 text-right font-black ${isVoided ? "text-slate-400 line-through" : "text-slate-950"}`}>
+                        {formatMoney(payment.amount)}
+                      </td>
+                      <td className="px-4 py-3">{payment.payment_method || "-"}</td>
+                      <td className="max-w-[360px] px-4 py-3">
+                        <span className={isVoided ? "line-through text-slate-400" : "line-clamp-2"}>
+                          {payment.remarks || "-"}
+                        </span>
+                        {isVoided && payment.void_reason && (
+                          <div className="mt-1 text-xs font-bold text-red-700">
+                            Void reason: {payment.void_reason}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusStyle(isVoided ? "VOIDED" : "ACTIVE")}`}>
+                          {isVoided ? "VOIDED" : "ACTIVE"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {isVoided ? (
+                          <span className="text-xs font-bold text-slate-400">—</span>
+                        ) : (
+                          <button
+                            onClick={() => voidPayment(payment.id)}
+                            disabled={saving}
+                            className="h-10 rounded-xl bg-red-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Void
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {payments.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-14 text-center">
+                      <p className="font-black text-slate-950">No records found</p>
+                      <p className="mt-1 text-sm font-medium text-slate-500">
+                        No apartment payments recorded yet.
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableCard>
+
+          <TableCard
+            label="Tenant Ledger"
+            title="Apartment Tenant Ledger"
+            subtitle="Running balance by unit and tenant."
+          >
+            <table className="w-full min-w-[1000px] text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Unit</th>
+                  <th className="px-4 py-3">Tenant</th>
+                  <th className="px-4 py-3">Unit Status</th>
+                  <th className="px-4 py-3 text-right">Bills</th>
+                  <th className="px-4 py-3 text-right">Total Bill</th>
+                  <th className="px-4 py-3 text-right">Total Paid</th>
+                  <th className="px-4 py-3 text-right">Balance</th>
+                  <th className="px-4 py-3">Latest Due</th>
+                  <th className="px-4 py-3 text-right">Overdue</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                {tenantLedger.map((row: any) => (
+                  <tr key={row.unitName} className="transition-all duration-200 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-black text-slate-950">{row.unitName}</td>
+                    <td className="px-4 py-3">{row.tenantName}</td>
+                    <td className="px-4 py-3">{row.unitStatus}</td>
+                    <td className="px-4 py-3 text-right">{row.billCount}</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-950">{formatMoney(row.totalBill)}</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-950">{formatMoney(row.totalPaid)}</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-950">{formatMoney(row.totalBalance)}</td>
+                    <td className="px-4 py-3">{row.latestDueDate || "-"}</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-950">{row.overdueCount}</td>
+                  </tr>
+                ))}
+
+                {tenantLedger.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-14 text-center">
+                      <p className="font-black text-slate-950">No records found</p>
+                      <p className="mt-1 text-sm font-medium text-slate-500">
+                        No tenant ledger records yet.
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableCard>
         </div>
+
+        <OpscoreAssistant reminders={assistantReminders} />
       </main>
     </div>
   );
 }
 
-function CompactMetric({ label, value, danger }: any) {
+function KpiCard({ label, value, helper, danger }: any) {
   return (
-    <div
-      className={`rounded-xl border px-3 py-2 ${
-        danger ? "border-red-500/20 bg-red-500/10" : "border-slate-800 bg-slate-900"
-      }`}
-    >
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
-      <p className={danger ? "mt-1 text-lg font-black text-red-300" : "mt-1 text-lg font-black text-white"}>
+      <p className="mt-2 break-words text-3xl font-black tracking-tight text-slate-950">
         {value}
+      </p>
+      <p className={danger ? "mt-1 text-sm font-bold text-red-700" : "mt-1 text-sm font-medium text-slate-500"}>
+        {helper}
       </p>
     </div>
   );
@@ -849,10 +826,37 @@ function CompactMetric({ label, value, danger }: any) {
 function Field({ label, children }: any) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-semibold text-slate-300">
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </label>
       {children}
     </div>
+  );
+}
+
+function SummaryRow({ label, value, danger }: any) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className={danger ? "text-sm font-black text-red-700" : "text-sm font-black text-slate-950"}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TableCard({ label, title, subtitle, children, className = "" }: any) {
+  return (
+    <section className={`overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm ${className}`}>
+      <div className="border-b border-slate-100 px-6 py-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          {label}
+        </p>
+        <h2 className="mt-2 text-xl font-black text-slate-950">{title}</h2>
+        <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>
+      </div>
+
+      <div className="overflow-auto">{children}</div>
+    </section>
   );
 }

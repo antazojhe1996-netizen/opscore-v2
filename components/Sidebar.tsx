@@ -1,36 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { supabase } from "@/app/lib/supabase";
 import {
   Activity,
   BarChart3,
   Building2,
   CalendarDays,
   ChevronRight,
-  ChefHat,
   ClipboardList,
   Clock,
   Database,
   FileText,
-  FolderOpen,
   Hotel,
   KeyRound,
   LayoutDashboard,
-  Megaphone,
   Menu,
   Receipt,
   Settings,
   ShieldCheck,
-  ShoppingCart,
-  Sparkles,
-  Store,
   UserCheck,
   UserPlus,
   Users,
   Wallet,
-  Wrench,
   X,
 } from "lucide-react";
 
@@ -39,175 +33,331 @@ const menuSections = [
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    moduleKey: "dashboard",
     items: [],
   },
   {
-  title: "Human Resources",
-  icon: Users,
-  items: [
-    {
-      label: "Employee 201",
-      href: "/human-resources/employees",
-      icon: FileText,
-    },
-    {
-      label: "Pending Registration",
-      href: "/human-resources/pending-registration",
-      icon: ClipboardList,
-    },
-    {
-      label: "Leave Management",
-      href: "/leave-management",
-      icon: ClipboardList,
-    },
-    {
-      label: "Employee Portal",
-      href: "/employee-portal",
-      icon: Users,
-    },
-  ],
-},
+    title: "Human Resources",
+    icon: Users,
+    items: [
+      {
+        label: "Employee 201",
+        href: "/human-resources/employees",
+        icon: FileText,
+        moduleKey: "employees",
+      },
+      {
+        label: "Pending Registration",
+        href: "/human-resources/pending-registration",
+        icon: ClipboardList,
+        moduleKey: "employees",
+      },
+      {
+        label: "Leave Management",
+        href: "/leave-management",
+        icon: ClipboardList,
+        moduleKey: "leave_management",
+      },
+      {
+        label: "Employee Portal",
+        href: "/employee-portal",
+        icon: Users,
+        moduleKey: "employees",
+      },
+    ],
+  },
   {
     title: "Workforce",
     icon: Users,
     items: [
-      { label: "Workforce Dashboard", href: "/workforce", icon: Users },
-      { label: "Scheduling", href: "/scheduling", icon: CalendarDays },
+      {
+        label: "Workforce Dashboard",
+        href: "/workforce",
+        icon: Users,
+        moduleKey: "workforce",
+      },
+      {
+        label: "Scheduling",
+        href: "/scheduling",
+        icon: CalendarDays,
+        moduleKey: "scheduling",
+      },
     ],
   },
   {
     title: "Payroll",
     icon: FileText,
     items: [
-      { label: "Attendance Audit", href: "/finance/payroll/attendance", icon: Clock },
-      { label: "Payroll Register", href: "/finance/payroll/register", icon: FileText },
-      { label: "Payroll Manager", href: "/finance/payroll/manager", icon: Wallet },
-      { label: "Payslips", href: "/finance/payroll/payslips", icon: Receipt },
-      { label: "Employee Balances", href: "/finance/payroll/employee-balances", icon: Wallet },
-      { label: "Release History", href: "/finance/payroll/history", icon: BarChart3 },
-      { label: "Payroll Settings", href: "/finance/payroll/settings", icon: Settings },
+      {
+        label: "Attendance Audit",
+        href: "/finance/payroll/attendance",
+        icon: Clock,
+        moduleKey: "attendance",
+      },
+      {
+        label: "Payroll Register",
+        href: "/finance/payroll/register",
+        icon: FileText,
+        moduleKey: "payroll_register",
+      },
+      {
+        label: "Payroll Manager",
+        href: "/finance/payroll/manager",
+        icon: Wallet,
+        moduleKey: "payroll_manager",
+      },
+      {
+        label: "Payslips",
+        href: "/finance/payroll/payslips",
+        icon: Receipt,
+        moduleKey: "payslips",
+      },
+      {
+        label: "Employee Balances",
+        href: "/finance/payroll/employee-balances",
+        icon: Wallet,
+        moduleKey: "employee_balances",
+      },
+      {
+        label: "Release History",
+        href: "/finance/payroll/history",
+        icon: BarChart3,
+        moduleKey: "release_history",
+      },
+      {
+        label: "Payroll Settings",
+        href: "/finance/payroll/settings",
+        icon: Settings,
+        moduleKey: "payroll_settings",
+      },
     ],
   },
   {
     title: "Sales",
     icon: Hotel,
     items: [
-      { label: "Room Sales", href: "/finance/room-sales", icon: Hotel },
-      { label: "Apartment", href: "/finance/apartment", icon: Building2 },
-      { label: "Restaurant Sales", href: "/finance/restaurant-import", icon: Receipt },
+      {
+        label: "Room Sales",
+        href: "/finance/room-sales",
+        icon: Hotel,
+        moduleKey: "hotel_room_sales",
+      },
+      {
+        label: "Apartment",
+        href: "/finance/apartment",
+        icon: Building2,
+        moduleKey: "apartment_sales",
+      },
+      {
+        label: "Restaurant Sales",
+        href: "/finance/restaurant-import",
+        icon: Receipt,
+        moduleKey: "restaurant_sales",
+      },
     ],
   },
   {
     title: "Finance",
     icon: Wallet,
     items: [
-      { label: "Finance Dashboard", href: "/finance", icon: BarChart3 },
-      { label: "Expenses", href: "/finance/expenses", icon: Receipt },
-      { label: "Expense Requests", href: "/finance/expense-requests", icon: ClipboardList },
-      { label: "Bills", href: "/finance/bills", icon: ClipboardList },
-      { label: "Cash Management", href: "/finance/cash-management", icon: Wallet },
-      { label: "Finance Settings", href: "/finance/settings", icon: Settings },
+      {
+        label: "Finance Dashboard",
+        href: "/finance",
+        icon: BarChart3,
+        moduleKey: "finance_dashboard",
+      },
+      {
+        label: "Expenses",
+        href: "/finance/expenses",
+        icon: Receipt,
+        moduleKey: "expenses",
+      },
+      {
+        label: "Expense Requests",
+        href: "/finance/expense-requests",
+        icon: ClipboardList,
+        moduleKey: "expense_requests",
+      },
+      {
+        label: "Bills",
+        href: "/finance/bills",
+        icon: ClipboardList,
+        moduleKey: "bills_monitoring",
+      },
+      {
+        label: "Cash Management",
+        href: "/finance/cash-management",
+        icon: Wallet,
+        moduleKey: "cash_management",
+      },
+      {
+        label: "Finance Settings",
+        href: "/finance/settings",
+        icon: Settings,
+        moduleKey: "finance_settings",
+      },
     ],
   },
   {
     title: "Approvals",
     icon: ShieldCheck,
-    badge: "2",
     items: [
-      { label: "Approval Center", href: "/manager/approval-center", icon: ClipboardList },
-      { label: "Controls", href: "/settings/approval-controls", icon: ShieldCheck },
-      { label: "Assignments", href: "/settings/approval-assignments", icon: Users },
+      {
+        label: "Approval Center",
+        href: "/manager/approval-center",
+        icon: ClipboardList,
+        moduleKey: "approval_center",
+      },
+      {
+        label: "Controls",
+        href: "/settings/approval-controls",
+        icon: ShieldCheck,
+        moduleKey: "approval_controls",
+      },
+      {
+        label: "Assignments",
+        href: "/settings/approval-assignments",
+        icon: Users,
+        moduleKey: "approval_assignments",
+      },
     ],
   },
   {
     title: "Audit",
     icon: ShieldCheck,
     items: [
-      { label: "Operations Audit", href: "/audit", icon: ShieldCheck },
-      { label: "Activity Logs", href: "/activity-logs", icon: Activity },
-      { label: "Audit Trail", href: "/admin/audit-logs", icon: ClipboardList },
-      { label: "Database Health", href: "/admin/database-health", icon: Database },
-    ],
-  },
-  {
-    title: "Reservations",
-    icon: Hotel,
-    items: [
-      { label: "Dashboard", href: "/reservations", icon: Hotel, soon: true },
-      { label: "Board", href: "/reservations/board", icon: CalendarDays, soon: true },
-      { label: "Ledger", href: "/reservations/ledger", icon: ClipboardList, soon: true },
-      { label: "Analytics", href: "/reservations/analytics", icon: BarChart3, soon: true },
-    ],
-  },
-  {
-    title: "Marketing",
-    icon: Megaphone,
-    items: [
-      { label: "Marketing Center", href: "/marketing", icon: Megaphone, soon: true },
-    ],
-  },
-  {
-    title: "POS",
-    icon: ShoppingCart,
-    items: [
-      { label: "POS Dashboard", href: "/pos", icon: BarChart3, soon: true },
-      { label: "POS Terminal", href: "/pos/terminal", icon: Store, soon: true },
-      { label: "Parked Orders", href: "/pos/parked-orders", icon: ClipboardList, soon: true },
-      { label: "Production Queue", href: "/pos/production", icon: ChefHat, soon: true },
-      { label: "POS Transactions", href: "/pos/transactions", icon: Receipt, soon: true },
-      { label: "POS Reports", href: "/pos/reports", icon: BarChart3, soon: true },
-    ],
-  },
-  {
-    title: "Maintenance",
-    icon: Wrench,
-    items: [
-      { label: "Maintenance Tracker", href: "/maintenance-tracker", icon: Wrench, soon: true },
+      {
+        label: "Operations Audit",
+        href: "/audit",
+        icon: ShieldCheck,
+        moduleKey: "audit_center",
+      },
+      {
+        label: "Activity Logs",
+        href: "/activity-logs",
+        icon: Activity,
+        moduleKey: "activity_logs",
+      },
+      {
+        label: "Audit Trail",
+        href: "/admin/audit-logs",
+        icon: ClipboardList,
+        moduleKey: "audit_center",
+      },
+      {
+        label: "Database Health",
+        href: "/admin/database-health",
+        icon: Database,
+        moduleKey: "database_health",
+      },
     ],
   },
   {
     title: "HR Settings",
     icon: Users,
     items: [
-      { label: "Departments", href: "/settings/departments", icon: Users },
-      { label: "Positions", href: "/settings/positions", icon: Users },
-      { label: "Employment Types", href: "/settings/employment-types", icon: ClipboardList },
-      { label: "Employment Statuses", href: "/settings/employment-statuses", icon: ClipboardList },
-      { label: "Leave Settings", href: "/settings/leave-settings", icon: ClipboardList },
-      { label: "Leave Credits", href: "/settings/leave-credits", icon: ClipboardList },
+      {
+        label: "Departments",
+        href: "/settings/departments",
+        icon: Users,
+        moduleKey: "departments_settings",
+      },
+      {
+        label: "Positions",
+        href: "/settings/positions",
+        icon: Users,
+        moduleKey: "positions_settings",
+      },
+      {
+        label: "Employment Types",
+        href: "/settings/employment-types",
+        icon: ClipboardList,
+        moduleKey: "employment_settings",
+      },
+      {
+        label: "Employment Statuses",
+        href: "/settings/employment-statuses",
+        icon: ClipboardList,
+        moduleKey: "employment_settings",
+      },
+      {
+        label: "Leave Settings",
+        href: "/settings/leave-settings",
+        icon: ClipboardList,
+        moduleKey: "leave_settings",
+      },
+      {
+        label: "Leave Credits",
+        href: "/settings/leave-credits",
+        icon: ClipboardList,
+        moduleKey: "leave_settings",
+      },
     ],
   },
   {
     title: "System",
     icon: Settings,
     items: [
-      { label: "General Settings", href: "/settings", icon: Settings },
+      {
+        label: "General Settings",
+        href: "/settings",
+        icon: Settings,
+        moduleKey: "settings",
+      },
       {
         label: "Registration Settings",
         href: "/settings/registration-settings",
         icon: UserPlus,
+        moduleKey: "settings",
       },
       {
         label: "Session Inspector",
         href: "/settings/current-user",
         icon: UserCheck,
+        moduleKey: "user_credentials",
       },
-      { label: "Property Settings", href: "/settings/property", icon: Hotel },
-      { label: "User Credentials", href: "/settings/user-credentials", icon: KeyRound },
-      { label: "User Roles", href: "/settings/user-roles", icon: ShieldCheck },
-      { label: "Data Cleanup", href: "/admin/data-cleanup", icon: Database },
-      { label: "Backup", href: "/backup", icon: Database },
-      { label: "Shift Settings", href: "/settings/shifts", icon: Clock },
-      { label: "HC Rules", href: "/settings/hc-rules", icon: BarChart3 },
-    ],
-  },
-  {
-    title: "Future Tools",
-    icon: Sparkles,
-    items: [
-      { label: "Forecasting", href: "/forecasting", icon: BarChart3, soon: true },
-      { label: "Performance", href: "/performance", icon: BarChart3, soon: true },
-      { label: "Reports Center", href: "/finance/reports", icon: FileText, soon: true },
+      {
+        label: "Property Settings",
+        href: "/settings/property",
+        icon: Hotel,
+        moduleKey: "property_settings",
+      },
+      {
+        label: "User Credentials",
+        href: "/settings/user-credentials",
+        icon: KeyRound,
+        moduleKey: "user_credentials",
+      },
+      {
+        label: "User Roles",
+        href: "/settings/user-roles",
+        icon: ShieldCheck,
+        moduleKey: "user_roles",
+      },
+      {
+        label: "Data Cleanup",
+        href: "/admin/data-cleanup",
+        icon: Database,
+        moduleKey: "database_health",
+      },
+      {
+        label: "Backup",
+        href: "/backup",
+        icon: Database,
+        moduleKey: "backup_restore",
+      },
+      {
+        label: "Shift Settings",
+        href: "/settings/shifts",
+        icon: Clock,
+        moduleKey: "shift_settings",
+      },
+      {
+        label: "HC Rules",
+        href: "/settings/hc-rules",
+        icon: BarChart3,
+        moduleKey: "hc_rules",
+      },
     ],
   },
 ];
@@ -216,6 +366,262 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMobileSection, setOpenMobileSection] = useState<string | null>(null);
+  const [approvalBadgeCount, setApprovalBadgeCount] = useState(0);
+  const [allowedModules, setAllowedModules] = useState<string[]>([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+
+  useEffect(() => {
+    loadSidebarPermissions();
+    getAssignedApprovalBadgeCount();
+  }, []);
+
+  const loadSidebarPermissions = async () => {
+    if (typeof window === "undefined") return;
+
+    const systemUserId = localStorage.getItem("opscore_current_system_user_id");
+    const companyId = localStorage.getItem("opscore_current_company_id");
+    const fallbackRoleId = localStorage.getItem("opscore_current_role_id");
+
+    if (!systemUserId || !companyId) {
+      setAllowedModules([]);
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    const { data: companyUser, error: companyUserError } = await supabase
+      .from("company_users")
+      .select("role_id, is_active")
+      .eq("user_id", systemUserId)
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (companyUserError) {
+      console.log("SIDEBAR COMPANY USER PERMISSION ERROR:", companyUserError.message);
+      setAllowedModules([]);
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    const activeRoleId = companyUser?.role_id || fallbackRoleId;
+
+    if (!activeRoleId) {
+      setAllowedModules([]);
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    const { data: permissionData, error: permissionError } = await supabase
+      .from("role_permissions")
+      .select("module_key")
+      .eq("role_id", activeRoleId)
+      .eq("can_view", true);
+
+    if (permissionError) {
+      console.log("SIDEBAR ROLE PERMISSION ERROR:", permissionError.message);
+      setAllowedModules([]);
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    setAllowedModules(
+      (permissionData || [])
+        .map((permission: any) => String(permission.module_key || "").trim())
+        .filter(Boolean),
+    );
+
+    setPermissionsLoaded(true);
+  };
+
+  const canViewModule = (moduleKey?: string) => {
+    if (!moduleKey) return false;
+    return allowedModules.includes(moduleKey);
+  };
+
+  const visibleMenuSections = useMemo(() => {
+    if (!permissionsLoaded) return [];
+
+    return menuSections
+      .map((section: any) => {
+        if (section.href) {
+          return canViewModule(section.moduleKey) ? section : null;
+        }
+
+        const visibleItems = (section.items || []).filter((item: any) =>
+          canViewModule(item.moduleKey),
+        );
+
+        if (visibleItems.length === 0) return null;
+
+        return {
+          ...section,
+          items: visibleItems,
+        };
+      })
+      .filter(Boolean);
+  }, [allowedModules, permissionsLoaded]);
+
+  const getWorkflowKeyForRequest = (request: any) => {
+    if (!request?.request_type) return "";
+
+    if (request.request_type === "EXPENSE_REQUEST") return "CASH_DRAWER_OUT";
+    if (request.request_type === "CASH_EXPENSE_RELEASE") return "CASH_DRAWER_OUT";
+    if (request.request_type === "CASH_ADVANCE_RELEASE") return "CASH_DRAWER_OUT";
+    if (request.request_type === "REFUND_OUT") return "CASH_DRAWER_OUT";
+    if (request.request_type === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
+    if (request.request_type === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
+    if (request.request_type === "PAYROLL_REOPEN") return "PAYROLL_ADJUSTMENT";
+
+    return request.request_type;
+  };
+
+  const getAssignedApprovalBadgeCount = async () => {
+    if (typeof window === "undefined") return;
+
+    const storedCurrentUser = localStorage.getItem("opscore_current_user");
+
+    let parsedCurrentUser: any = null;
+
+    if (storedCurrentUser) {
+      try {
+        parsedCurrentUser = JSON.parse(storedCurrentUser);
+      } catch {
+        parsedCurrentUser = null;
+      }
+    }
+
+    const currentEmployeeId = String(
+      localStorage.getItem("opscore_current_employee_id") ||
+        parsedCurrentUser?.employee_id ||
+        "",
+    ).trim();
+
+    const currentSystemUserId = String(
+      localStorage.getItem("opscore_current_system_user_id") ||
+        parsedCurrentUser?.system_user_id ||
+        "",
+    ).trim();
+
+    const currentEmployeeName = String(
+      localStorage.getItem("opscore_current_employee_name") ||
+        parsedCurrentUser?.name ||
+        parsedCurrentUser?.username ||
+        "",
+    ).trim();
+
+    const { data: requestData, error: requestError } = await supabase
+      .from("approval_requests")
+      .select("*")
+      .eq("status", "PENDING");
+
+    if (requestError) {
+      console.log("SIDEBAR APPROVAL REQUEST BADGE ERROR:", requestError.message);
+      setApprovalBadgeCount(0);
+      return;
+    }
+
+    const { data: workflowData, error: workflowError } = await supabase
+      .from("approval_workflows")
+      .select("*")
+      .eq("is_active", true);
+
+    if (workflowError) {
+      console.log("SIDEBAR APPROVAL WORKFLOW BADGE ERROR:", workflowError.message);
+      setApprovalBadgeCount(0);
+      return;
+    }
+
+    const { data: assignmentData, error: assignmentError } = await supabase
+      .from("approval_assignments")
+      .select("*")
+      .eq("is_active", true);
+
+    if (assignmentError) {
+      console.log("SIDEBAR APPROVAL ASSIGNMENT BADGE ERROR:", assignmentError.message);
+      setApprovalBadgeCount(0);
+      return;
+    }
+
+    const getWorkflowForRequest = (request: any) => {
+      const workflowKey = getWorkflowKeyForRequest(request);
+
+      return (
+        workflowData?.find(
+          (workflow: any) =>
+            String(workflow.workflow_key || "") === String(workflowKey),
+        ) || null
+      );
+    };
+
+    const getApproverRoleForRequest = (request: any) => {
+      const workflow = getWorkflowForRequest(request);
+      return workflow?.approver_role || "MANAGER";
+    };
+
+    const getAssignedApproversForRequest = (request: any) => {
+      const approverRole = getApproverRoleForRequest(request);
+
+      return (assignmentData || []).filter((assignment: any) => {
+        const assignmentActive = assignment.is_active ?? assignment.active ?? true;
+        const status = String(assignment.status || "Active").toLowerCase();
+
+        return (
+          String(assignment.approval_role || "") === String(approverRole) &&
+          assignmentActive !== false &&
+          !["inactive", "disabled", "archived"].includes(status)
+        );
+      });
+    };
+
+    const assignmentMatchesCurrentUser = (assignment: any) => {
+      const assignmentEmployeeIds = [
+        assignment.employee_id,
+        assignment.approver_employee_id,
+        assignment.assigned_employee_id,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+
+      const assignmentSystemUserIds = [
+        assignment.system_user_id,
+        assignment.approver_user_id,
+        assignment.user_id,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+
+      const assignmentNames = [
+        assignment.approver_name,
+        assignment.employee_name,
+        assignment.username,
+        assignment.approver_username,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+
+      return (
+        (!!currentEmployeeId && assignmentEmployeeIds.includes(currentEmployeeId)) ||
+        (!!currentSystemUserId && assignmentSystemUserIds.includes(currentSystemUserId)) ||
+        (!!currentEmployeeName && assignmentNames.includes(currentEmployeeName))
+      );
+    };
+
+    const canCurrentUserApproveRequest = (request: any) => {
+      const assignedApprovers = getAssignedApproversForRequest(request);
+
+      if (assignedApprovers.length === 0) return false;
+
+      return assignedApprovers.some((assignment: any) =>
+        assignmentMatchesCurrentUser(assignment),
+      );
+    };
+
+    const assignedPendingCount = (requestData || []).filter((request: any) =>
+      canCurrentUserApproveRequest(request),
+    ).length;
+
+    setApprovalBadgeCount(assignedPendingCount);
+  };
 
   const normalizePath = (value: string) =>
     value.length > 1 && value.endsWith("/") ? value.slice(0, -1) : value;
@@ -232,9 +638,15 @@ export default function Sidebar() {
     return section.items?.some((item: any) => isActive(item.href));
   };
 
-  const SoonBadge = () => (
-    <span className="shrink-0 rounded-full border border-amber-300/20 bg-amber-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-amber-200">
-      Soon
+  const getSectionBadge = (section: any) => {
+    if (section.title !== "Approvals") return null;
+    if (approvalBadgeCount <= 0) return null;
+    return String(approvalBadgeCount);
+  };
+
+  const Badge = ({ value }: { value: string }) => (
+    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
+      {value}
     </span>
   );
 
@@ -263,16 +675,16 @@ export default function Sidebar() {
           <Icon size={14} />
         </span>
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
-        {item.soon && <SoonBadge />}
       </Link>
     );
   };
 
   const renderDesktopSections = () => (
     <nav className="min-h-0 flex-1 space-y-0.5 overflow-visible px-2.5 pb-4">
-      {menuSections.map((section: any) => {
+      {visibleMenuSections.map((section: any) => {
         const Icon = section.icon;
         const sectionActive = isSectionActive(section);
+        const sectionBadge = getSectionBadge(section);
 
         if (section.href) {
           return (
@@ -320,13 +732,10 @@ export default function Sidebar() {
               >
                 <Icon size={15} />
               </span>
+
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
 
-              {section.badge && (
-                <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
-                  {section.badge}
-                </span>
-              )}
+              {sectionBadge && <Badge value={sectionBadge} />}
 
               <ChevronRight
                 size={13}
@@ -356,10 +765,11 @@ export default function Sidebar() {
 
   const renderMobileSections = () => (
     <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
-      {menuSections.map((section: any) => {
+      {visibleMenuSections.map((section: any) => {
         const Icon = section.icon;
         const sectionActive = isSectionActive(section);
         const expanded = openMobileSection === section.title;
+        const sectionBadge = getSectionBadge(section);
 
         if (section.href) {
           return (
@@ -394,6 +804,7 @@ export default function Sidebar() {
             >
               <Icon size={15} />
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
+              {sectionBadge && <Badge value={sectionBadge} />}
               <ChevronRight
                 size={13}
                 className={expanded ? "rotate-90 transition" : "transition"}
@@ -404,6 +815,7 @@ export default function Sidebar() {
               <div className="ml-5 space-y-1 border-l border-blue-300/10 pl-2">
                 {section.items.map((item: any) => {
                   const ItemIcon = item.icon;
+
                   return (
                     <Link
                       key={item.href}
@@ -413,7 +825,6 @@ export default function Sidebar() {
                     >
                       <ItemIcon size={13} />
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                      {item.soon && <SoonBadge />}
                     </Link>
                   );
                 })}

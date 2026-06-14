@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 
 type Bill = {
   id: string;
+  company_id: string | null;
   bill_year: number;
   bill_month: number;
   category: string;
@@ -19,19 +21,11 @@ type Bill = {
   expense_id: string | null;
 };
 
+const companyIdKey = "opscore_current_company_id";
+
 const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 const BILL_CATEGORIES = [
@@ -48,10 +42,10 @@ const BILL_CATEGORIES = [
 const PAYMENT_METHODS = ["Cash", "GCash", "Bank", "Card", "Other"];
 
 export default function BillsPage() {
-  /// STATES
   const currentYear = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10);
 
+  const [companyId, setCompanyId] = useState("");
   const [bills, setBills] = useState<Bill[]>([]);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [loading, setLoading] = useState(false);
@@ -63,26 +57,28 @@ export default function BillsPage() {
   const [remarks, setRemarks] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
 
-  /// FUNCTIONS
-  const formatMoney = (value: any) =>
+  const formatMoney = (value: number | string | null | undefined) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
 
-  const getBills = async () => {
+  const getBills = async (activeCompanyId = companyId) => {
+    if (!activeCompanyId) return;
+
     setLoading(true);
 
     const { data, error } = await supabase
       .from("finance_bills")
       .select("*")
+      .eq("company_id", activeCompanyId)
       .eq("bill_year", selectedYear)
       .order("bill_month", { ascending: true })
       .order("due_date", { ascending: true });
 
     if (error) {
       console.error("GET BILLS ERROR:", error);
-      alert("Failed to load bills.");
+      alert(error.message || "Failed to load bills.");
     } else {
       setBills((data || []) as Bill[]);
     }
@@ -102,12 +98,16 @@ export default function BillsPage() {
 
     const due = new Date(`${dueDateValue}T00:00:00`);
     const now = new Date(`${today}T00:00:00`);
-    const diff = due.getTime() - now.getTime();
 
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   };
 
   const addBill = async () => {
+    if (!companyId) {
+      alert("No active company session. Please login again.");
+      return;
+    }
+
     if (!category || !amount || !dueDate) {
       alert("Please complete category, amount, and due date.");
       return;
@@ -133,18 +133,19 @@ export default function BillsPage() {
     }
 
     const { error } = await supabase.from("finance_bills").insert({
+      company_id: companyId,
       bill_year: selectedYear,
       bill_month: billMonth,
       category,
       amount: numericAmount,
       due_date: dueDate,
-      remarks: remarks || null,
+      remarks: remarks.trim() || null,
       status: "Pending",
     });
 
     if (error) {
       console.error("ADD BILL ERROR:", error);
-      alert("Failed to add bill.");
+      alert(error.message || "Failed to add bill.");
       return;
     }
 
@@ -160,17 +161,17 @@ export default function BillsPage() {
       return;
     }
 
-    const confirmed = confirm("Delete this bill?");
-    if (!confirmed) return;
+    if (!confirm("Delete this bill?")) return;
 
     const { error } = await supabase
       .from("finance_bills")
       .delete()
-      .eq("id", bill.id);
+      .eq("id", bill.id)
+      .eq("company_id", companyId);
 
     if (error) {
       console.error("DELETE BILL ERROR:", error);
-      alert("Failed to delete bill.");
+      alert(error.message || "Failed to delete bill.");
       return;
     }
 
@@ -183,17 +184,17 @@ export default function BillsPage() {
       return;
     }
 
-    const confirmed = confirm("Cancel this bill?");
-    if (!confirmed) return;
+    if (!confirm("Cancel this bill?")) return;
 
     const { error } = await supabase
       .from("finance_bills")
       .update({ status: "Cancelled" })
-      .eq("id", bill.id);
+      .eq("id", bill.id)
+      .eq("company_id", companyId);
 
     if (error) {
       console.error("CANCEL BILL ERROR:", error);
-      alert("Failed to cancel bill.");
+      alert(error.message || "Failed to cancel bill.");
       return;
     }
 
@@ -201,6 +202,11 @@ export default function BillsPage() {
   };
 
   const markPaid = async (bill: Bill) => {
+    if (!companyId) {
+      alert("No active company session. Please login again.");
+      return;
+    }
+
     if (bill.status === "Paid") return;
 
     const confirmed = confirm(
@@ -214,6 +220,7 @@ export default function BillsPage() {
     const { data: expenseData, error: expenseError } = await supabase
       .from("expenses")
       .insert({
+        company_id: companyId,
         expense_date: paidDate,
         category: bill.category,
         department: "General",
@@ -228,7 +235,7 @@ export default function BillsPage() {
 
     if (expenseError) {
       console.error("CREATE EXPENSE FROM BILL ERROR:", expenseError);
-      alert("Failed to create expense entry. Check expenses table columns.");
+      alert(expenseError.message || "Failed to create expense entry.");
       return;
     }
 
@@ -240,468 +247,371 @@ export default function BillsPage() {
         payment_method: paymentMethod,
         expense_id: expenseData?.id || null,
       })
-      .eq("id", bill.id);
+      .eq("id", bill.id)
+      .eq("company_id", companyId);
 
     if (billError) {
       console.error("MARK BILL PAID ERROR:", billError);
-      alert("Expense was created but bill status failed to update.");
+      alert(billError.message || "Expense was created but bill status failed to update.");
       return;
     }
 
     await getBills();
   };
 
-  /// CALCULATIONS
   const activeBills = bills.filter((bill) => bill.status !== "Cancelled");
 
-  const overdueBills = useMemo(() => {
-    return activeBills
-      .filter((bill) => getDisplayStatus(bill) === "Overdue")
-      .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
-  }, [bills]);
-
-  const upcomingBills = useMemo(() => {
-    return activeBills
-      .filter((bill) => {
-        const daysLeft = getDaysLeft(bill.due_date);
-
-        return (
-          bill.status !== "Paid" &&
-          daysLeft !== null &&
-          daysLeft >= 0 &&
-          daysLeft <= 7
-        );
-      })
-      .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
-  }, [bills]);
-
-  const getBill = (month: number, categoryName: string) => {
-    return bills.find(
-      (bill) => bill.bill_month === month && bill.category === categoryName
-    );
-  };
-
-  const grandTotal = useMemo(() => {
-    return activeBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
-  }, [bills]);
-
-  const pendingTotal = useMemo(() => {
-    return activeBills
-      .filter((bill) => getDisplayStatus(bill) === "Pending")
-      .reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
-  }, [bills]);
-
-  const dueSoonTotal = useMemo(() => {
-    return upcomingBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
-  }, [upcomingBills]);
-
-  const overdueTotal = useMemo(() => {
-    return overdueBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
-  }, [overdueBills]);
-
-  const paidTotal = useMemo(() => {
-    return activeBills
-      .filter((bill) => bill.status === "Paid")
-      .reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
-  }, [bills]);
-
-  const categoryTotals = useMemo(() => {
-    return BILL_CATEGORIES.map((cat) =>
+  const overdueBills = useMemo(
+    () =>
       activeBills
-        .filter((bill) => bill.category === cat)
-        .reduce((sum, bill) => sum + Number(bill.amount || 0), 0)
-    );
-  }, [bills]);
+        .filter((bill) => getDisplayStatus(bill) === "Overdue")
+        .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date))),
+    [bills]
+  );
+
+  const upcomingBills = useMemo(
+    () =>
+      activeBills
+        .filter((bill) => {
+          const daysLeft = getDaysLeft(bill.due_date);
+          return bill.status !== "Paid" && daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
+        })
+        .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date))),
+    [bills]
+  );
+
+  const getBill = (month: number, categoryName: string) =>
+    bills.find((bill) => bill.bill_month === month && bill.category === categoryName);
+
+  const pendingTotal = activeBills
+    .filter((bill) => getDisplayStatus(bill) === "Pending")
+    .reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
+
+  const dueSoonTotal = upcomingBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
+  const overdueTotal = overdueBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
+
+  const paidTotal = activeBills
+    .filter((bill) => bill.status === "Paid")
+    .reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
+
+  const grandTotal = activeBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
+
+  const categoryTotals = BILL_CATEGORIES.map((cat) =>
+    activeBills
+      .filter((bill) => bill.category === cat)
+      .reduce((sum, bill) => sum + Number(bill.amount || 0), 0)
+  );
 
   const alertBills = [...overdueBills, ...upcomingBills];
 
-  /// EFFECTS
   useEffect(() => {
-    getBills();
-  }, [selectedYear]);
+    const storedCompanyId = localStorage.getItem(companyIdKey) || "";
+    setCompanyId(storedCompanyId);
+  }, []);
 
-  /// UI
+  useEffect(() => {
+    if (companyId) getBills(companyId);
+  }, [companyId, selectedYear]);
+
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-              Finance Workbench
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-              Finance Bills Workbench
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-              Track recurring hotel bills, monitor due dates, mark paid bills, and auto-create expense entries when bills are settled.
-            </p>
-          </div>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="FINANCE / BILLS WORKBENCH" />
 
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/finance"
-              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-black text-slate-200 hover:bg-slate-800"
-            >
-              Financial Command Center
-            </Link>
-            <Link
-              href="/finance/expenses"
-              className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-500"
-            >
-              Expenses Ledger
-            </Link>
-            <Link
-              href="/finance/cash"
-              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-black text-slate-200 hover:bg-slate-800"
-            >
-              Cash Management
-            </Link>
-          </div>
-        </section>
-
-        <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard title="Outstanding" value={formatMoney(pendingTotal + dueSoonTotal + overdueTotal)} subtitle="Pending, due soon, and overdue bills" />
-          <MetricCard title="Due Soon" value={formatMoney(dueSoonTotal)} subtitle={`${upcomingBills.length} bill(s) within 7 days`} warning />
-          <MetricCard title="Overdue" value={formatMoney(overdueTotal)} subtitle={`${overdueBills.length} overdue bill(s)`} danger />
-          <MetricCard title="Paid" value={formatMoney(paidTotal)} subtitle={`${selectedYear} paid bill total`} success />
-        </section>
-
-        <section className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl shadow-black/10">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                Bill Controls
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                Finance
               </p>
-              <h2 className="mt-1 text-xl font-black text-white">
-                Monthly Bills - {selectedYear}
-              </h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Use the grid to review status, due dates, and payment actions.
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                Finance Bills Workbench
+              </h1>
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                Track recurring hotel bills, monitor due dates, mark paid bills, and auto-create expense entries.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[160px_220px]">
-              <Field label="Year">
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                >
-                  {[currentYear - 1, currentYear, currentYear + 1].map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Payment Method for Paid Bills">
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                >
-                  {PAYMENT_METHODS.map((method) => (
-                    <option key={method}>{method}</option>
-                  ))}
-                </select>
-              </Field>
+            <div className="flex flex-wrap gap-3">
+              <NavButton href="/finance" label="Financial Command Center" />
+              <NavButton href="/finance/expenses" label="Expenses Ledger" />
+              <NavButton href="/finance/cash" label="Cash Management" />
             </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
-          <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl shadow-black/10">
-            <div className="overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1300px] border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-950 text-slate-300">
-                  <tr>
-                    <th className="border border-slate-800 px-3 py-3 text-left">
-                      Month
-                    </th>
-
-                    {BILL_CATEGORIES.map((cat) => (
-                      <th
-                        key={cat}
-                        className="border border-slate-800 px-3 py-3 text-center"
-                      >
-                        {cat}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {MONTHS.map((month, monthIndex) => (
-                    <tr key={month} className="hover:bg-slate-800/50">
-                      <td className="border border-slate-800 bg-slate-950/50 px-3 py-3 font-black text-white">
-                        {month}
-                      </td>
-
-                      {BILL_CATEGORIES.map((cat) => {
-                        const bill = getBill(monthIndex + 1, cat);
-                        const displayStatus = bill ? getDisplayStatus(bill) : "";
-                        const daysLeft = bill ? getDaysLeft(bill.due_date) : null;
-
-                        return (
-                          <td
-                            key={cat}
-                            className="border border-slate-800 px-3 py-3 text-center align-top"
-                          >
-                            {bill ? (
-                              <div className="flex min-h-[138px] flex-col items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                                <div>
-                                  <p className="font-black text-white">
-                                    {formatMoney(bill.amount)}
-                                  </p>
-
-                                  <p className="mt-1 text-xs text-slate-500">
-                                    Due: {bill.due_date || "No due date"}
-                                  </p>
-
-                                  <div className="mt-2 flex justify-center">
-                                    <StatusBadge status={displayStatus} />
-                                  </div>
-
-                                  {bill.status !== "Paid" && bill.status !== "Cancelled" && (
-                                    <p
-                                      className={`mt-2 text-[10px] font-bold ${
-                                        daysLeft !== null && daysLeft < 0
-                                          ? "text-red-300"
-                                          : daysLeft === 0
-                                          ? "text-amber-300"
-                                          : "text-slate-400"
-                                      }`}
-                                    >
-                                      {daysLeft === null
-                                        ? "No due date"
-                                        : daysLeft < 0
-                                        ? `${Math.abs(daysLeft)} day(s) overdue`
-                                        : daysLeft === 0
-                                        ? "Due today"
-                                        : `${daysLeft} day(s) left`}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="flex flex-wrap justify-center gap-1">
-                                  {bill.status !== "Paid" && bill.status !== "Cancelled" && (
-                                    <button
-                                      onClick={() => markPaid(bill)}
-                                      className="rounded-lg bg-emerald-600 px-2 py-1 text-[10px] font-black text-white hover:bg-emerald-500"
-                                    >
-                                      Paid
-                                    </button>
-                                  )}
-
-                                  {bill.status !== "Paid" && bill.status !== "Cancelled" && (
-                                    <button
-                                      onClick={() => cancelBill(bill)}
-                                      className="rounded-lg bg-slate-700 px-2 py-1 text-[10px] font-black text-white hover:bg-slate-600"
-                                    >
-                                      Cancel
-                                    </button>
-                                  )}
-
-                                  {bill.status !== "Paid" && (
-                                    <button
-                                      onClick={() => deleteBill(bill)}
-                                      className="rounded-lg border border-red-500/40 px-2 py-1 text-[10px] font-black text-red-300 hover:bg-red-500/10"
-                                    >
-                                      Del
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-xs font-bold text-slate-700">No bill</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-
-                  <tr className="bg-slate-950 font-black text-white">
-                    <td className="border border-slate-800 px-3 py-3">Total</td>
-
-                    {categoryTotals.map((total, index) => (
-                      <td
-                        key={BILL_CATEGORIES[index]}
-                        className="border border-slate-800 px-3 py-3 text-center text-blue-200"
-                      >
-                        {formatMoney(total)}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {loading && (
-              <p className="mt-4 text-sm text-slate-400">Loading bills...</p>
-            )}
           </section>
 
-          <aside className="space-y-5">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
+          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard title="Outstanding" value={formatMoney(pendingTotal + dueSoonTotal + overdueTotal)} subtitle="Pending, due soon, and overdue bills" />
+            <MetricCard title="Due Soon" value={formatMoney(dueSoonTotal)} subtitle={`${upcomingBills.length} bill(s) within 7 days`} tone="warning" />
+            <MetricCard title="Overdue" value={formatMoney(overdueTotal)} subtitle={`${overdueBills.length} overdue bill(s)`} tone="danger" />
+            <MetricCard title="Paid" value={formatMoney(paidTotal)} subtitle={`${selectedYear} paid bill total`} tone="success" />
+          </section>
+
+          <section className="mb-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Bill Controls
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Monthly Bills - {selectedYear}
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Use the grid to review status, due dates, and payment actions.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-[160px_240px]">
+                <Field label="Year">
+                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+                    {[currentYear - 1, currentYear, currentYear + 1].map((year) => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Payment Method">
+                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+                    {PAYMENT_METHODS.map((method) => (
+                      <option key={method}>{method}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_380px]">
+            <section className="min-w-0 rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Monthly Category Report
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Bills Matrix
+                </h2>
+              </div>
+
+              <div className="overflow-auto p-4">
+                <table className="w-full min-w-[1300px] border-collapse text-sm">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="border border-slate-200 px-3 py-3">Month</th>
+                      {BILL_CATEGORIES.map((cat) => (
+                        <th key={cat} className="border border-slate-200 px-3 py-3 text-center">{cat}</th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                    {MONTHS.map((month, monthIndex) => (
+                      <tr key={month} className="transition-all duration-200 hover:bg-slate-50">
+                        <td className="border border-slate-200 bg-slate-50 px-3 py-3 font-black text-slate-950">
+                          {month}
+                        </td>
+
+                        {BILL_CATEGORIES.map((cat) => {
+                          const bill = getBill(monthIndex + 1, cat);
+                          const displayStatus = bill ? getDisplayStatus(bill) : "";
+                          const daysLeft = bill ? getDaysLeft(bill.due_date) : null;
+
+                          return (
+                            <td key={cat} className="border border-slate-200 px-3 py-3 text-center align-top">
+                              {bill ? (
+                                <div className="flex min-h-[138px] flex-col items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                                  <div>
+                                    <p className="font-black text-slate-950">{formatMoney(bill.amount)}</p>
+                                    <p className="mt-1 text-xs font-bold text-slate-500">
+                                      Due: {bill.due_date || "No due date"}
+                                    </p>
+                                    <div className="mt-2 flex justify-center">
+                                      <StatusBadge status={displayStatus} />
+                                    </div>
+                                    {bill.status !== "Paid" && bill.status !== "Cancelled" && (
+                                      <p className="mt-2 text-[10px] font-bold text-slate-500">
+                                        {daysLeft === null
+                                          ? "No due date"
+                                          : daysLeft < 0
+                                          ? `${Math.abs(daysLeft)} day(s) overdue`
+                                          : daysLeft === 0
+                                          ? "Due today"
+                                          : `${daysLeft} day(s) left`}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex flex-wrap justify-center gap-1">
+                                    {bill.status !== "Paid" && bill.status !== "Cancelled" && (
+                                      <button onClick={() => markPaid(bill)} className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98]">
+                                        Paid
+                                      </button>
+                                    )}
+                                    {bill.status !== "Paid" && bill.status !== "Cancelled" && (
+                                      <button onClick={() => cancelBill(bill)} className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">
+                                        Cancel
+                                      </button>
+                                    )}
+                                    {bill.status !== "Paid" && (
+                                      <button onClick={() => deleteBill(bill)} className="rounded-xl bg-red-600 px-3 py-1.5 text-[10px] font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]">
+                                        Del
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs font-bold text-slate-400">No bill</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+
+                    <tr className="bg-slate-50 font-black text-slate-950">
+                      <td className="border border-slate-200 px-3 py-3">Total</td>
+                      {categoryTotals.map((total, index) => (
+                        <td key={BILL_CATEGORIES[index]} className="border border-slate-200 px-3 py-3 text-center">
+                          {formatMoney(total)}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+
+                {loading && <p className="mt-4 text-sm font-semibold text-slate-500">Loading bills...</p>}
+              </div>
+            </section>
+
+            <aside className="space-y-5">
+              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                     Add Bill
                   </p>
-                  <h2 className="mt-1 text-xl font-black text-white">
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
                     New Monthly Bill
                   </h2>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm font-medium text-slate-500">
                     Add recurring or one-time bill for tracking.
                   </p>
                 </div>
-                <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-black text-blue-200">
-                  {selectedYear}
-                </div>
-              </div>
 
-              <div className="mt-5 space-y-4">
-                <Field label="Month">
-                  <select
-                    value={billMonth}
-                    onChange={(e) => setBillMonth(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  >
-                    {MONTHS.map((month, index) => (
-                      <option key={month} value={index + 1}>
-                        {month}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <div className="space-y-4 p-6">
+                  <Field label="Month">
+                    <select value={billMonth} onChange={(e) => setBillMonth(Number(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+                      {MONTHS.map((month, index) => (
+                        <option key={month} value={index + 1}>{month}</option>
+                      ))}
+                    </select>
+                  </Field>
 
-                <Field label="Bill Category">
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  >
-                    {BILL_CATEGORIES.map((cat) => (
-                      <option key={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </Field>
+                  <Field label="Bill Category">
+                    <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+                      {BILL_CATEGORIES.map((cat) => (
+                        <option key={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </Field>
 
-                <Field label="Amount">
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  />
-                </Field>
+                  <Field label="Amount">
+                    <input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" />
+                  </Field>
 
-                <Field label="Due Date">
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    style={{ colorScheme: "dark" }}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  />
-                </Field>
+                  <Field label="Due Date">
+                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" />
+                  </Field>
 
-                <Field label="Remarks">
-                  <textarea
-                    placeholder="Optional notes"
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    rows={3}
-                    className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  />
-                </Field>
+                  <Field label="Remarks">
+                    <textarea placeholder="Optional notes" value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" />
+                  </Field>
 
-                <button
-                  onClick={addBill}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-500"
-                >
-                  Add Bill
-                </button>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                Bill Alerts
-              </p>
-              <h2 className="mt-1 text-xl font-black text-white">
-                Due and Overdue Watchlist
-              </h2>
-
-              <div className="mt-4 max-h-[520px] space-y-3 overflow-auto pr-1">
-                {alertBills.map((bill) => {
-                  const daysLeft = getDaysLeft(bill.due_date);
-                  const status = getDisplayStatus(bill);
-
-                  return (
-                    <AlertCard
-                      key={bill.id}
-                      type={status === "Overdue" ? "OVERDUE" : "DUE SOON"}
-                      title={`${bill.category} • ${MONTHS[bill.bill_month - 1]}`}
-                      amount={bill.amount}
-                      message={
-                        daysLeft === null
-                          ? "No due date"
-                          : daysLeft < 0
-                          ? `${Math.abs(daysLeft)} day(s) overdue`
-                          : daysLeft === 0
-                          ? "Due today"
-                          : `Due in ${daysLeft} day(s)`
-                      }
-                      danger={status === "Overdue"}
-                    />
-                  );
-                })}
-
-                {alertBills.length === 0 && (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                    <p className="font-black text-emerald-300">No bill alerts</p>
-                    <p className="mt-1 text-sm text-slate-300">
-                      All tracked bills are currently healthy.
-                    </p>
+                  <div className="border-t border-slate-100 pt-4">
+                    <button onClick={addBill} className="h-11 w-full rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]">
+                      Add Bill
+                    </button>
                   </div>
-                )}
-              </div>
-            </section>
+                </div>
+              </section>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-400">
-              <p className="font-black uppercase tracking-[0.2em] text-slate-500">
-                Ledger Rule
-              </p>
-              <p className="mt-2 leading-6">
-                Marking a bill as paid creates an expense entry from this module. Paid bills are locked from deletion to protect reporting history.
-              </p>
-              <p className="mt-3 text-xs text-slate-500">
-                Total tracked bills: {formatMoney(grandTotal)}
-              </p>
-            </section>
-          </aside>
-        </section>
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Bill Alerts
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Due and Overdue Watchlist
+                </h2>
+
+                <div className="mt-4 max-h-[520px] space-y-3 overflow-auto pr-1">
+                  {alertBills.map((bill) => {
+                    const daysLeft = getDaysLeft(bill.due_date);
+                    const status = getDisplayStatus(bill);
+
+                    return (
+                      <AlertCard
+                        key={bill.id}
+                        type={status === "Overdue" ? "OVERDUE" : "DUE SOON"}
+                        title={`${bill.category} • ${MONTHS[bill.bill_month - 1]}`}
+                        amount={formatMoney(bill.amount)}
+                        message={
+                          daysLeft === null
+                            ? "No due date"
+                            : daysLeft < 0
+                            ? `${Math.abs(daysLeft)} day(s) overdue`
+                            : daysLeft === 0
+                            ? "Due today"
+                            : `Due in ${daysLeft} day(s)`
+                        }
+                        danger={status === "Overdue"}
+                      />
+                    );
+                  })}
+
+                  {alertBills.length === 0 && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
+                      <p className="font-black">No bill alerts</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        All tracked bills are currently healthy.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-500 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Ledger Rule
+                </p>
+                <p className="mt-2 leading-6">
+                  Marking a bill as paid creates an expense entry. Paid bills are locked from deletion to protect reporting history.
+                </p>
+                <p className="mt-3 text-xs font-bold text-slate-500">
+                  Total tracked bills: {formatMoney(grandTotal)}
+                </p>
+              </section>
+            </aside>
+          </section>
+        </div>
       </main>
     </div>
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function NavButton({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex h-11 items-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+      <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </label>
       {children}
@@ -713,34 +623,33 @@ function MetricCard({
   title,
   value,
   subtitle,
-  danger,
-  warning,
-  success,
+  tone = "default",
 }: {
   title: string;
   value: string;
   subtitle: string;
-  danger?: boolean;
-  warning?: boolean;
-  success?: boolean;
+  tone?: "default" | "warning" | "danger" | "success";
 }) {
-  const valueClass = danger
-    ? "text-red-300"
-    : warning
-    ? "text-amber-300"
-    : success
-    ? "text-emerald-300"
-    : "text-blue-200";
+  const valueClass =
+    tone === "danger"
+      ? "text-red-700"
+      : tone === "warning"
+      ? "text-amber-700"
+      : tone === "success"
+      ? "text-emerald-700"
+      : "text-slate-950";
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl shadow-black/10">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </p>
-      <h3 className={`mt-2 break-words text-2xl font-black ${valueClass}`}>
+      <h3 className={`mt-2 break-words text-3xl font-black tracking-tight ${valueClass}`}>
         {value}
       </h3>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+        {subtitle}
+      </p>
     </div>
   );
 }
@@ -754,52 +663,38 @@ function AlertCard({
 }: {
   type: string;
   title: string;
-  amount: number;
+  amount: string;
   message: string;
   danger?: boolean;
 }) {
   return (
     <div
-      className={`rounded-xl border p-4 ${
+      className={`rounded-2xl border px-4 py-3 text-xs font-bold leading-5 ${
         danger
-          ? "border-red-500/30 bg-red-500/10"
-          : "border-blue-500/20 bg-blue-500/10"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-amber-200 bg-amber-50 text-amber-700"
       }`}
     >
-      <p
-        className={`text-xs font-black uppercase tracking-[0.2em] ${
-          danger ? "text-red-300" : "text-blue-300"
-        }`}
-      >
-        {type}
-      </p>
-
-      <p className="mt-2 font-black text-white">{title}</p>
-      <p className="mt-1 text-sm text-slate-300">{formatCurrencyLocal(amount)}</p>
-      <p className="mt-1 text-xs text-slate-400">{message}</p>
+      <p className="uppercase tracking-[0.18em]">{type}</p>
+      <p className="mt-2 text-sm font-black">{title}</p>
+      <p>{amount}</p>
+      <p>{message}</p>
     </div>
   );
-}
-
-function formatCurrencyLocal(value: any) {
-  return `₱${Number(value || 0).toLocaleString("en-PH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
 
 function StatusBadge({ status }: { status: string }) {
   const style =
     status === "Paid"
-      ? "bg-emerald-500/15 text-emerald-300"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : status === "Overdue"
-      ? "bg-red-500/15 text-red-300"
+      ? "border-red-200 bg-red-50 text-red-700"
       : status === "Cancelled"
-      ? "bg-slate-500/20 text-slate-300"
-      : "bg-blue-500/15 text-blue-300";
+      ? "border-slate-200 bg-slate-100 text-slate-700"
+      : "border-blue-200 bg-blue-50 text-blue-700";
 
   return (
-    <span className={`rounded-full px-2 py-1 text-[10px] font-black ${style}`}>
+    <span className={`rounded-full border px-2 py-1 text-[10px] font-black ${style}`}>
       {status}
     </span>
   );

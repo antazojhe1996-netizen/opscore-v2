@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import {
@@ -221,6 +222,7 @@ export default function UserRolesPage() {
     const { data, error } = await supabase
       .from("employees")
       .select("*")
+      .eq("employment_status", "Active")
       .order("department", { ascending: true })
       .order("first_name", { ascending: true });
 
@@ -762,19 +764,20 @@ export default function UserRolesPage() {
   /// UI
   return (
     <PageGuard moduleKey="user_roles">
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
+      <TopNavbar breadcrumb="SYSTEM / USER ROLES" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
         <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
               System Settings
             </p>
 
-            <h1 className="mt-2 text-4xl font-black">User Roles</h1>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">User Roles</h1>
 
-            <p className="mt-2 max-w-4xl text-sm text-slate-400">
+            <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
               Create roles, apply permission presets, assign employees, and
               control access per module.
             </p>
@@ -782,7 +785,7 @@ export default function UserRolesPage() {
 
           <button
             onClick={refreshData}
-            className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-900"
+            className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
           >
             <RefreshCcw size={16} />
             Refresh
@@ -808,28 +811,28 @@ export default function UserRolesPage() {
         </section>
 
         <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-bold">Create Role</h2>
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-black text-slate-950">Create Role</h2>
 
             <div className="mt-5 space-y-3">
               <input
                 value={newRoleName}
                 onChange={(e) => setNewRoleName(e.target.value)}
                 placeholder="Role name"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               />
 
               <input
                 value={newRoleDescription}
                 onChange={(e) => setNewRoleDescription(e.target.value)}
                 placeholder="Description"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               />
 
               <button
                 onClick={createRole}
                 disabled={isSaving}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
               >
                 <Plus size={16} />
                 Create Role
@@ -837,22 +840,22 @@ export default function UserRolesPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <h2 className="text-xl font-bold">Select Role</h2>
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
+            <h2 className="text-xl font-black text-slate-950">Select Role</h2>
 
             <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
               {roles.map((role) => (
                 <button
                   key={role.id}
                   onClick={() => setSelectedRoleId(role.id)}
-                  className={`rounded-2xl border p-4 text-left transition ${
+                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
                     selectedRoleId === role.id
-                      ? "border-amber-400 bg-amber-400/10"
-                      : "border-slate-800 bg-slate-950 hover:border-slate-600"
+                      ? "border-slate-950 bg-slate-50 shadow-sm"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-md"
                   }`}
                 >
                   <p className="font-black">{role.role_name}</p>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm font-medium text-slate-500">
                     {role.description || "No description"}
                   </p>
                 </button>
@@ -862,7 +865,7 @@ export default function UserRolesPage() {
             {selectedRole && (
               <button
                 onClick={deleteRole}
-                className="mt-5 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
+                className="mt-5 flex h-11 items-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
               >
                 <Trash2 size={16} />
                 Delete Selected Role
@@ -871,12 +874,12 @@ export default function UserRolesPage() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
-              <h2 className="text-xl font-bold">Module Permissions</h2>
+              <h2 className="text-xl font-black text-slate-950">Module Permissions</h2>
 
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm font-medium text-slate-500">
                 Use presets for faster setup, then fine-tune access per module.
               </p>
 
@@ -884,56 +887,56 @@ export default function UserRolesPage() {
                 <button
                   onClick={grantFullAccess}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   Full Access
                 </button>
                 <button
                   onClick={grantViewOnly}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   View Only
                 </button>
                 <button
                   onClick={applyManagerPreset}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   Manager / Supervisor / Audit
                 </button>
                 <button
                   onClick={applyOperationsManagerPreset}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   Operations Manager
                 </button>
                 <button
                   onClick={applyPayrollPreset}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   Payroll Preset
                 </button>
                 <button
                   onClick={applyHRPreset}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   HR Preset
                 </button>
                 <button
                   onClick={applyCashierPreset}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   Front Office / Cashier
                 </button>
                 <button
                   onClick={clearAllPermissions}
                   disabled={!selectedRoleId}
-                  className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                  className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:opacity-50"
                 >
                   Clear All
                 </button>
@@ -943,18 +946,18 @@ export default function UserRolesPage() {
             <button
               onClick={savePermissions}
               disabled={isSaving || !selectedRoleId}
-              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              className="flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
             >
               <Save size={16} />
               Save Permissions
             </button>
           </div>
 
-          <div className="overflow-auto rounded-xl border border-slate-800">
+          <div className="overflow-auto rounded-3xl border border-slate-200">
             <table className="w-full min-w-[1050px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
+              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Module</th>
+                  <th className="px-4 py-3 text-slate-700">Module</th>
                   <th className="px-4 py-3 text-center">View</th>
                   <th className="px-4 py-3 text-center">Create</th>
                   <th className="px-4 py-3 text-center">Edit</th>
@@ -964,10 +967,10 @@ export default function UserRolesPage() {
                 </tr>
               </thead>
 
-              <tbody>
+              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
                 {modules.map((module) => (
-                  <tr key={module.key} className="border-t border-slate-800">
-                    <td className="px-4 py-3 font-bold">{module.label}</td>
+                  <tr key={module.key} className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-black text-slate-950">{module.label}</td>
 
                     {[
                       "can_view",
@@ -988,7 +991,7 @@ export default function UserRolesPage() {
                               e.target.checked
                             )
                           }
-                          className="h-4 w-4 accent-amber-400"
+                          className="h-4 w-4 accent-slate-950"
                         />
                       </td>
                     ))}
@@ -998,46 +1001,46 @@ export default function UserRolesPage() {
             </table>
           </div>
 
-          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+          <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-blue-700">
             Audit actions covered: CREATE_ROLE, DELETE_ROLE,
             DELETE_ROLE_BLOCKED, APPLY_PERMISSION_PRESET, SAVE_PERMISSIONS,
             ASSIGN_EMPLOYEE_ROLE.
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-bold">Assign Employee Role</h2>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-black text-slate-950">Assign Employee Role</h2>
 
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm font-medium text-slate-500">
             Select which role each employee should use when accessing OPSCORE.
           </p>
 
-          <div className="mt-5 overflow-auto rounded-xl border border-slate-800">
+          <div className="mt-5 overflow-auto rounded-3xl border border-slate-200">
             <table className="w-full min-w-[900px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
+              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">Position</th>
-                  <th className="px-4 py-3">System Role</th>
+                  <th className="px-4 py-3 text-slate-700">Employee</th>
+                  <th className="px-4 py-3 text-slate-700">Department</th>
+                  <th className="px-4 py-3 text-slate-700">Position</th>
+                  <th className="px-4 py-3 text-slate-700">System Role</th>
                 </tr>
               </thead>
 
-              <tbody>
+              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
                 {employees.map((employee) => (
-                  <tr key={employee.id} className="border-t border-slate-800">
-                    <td className="px-4 py-3 font-bold">
+                  <tr key={employee.id} className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-black text-slate-950">
                       {employee.first_name} {employee.last_name}
                     </td>
-                    <td className="px-4 py-3">{employee.department || "-"}</td>
-                    <td className="px-4 py-3">{employee.position || "-"}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-slate-700">{employee.department || "-"}</td>
+                    <td className="px-4 py-3 text-slate-700">{employee.position || "-"}</td>
+                    <td className="px-4 py-3 text-slate-700">
                       <select
                         value={employee.system_role_id || ""}
                         onChange={(e) =>
                           assignEmployeeRole(employee.id, e.target.value)
                         }
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none"
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                       >
                         <option value="">No Access</option>
                         {roles.map((role) => (
@@ -1080,14 +1083,14 @@ function SummaryCard({
   value: any;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-full bg-slate-800 p-3 text-amber-400">
+        <div className="rounded-full bg-slate-100 p-3 text-slate-700">
           {icon}
         </div>
-        <p className="text-sm text-slate-400">{title}</p>
+        <p className="text-sm font-medium text-slate-500">{title}</p>
       </div>
-      <h2 className="text-2xl font-black">{value}</h2>
+      <h2 className="text-3xl font-black tracking-tight text-slate-950">{value}</h2>
     </div>
   );
 }

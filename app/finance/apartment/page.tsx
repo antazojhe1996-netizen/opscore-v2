@@ -2,8 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Banknote, Brain, Building2, CheckCircle2, ClipboardList, Home, ShieldAlert, TrendingUp, Users, Wallet } from "lucide-react";
+import {
+  Banknote,
+  Building2,
+  ClipboardList,
+  Home,
+  ShieldAlert,
+  Users,
+  Wallet,
+} from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
+import OpscoreAssistant from "@/components/OpscoreAssistant";
 import { supabase } from "@/app/lib/supabase";
 
 export default function ApartmentDashboardPage() {
@@ -91,24 +101,24 @@ export default function ApartmentDashboardPage() {
   };
 
   const getStatusStyle = (status: string) => {
-    if (status === "PAID") return "bg-emerald-500/10 text-emerald-400";
-    if (status === "PARTIAL") return "bg-amber-500/10 text-amber-400";
-    if (status === "OVERDUE") return "bg-red-500/10 text-red-400";
-    if (status === "UNPAID") return "bg-orange-500/10 text-orange-400";
-    if (status === "NO BILL") return "bg-slate-700 text-slate-300";
-    return "bg-slate-700 text-slate-300";
+    if (status === "PAID") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (status === "PARTIAL") return "border-amber-200 bg-amber-50 text-amber-700";
+    if (status === "OVERDUE") return "border-red-200 bg-red-50 text-red-700";
+    if (status === "UNPAID") return "border-slate-200 bg-slate-100 text-slate-700";
+    if (status === "NO BILL") return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-slate-200 bg-slate-100 text-slate-700";
   };
 
   const getUnitStatusStyle = (status: string) => {
     const value = String(status || "").toLowerCase();
 
-    if (value === "occupied") return "bg-emerald-500/10 text-emerald-400";
-    if (value === "active") return "bg-blue-500/10 text-blue-400";
-    if (value === "vacant") return "bg-slate-700 text-slate-300";
-    if (value === "maintenance") return "bg-amber-500/10 text-amber-400";
-    if (value === "inactive") return "bg-red-500/10 text-red-400";
+    if (value === "occupied") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (value === "active") return "border-blue-200 bg-blue-50 text-blue-700";
+    if (value === "vacant") return "border-slate-200 bg-slate-100 text-slate-700";
+    if (value === "maintenance") return "border-amber-200 bg-amber-50 text-amber-700";
+    if (value === "inactive") return "border-red-200 bg-red-50 text-red-700";
 
-    return "bg-slate-700 text-slate-300";
+    return "border-slate-200 bg-slate-100 text-slate-700";
   };
 
   const getActionNeeded = (row: any) => {
@@ -117,7 +127,6 @@ export default function ApartmentDashboardPage() {
     if (unitStatus === "maintenance") return "Check maintenance issue";
     if (unitStatus === "vacant") return "Available for tenant";
     if (unitStatus === "inactive") return "Inactive unit";
-
     if (row.status === "NO BILL") return "Create monthly bill";
     if (row.status === "OVERDUE") return "Follow up payment";
     if (row.status === "PARTIAL") return "Collect remaining balance";
@@ -130,17 +139,16 @@ export default function ApartmentDashboardPage() {
   const getActionStyle = (row: any) => {
     const unitStatus = String(row.unit.status || "").toLowerCase();
 
-    if (unitStatus === "maintenance") return "text-amber-400";
-    if (unitStatus === "vacant") return "text-slate-300";
-    if (unitStatus === "inactive") return "text-red-400";
+    if (unitStatus === "maintenance") return "text-amber-700";
+    if (unitStatus === "vacant") return "text-slate-700";
+    if (unitStatus === "inactive") return "text-red-700";
+    if (row.status === "NO BILL") return "text-blue-700";
+    if (row.status === "OVERDUE") return "text-red-700";
+    if (row.status === "PARTIAL") return "text-amber-700";
+    if (row.status === "UNPAID") return "text-slate-700";
+    if (row.status === "PAID") return "text-emerald-700";
 
-    if (row.status === "NO BILL") return "text-slate-400";
-    if (row.status === "OVERDUE") return "text-red-400";
-    if (row.status === "PARTIAL") return "text-amber-400";
-    if (row.status === "UNPAID") return "text-orange-400";
-    if (row.status === "PAID") return "text-emerald-400";
-
-    return "text-slate-400";
+    return "text-slate-700";
   };
 
   /// CALCULATIONS
@@ -236,24 +244,23 @@ export default function ApartmentDashboardPage() {
     (row) => row.status === "NO BILL"
   ).length;
 
-  /// EFFECTS
-  useEffect(() => {
-    getData();
-  }, []);
-
-
-  /// EXECUTIVE UI DATA
   const totalUnits = units.length;
+
   const collectionRate =
-    totalReceivable > 0 ? Math.round((totalCollected / totalReceivable) * 100) : 0;
+    totalReceivable > 0
+      ? Math.round((totalCollected / totalReceivable) * 100)
+      : 0;
+
   const occupancyRate =
     totalUnits > 0 ? Math.round((occupiedUnits.length / totalUnits) * 100) : 0;
+
   const riskLevel =
     overdueCount > 0 || totalUnpaid > 0
       ? "Watchlist"
       : maintenanceUnits.length > 0 || noBillCount > 0
       ? "Monitor"
       : "Stable";
+
   const healthScore = Math.max(
     0,
     100 -
@@ -264,657 +271,466 @@ export default function ApartmentDashboardPage() {
       (vacantUnits.length > 0 ? 5 : 0)
   );
 
-  const executiveBriefingPoints = [
-    `Occupancy is currently ${occupancyRate}% with ${occupiedUnits.length} occupied unit(s).`,
-    `Collections stand at ${formatMoney(totalCollected)} against ${formatMoney(totalReceivable)} total receivables.`,
-    `Outstanding exposure is ${formatMoney(totalUnpaid)} across ${overdueCount} overdue unit(s).`,
-    noBillCount > 0
-      ? `${noBillCount} billable unit(s) still need monthly billing review.`
-      : "Monthly billing coverage is currently under control.",
-  ];
-
   const recommendedActions = [
-    ...(overdueCount > 0 ? ["Follow up overdue apartment balances before approving new expenses."] : []),
-    ...(noBillCount > 0 ? ["Create missing monthly bills for billable apartment units."] : []),
-    ...(maintenanceUnits.length > 0 ? ["Review maintenance units and confirm return-to-occupancy timeline."] : []),
-    ...(vacantUnits.length > 0 ? ["Prepare vacant units for tenant placement or management review."] : []),
-    ...(totalUnpaid > 0 ? ["Monitor collection exposure until outstanding balances are cleared."] : []),
+    ...(overdueCount > 0
+      ? ["Follow up overdue apartment balances before approving new expenses."]
+      : []),
+    ...(noBillCount > 0
+      ? ["Create missing monthly bills for billable apartment units."]
+      : []),
+    ...(maintenanceUnits.length > 0
+      ? ["Review maintenance units and confirm return-to-occupancy timeline."]
+      : []),
+    ...(vacantUnits.length > 0
+      ? ["Prepare vacant units for tenant placement or management review."]
+      : []),
+    ...(totalUnpaid > 0
+      ? ["Monitor collection exposure until outstanding balances are cleared."]
+      : []),
     ...(overdueCount === 0 && noBillCount === 0 && totalUnpaid <= 0
       ? ["Maintain current collection discipline and continue monthly monitoring."]
       : []),
   ];
 
+  const assistantReminders = [
+    ...(overdueCount > 0
+      ? [
+          {
+            type: "critical",
+            message: `${overdueCount} apartment unit(s) have overdue balances.`,
+          },
+        ]
+      : []),
+    ...(noBillCount > 0
+      ? [
+          {
+            type: "warning",
+            message: `${noBillCount} billable unit(s) still need monthly billing.`,
+          },
+        ]
+      : []),
+    ...(maintenanceUnits.length > 0
+      ? [
+          {
+            type: "warning",
+            message: `${maintenanceUnits.length} unit(s) are under maintenance.`,
+          },
+        ]
+      : []),
+    ...(vacantUnits.length > 0
+      ? [
+          {
+            type: "info",
+            message: `${vacantUnits.length} vacant unit(s) may need tenant placement review.`,
+          },
+        ]
+      : []),
+    ...(overdueCount === 0 && noBillCount === 0
+      ? [
+          {
+            type: "success",
+            message: "Apartment billing and collection watchlist is under control.",
+          },
+        ]
+      : []),
+  ].slice(0, 5);
+
+  /// EFFECTS
+  useEffect(() => {
+    getData();
+  }, []);
+
   /// UI
   return (
-    <div className="flex min-h-screen bg-[#07111f] text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-blue-300/20 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-5 shadow-2xl shadow-blue-950/30 lg:p-7">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="FINANCE / APARTMENT DASHBOARD" />
 
-          <div className="relative grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_440px]">
-            <div className="min-w-0">
-              <div className="mb-6 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-blue-100">
-                  Apartment Executive Suite
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[11px] font-bold text-slate-200">
-                  Vincent Resort Hotel
-                </span>
-              </div>
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              FINANCE
+            </p>
 
-              <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-100/80">
-                OPSCORE Apartment Intelligence
-              </p>
-
-              <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-6xl">
-                Apartment Operations Center
-              </h1>
-
-              <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-200">
-                Monitor occupancy, tenant health, collections, overdue exposure,
-                and unit-level operating risk from one executive command center.
-              </p>
-
-              <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-4">
-                <HeroMetric
-                  label="Occupancy"
-                  mood={occupancyRate >= 80 ? "Strong occupancy" : occupancyRate >= 50 ? "Moderate occupancy" : "Needs lift"}
-                  value={`${occupancyRate}%`}
-                  subvalue={`${occupiedUnits.length}/${totalUnits} units occupied`}
-                />
-
-                <HeroMetric
-                  label="Tenant Health"
-                  mood={activeUnits.length > 0 ? "Active tenant base" : "Needs setup"}
-                  value={activeUnits.length}
-                  subvalue={`${maintenanceUnits.length} maintenance • ${inactiveUnits.length} inactive`}
-                />
-
-                <HeroMetric
-                  label="Collection Status"
-                  mood={collectionRate >= 90 ? "Healthy collection" : collectionRate >= 70 ? "Needs monitoring" : "Needs follow-up"}
-                  value={`${collectionRate}%`}
-                  subvalue={`${formatMoney(totalCollected)} collected`}
-                />
-
-                <HeroMetric
-                  label="Overdue Exposure"
-                  mood={overdueCount > 0 ? "Management review" : "Under control"}
-                  value={formatMoney(totalUnpaid)}
-                  subvalue={`${overdueCount} overdue unit(s)`}
-                />
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-blue-200/20 bg-blue-300/10 p-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-100/80">
-                  Recommended action
-                </p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
-                  {recommendedActions[0] || "Maintain apartment monitoring and review collections regularly."}
+            <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h1 className="text-3xl font-black tracking-tight text-slate-950">
+                  Apartment Dashboard
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                  Apartment occupancy, billing, collections and receivable monitoring.
                 </p>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-blue-200/20 bg-slate-950/55 p-4 shadow-lg shadow-black/10">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-100/70">
-                  Daily Workbench Actions
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/finance/apartment/billing"
+                  className="flex h-11 items-center rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                >
+                  Create / Review Bills
+                </Link>
+
+                <Link
+                  href="/finance/apartment/payments"
+                  className="flex h-11 items-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  Record Payments
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              icon={<Home size={22} />}
+              title="Occupancy Rate"
+              value={`${occupancyRate}%`}
+              subtitle={`${occupiedUnits.length} occupied • ${vacantUnits.length} vacant`}
+              tone={occupancyRate >= 80 ? "success" : occupancyRate < 50 ? "danger" : "info"}
+            />
+
+            <KpiCard
+              icon={<Wallet size={22} />}
+              title="Total Receivable"
+              value={formatMoney(totalReceivable)}
+              subtitle={`${bills.length} apartment bill(s) recorded`}
+              tone="info"
+            />
+
+            <KpiCard
+              icon={<Banknote size={22} />}
+              title="Total Collected"
+              value={formatMoney(totalCollected)}
+              subtitle={`${collectionRate}% collection rate`}
+              tone={collectionRate >= 90 ? "success" : collectionRate < 70 ? "danger" : "warning"}
+            />
+
+            <KpiCard
+              icon={<ShieldAlert size={22} />}
+              title="Outstanding Balance"
+              value={formatMoney(totalUnpaid)}
+              subtitle={`${overdueCount} overdue unit(s)`}
+              tone={totalUnpaid > 0 ? "danger" : "success"}
+            />
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Operations Summary
                 </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Apartment Health Overview
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Summary of apartment occupancy, tenant status, collections, billing coverage and operating risk.
+                </p>
+              </div>
 
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <Link
-                    href="/finance/apartment/billing"
-                    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
-                  >
-                    Create / Review Bills
-                  </Link>
-
-                  <Link
-                    href="/finance/apartment/payments"
-                    className="rounded-xl border border-blue-300/25 bg-slate-950/80 px-5 py-3 text-sm font-black text-blue-100 transition hover:bg-slate-900"
-                  >
-                    Record Payments
-                  </Link>
-                </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <SummaryMetric label="Health Score" value={`${healthScore}/100`} />
+                <SummaryMetric label="Risk Level" value={riskLevel} />
+                <SummaryMetric label="Active Units" value={activeUnits.length} />
+                <SummaryMetric label="Maintenance Units" value={maintenanceUnits.length} />
+                <SummaryMetric label="Inactive Units" value={inactiveUnits.length} />
+                <SummaryMetric label="No Bill Yet" value={noBillCount} />
               </div>
             </div>
 
-            <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/30 backdrop-blur">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/80">
-                    Apartment Health
-                  </p>
-                  <h2 className="mt-2 text-5xl font-black text-white">
-                    {healthScore}
-                  </h2>
-                  <p className="mt-1 text-sm font-black uppercase tracking-[0.22em] text-blue-200">
-                    {riskLevel}
-                  </p>
-                </div>
-
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-blue-300/20 bg-blue-300/10">
-                  <div className="absolute inset-2 rounded-full border border-blue-300/20" />
-                  <div className="text-center">
-                    <p className="text-3xl font-black text-white">{healthScore}</p>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200/70">/100</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-300 to-cyan-200"
-                  style={{ width: `${Math.min(Math.max(healthScore, 0), 100)}%` }}
-                />
-              </div>
-
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                    Bills
-                  </p>
-                  <p className="mt-1 text-3xl font-black text-white">{bills.length}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                    Payments
-                  </p>
-                  <p className="mt-1 text-3xl font-black text-white">{payments.length}</p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-200/70">
-                  Executive Focus
-                </p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">
-                  {totalUnpaid > 0
-                    ? "Protect cash flow by closing unpaid apartment exposure."
-                    : "Apartment collections are currently protected."}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <KpiCard
-            icon={<Home size={22} />}
-            title="Occupancy"
-            value={`${occupancyRate}%`}
-            success={occupancyRate >= 80}
-            danger={occupancyRate < 50}
-            subtitle={`${occupiedUnits.length} occupied • ${vacantUnits.length} vacant`}
-            formula="Occupied units divided by total apartment units."
-          />
-
-          <KpiCard
-            icon={<Users size={22} />}
-            title="Tenant Health"
-            value={activeUnits.length}
-            success={activeUnits.length > 0}
-            subtitle={`${maintenanceUnits.length} maintenance • ${inactiveUnits.length} inactive`}
-            formula="Active and occupied units from apartment unit status."
-          />
-
-          <KpiCard
-            icon={<Banknote size={22} />}
-            title="Collection Status"
-            value={formatMoney(totalCollected)}
-            success={totalCollected > 0}
-            subtitle={`${collectionRate}% collection rate`}
-            formula="Total apartment payments recorded against total apartment receivables."
-          />
-
-          <KpiCard
-            icon={<ShieldAlert size={22} />}
-            title="Overdue Exposure"
-            value={formatMoney(totalUnpaid)}
-            danger={totalUnpaid > 0}
-            success={totalUnpaid <= 0}
-            subtitle={`${overdueCount} overdue unit(s)`}
-            formula="Remaining apartment balances based on bills less recorded payments."
-          />
-
-          <KpiCard
-            icon={<Brain size={22} />}
-            title="Health Score"
-            value={`${healthScore}/100`}
-            success={healthScore >= 85}
-            danger={healthScore < 70}
-            subtitle={riskLevel}
-            formula="Executive UI score from overdue, billing, maintenance, vacancy, and collection signals."
-          />
-        </section>
-
-        <section className="mb-6 overflow-hidden rounded-3xl border border-blue-300/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-slate-950 p-5 shadow-2xl shadow-blue-950/20 lg:p-6">
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-stretch">
-            <div>
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-blue-200">
-                <Brain size={18} /> Apartment Executive Briefing
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Recommended Actions
               </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                {riskLevel === "Stable" ? "Apartment operations are under control." : riskLevel === "Monitor" ? "Apartment operations are stable, with items to monitor." : "Apartment operations need management review."}
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Daily Review
               </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                OPSCORE summarized the apartment position using occupancy, tenant status,
-                billing coverage, collection performance, and overdue exposure.
-              </p>
-
-              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                {executiveBriefingPoints.map((item, index) => (
-                  <div
-                    key={index}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
-                  >
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
-                      Insight {index + 1}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
-                      {item}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-blue-300/20 bg-slate-950/70 p-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-200/70">
-                Action Center
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Prioritized actions for apartment collections and operating control.
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Prioritized apartment actions based on current billing and collection data.
               </p>
 
               <div className="mt-5 space-y-3">
                 {recommendedActions.slice(0, 5).map((action, index) => (
                   <div
                     key={index}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
                   >
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-200/60">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                       Priority {index + 1}
                     </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                    <p className="mt-1 text-xs font-bold leading-5 text-slate-700">
                       {action}
                     </p>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-4">
-          <IntelligenceCard
-            icon={<TrendingUp size={20} />}
-            title="Collection Performance"
-            description="Receivable, collected, and outstanding apartment exposure."
-          >
-            <MetricLine label="Total Receivable" value={formatMoney(totalReceivable)} />
-            <MetricLine label="Total Collected" value={formatMoney(totalCollected)} valueClass="text-blue-200" />
-            <MetricLine label="Outstanding Balance" value={formatMoney(totalUnpaid)} valueClass={totalUnpaid > 0 ? "text-red-300" : "text-blue-200"} />
-            <MetricLine label="Collection Rate" value={`${collectionRate}%`} />
-          </IntelligenceCard>
-
-          <IntelligenceCard
-            icon={<Building2 size={20} />}
-            title="Occupancy Monitor"
-            description="Live unit state from apartment settings."
-          >
-            <MetricLine label="Occupied Units" value={occupiedUnits.length} />
-            <MetricLine label="Vacant Units" value={vacantUnits.length} />
-            <MetricLine label="Maintenance Units" value={maintenanceUnits.length} />
-            <MetricLine label="Inactive Units" value={inactiveUnits.length} />
-          </IntelligenceCard>
-
-          <IntelligenceCard
-            icon={<AlertTriangle size={20} />}
-            title="Risk Monitor"
-            description="Billing gaps and collection risks requiring review."
-          >
-            <MetricLine label="Overdue Units" value={overdueCount} valueClass={overdueCount > 0 ? "text-red-300" : "text-blue-200"} />
-            <MetricLine label="No Bill Yet" value={noBillCount} valueClass={noBillCount > 0 ? "text-amber-300" : "text-blue-200"} />
-            <MetricLine label="Payments Recorded" value={payments.length} />
-            <MetricLine label="Total Bills" value={bills.length} />
-          </IntelligenceCard>
-
-          <IntelligenceCard
-            icon={<ClipboardList size={20} />}
-            title="Recommended Actions"
-            description="Operational priorities generated from the current apartment data."
-          >
-            <div className="space-y-3">
-              {recommendedActions.slice(0, 4).map((action, index) => (
-                <div key={index} className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                  <CheckCircle2 className="mt-0.5 shrink-0 text-blue-200" size={16} />
-                  <p className="text-xs font-semibold leading-5 text-slate-200">{action}</p>
+          <section className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Unit Monitoring
+                  </p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">
+                    Apartment Unit Monitoring
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Unit-level tenant, billing, collection, balance and action status.
+                  </p>
                 </div>
-              ))}
-            </div>
-          </IntelligenceCard>
-        </section>
 
-        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-4 lg:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
-                Apartment Workbench Actions
-              </p>
-              <h2 className="mt-1 text-xl font-black text-white">Billing and Collection Shortcuts</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Use these actions for daily apartment billing and tenant payment posting.
-              </p>
+                <div className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700">
+                  Exposure:{" "}
+                  <span className={totalUnpaid > 0 ? "text-red-700" : "text-emerald-700"}>
+                    {formatMoney(totalUnpaid)}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/finance/apartment/billing"
-                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-500"
-              >
-                Create / Review Bills
-              </Link>
-              <Link
-                href="/finance/apartment/payments"
-                className="rounded-xl border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-800"
-              >
-                Record Payments
-              </Link>
-            </div>
-          </div>
-        </section>
+            <div className="overflow-auto">
+              <table className="w-full min-w-[1300px] text-sm">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Unit</th>
+                    <th className="px-4 py-3">Tenant</th>
+                    <th className="px-4 py-3">Unit Status</th>
+                    <th className="px-4 py-3">Latest Month</th>
+                    <th className="px-4 py-3 text-right">Latest Bill</th>
+                    <th className="px-4 py-3 text-right">Latest Paid</th>
+                    <th className="px-4 py-3 text-right">Latest Balance</th>
+                    <th className="px-4 py-3 text-right">Total Balance</th>
+                    <th className="px-4 py-3">Due Date</th>
+                    <th className="px-4 py-3">Bill Status</th>
+                    <th className="px-4 py-3">Action Needed</th>
+                  </tr>
+                </thead>
 
-        <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 lg:p-6">
-          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-                Unit Intelligence
-              </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                Apartment Unit Monitoring
-              </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Unit-level tenant, billing, collection, balance, and action status.
-              </p>
-            </div>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {unitMonitoring.map((row) => {
+                    const latestBill = row.latestBill;
+                    const latestBalance = latestBill ? getBalance(latestBill) : 0;
 
-            <div className="rounded-full border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-400">
-              Exposure: <span className={totalUnpaid > 0 ? "text-red-300" : "text-blue-300"}>{formatMoney(totalUnpaid)}</span>
-            </div>
-          </div>
+                    return (
+                      <tr
+                        key={row.unit.id}
+                        className="transition-all duration-200 hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-3 font-black text-slate-950">
+                          {row.unit.unit_name || "-"}
+                        </td>
 
-          <div className="overflow-auto rounded-2xl border border-slate-800 bg-slate-950/40">
-            <table className="w-full min-w-[1300px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Unit</th>
-                  <th className="px-4 py-3">Tenant</th>
-                  <th className="px-4 py-3">Unit Status</th>
-                  <th className="px-4 py-3">Latest Month</th>
-                  <th className="px-4 py-3 text-right">Latest Bill</th>
-                  <th className="px-4 py-3 text-right">Latest Paid</th>
-                  <th className="px-4 py-3 text-right">Latest Balance</th>
-                  <th className="px-4 py-3 text-right">Total Balance</th>
-                  <th className="px-4 py-3">Due Date</th>
-                  <th className="px-4 py-3">Bill Status</th>
-                  <th className="px-4 py-3">Action Needed</th>
-                </tr>
-              </thead>
+                        <td className="px-4 py-3">{row.unit.tenant_name || "-"}</td>
 
-              <tbody>
-                {unitMonitoring.map((row) => {
-                  const latestBill = row.latestBill;
-                  const latestBalance = latestBill ? getBalance(latestBill) : 0;
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getUnitStatusStyle(
+                              row.unit.status
+                            )}`}
+                          >
+                            {row.unit.status || "-"}
+                          </span>
+                        </td>
 
-                  return (
-                    <tr
-                      key={row.unit.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
-                    >
-                      <td className="px-4 py-3 font-bold text-white">
-                        {row.unit.unit_name || "-"}
-                      </td>
+                        <td className="px-4 py-3">{latestBill?.bill_month || "-"}</td>
 
-                      <td className="px-4 py-3 text-slate-300">
-                        {row.unit.tenant_name || "-"}
-                      </td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(getTotalBill(latestBill))}
+                        </td>
 
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getUnitStatusStyle(
-                            row.unit.status
-                          )}`}
-                        >
-                          {row.unit.status || "-"}
-                        </span>
-                      </td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(getTotalPaid(latestBill))}
+                        </td>
 
-                      <td className="px-4 py-3 text-slate-300">
-                        {latestBill?.bill_month || "-"}
-                      </td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(latestBalance)}
+                        </td>
 
-                      <td className="px-4 py-3 text-right text-slate-200">
-                        {formatMoney(getTotalBill(latestBill))}
-                      </td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(row.totalBalance)}
+                        </td>
 
-                      <td className="px-4 py-3 text-right text-blue-200">
-                        {formatMoney(getTotalPaid(latestBill))}
-                      </td>
+                        <td className="px-4 py-3">{latestBill?.due_date || "-"}</td>
 
-                      <td className="px-4 py-3 text-right text-red-300">
-                        {formatMoney(latestBalance)}
-                      </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusStyle(
+                              row.status
+                            )}`}
+                          >
+                            {row.status}
+                          </span>
+                        </td>
 
-                      <td className="px-4 py-3 text-right font-bold text-amber-300">
-                        {formatMoney(row.totalBalance)}
-                      </td>
+                        <td className={`px-4 py-3 text-xs font-bold ${getActionStyle(row)}`}>
+                          {getActionNeeded(row)}
+                        </td>
+                      </tr>
+                    );
+                  })}
 
-                      <td className="px-4 py-3 text-slate-300">
-                        {latestBill?.due_date || "-"}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                            row.status
-                          )}`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-
-                      <td className={`px-4 py-3 text-xs font-bold ${getActionStyle(row)}`}>
-                        {getActionNeeded(row)}
+                  {unitMonitoring.length === 0 && (
+                    <tr>
+                      <td colSpan={11} className="px-4 py-14 text-center">
+                        <p className="font-black text-slate-950">No records found</p>
+                        <p className="mt-1 text-sm font-medium text-slate-500">
+                          Open Apartment Settings to create units.
+                        </p>
                       </td>
                     </tr>
-                  );
-                })}
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-                {unitMonitoring.length === 0 && (
+          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Billing Ledger
+                  </p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">
+                    All Apartment Bills
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Complete apartment billing ledger with payment and balance status.
+                  </p>
+                </div>
+
+                <div className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700">
+                  Bills: <span className="text-slate-950">{bills.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="w-full min-w-[1000px] text-sm">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   <tr>
-                    <td
-                      colSpan={11}
-                      className="px-4 py-12 text-center text-slate-500"
-                    >
-                      No apartment units found. Open Apartment Settings to create units.
-                    </td>
+                    <th className="px-4 py-3">Unit</th>
+                    <th className="px-4 py-3">Tenant</th>
+                    <th className="px-4 py-3">Month</th>
+                    <th className="px-4 py-3 text-right">Bill</th>
+                    <th className="px-4 py-3 text-right">Paid</th>
+                    <th className="px-4 py-3 text-right">Balance</th>
+                    <th className="px-4 py-3">Due Date</th>
+                    <th className="px-4 py-3">Status</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 lg:p-6">
-          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
-                Billing Intelligence
-              </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                All Apartment Bills
-              </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Complete apartment billing ledger with payment and balance status.
-              </p>
-            </div>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {bills.map((bill) => {
+                    const unit = getUnit(bill.unit_id);
+                    const status = getBillStatus(bill);
 
-            <div className="rounded-full border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-400">
-              Bills: <span className="text-blue-300">{bills.length}</span>
-            </div>
-          </div>
+                    return (
+                      <tr
+                        key={bill.id}
+                        className="transition-all duration-200 hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-3 font-black text-slate-950">
+                          {unit?.unit_name || "-"}
+                        </td>
 
-          <div className="overflow-auto rounded-2xl border border-slate-800 bg-slate-950/40">
-            <table className="w-full min-w-[1000px] text-sm">
-              <thead className="bg-slate-950 text-left text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Unit</th>
-                  <th className="px-4 py-3">Tenant</th>
-                  <th className="px-4 py-3">Month</th>
-                  <th className="px-4 py-3 text-right">Bill</th>
-                  <th className="px-4 py-3 text-right">Paid</th>
-                  <th className="px-4 py-3 text-right">Balance</th>
-                  <th className="px-4 py-3">Due Date</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
+                        <td className="px-4 py-3">{unit?.tenant_name || "-"}</td>
 
-              <tbody>
-                {bills.map((bill) => {
-                  const unit = getUnit(bill.unit_id);
-                  const status = getBillStatus(bill);
+                        <td className="px-4 py-3">{bill.bill_month}</td>
 
-                  return (
-                    <tr
-                      key={bill.id}
-                      className="border-t border-slate-800 hover:bg-slate-800/40"
-                    >
-                      <td className="px-4 py-3 font-bold text-white">
-                        {unit?.unit_name || "-"}
-                      </td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(getTotalBill(bill))}
+                        </td>
 
-                      <td className="px-4 py-3 text-slate-300">
-                        {unit?.tenant_name || "-"}
-                      </td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(getTotalPaid(bill))}
+                        </td>
 
-                      <td className="px-4 py-3 text-slate-300">{bill.bill_month}</td>
+                        <td className="px-4 py-3 text-right font-black text-slate-950">
+                          {formatMoney(getBalance(bill))}
+                        </td>
 
-                      <td className="px-4 py-3 text-right text-slate-200">
-                        {formatMoney(getTotalBill(bill))}
-                      </td>
+                        <td className="px-4 py-3">{bill.due_date}</td>
 
-                      <td className="px-4 py-3 text-right text-blue-200">
-                        {formatMoney(getTotalPaid(bill))}
-                      </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusStyle(
+                              status
+                            )}`}
+                          >
+                            {status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
-                      <td className="px-4 py-3 text-right text-red-300">
-                        {formatMoney(getBalance(bill))}
-                      </td>
-
-                      <td className="px-4 py-3 text-slate-300">{bill.due_date}</td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                            status
-                          )}`}
-                        >
-                          {status}
-                        </span>
+                  {bills.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-14 text-center">
+                        <p className="font-black text-slate-950">No records found</p>
+                        <p className="mt-1 text-sm font-medium text-slate-500">
+                          No apartment bills yet.
+                        </p>
                       </td>
                     </tr>
-                  );
-                })}
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
 
-                {bills.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={8}
-                      className="px-4 py-12 text-center text-slate-500"
-                    >
-                      No apartment bills yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <OpscoreAssistant reminders={assistantReminders} />
       </main>
     </div>
   );
 }
 
-function HeroMetric({ label, mood, value, subvalue }: any) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.055] p-4 shadow-lg shadow-black/10">
-      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-100/70">
-        {label}
-      </p>
-      <p className="mt-2 text-sm font-bold text-white">{mood}</p>
-      <p className="mt-1 text-3xl font-black text-blue-100">{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{subvalue}</p>
-    </div>
-  );
-}
-
-function KpiCard({ icon, title, value, subtitle, formula, danger, success }: any) {
-  const tone = danger
-    ? "border-red-300/20 bg-red-500/10 text-red-200"
-    : success
-    ? "border-blue-300/20 bg-blue-500/10 text-blue-200"
-    : "border-slate-700 bg-slate-900 text-slate-200";
+function KpiCard({ icon, title, value, subtitle, tone }: any) {
+  const iconTone =
+    tone === "danger"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : tone === "warning"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-blue-200 bg-blue-50 text-blue-700";
 
   return (
-    <div className="group rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10 transition hover:border-blue-300/30">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
-        <div className={`rounded-2xl border p-3 ${tone}`}>{icon}</div>
-        <div className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+        <div className={`rounded-2xl border p-3 ${iconTone}`}>{icon}</div>
+        <div className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-700">
           Live
         </div>
       </div>
 
-      <p className="mt-5 text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+      <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </p>
-      <h3 className="mt-2 break-words text-2xl font-black text-white xl:text-3xl">
+
+      <p className="mt-2 break-words text-3xl font-black tracking-tight text-slate-950">
         {value}
-      </h3>
-      <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
-        {subtitle}
       </p>
-      <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[11px] leading-5 text-slate-500">
-        {formula}
-      </p>
+
+      <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>
     </div>
   );
 }
 
-function IntelligenceCard({ icon, title, description, children }: any) {
+function SummaryMetric({ label, value }: any) {
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10">
-      <div className="flex items-start gap-3">
-        <div className="rounded-2xl border border-blue-300/20 bg-blue-500/10 p-3 text-blue-200">
-          {icon}
-        </div>
-        <div>
-          <h3 className="text-lg font-black text-white">{title}</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-400">{description}</p>
-        </div>
-      </div>
-
-      <div className="mt-5 space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function MetricLine({ label, value, valueClass = "text-white" }: any) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-      <p className="text-xs font-bold text-slate-400">{label}</p>
-      <p className={`text-sm font-black ${valueClass}`}>{value}</p>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
 }
