@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "OPSCORE V3",
   description: "Operations Management System",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0f172a",
+  appleWebApp: {
+    capable: true,
+    title: "OPSCORE",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
@@ -34,3 +41,4 @@ export default function RootLayout({
     </html>
   );
 }
+
