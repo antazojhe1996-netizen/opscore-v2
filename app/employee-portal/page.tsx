@@ -52,6 +52,21 @@ type AttendanceEntry = {
   ot_minutes?: number;
   status?: string;
   remarks?: string | null;
+  time_in_latitude?: number | null;
+  time_in_longitude?: number | null;
+  time_out_latitude?: number | null;
+  time_out_longitude?: number | null;
+  time_in_accuracy?: number | null;
+  time_out_accuracy?: number | null;
+  time_in_location_status?: string | null;
+  time_out_location_status?: string | null;
+};
+
+type PortalLocationCapture = {
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  status: "GPS_CAPTURED" | "GPS_UNAVAILABLE" | "PERMISSION_DENIED" | "GPS_ERROR";
 };
 
 type LeaveRequest = {
@@ -1355,6 +1370,64 @@ export default function EmployeePortalPage() {
     ]);
   };
 
+  const getPortalLocation = async (): Promise<PortalLocationCapture> => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      return {
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+        status: "GPS_UNAVAILABLE",
+      };
+    }
+
+    return await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            status: "GPS_CAPTURED",
+          });
+        },
+        (error) => {
+          const status =
+            error.code === error.PERMISSION_DENIED
+              ? "PERMISSION_DENIED"
+              : "GPS_ERROR";
+
+          resolve({
+            latitude: null,
+            longitude: null,
+            accuracy: null,
+            status,
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  };
+
+  const buildLocationRemark = (
+    baseRemark: string | null | undefined,
+    action: "Time In" | "Time Out",
+    location: PortalLocationCapture
+  ) => {
+    const existingRemark = String(baseRemark || `Employee Portal ${action}`).trim();
+    const locationRemark =
+      location.status === "GPS_CAPTURED"
+        ? `${action} GPS captured. Accuracy: ${Math.round(Number(location.accuracy || 0))}m.`
+        : `${action} GPS status: ${location.status}.`;
+
+    if (existingRemark.includes(`${action} GPS`)) return existingRemark;
+
+    return `${existingRemark} | ${locationRemark}`;
+  };
+
   const handleTimeIn = async () => {
     if (!currentUser) return;
 
@@ -1362,6 +1435,7 @@ export default function EmployeePortalPage() {
 
     const attendanceDate = getPhilippinesDate();
     const timeIn = getPhilippinesTime();
+    const location = await getPortalLocation();
 
     const { data: existingEntry, error: existingError } = await supabase
       .from("attendance_entries")
@@ -1404,7 +1478,15 @@ export default function EmployeePortalPage() {
       undertime_minutes: Number(existingEntry?.undertime_minutes || 0),
       ot_minutes: Number(existingEntry?.ot_minutes || 0),
       status: lateMinutes > 0 ? "Late" : "Present",
-      remarks: existingEntry?.remarks || "Employee Portal Time In",
+      remarks: buildLocationRemark(
+        existingEntry?.remarks || "Employee Portal Time In",
+        "Time In",
+        location
+      ),
+      time_in_latitude: location.latitude,
+      time_in_longitude: location.longitude,
+      time_in_accuracy: location.accuracy,
+      time_in_location_status: location.status,
     };
 
     const { error } = existingEntry?.id
@@ -1422,6 +1504,10 @@ export default function EmployeePortalPage() {
 
     await reloadEmployeeData(currentUser.id);
     setLoading(false);
+
+    if (location.status !== "GPS_CAPTURED") {
+      alert(`Time In saved. GPS was not captured: ${location.status}.`);
+    }
   };
 
   const handleTimeOut = async () => {
@@ -1430,6 +1516,7 @@ export default function EmployeePortalPage() {
     setLoading(true);
 
     const attendanceDate = getPhilippinesDate();
+    const location = await getPortalLocation();
 
     const { data: latestEntry, error: latestError } = await supabase
       .from("attendance_entries")
@@ -1485,7 +1572,15 @@ export default function EmployeePortalPage() {
         undertime_minutes: undertimeMinutes,
         ot_minutes: otMinutes,
         status: "Completed",
-        remarks: latestEntry.remarks || "Employee Portal Time Out",
+        remarks: buildLocationRemark(
+          latestEntry.remarks || "Employee Portal Time Out",
+          "Time Out",
+          location
+        ),
+        time_out_latitude: location.latitude,
+        time_out_longitude: location.longitude,
+        time_out_accuracy: location.accuracy,
+        time_out_location_status: location.status,
       })
       .eq("id", latestEntry.id);
 
@@ -1497,6 +1592,10 @@ export default function EmployeePortalPage() {
 
     await reloadEmployeeData(currentUser.id);
     setLoading(false);
+
+    if (location.status !== "GPS_CAPTURED") {
+      alert(`Time Out saved. GPS was not captured: ${location.status}.`);
+    }
   };
 
   const getCurrentCompanyId = async () => {
