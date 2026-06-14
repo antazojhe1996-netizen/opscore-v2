@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import {
   AlertCircle,
@@ -25,6 +25,41 @@ type OnboardingSettings = {
 const DEFAULT_CLOSED_MESSAGE =
   "Employee onboarding is currently closed. Please contact HR.";
 
+const MONTHS = [
+  { label: "January", value: "01" },
+  { label: "February", value: "02" },
+  { label: "March", value: "03" },
+  { label: "April", value: "04" },
+  { label: "May", value: "05" },
+  { label: "June", value: "06" },
+  { label: "July", value: "07" },
+  { label: "August", value: "08" },
+  { label: "September", value: "09" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" },
+];
+
+const currentYear = new Date().getFullYear();
+
+const YEARS = Array.from({ length: currentYear - 1949 }, (_, index) =>
+  String(currentYear - index),
+);
+
+const DAYS = Array.from({ length: 31 }, (_, index) =>
+  String(index + 1).padStart(2, "0"),
+);
+
+const getDaysInMonth = (year: string, month: string) => {
+  if (!year || !month) return 31;
+  return new Date(Number(year), Number(month), 0).getDate();
+};
+
+const buildBirthDate = (year: string, month: string, day: string) => {
+  if (!year || !month || !day) return "";
+  return `${year}-${month}-${day}`;
+};
+
 export default function PublicOnboardingPage() {
   /// STATES
   const [settings, setSettings] = useState<OnboardingSettings | null>(null);
@@ -38,7 +73,10 @@ export default function PublicOnboardingPage() {
   const [lastName, setLastName] = useState("");
   const [suffix, setSuffix] = useState("");
 
-  const [birthDate, setBirthDate] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthDay, setBirthDay] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+
   const [gender, setGender] = useState("");
   const [civilStatus, setCivilStatus] = useState("");
   const [nationality, setNationality] = useState("Filipino");
@@ -57,6 +95,28 @@ export default function PublicOnboardingPage() {
     useState("");
   const [emergencyContactNumber, setEmergencyContactNumber] = useState("");
   const [emergencyContactAddress, setEmergencyContactAddress] = useState("");
+
+  const birthDate = useMemo(
+    () => buildBirthDate(birthYear, birthMonth, birthDay),
+    [birthYear, birthMonth, birthDay],
+  );
+
+  const availableDays = useMemo(() => {
+    const daysInMonth = getDaysInMonth(birthYear, birthMonth);
+    return DAYS.slice(0, daysInMonth);
+  }, [birthYear, birthMonth]);
+
+  const completionItems = [
+    Boolean(firstName.trim() && lastName.trim()),
+    Boolean(birthDate),
+    Boolean(mobileNumber.trim()),
+    Boolean(address.trim()),
+    Boolean(emergencyContactName.trim() && emergencyContactNumber.trim()),
+  ];
+
+  const completionRate = Math.round(
+    (completionItems.filter(Boolean).length / completionItems.length) * 100,
+  );
 
   /// FUNCTIONS
   const loadSettings = async () => {
@@ -91,7 +151,7 @@ export default function PublicOnboardingPage() {
     }
 
     if (!birthDate) {
-      setErrorMessage("Please enter your birth date.");
+      setErrorMessage("Please complete your birth month, day, and year.");
       return false;
     }
 
@@ -179,6 +239,15 @@ export default function PublicOnboardingPage() {
     loadSettings();
   }, []);
 
+  useEffect(() => {
+    if (!birthDay) return;
+
+    const daysInMonth = getDaysInMonth(birthYear, birthMonth);
+    if (Number(birthDay) > daysInMonth) {
+      setBirthDay("");
+    }
+  }, [birthYear, birthMonth, birthDay]);
+
   /// UI
   if (loading) {
     return (
@@ -188,7 +257,7 @@ export default function PublicOnboardingPage() {
             <Sparkles size={24} />
           </div>
           <p className="mt-5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">
-            OPSCORE Onboarding
+            Vincent Employee Onboarding
           </p>
           <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
             Loading form
@@ -210,7 +279,7 @@ export default function PublicOnboardingPage() {
           </div>
 
           <p className="mt-5 text-[11px] font-black uppercase tracking-[0.24em] text-blue-700">
-            OPSCORE Employee Onboarding
+            Vincent Employee Onboarding
           </p>
 
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
@@ -243,7 +312,7 @@ export default function PublicOnboardingPage() {
 
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
             Your employee information has been submitted. HR will review your
-            details before creating your official 201 record and portal access.
+            details before creating your official employee record and portal access.
           </p>
         </section>
       </PublicShell>
@@ -261,11 +330,11 @@ export default function PublicOnboardingPage() {
             <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="max-w-3xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-100">
-                  <Hotel size={13} /> Vincent Resort HR
+                  <Hotel size={13} /> Vincent Resort Hotel
                 </div>
 
                 <p className="mt-5 text-[11px] font-black uppercase tracking-[0.24em] text-blue-200">
-                  OPSCORE Employee Onboarding
+                  Employee Onboarding
                 </p>
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
                   Employee Registration Form
@@ -276,7 +345,7 @@ export default function PublicOnboardingPage() {
                 </p>
               </div>
 
-              <div className="relative flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl md:w-[280px]">
+              <div className="relative flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl md:w-[290px]">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-950/30">
                   <ClipboardList size={25} />
                 </div>
@@ -306,14 +375,37 @@ export default function PublicOnboardingPage() {
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="order-2 h-fit rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm lg:order-1 lg:sticky lg:top-5">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
-              Registration Steps
+              Registration Progress
             </p>
-            <div className="mt-4 space-y-3">
-              <StepItem label="Personal Information" active />
-              <StepItem label="Contact Details" active />
-              <StepItem label="Government IDs" />
-              <StepItem label="Emergency Contact" active />
-              <StepItem label="HR Review" />
+
+            <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-blue-700 transition-all duration-300"
+                style={{ width: `${completionRate}%` }}
+              />
+            </div>
+
+            <p className="mt-2 text-xs font-bold text-slate-500">
+              {completionRate}% required details completed
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <StepItem
+                label="Personal Information"
+                active={Boolean(firstName.trim() && lastName.trim() && birthDate)}
+              />
+              <StepItem
+                label="Contact Details"
+                active={Boolean(mobileNumber.trim() && address.trim())}
+              />
+              <StepItem label="Government IDs" active={false} optional />
+              <StepItem
+                label="Emergency Contact"
+                active={Boolean(
+                  emergencyContactName.trim() && emergencyContactNumber.trim(),
+                )}
+              />
+              <StepItem label="HR Review" active={false} />
             </div>
 
             <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
@@ -335,12 +427,17 @@ export default function PublicOnboardingPage() {
                 <Input label="Middle Name" value={middleName} setValue={setMiddleName} />
                 <Input label="Last Name *" value={lastName} setValue={setLastName} />
                 <Input label="Suffix" value={suffix} setValue={setSuffix} />
-                <Input
-                  label="Birth Date *"
-                  type="date"
-                  value={birthDate}
-                  setValue={setBirthDate}
+
+                <BirthDateField
+                  birthMonth={birthMonth}
+                  setBirthMonth={setBirthMonth}
+                  birthDay={birthDay}
+                  setBirthDay={setBirthDay}
+                  birthYear={birthYear}
+                  setBirthYear={setBirthYear}
+                  availableDays={availableDays}
                 />
+
                 <Select
                   label="Gender"
                   value={gender}
@@ -371,8 +468,17 @@ export default function PublicOnboardingPage() {
                   label="Mobile Number *"
                   value={mobileNumber}
                   setValue={setMobileNumber}
+                  inputMode="tel"
+                  placeholder="09XX XXX XXXX"
                 />
-                <Input label="Email" type="email" value={email} setValue={setEmail} />
+                <Input
+                  label="Email"
+                  type="email"
+                  value={email}
+                  setValue={setEmail}
+                  inputMode="email"
+                  placeholder="Optional"
+                />
                 <div className="md:col-span-2">
                   <Input label="Address *" value={address} setValue={setAddress} />
                 </div>
@@ -416,6 +522,8 @@ export default function PublicOnboardingPage() {
                   label="Contact Number *"
                   value={emergencyContactNumber}
                   setValue={setEmergencyContactNumber}
+                  inputMode="tel"
+                  placeholder="09XX XXX XXXX"
                 />
                 <Input
                   label="Contact Address"
@@ -467,12 +575,20 @@ function PublicShell({
         <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-blue-600/10 blur-3xl" />
         <div className="absolute -right-24 top-40 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
       </div>
-      <div className="relative">{children}</div>
+      <div className="relative w-full">{children}</div>
     </main>
   );
 }
 
-function StepItem({ label, active }: { label: string; active?: boolean }) {
+function StepItem({
+  label,
+  active,
+  optional,
+}: {
+  label: string;
+  active?: boolean;
+  optional?: boolean;
+}) {
   return (
     <div className="flex items-center gap-3">
       <span
@@ -485,7 +601,14 @@ function StepItem({ label, active }: { label: string; active?: boolean }) {
       >
         {active ? <CheckCircle2 size={14} /> : "•"}
       </span>
-      <p className="text-sm font-bold text-slate-700">{label}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-slate-700">{label}</p>
+        {optional && (
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+            Optional
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -521,16 +644,89 @@ function FormPanel({
   );
 }
 
+function BirthDateField({
+  birthMonth,
+  setBirthMonth,
+  birthDay,
+  setBirthDay,
+  birthYear,
+  setBirthYear,
+  availableDays,
+}: {
+  birthMonth: string;
+  setBirthMonth: (value: string) => void;
+  birthDay: string;
+  setBirthDay: (value: string) => void;
+  birthYear: string;
+  setBirthYear: (value: string) => void;
+  availableDays: string[];
+}) {
+  return (
+    <div className="md:col-span-2">
+      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+        Birth Date *
+      </label>
+      <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[1.3fr_0.8fr_1fr]">
+        <select
+          value={birthMonth}
+          onChange={(event) => setBirthMonth(event.target.value)}
+          className="h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        >
+          <option value="">Month</option>
+          {MONTHS.map((month) => (
+            <option key={month.value} value={month.value}>
+              {month.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={birthDay}
+          onChange={(event) => setBirthDay(event.target.value)}
+          className="h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        >
+          <option value="">Day</option>
+          {availableDays.map((day) => (
+            <option key={day} value={day}>
+              {Number(day)}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={birthYear}
+          onChange={(event) => setBirthYear(event.target.value)}
+          className="h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        >
+          <option value="">Year</option>
+          {YEARS.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="mt-2 text-xs font-semibold text-slate-500">
+        Select month, day, and year. No calendar scrolling needed.
+      </p>
+    </div>
+  );
+}
+
 function Input({
   label,
   value,
   setValue,
   type = "text",
+  inputMode,
+  placeholder,
 }: {
   label: string;
   value: string;
   setValue: (value: string) => void;
   type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -539,7 +735,9 @@ function Input({
       </label>
       <input
         type={type}
+        inputMode={inputMode}
         value={value}
+        placeholder={placeholder}
         onChange={(event) => setValue(event.target.value)}
         className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
       />
