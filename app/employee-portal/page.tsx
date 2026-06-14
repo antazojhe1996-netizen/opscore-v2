@@ -66,7 +66,7 @@ type PortalLocationCapture = {
   latitude: number | null;
   longitude: number | null;
   accuracy: number | null;
-  status: "GPS_CAPTURED" | "GPS_UNAVAILABLE" | "PERMISSION_DENIED" | "GPS_ERROR";
+  status: "GPS_CAPTURED" | "GPS_UNAVAILABLE" | "PERMISSION_DENIED" | "GPS_TIMEOUT" | "GPS_ERROR";
 };
 
 type LeaveRequest = {
@@ -1371,45 +1371,108 @@ export default function EmployeePortalPage() {
   };
 
   const getPortalLocation = async (): Promise<PortalLocationCapture> => {
+    const fallbackLocation: PortalLocationCapture = {
+      latitude: null,
+      longitude: null,
+      accuracy: null,
+      status: "GPS_UNAVAILABLE",
+    };
+
     if (typeof window === "undefined" || !navigator.geolocation) {
-      return {
-        latitude: null,
-        longitude: null,
-        accuracy: null,
-        status: "GPS_UNAVAILABLE",
-      };
+      console.log("OPSCORE GPS: geolocation unavailable in this browser.");
+      return fallbackLocation;
     }
 
-    return await new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            status: "GPS_CAPTURED",
-          });
-        },
-        (error) => {
-          const status =
-            error.code === error.PERMISSION_DENIED
-              ? "PERMISSION_DENIED"
-              : "GPS_ERROR";
+    const mapGeolocationError = (error: GeolocationPositionError) => {
+      if (error.code === error.PERMISSION_DENIED) return "PERMISSION_DENIED";
+      if (error.code === error.POSITION_UNAVAILABLE) return "GPS_UNAVAILABLE";
+      if (error.code === error.TIMEOUT) return "GPS_TIMEOUT";
+      return "GPS_ERROR";
+    };
 
-          resolve({
+    const readPosition = (options: PositionOptions) => {
+      return new Promise<PortalLocationCapture>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log("OPSCORE GPS CAPTURED:", {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            });
+
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              status: "GPS_CAPTURED",
+            });
+          },
+          (error) => {
+            const status = mapGeolocationError(error);
+
+            console.log("OPSCORE GPS ERROR:", {
+              code: error.code,
+              message: error.message,
+              mappedStatus: status,
+              options,
+            });
+
+            resolve({
+              latitude: null,
+              longitude: null,
+              accuracy: null,
+              status,
+            });
+          },
+          options
+        );
+      });
+    };
+
+    try {
+      if (navigator.permissions?.query) {
+        const permission = await navigator.permissions.query({
+          name: "geolocation" as PermissionName,
+        });
+
+        console.log("OPSCORE GPS PERMISSION:", permission.state);
+
+        if (permission.state === "denied") {
+          return {
             latitude: null,
             longitude: null,
             accuracy: null,
-            status,
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
+            status: "PERMISSION_DENIED",
+          };
         }
-      );
+      }
+    } catch (permissionError) {
+      console.log("OPSCORE GPS PERMISSION CHECK SKIPPED:", permissionError);
+    }
+
+    // Attempt 1: mobile-friendly read. This is more reliable indoors and on older phones.
+    const mobileFriendlyLocation = await readPosition({
+      enableHighAccuracy: false,
+      timeout: 30000,
+      maximumAge: 60000,
     });
+
+    if (mobileFriendlyLocation.status === "GPS_CAPTURED") {
+      return mobileFriendlyLocation;
+    }
+
+    if (mobileFriendlyLocation.status === "PERMISSION_DENIED") {
+      return mobileFriendlyLocation;
+    }
+
+    // Attempt 2: strict GPS read. This may be more accurate when the phone has a clear signal.
+    const highAccuracyLocation = await readPosition({
+      enableHighAccuracy: true,
+      timeout: 30000,
+      maximumAge: 0,
+    });
+
+    return highAccuracyLocation;
   };
 
   const buildLocationRemark = (
