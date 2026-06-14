@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowRight,
-  BarChart3,
+  CalendarDays,
   Eye,
   EyeOff,
   Hotel,
   LockKeyhole,
   ShieldCheck,
   UserCheck,
-  Users,
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
@@ -47,7 +46,7 @@ type CompanyUser = {
   is_active: boolean | null;
 };
 
-export default function LoginPage() {
+export default function PortalLoginPage() {
   const router = useRouter();
 
   /// STATES
@@ -69,30 +68,6 @@ export default function LoginPage() {
 
   /// FUNCTIONS
   const normalize = (value: string) => value.trim().toLowerCase();
-
-  const getPreferredRedirect = (hasEmployeePortalAccess: boolean) => {
-    if (typeof window === "undefined") return "/dashboard";
-
-    const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || params.get("redirect");
-    const portalParam = params.get("portal");
-
-    if (next && next.startsWith("/") && !next.startsWith("//")) {
-      return next;
-    }
-
-    if (portalParam === "1" && hasEmployeePortalAccess) {
-      return "/employee-portal";
-    }
-
-    const isMobileWidth = window.innerWidth <= 900;
-
-    if (hasEmployeePortalAccess && isMobileWidth) {
-      return "/employee-portal";
-    }
-
-    return "/dashboard";
-  };
 
   const clearSession = () => {
     localStorage.removeItem(employeeSessionKey);
@@ -116,7 +91,13 @@ export default function LoginPage() {
 
     if (currentSystemUserId) {
       const existingEmployeeSession = localStorage.getItem(employeeSessionKey);
-      router.replace(getPreferredRedirect(Boolean(existingEmployeeSession)));
+
+      if (existingEmployeeSession) {
+        router.replace("/employee-portal");
+        return;
+      }
+
+      clearSession();
     }
   }, [router]);
 
@@ -289,7 +270,14 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace(getPreferredRedirect(Boolean(employee)));
+    if (!employee) {
+      await supabase.auth.signOut();
+      clearSession();
+      setErrorMessage("No employee portal profile linked to this account. Please use Operations Login or contact HR.");
+      return;
+    }
+
+    router.replace("/employee-portal");
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -329,48 +317,47 @@ export default function LoginPage() {
                 </div>
 
                 <h2 className="mt-12 text-5xl font-black leading-tight tracking-tight text-white">
-                  Business Operations
-                  <span className="block bg-gradient-to-r from-indigo-200 to-slate-300 bg-clip-text text-transparent">
-                    Command Center
+                  Employee Self-Service
+                  <span className="block bg-gradient-to-r from-blue-200 to-slate-300 bg-clip-text text-transparent">
+                    Portal
                   </span>
                 </h2>
 
                 <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-300">
-                  Centralized access for workforce, payroll, finance,
-                  approvals, apartment operations, and audit control.
+                  Access your schedule, attendance, leave requests, payslips, announcements, and mobile approvals in one secure portal.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <FeatureCard
-                  icon={<Users size={22} />}
-                  title="Workforce"
-                  description="Employees, schedules, attendance, and leave."
+                  icon={<CalendarDays size={22} />}
+                  title="Schedule"
+                  description="View your assigned shifts and weekly schedule."
                 />
 
                 <FeatureCard
-                  icon={<Wallet size={22} />}
-                  title="Finance"
-                  description="Cash drawer, bills, room sales, and reports."
+                  icon={<UserCheck size={22} />}
+                  title="Attendance"
+                  description="Time in, time out, and monitor attendance history."
                 />
 
                 <FeatureCard
                   icon={<ShieldCheck size={22} />}
-                  title="Approvals"
-                  description="Controlled requests with clear accountability."
+                  title="Leave"
+                  description="File sick leave, vacation leave, and view request status."
                 />
 
                 <FeatureCard
-                  icon={<BarChart3 size={22} />}
-                  title="Audit"
-                  description="Logs, database health, and business controls."
+                  icon={<Wallet size={22} />}
+                  title="Payslips"
+                  description="View payroll history and downloadable payslips."
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3 rounded-3xl border border-white/10 bg-slate-950/55 p-4 shadow-lg shadow-black/20">
                 <Metric value="1" label="Platform" />
-                <Metric value="100%" label="Controlled Access" />
-                <Metric value="Pilot" label="Ready" />
+                <Metric value="Mobile" label="Ready" />
+                <Metric value="Secure" label="Access" />
               </div>
             </div>
           </div>
@@ -379,7 +366,7 @@ export default function LoginPage() {
             <div className="mx-auto flex min-h-[620px] max-w-md flex-col justify-center">
               <div className="mb-8">
                 <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-200">
-                  Secure Login
+                  Employee Portal
                 </p>
 
                 <h2 className="mt-3 text-4xl font-black tracking-tight text-white">
@@ -387,7 +374,7 @@ export default function LoginPage() {
                 </h2>
 
                 <p className="mt-3 text-sm font-medium leading-6 text-slate-400">
-                  Sign in to access the OPSCORE operations dashboard.
+                  Sign in to access your OPSCORE employee workspace.
                 </p>
               </div>
 
@@ -403,7 +390,7 @@ export default function LoginPage() {
                     <input
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      placeholder="Enter OPSCORE email"
+                      placeholder="Enter employee email"
                       autoComplete="email"
                       className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-slate-600"
                     />
@@ -456,7 +443,7 @@ export default function LoginPage() {
 
               <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
                 <div className="text-center text-xs font-medium leading-5 text-slate-400">
-                  <p>Need access? Contact the system administrator.</p>
+                  <p>Need portal access? Contact HR or the system administrator.</p>
                   <p className="mt-1 font-bold text-slate-200">
                     Powered by OPSCORE · Developed & Designed by Jherome Antazo
                   </p>

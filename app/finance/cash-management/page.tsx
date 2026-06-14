@@ -48,6 +48,9 @@ export default function CashManagementPage() {
   const [toPerson, setToPerson] = useState("");
   const [encodedBy, setEncodedBy] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [receiptStatus, setReceiptStatus] = useState("WITH_RECEIPT");
+  const [noReceiptReason, setNoReceiptReason] = useState("");
+  const [noReceiptExplanation, setNoReceiptExplanation] = useState("");
 
   /// STATES - CASH EXPENSE DIRECT POSTING
   const [expenseCategory, setExpenseCategory] = useState("");
@@ -93,13 +96,7 @@ export default function CashManagementPage() {
   const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
 
   /// DATA - OPTIONS
-  const movementTypes = [
-    "Opening Float",
-    "Cash In",
-    "Cash Out",
-    "Remittance",
-    "Adjustment",
-  ];
+  const movementTypes = ["Cash In", "Cash Out"];
 
   const sourceOptions = useMemo(() => {
     return cashSources
@@ -108,6 +105,18 @@ export default function CashManagementPage() {
       .filter(Boolean)
       .filter((item, index, list) => list.indexOf(item) === index);
   }, [cashSources]);
+
+  const availableSourceOptions = useMemo(() => {
+    if (movementType === "Cash Out") {
+      return ["Expense Release", "Cash Advance"];
+    }
+
+    if (movementType === "Cash In") {
+      return ["Restaurant Sales", "Room Sales"];
+    }
+
+    return [];
+  }, [movementType]);
 
   const paymentTypes = ["Cash", "GCash", "Bank", "Terminal"];
 
@@ -176,6 +185,15 @@ export default function CashManagementPage() {
     "Admin",
     "Payroll",
     "Operations",
+    "Other",
+  ];
+
+  const noReceiptReasons = [
+    "Vendor Has No Receipt",
+    "Receipt To Follow",
+    "Emergency Purchase",
+    "Transportation",
+    "Lost Receipt",
     "Other",
   ];
 
@@ -406,15 +424,13 @@ export default function CashManagementPage() {
     (paymentType === "Cash" &&
       (movementType === "Cash Out" ||
         source === "Owner Withdrawal" ||
-        source === "Bank Deposit" ||
-        movementType === "Adjustment"));
+        source === "Bank Deposit"));
 
   const getCashApprovalRequestType = () => {
     if (isCashAdvanceCashOut) return "CASH_ADVANCE_RELEASE";
     if (isExpenseRelease) return "CASH_EXPENSE_RELEASE";
     if (source === "Owner Withdrawal") return "OWNER_WITHDRAWAL";
     if (source === "Bank Deposit") return "BANK_DEPOSIT";
-    if (movementType === "Adjustment") return "ADJUSTMENT_OUT";
     return "CASH_DRAWER_OUT";
   };
 
@@ -541,6 +557,33 @@ export default function CashManagementPage() {
   }, [movements, activeDrawer]);
 
   const operationalMovements = activeDrawer ? activeDrawerMovements : [];
+
+  const receiptTrackedRows = operationalMovements.filter(
+    (item) =>
+      !isVoidedMovement(item) &&
+      item.movement_type === "Cash Out" &&
+      ["Expense Release", "Cash Advance"].includes(String(item.source || "")),
+  );
+
+  const withReceiptCount = receiptTrackedRows.filter(
+    (item) => getMovementReceiptInfo(item).status === "WITH_RECEIPT",
+  ).length;
+
+  const withoutReceiptCount = receiptTrackedRows.filter(
+    (item) => getMovementReceiptInfo(item).status === "WITHOUT_RECEIPT",
+  ).length;
+
+  const receiptComplianceRate =
+    receiptTrackedRows.length === 0
+      ? 100
+      : Math.round((withReceiptCount / receiptTrackedRows.length) * 100);
+
+  const receiptComplianceTone =
+    receiptComplianceRate >= 95
+      ? "default"
+      : receiptComplianceRate >= 80
+        ? "warning"
+        : "danger";
 
   /// CALCULATIONS - LEDGER FILTERED MOVEMENTS
   const filteredMovements = useMemo(() => {
@@ -670,12 +713,10 @@ export default function CashManagementPage() {
   const isBalanceGuardedMoneyOut = (selectedMovementType = movementType) => {
     return (
       selectedMovementType === "Cash Out" ||
-      selectedMovementType === "Remittance" ||
       source === "Expense Release" ||
       source === "Cash Advance" ||
       source === "Owner Withdrawal" ||
-      source === "Bank Deposit" ||
-      (selectedMovementType === "Adjustment" && Number(amount || 0) < 0)
+      source === "Bank Deposit"
     );
   };
 
@@ -930,6 +971,59 @@ export default function CashManagementPage() {
     return Number.isFinite(parsed) ? parsed : NaN;
   };
 
+  const receiptLabel =
+    receiptStatus === "WITH_RECEIPT" ? "With Receipt" : "Without Receipt";
+
+  const buildReceiptAuditText = () => {
+    if (movementType !== "Cash Out") return "";
+
+    if (receiptStatus === "WITH_RECEIPT") {
+      return "[Receipt: WITH_RECEIPT]";
+    }
+
+    return [
+      "[Receipt: WITHOUT_RECEIPT]",
+      `[No Receipt Reason: ${noReceiptReason}]`,
+      noReceiptExplanation.trim()
+        ? `[No Receipt Explanation: ${noReceiptExplanation.trim()}]`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const getMovementReceiptInfo = (movement: any) => {
+    const remarksText = String(movement?.remarks || "");
+
+    if (remarksText.includes("[Receipt: WITHOUT_RECEIPT]")) {
+      const reasonMatch = remarksText.match(/\[No Receipt Reason: ([^\]]+)\]/);
+      const explanationMatch = remarksText.match(/\[No Receipt Explanation: ([^\]]+)\]/);
+
+      return {
+        status: "WITHOUT_RECEIPT",
+        label: "Without Receipt",
+        reason: reasonMatch?.[1] || "No reason captured",
+        explanation: explanationMatch?.[1] || "",
+      };
+    }
+
+    if (remarksText.includes("[Receipt: WITH_RECEIPT]")) {
+      return {
+        status: "WITH_RECEIPT",
+        label: "With Receipt",
+        reason: "",
+        explanation: "",
+      };
+    }
+
+    return {
+      status: "UNTRACKED",
+      label: "Not Tagged",
+      reason: "",
+      explanation: "",
+    };
+  };
+
   const getApprovalPayload = (request: any) => {
     return request?.request_payload || request?.payload || request?.details || {};
   };
@@ -1159,13 +1253,16 @@ export default function CashManagementPage() {
   const resetForm = () => {
     setBusinessDate(getToday());
     setMovementType("Cash In");
-    setSource(sourceOptions[0] || "");
+    setSource("Restaurant Sales");
     setPaymentType("Cash");
     setAmount("");
     setFromPerson("");
     setToPerson("");
     setEncodedBy("");
     setRemarks("");
+    setReceiptStatus("WITH_RECEIPT");
+    setNoReceiptReason("");
+    setNoReceiptExplanation("");
     setExpenseCategory("");
     setExpenseSubcategory("");
     setExpenseDepartment("");
@@ -2231,12 +2328,24 @@ export default function CashManagementPage() {
       return;
     }
 
+    if (movementType === "Cash Out" && receiptStatus === "WITHOUT_RECEIPT") {
+      if (!noReceiptReason) {
+        alert("Reason is required for transactions without a receipt.");
+        savingRef.current = false;
+        return;
+      }
+
+      if (noReceiptReason === "Other" && !noReceiptExplanation.trim()) {
+        alert("Explanation is required when no receipt reason is Other.");
+        savingRef.current = false;
+        return;
+      }
+    }
+
     const autoFrom =
-      paymentType === "Cash" && !fromPerson.trim()
-        ? activeDrawer?.holder_name || ""
-        : isExpenseRelease && !fromPerson.trim()
-          ? paymentType
-          : fromPerson.trim();
+      paymentType === "Cash"
+        ? activeDrawer?.holder_name || currentDrawerHolderName || ""
+        : paymentType;
 
     const autoTo = isCashAdvanceCashOut
       ? cashAdvanceEmployeeName
@@ -2252,7 +2361,6 @@ export default function CashManagementPage() {
     // This prevents admin-created transactions from being incorrectly attributed to the drawer holder.
     const autoEncoded =
       currentEmployeeName ||
-      encodedBy.trim() ||
       currentDrawerHolderName ||
       activeDrawer?.holder_name ||
       "System";
@@ -2283,25 +2391,21 @@ export default function CashManagementPage() {
       return;
     }
 
-    if (
-      paymentType === "Cash" &&
-      movementType === "Remittance" &&
-      (!autoFrom || !toPerson.trim())
-    ) {
-      alert("Please enter remitted by and received by.");
-      savingRef.current = false;
-      return;
-    }
-
     setIsSaving(true);
 
-    const movementRemarks = isCashAdvanceCashOut
+    const receiptAuditText = buildReceiptAuditText();
+
+    const baseMovementRemarks = isCashAdvanceCashOut
       ? `Cash Advance - ${cashAdvanceEmployeeName}${
           cashAdvancePurpose.trim() ? ` - ${cashAdvancePurpose.trim()}` : ""
         }${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
       : isExpenseRelease
         ? `${expenseDescription.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
         : remarks.trim();
+
+    const movementRemarks = [baseMovementRemarks, receiptAuditText]
+      .filter(Boolean)
+      .join(" ");
 
     if (isCashDrawerMoneyOut) {
       const requestType = getCashApprovalRequestType();
@@ -2321,6 +2425,16 @@ export default function CashManagementPage() {
         to_person: autoTo,
         encoded_by: autoEncoded,
         remarks: movementRemarks,
+        receipt_status: movementType === "Cash Out" ? receiptStatus : null,
+        receipt_label: movementType === "Cash Out" ? receiptLabel : null,
+        no_receipt_reason:
+          movementType === "Cash Out" && receiptStatus === "WITHOUT_RECEIPT"
+            ? noReceiptReason
+            : null,
+        no_receipt_explanation:
+          movementType === "Cash Out" && receiptStatus === "WITHOUT_RECEIPT"
+            ? noReceiptExplanation.trim()
+            : null,
         reference_type: shouldCreateExpenseFromCashOut ? "expense" : null,
         cash_drawer_id: activeDrawer?.id || null,
         should_create_expense: shouldCreateExpenseFromCashOut,
@@ -3195,15 +3309,34 @@ export default function CashManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (sourceOptions.length === 0) {
+    const interval = window.setInterval(() => {
+      refreshCashManagement();
+    }, 3000);
+
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        refreshCashManagement();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityRefresh);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (availableSourceOptions.length === 0) {
       if (source) setSource("");
       return;
     }
 
-    if (!sourceOptions.includes(source)) {
-      setSource(sourceOptions[0]);
+    if (!availableSourceOptions.includes(source)) {
+      setSource(availableSourceOptions[0]);
     }
-  }, [sourceOptions, source]);
+  }, [availableSourceOptions, source]);
 
   /// UI
   const inputClass =
@@ -3319,7 +3452,7 @@ export default function CashManagementPage() {
             </section>
 
             {/* KPI CARDS */}
-            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
               <EnterpriseMetric
                 label="Cash On Hand"
                 value={formatMoney(cashOnHand)}
@@ -3335,6 +3468,12 @@ export default function CashManagementPage() {
                 value={pendingCashApprovalCount}
                 caption="Money-out requests"
                 tone={pendingCashApprovalCount > 0 ? "warning" : "default"}
+              />
+              <EnterpriseMetric
+                label="Receipt Compliance"
+                value={`${receiptComplianceRate}%`}
+                caption={`${withReceiptCount} with · ${withoutReceiptCount} without`}
+                tone={receiptComplianceTone}
               />
               <EnterpriseMetric
                 label="Today's Movements"
@@ -3377,7 +3516,7 @@ export default function CashManagementPage() {
                       <label className="space-y-2">
                         <span className={labelClass}>Source</span>
                         <select value={source} onChange={(e) => setSource(e.target.value)} className={selectClass}>
-                          {sourceOptions.map((item) => <option key={item}>{item}</option>)}
+                          {availableSourceOptions.map((item) => <option key={item}>{item}</option>)}
                         </select>
                       </label>
                     </div>
@@ -3402,6 +3541,79 @@ export default function CashManagementPage() {
                       </label>
                     </div>
                   </section>
+
+                  {movementType === "Cash Out" && (
+                    <section className="rounded-3xl border border-slate-200 bg-white p-4">
+                      <div className="flex flex-col gap-1">
+                        <p className={labelClass}>Receipt Compliance</p>
+                        <p className="text-xs font-semibold text-slate-500">
+                          Track whether the released cash has supporting receipt documentation.
+                        </p>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReceiptStatus("WITH_RECEIPT");
+                            setNoReceiptReason("");
+                            setNoReceiptExplanation("");
+                          }}
+                          className={`rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
+                            receiptStatus === "WITH_RECEIPT"
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-800 ring-4 ring-emerald-100"
+                              : "border-slate-200 bg-slate-50 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50"
+                          }`}
+                        >
+                          <span className="block text-sm font-black">With Receipt</span>
+                          <span className="mt-1 block text-xs font-semibold">Receipt/proof is available.</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setReceiptStatus("WITHOUT_RECEIPT")}
+                          className={`rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
+                            receiptStatus === "WITHOUT_RECEIPT"
+                              ? "border-red-300 bg-red-50 text-red-800 ring-4 ring-red-100"
+                              : "border-slate-200 bg-slate-50 text-slate-600 hover:border-red-200 hover:bg-red-50"
+                          }`}
+                        >
+                          <span className="block text-sm font-black">Without Receipt</span>
+                          <span className="mt-1 block text-xs font-semibold">Reason is required.</span>
+                        </button>
+                      </div>
+
+                      {receiptStatus === "WITHOUT_RECEIPT" && (
+                        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <label className="space-y-2">
+                            <span className={labelClass}>No Receipt Reason *</span>
+                            <select
+                              value={noReceiptReason}
+                              onChange={(e) => setNoReceiptReason(e.target.value)}
+                              className={selectClass}
+                            >
+                              <option value="">Select reason</option>
+                              {noReceiptReasons.map((item) => (
+                                <option key={item} value={item}>{item}</option>
+                              ))}
+                            </select>
+                          </label>
+
+                          {noReceiptReason === "Other" && (
+                            <label className="space-y-2">
+                              <span className={labelClass}>Explanation *</span>
+                              <input
+                                value={noReceiptExplanation}
+                                onChange={(e) => setNoReceiptExplanation(e.target.value)}
+                                placeholder="Explain why no receipt was provided"
+                                className={inputClass}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      )}
+                    </section>
+                  )}
 
                   {isCashAdvanceCashOut && (
                     <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
@@ -3464,23 +3676,16 @@ export default function CashManagementPage() {
                   )}
 
                   <section>
-                    <p className={labelClass}>Additional Details</p>
-                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <label className="space-y-2">
-                        <span className={labelClass}>From</span>
-                        <input value={fromPerson} onChange={(e) => setFromPerson(e.target.value)} list="employee-name-list" placeholder={paymentType === "Cash" ? activeDrawer?.holder_name || "Cash holder" : paymentType} className={inputClass} />
-                      </label>
-                      <label className="space-y-2">
-                        <span className={labelClass}>To / Received By</span>
-                        <input value={toPerson} onChange={(e) => setToPerson(e.target.value)} list="employee-name-list" placeholder="Receiver" className={inputClass} />
-                      </label>
-                      <label className="space-y-2">
-                        <span className={labelClass}>Encoded By</span>
-                        <input value={encodedBy} onChange={(e) => setEncodedBy(e.target.value)} list="employee-name-list" placeholder={currentEmployeeName || "Encoder"} className={inputClass} />
-                      </label>
+                    <p className={labelClass}>Remarks</p>
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
+                      <span className="font-black text-slate-900">Auto audit:</span>{" "}
+                      From is set to {paymentType === "Cash" ? activeDrawer?.holder_name || currentDrawerHolderName || "active drawer holder" : paymentType}.
+                      Encoded by is set to {currentEmployeeName || currentDrawerHolderName || "logged-in user"}.
+                      {movementType === "Cash Out" ? ` Receipt status is ${receiptLabel}.` : ""}
                     </div>
+
                     <label className="mt-4 block space-y-2">
-                      <span className={labelClass}>Remarks</span>
+                      <span className={labelClass}>Notes / Reference</span>
                       <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={3} placeholder="Reference, notes, or supporting details" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
                     </label>
                   </section>

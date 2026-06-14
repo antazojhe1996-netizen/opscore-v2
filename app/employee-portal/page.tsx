@@ -19,6 +19,17 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
+import { createAuditLog } from "@/app/lib/audit";
+const CASH_DRAWER_REQUEST_TYPES = [
+  "CASH_DRAWER_OUT",
+  "CASH_EXPENSE_RELEASE",
+  "CASH_ADVANCE_RELEASE",
+  "OWNER_WITHDRAWAL",
+  "BANK_DEPOSIT",
+  "REFUND_OUT",
+  "ADJUSTMENT_OUT",
+];
+
 
 type PortalSchedule = {
   day: string;
@@ -296,6 +307,37 @@ export default function EmployeePortalPage() {
     "-";
 
   const canUseManagerTools = isAssignedApprover;
+
+  const canPostAnnouncements =
+    canUseManagerTools ||
+    rolePermissions.some((permission) => {
+      const moduleKey = String(
+        permission.module_key ||
+          permission.module ||
+          permission.page_key ||
+          permission.permission_key ||
+          ""
+      ).toLowerCase();
+
+      const actionKey = String(
+        permission.action ||
+          permission.permission ||
+          permission.access_level ||
+          ""
+      ).toLowerCase();
+
+      const allowedValue = permission.allowed ?? permission.can_access ?? permission.is_allowed ?? true;
+
+      return (
+        allowedValue !== false &&
+        (
+          moduleKey.includes("announcement") ||
+          moduleKey.includes("manager") ||
+          moduleKey.includes("owner") ||
+          actionKey.includes("announcement")
+        )
+      );
+    });
 
   const portalMenuItems = menuItems.filter(
     (item) => item.key !== "approvals" || canUseManagerTools
@@ -755,23 +797,27 @@ export default function EmployeePortalPage() {
       : []),
     ...(schedule?.scheduled_shift
       ? [`Today schedule: ${schedule.scheduled_shift} ${formatTime(schedule.scheduled_in)} - ${formatTime(schedule.scheduled_out)}.`]
-      : ["No schedule loaded for today."]),
+      : []),
     ...(leaveHistory.some((leave) => String(leave.status || "").toLowerCase() === "pending")
       ? ["You have pending leave request(s)."]
       : []),
     ...(pendingCancellationRequests.length > 0
       ? ["You have pending leave cancellation request(s)."]
       : []),
-    ...(leaveCredits.length > 0
-      ? [`Remaining leave credits: ${totalRemainingLeaveCredits}.`]
-      : []),
     ...(announcements.length > 0
       ? [`Latest announcement: ${announcements[0].title || announcements[0].message || "New announcement"}.`]
       : []),
     ...(canUseManagerTools && managerApprovals.length > 0
-      ? [`Manager tools: ${managerApprovals.length} pending approval(s).`]
+      ? [`Approval Center: ${managerApprovals.length} pending request(s).`]
       : []),
   ];
+
+  const actionableNotificationCount =
+    pendingCancellationRequests.length +
+    leaveHistory.filter((leave) => String(leave.status || "").toLowerCase() === "pending").length +
+    (canUseManagerTools
+      ? managerApprovals.filter((request) => String(request.status || "").toUpperCase() === "PENDING").length
+      : 0);
 
   const currentTimeLabel = getCurrentTime();
   const currentHour = Number(currentTimeLabel.slice(0, 2));
@@ -794,7 +840,7 @@ export default function EmployeePortalPage() {
 
     if (!storedUser) {
       alert("No employee logged in.");
-      window.location.href = "/login";
+      window.location.href = "/portal";
       return;
     }
 
@@ -808,7 +854,7 @@ export default function EmployeePortalPage() {
     localStorage.removeItem("opscore_current_employee_id");
     localStorage.removeItem("opscore_current_employee_name");
 
-    window.location.href = "/login";
+    window.location.href = "/portal";
   };
 
   const openTab = (tab: PortalTab) => {
@@ -963,7 +1009,7 @@ export default function EmployeePortalPage() {
   };
 
   const submitAnnouncement = async () => {
-    if (!canUseManagerTools) {
+    if (!canPostAnnouncements) {
       alert("You do not have permission to post announcements.");
       return;
     }
@@ -1739,6 +1785,269 @@ export default function EmployeePortalPage() {
     setLoading(false);
   };
 
+  const getApprovalRequestMarker = (requestId: any) =>
+    `Approval Request ID: ${String(requestId || "")}`;
+
+  const appendApprovalRequestMarker = (remarks: any, requestId: any) => {
+    const baseRemarks = String(
+      remarks || "Approved cash drawer movement",
+    ).trim();
+    const marker = getApprovalRequestMarker(requestId);
+
+    if (baseRemarks.includes(marker)) return baseRemarks;
+
+    return `${baseRemarks} | ${marker}`;
+  };
+
+  const cashDrawerMovementAlreadyPosted = async (
+    request: ApprovalRequest,
+    payload: any,
+    amountValue: number,
+  ) => {
+    const marker = getApprovalRequestMarker(request.id);
+
+    const { data: markerMatch, error: markerError } = await supabase
+      .from("finance_cash_movements")
+      .select("id, created_at")
+      .ilike("remarks", `%${marker}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (markerError) {
+      console.log("PORTAL CASH APPROVAL DUPLICATE MARKER CHECK ERROR:", markerError.message);
+      throw new Error(markerError.message);
+    }
+
+    if (markerMatch) return true;
+
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+    const baseRemarks = String(
+      payload.remarks || request.description || "Approved cash drawer movement",
+    ).trim();
+
+    let fallbackQuery = supabase
+      .from("finance_cash_movements")
+      .select("id, created_at")
+      .eq("business_date", payload.business_date)
+      .eq("movement_type", payload.movement_type)
+      .eq("source", payload.source)
+      .eq("payment_type", payload.payment_type || "Cash")
+      .eq("amount", amountValue)
+      .eq("from_person", payload.from_person || "")
+      .eq("to_person", payload.to_person || "")
+      .ilike("remarks", `%${baseRemarks}%`)
+      .gte("created_at", tenMinutesAgo)
+      .limit(1);
+
+    fallbackQuery = payload.cash_drawer_id
+      ? fallbackQuery.eq("cash_drawer_id", payload.cash_drawer_id)
+      : fallbackQuery.is("cash_drawer_id", null);
+
+    const { data: fallbackMatch, error: fallbackError } =
+      await fallbackQuery.maybeSingle();
+
+    if (fallbackError) {
+      console.log("PORTAL CASH APPROVAL DUPLICATE FALLBACK CHECK ERROR:", fallbackError.message);
+      throw new Error(fallbackError.message);
+    }
+
+    return Boolean(fallbackMatch);
+  };
+
+  const executeMobileCashDrawerMovement = async (request: ApprovalRequest) => {
+    const payload = getApprovalPayload(request);
+
+    if (!payload) {
+      alert("Missing cash drawer approval payload. Check approval_requests.request_payload column.");
+      return false;
+    }
+
+    const amountValue = Number(payload.amount || 0);
+    const companyId = String(
+      request.company_id ||
+        payload.company_id ||
+        currentUser?.company_id ||
+        localStorage.getItem("opscore_current_company_id") ||
+        ""
+    ).trim() || (await getCurrentCompanyId());
+
+    if (!companyId) {
+      alert("Approval cannot continue. No company_id found for this request.");
+      return false;
+    }
+
+    if (amountValue <= 0) {
+      alert("Invalid approval amount.");
+      return false;
+    }
+
+    let alreadyPosted = false;
+
+    try {
+      alreadyPosted = await cashDrawerMovementAlreadyPosted(request, payload, amountValue);
+    } catch (duplicateCheckError: any) {
+      alert(
+        `Duplicate safety check failed. Nothing was posted. ${
+          duplicateCheckError?.message || duplicateCheckError
+        }`,
+      );
+      return false;
+    }
+
+    if (alreadyPosted) {
+      alert("Possible duplicate approval detected. This request already created a cash movement. Nothing was posted again.");
+      return false;
+    }
+
+    const movementRemarks = appendApprovalRequestMarker(
+      payload.remarks || request.description || "Approved cash drawer movement",
+      request.id,
+    );
+
+    const { data: movementData, error: movementError } = await supabase
+      .from("finance_cash_movements")
+      .insert({
+        company_id: companyId,
+        business_date: payload.business_date,
+        movement_type: payload.movement_type,
+        source: payload.source,
+        payment_type: payload.payment_type || "Cash",
+        amount: amountValue,
+        from_person: payload.from_person || payload.holder_name || getCurrentUserName(),
+        to_person: payload.to_person || payload.receiver_name || "",
+        encoded_by: payload.encoded_by || getCurrentUserName() || "Mobile Approval Center",
+        remarks: movementRemarks,
+        reference_type: payload.should_create_expense ? "expense" : "approval_request",
+        reference_id: payload.should_create_expense ? null : request.id,
+        cash_drawer_id: payload.cash_drawer_id || null,
+      })
+      .select()
+      .single();
+
+    if (movementError) {
+      console.log("PORTAL APPROVED CASH MOVEMENT INSERT ERROR:", movementError.message);
+      alert(`Approval failed before drawer posting. ${movementError.message}`);
+      return false;
+    }
+
+    let createdExpenseData: any = null;
+    let createdBalanceData: any = null;
+
+    if (payload.should_create_expense) {
+      const { data: expenseData, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          company_id: companyId,
+          expense_date: payload.business_date,
+          category: payload.is_cash_advance_cash_out
+            ? "Cash Advance"
+            : payload.expense_category,
+          subcategory: payload.is_cash_advance_cash_out
+            ? "Cash Advance Release"
+            : payload.expense_subcategory || null,
+          department: payload.is_cash_advance_cash_out
+            ? "Payroll"
+            : payload.expense_department,
+          description: payload.is_cash_advance_cash_out
+            ? `Cash Advance - ${payload.cash_advance_employee_name || ""}`
+            : payload.expense_description,
+          amount: amountValue,
+          payment_method: payload.payment_type || "Cash",
+          employee_id: payload.is_cash_advance_cash_out
+            ? payload.cash_advance_employee_id || null
+            : null,
+          employee_name: payload.is_cash_advance_cash_out
+            ? payload.cash_advance_employee_name || null
+            : null,
+          deduct_to_payroll: Boolean(payload.is_cash_advance_cash_out),
+          payroll_period_id: payload.is_cash_advance_cash_out
+            ? payload.payroll_period_id || null
+            : null,
+          remarks: payload.is_cash_advance_cash_out
+            ? `Source: Mobile Approval Center. Auto linked to: ${payload.payroll_period_label || "Payroll Period"}. ${payload.cash_advance_purpose || ""} ${movementRemarks}`.trim()
+            : `${movementRemarks}${payload.expense_released_to ? ` Released to: ${payload.expense_released_to}` : ""}`.trim(),
+          source: payload.is_cash_advance_cash_out
+            ? "Cash Drawer - Cash Advance"
+            : "Cash Drawer",
+          posted_to_cash_movements: true,
+          cash_movement_id: movementData.id,
+          cash_posted_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (expenseError) {
+        console.log("PORTAL APPROVED CASH MOVEMENT EXPENSE ERROR:", expenseError.message);
+        alert("Cash movement was posted, but linked expense failed. Check expenses table columns.");
+        return false;
+      }
+
+      createdExpenseData = expenseData;
+
+      await supabase
+        .from("finance_cash_movements")
+        .update({ reference_id: expenseData.id })
+        .eq("id", movementData.id);
+
+      if (payload.is_cash_advance_cash_out) {
+        const { data: balanceData, error: balanceError } = await supabase
+          .from("employee_balances")
+          .insert({
+            company_id: companyId,
+            employee_id: payload.cash_advance_employee_id,
+            employee_name: payload.cash_advance_employee_name,
+            balance_type: "Cash Advance",
+            original_amount: amountValue,
+            remaining_balance: amountValue,
+            status: "Active",
+            source_module: "Cash Drawer",
+            source_id: movementData.id,
+            period_id: payload.payroll_period_id || null,
+            remarks: `Source: Mobile Approval Center. Expense ID: ${expenseData.id}. Cash Movement ID: ${movementData.id}. ${payload.cash_advance_purpose || ""}. ${getApprovalRequestMarker(request.id)}`,
+          })
+          .select()
+          .single();
+
+        if (balanceError) {
+          console.log("PORTAL APPROVED CASH ADVANCE BALANCE ERROR:", balanceError.message);
+          alert("Cash advance posted to drawer and expenses, but employee balance failed.");
+        } else {
+          createdBalanceData = balanceData;
+
+          await supabase
+            .from("expenses")
+            .update({ employee_balance_id: balanceData.id })
+            .eq("id", expenseData.id);
+
+          if (payload.payroll_period_id) {
+            await supabase
+              .from("payroll_periods")
+              .update({ needs_regeneration: true })
+              .eq("id", payload.payroll_period_id);
+          }
+        }
+      }
+    }
+
+    await createAuditLog({
+      userName: getCurrentUserName() || "OPSCORE USER",
+      module: "Employee Portal Approval Center",
+      action: "Approve Cash Drawer Movement",
+      description: `${request.request_type} approved on mobile and posted - ${formatMoney(amountValue)}`,
+      severity: "warning",
+      recordId: String(request.id),
+      newValue: {
+        approvalRequest: request,
+        movement: movementData,
+        expense: createdExpenseData,
+        employeeBalance: createdBalanceData,
+      },
+    });
+
+    return true;
+  };
+
+
   const approveMobileApproval = async (request: ApprovalRequest) => {
     if (!canUseManagerTools || !request?.id) return;
 
@@ -1747,6 +2056,15 @@ export default function EmployeePortalPage() {
     const referenceId = request.reference_id || payload.leave_id;
 
     setActionLoadingId(request.id as string | number);
+
+    if (CASH_DRAWER_REQUEST_TYPES.includes(requestType)) {
+      const executed = await executeMobileCashDrawerMovement(request);
+
+      if (!executed) {
+        setActionLoadingId(null);
+        return;
+      }
+    }
 
     if (requestType === "LEAVE_REQUEST" && referenceId) {
       const approvalCompanyId = String(request.company_id || payload.company_id || currentUser?.company_id || "").trim();
@@ -1820,6 +2138,7 @@ export default function EmployeePortalPage() {
       .update({
         status: "APPROVED",
         approved_by: getCurrentUserName(),
+        approved_at: new Date().toISOString(),
       })
       .eq("id", request.id);
 
@@ -1858,6 +2177,15 @@ export default function EmployeePortalPage() {
 
     setActionLoadingId(request.id as string | number);
 
+    if (CASH_DRAWER_REQUEST_TYPES.includes(requestType)) {
+      const executed = await executeMobileCashDrawerMovement(request);
+
+      if (!executed) {
+        setActionLoadingId(null);
+        return;
+      }
+    }
+
     if (requestType === "LEAVE_REQUEST" && referenceId) {
       const { error: leaveError } = await supabase
         .from("leave_requests")
@@ -1881,7 +2209,8 @@ export default function EmployeePortalPage() {
       .update({
         status: "REJECTED",
         rejected_by: getCurrentUserName(),
-        description: `${request.description || ""}\nRejected reason: ${rejectionReason.trim()}`,
+        rejected_at: new Date().toISOString(),
+        rejection_reason: rejectionReason.trim(),
       })
       .eq("id", request.id);
 
@@ -2005,6 +2334,27 @@ export default function EmployeePortalPage() {
   const pendingApprovalCount = managerApprovals.filter(
     (request) => String(request.status || "").toUpperCase() === "PENDING"
   ).length;
+
+  const approvalBreakdown = {
+    leave: managerApprovals.filter((request) =>
+      String(request.request_type || "").toUpperCase().includes("LEAVE")
+    ).length,
+    expense: managerApprovals.filter((request) =>
+      String(request.request_type || "").toUpperCase().includes("EXPENSE")
+    ).length,
+    cash: managerApprovals.filter((request) => {
+      const type = String(request.request_type || "").toUpperCase();
+      return type.includes("CASH") || type.includes("WITHDRAWAL") || type.includes("DEPOSIT");
+    }).length,
+    other: managerApprovals.filter((request) => {
+      const type = String(request.request_type || "").toUpperCase();
+      return !type.includes("LEAVE") && !type.includes("EXPENSE") && !type.includes("CASH") && !type.includes("WITHDRAWAL") && !type.includes("DEPOSIT");
+    }).length,
+  };
+
+  const nextSchedule = weeklySchedules.find(
+    (item) => item.shift && item.shift !== "OFF"
+  );
 
   const openApprovalDetails = (request: ApprovalRequest) => {
     setSelectedApprovalModal(request);
@@ -2152,9 +2502,9 @@ export default function EmployeePortalPage() {
               className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/25 bg-white/15 text-lg font-black text-white shadow-sm backdrop-blur transition-all duration-200 hover:bg-white/20 active:scale-[0.98]"
             >
               <Bell size={20} strokeWidth={2.6} />
-              {portalNotifications.length > 0 && (
+              {actionableNotificationCount > 0 && (
                 <span className="absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-md">
-                  {Math.min(portalNotifications.length, 9)}
+                  {Math.min(actionableNotificationCount, 9)}
                 </span>
               )}
             </button>
@@ -2188,139 +2538,211 @@ export default function EmployeePortalPage() {
         </header>
 
         {activeTab === "home" && (
-          <div className="-mt-10 space-y-5 px-5 sm:px-6">
+          <div className="-mt-8 space-y-4 px-5 sm:px-6">
             <section className="relative z-10 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:divide-x sm:divide-slate-100">
-                <div className="flex items-center gap-3 sm:pr-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Clock3 size={24} strokeWidth={2.5} /></div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">Today&apos;s Shift</p>
-                    <p className="mt-1 text-base font-black leading-5 text-slate-950">{todayShiftLabel === "No schedule" ? "No Schedule Assigned" : todayShiftLabel}</p>
-                    <p className="text-xs font-medium leading-5 text-slate-500">{todayShiftTimeLabel}</p>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Today&apos;s Work</p>
+                  <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">Work Status</h3>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                  {today}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-white p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
+                      <Clock3 size={21} strokeWidth={2.5} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">Shift</p>
+                      <p className="mt-0.5 text-base font-black leading-5 text-slate-950">
+                        {todayShiftLabel === "No schedule" ? "No Schedule Assigned" : todayShiftLabel}
+                      </p>
+                      <p className="text-xs font-semibold leading-5 text-slate-500">{todayShiftTimeLabel}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 sm:pl-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><CheckCircle2 size={24} strokeWidth={2.5} /></div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">Attendance Status</p>
-                    <p className="mt-1 text-base font-black leading-5 text-emerald-700">{todayAttendance?.status || "Not Timed In"}</p>
-                    <p className="truncate text-xs font-medium text-slate-500">
-                      {formatTime(todayAttendance?.time_in)} - {formatTime(todayAttendance?.time_out)}
-                    </p>
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-white p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+                      <CheckCircle2 size={21} strokeWidth={2.5} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Attendance</p>
+                      <p className="mt-0.5 text-base font-black leading-5 text-slate-950">{todayAttendance?.status || "Not Timed In"}</p>
+                      <p className="text-xs font-semibold leading-5 text-slate-500">
+                        {formatTime(todayAttendance?.time_in)} - {formatTime(todayAttendance?.time_out)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </section>
 
-            <section className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleTimeIn}
-                disabled={loading || !!todayAttendance?.time_in || !currentUser}
-                className="min-h-[88px] rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 px-4 py-4 text-left text-white shadow-xl shadow-emerald-200 transition-all duration-200 hover:from-emerald-500 hover:to-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Clock3 size={26} strokeWidth={2.6} />
-                <span className="mt-3 block text-lg font-black">TIME IN</span>
-                <span className="block text-xs font-medium text-emerald-50">
-                  {todayAttendance?.time_in ? formatTime(todayAttendance.time_in) : "Tap to time in"}
-                </span>
-              </button>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleTimeIn}
+                  disabled={loading || !!todayAttendance?.time_in || !currentUser}
+                  className="min-h-[72px] rounded-2xl bg-emerald-600 px-4 py-3 text-left text-white shadow-lg shadow-emerald-100 transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span className="block text-sm font-black">Time In</span>
+                  <span className="mt-1 block text-xs font-semibold text-emerald-50">
+                    {todayAttendance?.time_in ? formatTime(todayAttendance.time_in) : "Start shift"}
+                  </span>
+                </button>
 
-              <button
-                onClick={handleTimeOut}
-                disabled={loading || !todayAttendance?.time_in || !!todayAttendance?.time_out}
-                className="min-h-[88px] rounded-3xl bg-gradient-to-br from-blue-500 to-blue-700 px-4 py-4 text-left text-white shadow-xl shadow-slate-200 transition-all duration-200 hover:from-blue-600 hover:to-blue-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Clock3 size={26} strokeWidth={2.6} />
-                <span className="mt-3 block text-lg font-black">TIME OUT</span>
-                <span className="block text-xs font-medium text-blue-50">
-                  {todayAttendance?.time_out ? formatTime(todayAttendance.time_out) : "Tap to time out"}
-                </span>
-              </button>
+                <button
+                  onClick={handleTimeOut}
+                  disabled={loading || !todayAttendance?.time_in || !!todayAttendance?.time_out}
+                  className="min-h-[72px] rounded-2xl bg-blue-700 px-4 py-3 text-left text-white shadow-lg shadow-blue-100 transition-all duration-200 hover:bg-blue-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span className="block text-sm font-black">Time Out</span>
+                  <span className="mt-1 block text-xs font-semibold text-blue-50">
+                    {todayAttendance?.time_out ? formatTime(todayAttendance.time_out) : "End shift"}
+                  </span>
+                </button>
+              </div>
             </section>
 
             {canUseManagerTools && (
-              <button
-                onClick={() => openTab("approvals")}
-                className="flex w-full items-center justify-between rounded-3xl border border-blue-200 bg-blue-50 p-4 text-left shadow-sm transition-all duration-200 hover:bg-blue-100 active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-700 text-white">
-                    <ShieldCheck size={22} strokeWidth={2.5} />
-                  </div>
+              <section className="rounded-[1.75rem] border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700">Approval Workspace</p>
-                    <p className="mt-1 text-base font-black text-slate-950">{pendingApprovalCount} pending approval{pendingApprovalCount === 1 ? "" : "s"}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700">Approval Center</p>
+                    <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                      {pendingApprovalCount} Pending Request{pendingApprovalCount === 1 ? "" : "s"}
+                    </h3>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                      Mobile approval queue from the main Approval Center.
+                    </p>
+                  </div>
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-700 text-white shadow-md shadow-blue-100">
+                    <ShieldCheck size={23} strokeWidth={2.5} />
                   </div>
                 </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700">Open</span>
-              </button>
+
+                <div className="mt-4 space-y-2 rounded-2xl border border-blue-100 bg-white p-3">
+                  <ApprovalBreakdownRow label="Leave Requests" value={approvalBreakdown.leave} />
+                  <ApprovalBreakdownRow label="Expense Requests" value={approvalBreakdown.expense} />
+                  <ApprovalBreakdownRow label="Cash / Finance" value={approvalBreakdown.cash} />
+                  <ApprovalBreakdownRow label="Other Requests" value={approvalBreakdown.other} />
+                </div>
+
+                <button
+                  onClick={() => openTab("approvals")}
+                  className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-lg shadow-slate-200 transition-all duration-200 hover:bg-blue-800 active:scale-[0.99]"
+                >
+                  Open Approval Center
+                  <ShieldCheck size={17} strokeWidth={2.5} />
+                </button>
+              </section>
             )}
 
-            <MobileSectionHeader title="Quick Actions" action="View All ›" onClick={() => openTab("profile")} />
-
-            <section className="grid grid-cols-4 gap-3">
-              <MobileActionCard label="Payslip" icon="▣" tone="violet" onClick={() => openTab("payslip")} />
-              <MobileActionCard label="Leave" icon="↗" tone="emerald" onClick={() => openTab("leave")} />
-              <MobileActionCard label="Attendance" icon="✓" tone="blue" onClick={() => openTab("attendance")} />
-              <MobileActionCard label="Cash Advance" icon="₱" tone="amber" onClick={() => openTab("cashadvance")} />
-            </section>
-
-            <MobileSectionHeader title="Leave Credits" action="View All ›" onClick={() => openTab("leave")} />
-
-            <section className="grid grid-cols-3 gap-3">
-              {(leaveCredits.length > 0
-                ? leaveCredits.slice(0, 3)
-                : [
-                    { leave_type: "Vacation Leave", remaining_credits: 0 },
-                    { leave_type: "Sick Leave", remaining_credits: 0 },
-                    { leave_type: "Emergency Leave", remaining_credits: 0 },
-                  ]
-              ).map((credit, index) => (
-                <LeaveCreditMiniCard
-                  key={`${credit.leave_type}-${index}`}
-                  index={index}
-                  title={credit.leave_type || "Leave"}
-                  value={Number(credit.remaining_credits || 0)}
-                />
-              ))}
-            </section>
-
-            <MobileSectionHeader title="Announcements" action="View All ›" onClick={() => openTab("announcements")} />
-
-            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white text-2xl shadow-sm">!</div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-slate-950">{announcements[0]?.title || "No announcements yet"}</p>
-                  <p className="mt-1 truncate text-sm font-medium text-slate-500">
-                    {announcements[0]?.message || announcements[0]?.body || "Latest company updates will appear here."}
-                  </p>
+            <section className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Next Schedule</p>
+                  <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">Upcoming Shift</h3>
                 </div>
-                <span className="rounded-full bg-amber-400 px-3 py-1 text-[11px] font-bold text-white">New</span>
+                <button
+                  onClick={() => openTab("schedule")}
+                  className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700"
+                >
+                  View
+                </button>
               </div>
-            </section>
 
-            <MobileSectionHeader title="Upcoming Schedule" action="View Calendar ›" onClick={() => openTab("schedule")} />
-
-            <section className="pb-2">
               <button
                 onClick={() => openTab("schedule")}
-                className="flex w-full items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:border-blue-200 hover:bg-blue-50 active:scale-[0.98]"
+                className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50"
               >
                 <div className="overflow-hidden rounded-2xl border border-blue-200 bg-white text-center shadow-sm">
                   <p className="bg-blue-700 px-4 py-1 text-[10px] font-black uppercase text-white">
-                    {new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { month: "short" })}
+                    {new Date(`${(nextSchedule?.day || today)}T00:00:00`).toLocaleDateString("en-PH", { month: "short" })}
                   </p>
-                  <p className="px-4 py-1 text-3xl font-black text-blue-700">{new Date(`${today}T00:00:00`).getDate()}</p>
+                  <p className="px-4 py-1 text-3xl font-black text-blue-700">
+                    {new Date(`${(nextSchedule?.day || today)}T00:00:00`).getDate()}
+                  </p>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-black leading-5 text-slate-950">
+                    {nextSchedule?.shift && nextSchedule.shift !== "OFF" ? nextSchedule.shift : todayShiftLabel}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+                    {nextSchedule?.scheduled_in
+                      ? `${formatTime(nextSchedule.scheduled_in)} - ${formatTime(nextSchedule.scheduled_out)}`
+                      : todayShiftTimeLabel}
+                  </p>
+                </div>
+              </button>
+            </section>
+
+            <section className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Actions</p>
+                  <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">Quick Actions</h3>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <EnterpriseActionCard label="Payslip" helper="View payroll" icon={<PhilippinePeso size={22} strokeWidth={2.5} />} onClick={() => openTab("payslip")} />
+                <EnterpriseActionCard label="Leave Request" helper="File or track" icon={<FileText size={22} strokeWidth={2.5} />} onClick={() => openTab("leave")} />
+                <EnterpriseActionCard label="Attendance" helper="History" icon={<CheckCircle2 size={22} strokeWidth={2.5} />} onClick={() => openTab("attendance")} />
+                <EnterpriseActionCard label="Cash Advance" helper="Balances" icon={<WalletCards size={22} strokeWidth={2.5} />} onClick={() => openTab("cashadvance")} />
+              </div>
+            </section>
+
+            <section className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">HR Balance</p>
+                  <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">Leave Balances</h3>
+                </div>
+                <button
+                  onClick={() => openTab("leave")}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600"
+                >
+                  View
+                </button>
+              </div>
+
+              <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200">
+                {(leaveCredits.length > 0
+                  ? leaveCredits.slice(0, 5)
+                  : [
+                      { leave_type: "Vacation Leave", remaining_credits: 0 },
+                      { leave_type: "Sick Leave", remaining_credits: 0 },
+                      { leave_type: "Emergency Leave", remaining_credits: 0 },
+                    ]
+                ).map((credit, index) => (
+                  <div key={`${credit.leave_type}-${index}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <p className="text-sm font-bold leading-5 text-slate-700">{credit.leave_type || "Leave"}</p>
+                    <p className="shrink-0 text-sm font-black text-slate-950">{Number(credit.remaining_credits || 0)} day{Number(credit.remaining_credits || 0) === 1 ? "" : "s"}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="pb-2">
+              <button
+                onClick={() => openTab("announcements")}
+                className="flex w-full items-center gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
+              >
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-700">
+                  <Megaphone size={22} strokeWidth={2.5} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-lg font-bold text-slate-950">{todayShiftLabel}</p>
-                  <p className="mt-1 truncate text-sm font-medium text-slate-500">{todayShiftTimeLabel}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Latest Announcement</p>
+                  <p className="mt-1 truncate text-sm font-black text-slate-950">{announcements[0]?.title || "No announcements available"}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
+                    {announcements[0]?.message || announcements[0]?.body || "Company updates and notices will appear here."}
+                  </p>
                 </div>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                  {todayAttendance?.status || "Today"}
-                </span>
               </button>
             </section>
           </div>
@@ -2497,20 +2919,83 @@ export default function EmployeePortalPage() {
         {activeTab === "announcements" && (
           <div className="space-y-4 px-5 pt-5">
             <PortalCard label="Company Updates" title="Announcements">
+              {canPostAnnouncements && (
+                <div className="mb-4 rounded-3xl border border-blue-200 bg-blue-50 p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700">
+                        Manager Broadcast
+                      </p>
+                      <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">
+                        Post Announcement
+                      </h3>
+                    </div>
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-700 text-white">
+                      <Megaphone size={21} strokeWidth={2.5} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <input
+                      value={announcementTitle}
+                      onChange={(event) => setAnnouncementTitle(event.target.value)}
+                      placeholder="Announcement title"
+                      className="h-11 w-full rounded-2xl border border-blue-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500"
+                    />
+
+                    <textarea
+                      value={announcementMessage}
+                      onChange={(event) => setAnnouncementMessage(event.target.value)}
+                      placeholder="Write announcement details..."
+                      rows={4}
+                      className="w-full resize-none rounded-2xl border border-blue-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500"
+                    />
+
+                    <div className="grid grid-cols-[1fr_auto] gap-3">
+                      <select
+                        value={announcementPriority}
+                        onChange={(event) => setAnnouncementPriority(event.target.value)}
+                        className="h-11 rounded-2xl border border-blue-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-blue-500"
+                      >
+                        <option value="Normal">Normal</option>
+                        <option value="Important">Important</option>
+                        <option value="Urgent">Urgent</option>
+                      </select>
+
+                      <button
+                        onClick={submitAnnouncement}
+                        disabled={loading}
+                        className="h-11 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Post
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3">
                 {announcements.map((announcement) => (
-                  <div key={`${announcement.id}`} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                  <div key={`${announcement.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-950">{announcement.title || "Announcement"}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-500">{announcement.posted_by || announcement.created_by || "OPSCORE"}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-950">{announcement.title || "Announcement"}</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          {announcement.posted_by || announcement.created_by || "OPSCORE"}
+                        </p>
                       </div>
                       <StatusBadge status={announcement.priority || "Normal"} />
                     </div>
                     <p className="mt-3 text-sm font-medium leading-6 text-slate-700">{announcement.message || announcement.body}</p>
                   </div>
                 ))}
-                {announcements.length === 0 && <EmptyStateInline title="No announcements" helper="Company announcements will appear here." />}
+
+                {announcements.length === 0 && (
+                  <EmptyStateInline
+                    title="No announcements"
+                    helper={canPostAnnouncements ? "Post a company update for employees." : "Company announcements will appear here."}
+                  />
+                )}
               </div>
             </PortalCard>
           </div>
@@ -2616,30 +3101,32 @@ export default function EmployeePortalPage() {
               ...(canUseManagerTools
                 ? [{ key: "approvals", label: "Approvals", icon: ShieldCheck }]
                 : [{ key: "schedule", label: "Schedule", icon: CalendarDays }]),
-              { key: "attendance", label: "Attend", icon: CheckCircle2 },
+              { key: "schedule", label: "Schedule", icon: CalendarDays },
               { key: "leave", label: "Leave", icon: FileText },
               { key: "profile", label: "Profile", icon: UserCircle },
-            ].map((item) => {
-              const active = activeTab === item.key;
-              const Icon = item.icon;
+            ]
+              .filter((item, index, array) => array.findIndex((entry) => entry.key === item.key) === index)
+              .map((item) => {
+                const active = activeTab === item.key;
+                const Icon = item.icon;
 
-              return (
-                <button
-                  key={`bottom-${item.key}`}
-                  onClick={() => openTab(item.key as PortalTab)}
-                  className={`flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-semibold transition-all duration-200 ${
-                    active
-                      ? "bg-blue-700 text-white shadow-md shadow-slate-200"
-                      : "bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-700"
-                  }`}
-                >
-                  <span className="grid h-5 w-5 place-items-center">
-                    <Icon size={18} strokeWidth={2.4} />
-                  </span>
-                  <span className="mt-1 max-w-full truncate">{item.label}</span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={`bottom-${item.key}`}
+                    onClick={() => openTab(item.key as PortalTab)}
+                    className={`flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-[12px] font-semibold transition-all duration-200 ${
+                      active
+                        ? "bg-blue-700 text-white shadow-md shadow-slate-200"
+                        : "bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-700"
+                    }`}
+                  >
+                    <span className="grid h-5 w-5 place-items-center">
+                      <Icon size={18} strokeWidth={2.4} />
+                    </span>
+                    <span className="mt-1 max-w-full truncate">{item.label}</span>
+                  </button>
+                );
+              })}
           </div>
         </nav>
 
@@ -2967,6 +3454,43 @@ function FormLabel({ label }: { label: string }) {
 }
 
 
+
+
+function ApprovalBreakdownRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm font-semibold text-slate-600">{label}</span>
+      <span className="text-sm font-black text-slate-950">{value}</span>
+    </div>
+  );
+}
+
+function EnterpriseActionCard({
+  label,
+  helper,
+  icon,
+  onClick,
+}: {
+  label: string;
+  helper: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50 active:scale-[0.99]"
+    >
+      <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-blue-700 shadow-sm">
+        {icon}
+      </span>
+      <span>
+        <span className="block text-sm font-black leading-5 text-slate-950">{label}</span>
+        <span className="mt-0.5 block text-xs font-semibold leading-4 text-slate-500">{helper}</span>
+      </span>
+    </button>
+  );
+}
 
 function InfoTile({ label, value }: { label: string; value: any }) {
   return (
