@@ -1,13 +1,18 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   ClipboardList,
+  Hotel,
   Send,
   ShieldCheck,
+  Sparkles,
+  UserRound,
 } from "lucide-react";
 
 type OnboardingSettings = {
@@ -177,23 +182,34 @@ export default function PublicOnboardingPage() {
   /// UI
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F5F7FB] px-5 text-slate-900">
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm font-bold text-slate-500 shadow-sm">
-          Loading onboarding form...
-        </div>
-      </main>
+      <PublicShell compact>
+        <section className="w-full max-w-md rounded-[2rem] border border-white/10 bg-white p-7 text-center shadow-2xl shadow-slate-950/10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#070d19] text-white shadow-lg shadow-blue-950/20">
+            <Sparkles size={24} />
+          </div>
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">
+            OPSCORE Onboarding
+          </p>
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+            Loading form
+          </h1>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+            Preparing your employee registration page.
+          </p>
+        </section>
+      </PublicShell>
     );
   }
 
   if (!settings || !settings.is_registration_open) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F5F7FB] px-5 py-10 text-slate-900">
-        <section className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
+      <PublicShell compact>
+        <section className="w-full max-w-xl rounded-[2rem] border border-white/10 bg-white p-7 text-center shadow-2xl shadow-slate-950/10 sm:p-9">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#070d19] text-white shadow-lg shadow-blue-950/20">
             <ShieldCheck size={25} />
           </div>
 
-          <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.24em] text-blue-700">
             OPSCORE Employee Onboarding
           </p>
 
@@ -201,23 +217,23 @@ export default function PublicOnboardingPage() {
             Registration Closed
           </h1>
 
-          <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
             {settings?.closed_message || DEFAULT_CLOSED_MESSAGE}
           </p>
         </section>
-      </main>
+      </PublicShell>
     );
   }
 
   if (submitted) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F5F7FB] px-5 py-10 text-slate-900">
-        <section className="w-full max-w-xl rounded-3xl border border-emerald-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+      <PublicShell compact>
+        <section className="w-full max-w-xl rounded-[2rem] border border-emerald-200 bg-white p-7 text-center shadow-2xl shadow-emerald-950/10 sm:p-9">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-950/20">
             <CheckCircle2 size={26} />
           </div>
 
-          <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-700">
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.24em] text-emerald-700">
             Submitted For HR Review
           </p>
 
@@ -225,161 +241,281 @@ export default function PublicOnboardingPage() {
             Registration Submitted
           </h1>
 
-          <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
             Your employee information has been submitted. HR will review your
             details before creating your official 201 record and portal access.
           </p>
         </section>
-      </main>
+      </PublicShell>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F5F7FB] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-5xl">
-        <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-                OPSCORE Employee Onboarding
-              </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                Employee Registration Form
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-500">
-                Complete your employee information for HR review. Government ID
-                numbers are optional if not yet available. Attachments are not
-                required in this version.
-              </p>
-            </div>
+    <PublicShell>
+      <section className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
+        <header className="mb-5 overflow-hidden rounded-[2rem] border border-white/10 bg-[#070d19] text-white shadow-2xl shadow-slate-950/20">
+          <div className="relative p-6 sm:p-8 lg:p-9">
+            <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-blue-600/30 blur-3xl" />
+            <div className="absolute -bottom-24 left-8 h-52 w-52 rounded-full bg-indigo-500/20 blur-3xl" />
 
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
-              <ClipboardList size={25} />
+            <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-100">
+                  <Hotel size={13} /> Vincent Resort HR
+                </div>
+
+                <p className="mt-5 text-[11px] font-black uppercase tracking-[0.24em] text-blue-200">
+                  OPSCORE Employee Onboarding
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
+                  Employee Registration Form
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-slate-300 sm:text-base">
+                  Complete your employee information for HR review. Government
+                  ID numbers are optional if not yet available.
+                </p>
+              </div>
+
+              <div className="relative flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl md:w-[280px]">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-950/30">
+                  <ClipboardList size={25} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    HR Review
+                  </p>
+                  <p className="mt-1 text-sm font-black text-white">
+                    Submit once only
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-400">
+                    Your record goes to Pending Registration.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {errorMessage && (
-          <div className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+          <div className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700 shadow-sm">
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
             <p>{errorMessage}</p>
           </div>
         )}
 
-        <section className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <FormPanel title="Personal Information">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input label="First Name *" value={firstName} setValue={setFirstName} />
-              <Input label="Middle Name" value={middleName} setValue={setMiddleName} />
-              <Input label="Last Name *" value={lastName} setValue={setLastName} />
-              <Input label="Suffix" value={suffix} setValue={setSuffix} />
-              <Input
-                label="Birth Date *"
-                type="date"
-                value={birthDate}
-                setValue={setBirthDate}
-              />
-              <Select
-                label="Gender"
-                value={gender}
-                setValue={setGender}
-                options={["Male", "Female", "Prefer not to say"]}
-              />
-              <Select
-                label="Civil Status"
-                value={civilStatus}
-                setValue={setCivilStatus}
-                options={["Single", "Married", "Widowed", "Separated"]}
-              />
-              <Input
-                label="Nationality"
-                value={nationality}
-                setValue={setNationality}
-              />
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="order-2 h-fit rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm lg:order-1 lg:sticky lg:top-5">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+              Registration Steps
+            </p>
+            <div className="mt-4 space-y-3">
+              <StepItem label="Personal Information" active />
+              <StepItem label="Contact Details" active />
+              <StepItem label="Government IDs" />
+              <StepItem label="Emergency Contact" active />
+              <StepItem label="HR Review" />
             </div>
-          </FormPanel>
 
-          <FormPanel title="Contact Information">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="Mobile Number *"
-                value={mobileNumber}
-                setValue={setMobileNumber}
-              />
-              <Input label="Email" type="email" value={email} setValue={setEmail} />
-              <div className="md:col-span-2">
-                <Input label="Address *" value={address} setValue={setAddress} />
-              </div>
+            <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-black text-blue-950">Reminder</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-blue-700">
+                Use your correct mobile number. HR may contact you after review.
+              </p>
             </div>
-          </FormPanel>
+          </aside>
 
-          <FormPanel title="Government Information Optional">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input label="SSS No." value={sssNo} setValue={setSssNo} />
-              <Input
-                label="PhilHealth No."
-                value={philhealthNo}
-                setValue={setPhilhealthNo}
-              />
-              <Input label="Pag-IBIG No." value={pagibigNo} setValue={setPagibigNo} />
-              <Input label="TIN No." value={tinNo} setValue={setTinNo} />
-            </div>
-          </FormPanel>
-
-          <FormPanel title="Emergency Contact">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="Contact Person *"
-                value={emergencyContactName}
-                setValue={setEmergencyContactName}
-              />
-              <Input
-                label="Relationship"
-                value={emergencyContactRelationship}
-                setValue={setEmergencyContactRelationship}
-              />
-              <Input
-                label="Contact Number *"
-                value={emergencyContactNumber}
-                setValue={setEmergencyContactNumber}
-              />
-              <Input
-                label="Contact Address"
-                value={emergencyContactAddress}
-                setValue={setEmergencyContactAddress}
-              />
-            </div>
-          </FormPanel>
-
-          <div className="border-t border-slate-100 pt-5">
-            <button
-              type="button"
-              onClick={submitRegistration}
-              disabled={submitting}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
+          <section className="order-1 space-y-5 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:order-2">
+            <FormPanel
+              title="Personal Information"
+              icon={<UserRound size={17} />}
+              description="Tell us your basic employee profile details."
             >
-              <Send size={17} />
-              {submitting ? "Submitting..." : "Submit For HR Review"}
-            </button>
-          </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input label="First Name *" value={firstName} setValue={setFirstName} />
+                <Input label="Middle Name" value={middleName} setValue={setMiddleName} />
+                <Input label="Last Name *" value={lastName} setValue={setLastName} />
+                <Input label="Suffix" value={suffix} setValue={setSuffix} />
+                <Input
+                  label="Birth Date *"
+                  type="date"
+                  value={birthDate}
+                  setValue={setBirthDate}
+                />
+                <Select
+                  label="Gender"
+                  value={gender}
+                  setValue={setGender}
+                  options={["Male", "Female", "Prefer not to say"]}
+                />
+                <Select
+                  label="Civil Status"
+                  value={civilStatus}
+                  setValue={setCivilStatus}
+                  options={["Single", "Married", "Widowed", "Separated"]}
+                />
+                <Input
+                  label="Nationality"
+                  value={nationality}
+                  setValue={setNationality}
+                />
+              </div>
+            </FormPanel>
+
+            <FormPanel
+              title="Contact Information"
+              icon={<ShieldCheck size={17} />}
+              description="Provide contact details HR can verify."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Mobile Number *"
+                  value={mobileNumber}
+                  setValue={setMobileNumber}
+                />
+                <Input label="Email" type="email" value={email} setValue={setEmail} />
+                <div className="md:col-span-2">
+                  <Input label="Address *" value={address} setValue={setAddress} />
+                </div>
+              </div>
+            </FormPanel>
+
+            <FormPanel
+              title="Government Information Optional"
+              icon={<ClipboardList size={17} />}
+              description="You may leave these blank if not yet available."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input label="SSS No." value={sssNo} setValue={setSssNo} />
+                <Input
+                  label="PhilHealth No."
+                  value={philhealthNo}
+                  setValue={setPhilhealthNo}
+                />
+                <Input label="Pag-IBIG No." value={pagibigNo} setValue={setPagibigNo} />
+                <Input label="TIN No." value={tinNo} setValue={setTinNo} />
+              </div>
+            </FormPanel>
+
+            <FormPanel
+              title="Emergency Contact"
+              icon={<AlertCircle size={17} />}
+              description="This person may be contacted in case of emergency."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Contact Person *"
+                  value={emergencyContactName}
+                  setValue={setEmergencyContactName}
+                />
+                <Input
+                  label="Relationship"
+                  value={emergencyContactRelationship}
+                  setValue={setEmergencyContactRelationship}
+                />
+                <Input
+                  label="Contact Number *"
+                  value={emergencyContactNumber}
+                  setValue={setEmergencyContactNumber}
+                />
+                <Input
+                  label="Contact Address"
+                  value={emergencyContactAddress}
+                  setValue={setEmergencyContactAddress}
+                />
+              </div>
+            </FormPanel>
+
+            <div className="sticky bottom-0 -mx-4 border-t border-slate-100 bg-white/90 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
+              <button
+                type="button"
+                onClick={submitRegistration}
+                disabled={submitting}
+                className="group flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#070d19] px-5 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition-all duration-200 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
+              >
+                <Send size={17} />
+                {submitting ? "Submitting..." : "Submit For HR Review"}
+                {!submitting && (
+                  <ArrowRight
+                    size={16}
+                    className="transition-all duration-200 group-hover:translate-x-0.5"
+                  />
+                )}
+              </button>
+            </div>
+          </section>
         </section>
       </section>
+    </PublicShell>
+  );
+}
+
+function PublicShell({
+  children,
+  compact,
+}: {
+  children: React.ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <main
+      className={[
+        "min-h-screen overflow-x-hidden bg-[#F5F7FB] text-slate-900",
+        compact ? "flex items-center justify-center px-5 py-10" : "",
+      ].join(" ")}
+    >
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-blue-600/10 blur-3xl" />
+        <div className="absolute -right-24 top-40 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
+      </div>
+      <div className="relative">{children}</div>
     </main>
+  );
+}
+
+function StepItem({ label, active }: { label: string; active?: boolean }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className={[
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border text-xs font-black",
+          active
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-slate-200 bg-slate-50 text-slate-400",
+        ].join(" ")}
+      >
+        {active ? <CheckCircle2 size={14} /> : "•"}
+      </span>
+      <p className="text-sm font-bold text-slate-700">{label}</p>
+    </div>
   );
 }
 
 function FormPanel({
   title,
+  description,
+  icon,
   children,
 }: {
   title: string;
+  description: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-        {title}
-      </h2>
+    <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-white text-blue-700 shadow-sm">
+          {icon}
+        </div>
+        <div>
+          <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-600">
+            {title}
+          </h2>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            {description}
+          </p>
+        </div>
+      </div>
       {children}
     </section>
   );
@@ -398,14 +534,14 @@ function Input({
 }) {
   return (
     <div>
-      <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
         {label}
       </label>
       <input
         type={type}
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
       />
     </div>
   );
@@ -424,13 +560,13 @@ function Select({
 }) {
   return (
     <div>
-      <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
         {label}
       </label>
       <select
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
       >
         <option value="">Select</option>
         {options.map((option) => (
