@@ -13,8 +13,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-
-
 export const metadata: Metadata = {
   title: "OPSCORE V3",
   description: "Operations Management System",
@@ -26,8 +24,6 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
 };
-
-
 
 export default function RootLayout({
   children,
@@ -41,14 +37,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="h-full" suppressHydrationWarning>
+        <RegisterServiceWorker />
         {children}
-
-        <body className="h-full" suppressHydrationWarning>
-  <RegisterServiceWorker />
-  {children}
-</body>
       </body>
     </html>
   );
 }
-
