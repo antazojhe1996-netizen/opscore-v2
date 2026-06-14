@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import RegisterServiceWorker from "@/components/RegisterServiceWorker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -11,6 +12,8 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+
 
 export const metadata: Metadata = {
   title: "OPSCORE V3",
@@ -23,6 +26,8 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
 };
+
+
 
 export default function RootLayout({
   children,
@@ -37,6 +42,11 @@ export default function RootLayout({
     >
       <body className="h-full" suppressHydrationWarning>
         {children}
+
+        <body className="h-full" suppressHydrationWarning>
+  <RegisterServiceWorker />
+  {children}
+</body>
       </body>
     </html>
   );
