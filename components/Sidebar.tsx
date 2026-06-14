@@ -53,12 +53,6 @@ const menuSections = [
         moduleKey: "employees",
       },
       {
-        label: "Leave Management",
-        href: "/leave-management",
-        icon: ClipboardList,
-        moduleKey: "leave_management",
-      },
-      {
         label: "Employee Portal",
         href: "/employee-portal",
         icon: Users,
@@ -81,6 +75,30 @@ const menuSections = [
         href: "/scheduling",
         icon: CalendarDays,
         moduleKey: "scheduling",
+      },
+      {
+        label: "Forecasting",
+        href: "/forecasting",
+        icon: BarChart3,
+        moduleKey: "forecasting",
+      },
+      {
+        label: "Leave Management",
+        href: "/leave-management",
+        icon: ClipboardList,
+        moduleKey: "leave_management",
+      },
+      {
+        label: "Shift Settings",
+        href: "/settings/shifts",
+        icon: Clock,
+        moduleKey: "shift_settings",
+      },
+      {
+        label: "HC Rules",
+        href: "/settings/hc-rules",
+        icon: BarChart3,
+        moduleKey: "hc_rules",
       },
     ],
   },
@@ -257,34 +275,10 @@ const menuSections = [
     icon: Users,
     items: [
       {
-        label: "Departments",
-        href: "/settings/departments",
-        icon: Users,
+        label: "HR Settings",
+        href: "/settings/hr",
+        icon: Settings,
         moduleKey: "departments_settings",
-      },
-      {
-        label: "Positions",
-        href: "/settings/positions",
-        icon: Users,
-        moduleKey: "positions_settings",
-      },
-      {
-        label: "Employment Types",
-        href: "/settings/employment-types",
-        icon: ClipboardList,
-        moduleKey: "employment_settings",
-      },
-      {
-        label: "Employment Statuses",
-        href: "/settings/employment-statuses",
-        icon: ClipboardList,
-        moduleKey: "employment_settings",
-      },
-      {
-        label: "Leave Settings",
-        href: "/settings/leave-settings",
-        icon: ClipboardList,
-        moduleKey: "leave_settings",
       },
       {
         label: "Leave Credits",
@@ -345,18 +339,6 @@ const menuSections = [
         href: "/backup",
         icon: Database,
         moduleKey: "backup_restore",
-      },
-      {
-        label: "Shift Settings",
-        href: "/settings/shifts",
-        icon: Clock,
-        moduleKey: "shift_settings",
-      },
-      {
-        label: "HC Rules",
-        href: "/settings/hc-rules",
-        icon: BarChart3,
-        moduleKey: "hc_rules",
       },
     ],
   },
@@ -427,7 +409,7 @@ export default function Sidebar() {
     setAllowedModules(
       (permissionData || [])
         .map((permission: any) => String(permission.module_key || "").trim())
-        .filter(Boolean),
+        .filter(Boolean)
     );
 
     setPermissionsLoaded(true);
@@ -448,7 +430,7 @@ export default function Sidebar() {
         }
 
         const visibleItems = (section.items || []).filter((item: any) =>
-          canViewModule(item.moduleKey),
+          canViewModule(item.moduleKey)
         );
 
         if (visibleItems.length === 0) return null;
@@ -493,20 +475,20 @@ export default function Sidebar() {
     const currentEmployeeId = String(
       localStorage.getItem("opscore_current_employee_id") ||
         parsedCurrentUser?.employee_id ||
-        "",
+        ""
     ).trim();
 
     const currentSystemUserId = String(
       localStorage.getItem("opscore_current_system_user_id") ||
         parsedCurrentUser?.system_user_id ||
-        "",
+        ""
     ).trim();
 
     const currentEmployeeName = String(
       localStorage.getItem("opscore_current_employee_name") ||
         parsedCurrentUser?.name ||
         parsedCurrentUser?.username ||
-        "",
+        ""
     ).trim();
 
     const { data: requestData, error: requestError } = await supabase
@@ -548,7 +530,7 @@ export default function Sidebar() {
       return (
         workflowData?.find(
           (workflow: any) =>
-            String(workflow.workflow_key || "") === String(workflowKey),
+            String(workflow.workflow_key || "") === String(workflowKey)
         ) || null
       );
     };
@@ -608,16 +590,15 @@ export default function Sidebar() {
 
     const canCurrentUserApproveRequest = (request: any) => {
       const assignedApprovers = getAssignedApproversForRequest(request);
-
       if (assignedApprovers.length === 0) return false;
 
       return assignedApprovers.some((assignment: any) =>
-        assignmentMatchesCurrentUser(assignment),
+        assignmentMatchesCurrentUser(assignment)
       );
     };
 
     const assignedPendingCount = (requestData || []).filter((request: any) =>
-      canCurrentUserApproveRequest(request),
+      canCurrentUserApproveRequest(request)
     ).length;
 
     setApprovalBadgeCount(assignedPendingCount);
@@ -631,13 +612,8 @@ export default function Sidebar() {
   const isActive = (href: string) => {
     const path = normalizePath(href);
 
-    if (path === "/finance") {
-      return currentPath === "/finance";
-    }
-
-    if (path === "/settings") {
-      return currentPath === "/settings";
-    }
+    if (path === "/finance") return currentPath === "/finance";
+    if (path === "/settings") return currentPath === "/settings";
 
     if (path === "/finance/payroll") {
       return currentPath === "/finance/payroll" || currentPath.startsWith("/finance/payroll/");
@@ -646,7 +622,17 @@ export default function Sidebar() {
     return currentPath === path || currentPath.startsWith(`${path}/`);
   };
 
+  const workforceRoutes = [
+    "/workforce",
+    "/scheduling",
+    "/forecasting",
+    "/leave-management",
+    "/settings/shifts",
+    "/settings/hc-rules",
+  ];
+
   const hrSettingsRoutes = [
+    "/settings/hr",
     "/settings/departments",
     "/settings/positions",
     "/settings/employment-types",
@@ -683,8 +669,6 @@ export default function Sidebar() {
     "/settings/user-roles",
     "/admin/data-cleanup",
     "/backup",
-    "/settings/shifts",
-    "/settings/hc-rules",
   ];
 
   const isInRouteFamily = (routes: string[]) =>
@@ -697,20 +681,13 @@ export default function Sidebar() {
 
     if (
       currentPath.startsWith("/human-resources/") ||
-      currentPath === "/leave-management" ||
-      currentPath.startsWith("/leave-management/") ||
       currentPath === "/employee-portal" ||
       currentPath.startsWith("/employee-portal/")
     ) {
       return "Human Resources";
     }
 
-    if (
-      currentPath === "/workforce" ||
-      currentPath.startsWith("/workforce/") ||
-      currentPath === "/scheduling" ||
-      currentPath.startsWith("/scheduling/")
-    ) {
+    if (isInRouteFamily(workforceRoutes)) {
       return "Workforce";
     }
 
@@ -962,9 +939,14 @@ export default function Sidebar() {
             VR
           </div>
 
-          <p className="min-w-0 truncate text-[11px] font-black uppercase tracking-[0.08em] text-white">
-            VRH
-          </p>
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-black uppercase tracking-[0.08em] text-white">
+              Vincent Resort
+            </p>
+            <p className="truncate text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">
+              Operations
+            </p>
+          </div>
         </div>
       </div>
     </div>

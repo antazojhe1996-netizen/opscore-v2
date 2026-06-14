@@ -1,27 +1,73 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import PageGuard from "@/components/PageGuard";
 
+type Employee = {
+  employee_no: string | number;
+  first_name: string;
+  last_name: string;
+  department?: string | null;
+  position?: string | null;
+};
+
+type LeaveSetting = {
+  id: string | number;
+  leave_type: string;
+  is_enabled?: boolean;
+};
+
+type LeaveCredit = {
+  id: string | number;
+  employee_no: string | number;
+  leave_type: string;
+  credits: number;
+  used_credits: number;
+  remaining_credits: number;
+  created_at?: string;
+};
+
 export default function LeaveCreditsPage() {
   /// STATES
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [leaveSettings, setLeaveSettings] = useState<any[]>([]);
-  const [leaveCredits, setLeaveCredits] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [leaveSettings, setLeaveSettings] = useState<LeaveSetting[]>([]);
+  const [leaveCredits, setLeaveCredits] = useState<LeaveCredit[]>([]);
 
   const [selectedEmployeeNo, setSelectedEmployeeNo] = useState("");
   const [creditInputs, setCreditInputs] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   /// CALCULATIONS
   const selectedEmployee = employees.find(
     (employee) => String(employee.employee_no) === String(selectedEmployeeNo)
   );
 
-  /// FUNCTIONS
+  const totalEmployeesWithCredits = useMemo(() => {
+    const uniqueEmployees = new Set(
+      leaveCredits.map((credit) => String(credit.employee_no))
+    );
 
+    return uniqueEmployees.size;
+  }, [leaveCredits]);
+
+  const totalRemainingCredits = useMemo(() => {
+    return leaveCredits.reduce(
+      (total, credit) => total + Number(credit.remaining_credits || 0),
+      0
+    );
+  }, [leaveCredits]);
+
+  const lowCreditCount = useMemo(() => {
+    return leaveCredits.filter(
+      (credit) => Number(credit.remaining_credits || 0) <= 0
+    ).length;
+  }, [leaveCredits]);
+
+  /// FUNCTIONS
   const getCurrentUserEmail = async () => {
     const { data } = await supabase.auth.getUser();
     return data.user?.email || "System User";
@@ -38,7 +84,7 @@ export default function LeaveCreditsPage() {
       return;
     }
 
-    setEmployees(data || []);
+    setEmployees((data || []) as Employee[]);
   };
 
   const getLeaveSettings = async () => {
@@ -53,7 +99,7 @@ export default function LeaveCreditsPage() {
       return;
     }
 
-    setLeaveSettings(data || []);
+    setLeaveSettings((data || []) as LeaveSetting[]);
   };
 
   const getLeaveCredits = async () => {
@@ -67,10 +113,10 @@ export default function LeaveCreditsPage() {
       return;
     }
 
-    setLeaveCredits(data || []);
+    setLeaveCredits((data || []) as LeaveCredit[]);
   };
 
-  const getEmployeeName = (employeeNo: any) => {
+  const getEmployeeName = (employeeNo: string | number) => {
     const employee = employees.find(
       (emp) => String(emp.employee_no) === String(employeeNo)
     );
@@ -80,7 +126,7 @@ export default function LeaveCreditsPage() {
     return `${employee.first_name} ${employee.last_name}`;
   };
 
-  const getCreditRecord = (employeeNo: any, leaveType: string) => {
+  const getCreditRecord = (employeeNo: string | number, leaveType: string) => {
     return leaveCredits.find(
       (item) =>
         String(item.employee_no) === String(employeeNo) &&
@@ -95,7 +141,6 @@ export default function LeaveCreditsPage() {
 
     leaveSettings.forEach((leave) => {
       const existingCredit = getCreditRecord(employeeNo, leave.leave_type);
-
       newInputs[leave.leave_type] = existingCredit
         ? String(existingCredit.credits)
         : "0";
@@ -117,6 +162,8 @@ export default function LeaveCreditsPage() {
       return;
     }
 
+    setIsSaving(true);
+
     const oldCredits = leaveCredits.filter(
       (item) => String(item.employee_no) === String(selectedEmployeeNo)
     );
@@ -132,6 +179,7 @@ export default function LeaveCreditsPage() {
 
       if (creditValue < 0) {
         alert("Credits cannot be negative.");
+        setIsSaving(false);
         return;
       }
 
@@ -152,6 +200,7 @@ export default function LeaveCreditsPage() {
         if (error) {
           console.log("UPDATE CREDIT ERROR:", error);
           alert("Failed to update credits.");
+          setIsSaving(false);
           return;
         }
       } else {
@@ -168,6 +217,7 @@ export default function LeaveCreditsPage() {
         if (error) {
           console.log("INSERT CREDIT ERROR:", error);
           alert("Failed to create credits.");
+          setIsSaving(false);
           return;
         }
       }
@@ -188,11 +238,12 @@ export default function LeaveCreditsPage() {
       newValue: newCreditPayload,
     });
 
+    await getLeaveCredits();
+    setIsSaving(false);
     alert("Leave credits saved.");
-    getLeaveCredits();
   };
 
-  const deleteLeaveCredit = async (credit: any) => {
+  const deleteLeaveCredit = async (credit: LeaveCredit) => {
     const confirmDelete = confirm(
       `Delete ${credit.leave_type} credit record for ${getEmployeeName(
         credit.employee_no
@@ -210,6 +261,7 @@ export default function LeaveCreditsPage() {
 
     if (error) {
       console.log("DELETE CREDIT ERROR:", error);
+      alert("Failed to delete leave credit.");
       return;
     }
 
@@ -228,7 +280,7 @@ export default function LeaveCreditsPage() {
       newValue: null,
     });
 
-    getLeaveCredits();
+    await getLeaveCredits();
 
     if (String(credit.employee_no) === String(selectedEmployeeNo)) {
       setCreditInputs((previous) => ({
@@ -291,7 +343,19 @@ export default function LeaveCreditsPage() {
     });
 
     setCreditInputs(resetInputs);
-    getLeaveCredits();
+    await getLeaveCredits();
+  };
+
+  const getRemainingBadgeClass = (remaining: number) => {
+    if (remaining >= 3) {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+
+    if (remaining >= 1) {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+
+    return "border-red-200 bg-red-50 text-red-700";
   };
 
   useEffect(() => {
@@ -301,265 +365,419 @@ export default function LeaveCreditsPage() {
   }, []);
 
   /// UI
+  return (
+    <PageGuard moduleKey="leave_settings">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+        <Sidebar />
 
-return (
-  <PageGuard moduleKey="leave_settings">
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      <Sidebar />
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="WORKFORCE / LEAVE CREDITS" />
 
-      <main className="flex-1 p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Leave Credits Management</h1>
-          <p className="text-sm text-slate-400">
-            Create, update, and delete leave credits per employee.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-            <h2 className="mb-6 text-xl font-bold">Select Employee</h2>
-
-            <div className="space-y-4">
+          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
               <div>
-                <label className="mb-1 block text-sm text-slate-400">
-                  Employee
-                </label>
-
-                <select
-                  value={selectedEmployeeNo}
-                  onChange={(e) => loadEmployeeCredits(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                >
-                  <option value="">Select employee</option>
-
-                  {employees.map((employee) => (
-                    <option
-                      key={employee.employee_no}
-                      value={employee.employee_no}
-                      className="bg-slate-950 text-white"
-                    >
-                      {employee.first_name} {employee.last_name}
-                    </option>
-                  ))}
-                </select>
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  Workforce
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  Leave Credits Management
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                  Create, update, and monitor employee leave credit balances by
+                  enabled leave type.
+                </p>
               </div>
 
-              {selectedEmployee && (
-                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                  <p className="text-sm text-slate-400">Selected Employee</p>
-                  <h3 className="mt-1 text-lg font-semibold">
-                    {selectedEmployee.first_name} {selectedEmployee.last_name}
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {selectedEmployee.employee_no}
+              <button
+                onClick={() => {
+                  getEmployees();
+                  getLeaveSettings();
+                  getLeaveCredits();
+                }}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+              >
+                Refresh Records
+              </button>
+            </div>
+
+            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Employees
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                  {employees.length}
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Active employee records loaded
+                </p>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Leave Types
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                  {leaveSettings.length}
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Enabled leave credit categories
+                </p>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  With Credits
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                  {totalEmployeesWithCredits}
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Employees with existing balances
+                </p>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Remaining Credits
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                  {totalRemainingCredits}
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  {lowCreditCount} records need review
+                </p>
+              </section>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Credit Setup
+                  </p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">
+                    Employee Leave Credit Editor
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Save creates missing records and updates existing credit
+                    balances.
                   </p>
                 </div>
-              )}
 
-              {selectedEmployeeNo && (
-                <button
-                  onClick={deleteAllCreditsForSelectedEmployee}
-                  className="w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300 hover:bg-red-500/20"
-                >
-                  Delete All Credits for Employee
-                </button>
-              )}
-            </div>
-          </section>
+                <div className="p-6">
+                  {!selectedEmployeeNo ? (
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 px-6 py-14 text-center">
+                      <h3 className="text-sm font-black text-slate-950">
+                        Select an employee to manage leave credits.
+                      </h3>
+                      <p className="mt-2 text-sm font-medium text-slate-500">
+                        Choose from the employee selector panel to load editable
+                        leave balances.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="overflow-auto rounded-3xl border border-slate-200">
+                        <table className="w-full min-w-[760px]">
+                          <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                            <tr>
+                              <th className="px-6 py-4">Leave Type</th>
+                              <th className="px-6 py-4">Credits</th>
+                              <th className="px-6 py-4">Used</th>
+                              <th className="px-6 py-4">Remaining</th>
+                              <th className="px-6 py-4 text-right">Action</th>
+                            </tr>
+                          </thead>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg lg:col-span-2">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold">Credit Setup</h2>
-              <p className="text-sm text-slate-400">
-                Save creates new records if missing, or updates existing leave credit records.
-              </p>
-            </div>
+                          <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                            {leaveSettings.map((leave) => {
+                              const existingCredit = getCreditRecord(
+                                selectedEmployeeNo,
+                                leave.leave_type
+                              );
 
-            {!selectedEmployeeNo ? (
-              <div className="rounded-xl border border-slate-800 bg-slate-950 p-8 text-center text-slate-500">
-                Select an employee to manage leave credits.
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-left text-slate-400">
-                        <th className="py-3 pr-4">Leave Type</th>
-                        <th className="py-3 pr-4">Credits</th>
-                        <th className="py-3 pr-4">Used</th>
-                        <th className="py-3 pr-4">Remaining</th>
-                        <th className="py-3 pr-4 text-right">CRUD</th>
-                      </tr>
-                    </thead>
+                              const remaining = Number(
+                                existingCredit?.remaining_credits || 0
+                              );
 
-                    <tbody>
-                      {leaveSettings.map((leave) => {
-                        const existingCredit = getCreditRecord(
-                          selectedEmployeeNo,
-                          leave.leave_type
-                        );
-
-                        return (
-                          <tr
-                            key={leave.id}
-                            className="border-b border-slate-800/70 text-slate-200"
-                          >
-                            <td className="py-3 pr-4 font-medium">
-                              {leave.leave_type}
-                            </td>
-
-                            <td className="py-3 pr-4">
-                              <input
-                                type="number"
-                                min="0"
-                                value={creditInputs[leave.leave_type] || "0"}
-                                onChange={(e) =>
-                                  updateCreditInput(
-                                    leave.leave_type,
-                                    e.target.value
-                                  )
-                                }
-                                className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none"
-                              />
-                            </td>
-
-                            <td className="py-3 pr-4">
-                              {existingCredit?.used_credits || 0}
-                            </td>
-
-                            <td className="py-3 pr-4">
-                              <span
-                                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                                  Number(
-                                    existingCredit?.remaining_credits || 0
-                                  ) > 0
-                                    ? "border-green-500/30 bg-green-500/20 text-green-400"
-                                    : "border-slate-600 bg-slate-700 text-slate-300"
-                                }`}
-                              >
-                                {existingCredit?.remaining_credits || 0}
-                              </span>
-                            </td>
-
-                            <td className="py-3 pr-4 text-right">
-                              {existingCredit ? (
-                                <button
-                                  onClick={() => deleteLeaveCredit(existingCredit)}
-                                  className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500"
+                              return (
+                                <tr
+                                  key={leave.id}
+                                  className="transition-all duration-200 hover:bg-slate-50"
                                 >
-                                  Delete
-                                </button>
-                              ) : (
-                                <span className="text-xs text-slate-500">
-                                  New on Save
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                                  <td className="px-6 py-4 font-black text-slate-950">
+                                    {leave.leave_type}
+                                  </td>
 
-                      {leaveSettings.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="py-8 text-center text-slate-500"
-                          >
-                            No enabled leave types found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                                  <td className="px-6 py-4">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={
+                                        creditInputs[leave.leave_type] || "0"
+                                      }
+                                      onChange={(e) =>
+                                        updateCreditInput(
+                                          leave.leave_type,
+                                          e.target.value
+                                        )
+                                      }
+                                      className="h-11 w-28 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                                    />
+                                  </td>
+
+                                  <td className="px-6 py-4">
+                                    {existingCredit?.used_credits || 0}
+                                  </td>
+
+                                  <td className="px-6 py-4">
+                                    <span
+                                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getRemainingBadgeClass(
+                                        remaining
+                                      )}`}
+                                    >
+                                      {existingCredit?.remaining_credits || 0}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-6 py-4 text-right">
+                                    {existingCredit ? (
+                                      <button
+                                        onClick={() =>
+                                          deleteLeaveCredit(existingCredit)
+                                        }
+                                        className="h-10 rounded-xl bg-red-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
+                                      >
+                                        Delete
+                                      </button>
+                                    ) : (
+                                      <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                                        New on Save
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+
+                            {leaveSettings.length === 0 && (
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="px-6 py-14 text-center"
+                                >
+                                  <h3 className="text-sm font-black text-slate-950">
+                                    No enabled leave types found.
+                                  </h3>
+                                  <p className="mt-2 text-sm font-medium text-slate-500">
+                                    Enable leave types first before assigning
+                                    credits.
+                                  </p>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="mt-6 flex flex-col justify-end gap-3 border-t border-slate-100 pt-4 sm:flex-row">
+                        <button
+                          onClick={deleteAllCreditsForSelectedEmployee}
+                          className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
+                        >
+                          Delete All Credits
+                        </button>
+
+                        <button
+                          onClick={saveAllCredits}
+                          disabled={isSaving}
+                          className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSaving ? "Saving..." : "Save All Credits"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+
+              <aside className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Employee Selector
+                  </p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">
+                    Select Employee
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Load existing credits by employee number.
+                  </p>
                 </div>
 
-                <button
-                  onClick={saveAllCredits}
-                  className="mt-6 w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
-                >
-                  Save All Credits
-                </button>
-              </>
-            )}
-          </section>
-        </div>
+                <div className="space-y-4 p-6">
+                  <div>
+                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Employee
+                    </label>
 
-        <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-lg">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold">Leave Credit Matrix</h2>
-            <p className="text-sm text-slate-400">
-              One row per employee with all leave credits shown by type.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-800 text-left text-slate-400">
-                  <th className="py-3 pr-4">Employee</th>
-
-                  {leaveSettings.map((leave) => (
-                    <th key={leave.id} className="py-3 pr-4">
-                      {leave.leave_type}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {employees.map((employee) => (
-                  <tr
-                    key={employee.employee_no}
-                    className="border-b border-slate-800/70 text-slate-200"
-                  >
-                    <td className="py-3 pr-4 font-medium">
-                      {employee.first_name} {employee.last_name}
-                    </td>
-
-                    {leaveSettings.map((leave) => {
-                      const credit = getCreditRecord(
-                        employee.employee_no,
-                        leave.leave_type
-                      );
-
-                      const remaining = Number(credit?.remaining_credits || 0);
-
-                      return (
-                        <td key={leave.id} className="py-3 pr-4">
-                          <span
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                              remaining >= 3
-                                ? "border-green-500/30 bg-green-500/20 text-green-400"
-                                : remaining >= 1
-                                ? "border-yellow-500/30 bg-yellow-500/20 text-yellow-400"
-                                : "border-red-500/30 bg-red-500/20 text-red-400"
-                            }`}
-                          >
-                            {remaining}
-                          </span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-
-                {employees.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={leaveSettings.length + 1}
-                      className="py-8 text-center text-slate-500"
+                    <select
+                      value={selectedEmployeeNo}
+                      onChange={(e) => loadEmployeeCredits(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                     >
-                      No employees found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      <option value="">Select employee</option>
+
+                      {employees.map((employee) => (
+                        <option
+                          key={employee.employee_no}
+                          value={employee.employee_no}
+                        >
+                          {employee.first_name} {employee.last_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedEmployee ? (
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                        Selected Employee
+                      </p>
+                      <h3 className="mt-2 text-xl font-black text-slate-950">
+                        {selectedEmployee.first_name}{" "}
+                        {selectedEmployee.last_name}
+                      </h3>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                        {selectedEmployee.employee_no}
+                      </p>
+
+                      {(selectedEmployee.department ||
+                        selectedEmployee.position) && (
+                        <div className="mt-4 grid grid-cols-1 gap-3">
+                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                              Department
+                            </p>
+                            <p className="mt-1 text-sm font-black text-slate-950">
+                              {selectedEmployee.department || "Unassigned"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                              Position
+                            </p>
+                            <p className="mt-1 text-sm font-black text-slate-950">
+                              {selectedEmployee.position || "Unassigned"}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-sm font-bold text-slate-700">
+                        No employee selected.
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-500">
+                        Select an employee to begin credit setup.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </aside>
+            </div>
+
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Credit Matrix
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Leave Credit Matrix
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  One row per employee with remaining balances by leave type.
+                </p>
+              </div>
+
+              <div className="overflow-auto">
+                <table className="w-full min-w-[900px]">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-6 py-4">Employee</th>
+
+                      {leaveSettings.map((leave) => (
+                        <th key={leave.id} className="px-6 py-4">
+                          {leave.leave_type}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                    {employees.map((employee) => (
+                      <tr
+                        key={employee.employee_no}
+                        className="transition-all duration-200 hover:bg-slate-50"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="font-black text-slate-950">
+                            {employee.first_name} {employee.last_name}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-slate-500">
+                            {employee.employee_no}
+                          </p>
+                        </td>
+
+                        {leaveSettings.map((leave) => {
+                          const credit = getCreditRecord(
+                            employee.employee_no,
+                            leave.leave_type
+                          );
+
+                          const remaining = Number(
+                            credit?.remaining_credits || 0
+                          );
+
+                          return (
+                            <td key={leave.id} className="px-6 py-4">
+                              <span
+                                className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getRemainingBadgeClass(
+                                  remaining
+                                )}`}
+                              >
+                                {remaining}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+
+                    {employees.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={leaveSettings.length + 1}
+                          className="px-6 py-14 text-center"
+                        >
+                          <h3 className="text-sm font-black text-slate-950">
+                            No employees found.
+                          </h3>
+                          <p className="mt-2 text-sm font-medium text-slate-500">
+                            Employee records will appear here once loaded.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
-        </section>
-      </main>
-    </div>
-  </PageGuard>
+        </main>
+      </div>
+    </PageGuard>
   );
 }

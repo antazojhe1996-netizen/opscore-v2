@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import {
   BarChart3,
   CalendarDays,
@@ -168,66 +169,82 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-            System
-          </p>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="SYSTEM / SETTINGS" />
 
-          <h1 className="mt-2 text-4xl font-black">Settings</h1>
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              System
+            </p>
 
-          <p className="mt-2 max-w-4xl text-sm text-slate-400">
-            Configure OPSCORE rules, HR setup, workforce controls, access
-            permissions, audit logs, and operations data.
-          </p>
-        </section>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+              Settings
+            </h1>
 
-        <div className="space-y-8">
-          {settingGroups.map((group) => (
-            <section
-              key={group.groupTitle}
-              className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6"
-            >
-              <div className="mb-5">
-                <h2 className="text-2xl font-black">{group.groupTitle}</h2>
+            <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+              Configure OPSCORE rules, HR setup, workforce controls, access
+              permissions, audit logs, and operations data.
+            </p>
+          </section>
 
-                <p className="mt-1 text-sm text-slate-400">
-                  {group.description}
-                </p>
-              </div>
+          <div className="space-y-5">
+            {settingGroups.map((group) => (
+              <section
+                key={group.groupTitle}
+                className="rounded-3xl border border-slate-200 bg-white shadow-sm"
+              >
+                <div className="border-b border-slate-100 px-6 py-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Settings Group
+                  </p>
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {group.modules.map((module) => {
-                  const Icon = module.icon || Settings;
+                  <h2 className="mt-2 text-xl font-black text-slate-950">
+                    {group.groupTitle}
+                  </h2>
 
-                  return (
-                    <Link
-                      key={module.href}
-                      href={module.href}
-                      className="group rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all duration-200 hover:scale-[1.02] hover:border-amber-400 hover:bg-slate-800"
-                    >
-                      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-amber-400 group-hover:bg-amber-400 group-hover:text-slate-950">
-                        <Icon size={20} />
-                      </div>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    {group.description}
+                  </p>
+                </div>
 
-                      <h3 className="text-xl font-black">{module.title}</h3>
+                <div className="divide-y divide-slate-100">
+                  {group.modules.map((module) => {
+                    const Icon = module.icon || Settings;
 
-                      <p className="mt-3 text-sm leading-6 text-slate-400">
-                        {module.description}
-                      </p>
+                    return (
+                      <Link
+                        key={module.href}
+                        href={module.href}
+                        className="flex items-start gap-4 px-6 py-5 transition-all duration-200 hover:bg-slate-50"
+                      >
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
+                          <Icon size={18} />
+                        </div>
 
-                      <p className="mt-6 text-sm font-bold text-amber-400">
-                        Open Settings →
-                      </p>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-black text-slate-950">
+                            {module.title}
+                          </h3>
+
+                          <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-slate-500">
+                            {module.description}
+                          </p>
+                        </div>
+
+                        <div className="hidden h-10 items-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 sm:flex">
+                          Open
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
         </div>
       </main>
     </div>

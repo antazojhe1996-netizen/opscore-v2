@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 import { canAccessPage } from "@/app/lib/pageAccess";
 import {
@@ -95,7 +96,7 @@ export default function UserCredentialsPage() {
             "Unknown User",
         };
       } catch {
-        // continue fallback
+        // Continue fallback.
       }
     }
 
@@ -135,11 +136,35 @@ export default function UserCredentialsPage() {
     if (error) console.log("USER CREDENTIALS AUDIT ERROR:", error.message);
   };
 
+  const getBadgeClass = (
+    tone: "success" | "danger" | "warning" | "info" | "muted"
+  ) => {
+    if (tone === "success") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+
+    if (tone === "danger") {
+      return "border-red-200 bg-red-50 text-red-700";
+    }
+
+    if (tone === "warning") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+
+    if (tone === "info") {
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    }
+
+    return "border-slate-200 bg-slate-100 text-slate-700";
+  };
+
   /// LOADERS
   const getEmployees = async () => {
     const { data, error } = await supabase
       .from("employees")
-      .select("id, employee_no, first_name, last_name, email, department, position, employment_status")
+      .select(
+        "id, employee_no, first_name, last_name, email, department, position, employment_status"
+      )
       .order("department", { ascending: true })
       .order("first_name", { ascending: true });
 
@@ -168,7 +193,9 @@ export default function UserCredentialsPage() {
   const getUsers = async () => {
     const { data, error } = await supabase
       .from("system_users")
-      .select("id, auth_user_id, employee_id, username, company_id, is_active, must_change_password, last_login_at, created_at")
+      .select(
+        "id, auth_user_id, employee_id, username, company_id, is_active, must_change_password, last_login_at, created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -194,7 +221,12 @@ export default function UserCredentialsPage() {
 
   const refreshData = async () => {
     setLoading(true);
-    await Promise.all([getEmployees(), getRoles(), getUsers(), getCompanyUsers()]);
+    await Promise.all([
+      getEmployees(),
+      getRoles(),
+      getUsers(),
+      getCompanyUsers(),
+    ]);
     setLoading(false);
   };
 
@@ -219,13 +251,17 @@ export default function UserCredentialsPage() {
   }, []);
 
   /// CALCULATIONS
-  const selectedEmployee = employees.find((item) => item.id === selectedEmployeeId) || null;
+  const selectedEmployee =
+    employees.find((item) => item.id === selectedEmployeeId) || null;
+
   const selectedUser = selectedEmployee
     ? users.find((item) => item.employee_id === selectedEmployee.id) || null
     : null;
+
   const selectedCompanyUser = selectedUser
     ? companyUsers.find((item) => item.user_id === selectedUser.id) || null
     : null;
+
   const selectedRole = selectedCompanyUser?.role_id
     ? roles.find((item) => item.id === selectedCompanyUser.role_id) || null
     : null;
@@ -233,9 +269,11 @@ export default function UserCredentialsPage() {
   const employeesWithUsers = useMemo(() => {
     return employees.map((employee) => {
       const user = users.find((item) => item.employee_id === employee.id) || null;
+
       const companyUser = user
         ? companyUsers.find((item) => item.user_id === user.id) || null
         : null;
+
       const role = companyUser?.role_id
         ? roles.find((item) => item.id === companyUser.role_id) || null
         : null;
@@ -249,7 +287,11 @@ export default function UserCredentialsPage() {
 
     return employeesWithUsers.filter(({ employee, user, role }) => {
       const searchable = normalize(
-        `${employee.employee_no || ""} ${getEmployeeName(employee)} ${employee.department || ""} ${employee.position || ""} ${user?.username || ""} ${role?.role_name || ""}`,
+        `${employee.employee_no || ""} ${getEmployeeName(employee)} ${
+          employee.department || ""
+        } ${employee.position || ""} ${user?.username || ""} ${
+          role?.role_name || ""
+        }`
       );
 
       return searchable.includes(term);
@@ -258,11 +300,16 @@ export default function UserCredentialsPage() {
 
   const activeUserCount = users.filter((item) => item.is_active).length;
   const inactiveUserCount = users.filter((item) => !item.is_active).length;
+
   const noCredentialCount = employees.filter(
-    (employee) => !users.some((user) => user.employee_id === employee.id),
+    (employee) => !users.some((user) => user.employee_id === employee.id)
   ).length;
+
   const unlinkedAuthCount = users.filter((item) => !item.auth_user_id).length;
-  const mustChangeCount = users.filter((item) => item.must_change_password).length;
+
+  const mustChangeCount = users.filter(
+    (item) => item.must_change_password
+  ).length;
 
   /// ACTIONS
   const toggleUserStatus = async (user: SystemUser) => {
@@ -270,7 +317,9 @@ export default function UserCredentialsPage() {
     const newStatus = !user.is_active;
 
     const confirmed = confirm(
-      `${newStatus ? "Activate" : "Deactivate"} login access for ${getEmployeeName(employee)}?`,
+      `${newStatus ? "Activate" : "Deactivate"} login access for ${getEmployeeName(
+        employee
+      )}?`
     );
 
     if (!confirmed) return;
@@ -291,7 +340,9 @@ export default function UserCredentialsPage() {
 
     await createAuditLog({
       action: newStatus ? "ACTIVATE_USER_ACCESS" : "DEACTIVATE_USER_ACCESS",
-      description: `${newStatus ? "Activated" : "Deactivated"} login access for ${getEmployeeName(employee)}.`,
+      description: `${newStatus ? "Activated" : "Deactivated"} login access for ${getEmployeeName(
+        employee
+      )}.`,
       severity: "warning",
       recordId: user.id,
       oldValue: user,
@@ -308,7 +359,7 @@ export default function UserCredentialsPage() {
     const confirmed = confirm(
       nextValue
         ? `Require ${getEmployeeName(employee)} to change password on next login?`
-        : `Clear password-change requirement for ${getEmployeeName(employee)}?`,
+        : `Clear password-change requirement for ${getEmployeeName(employee)}?`
     );
 
     if (!confirmed) return;
@@ -328,8 +379,12 @@ export default function UserCredentialsPage() {
     }
 
     await createAuditLog({
-      action: nextValue ? "REQUIRE_PASSWORD_CHANGE" : "CLEAR_PASSWORD_CHANGE_REQUIREMENT",
-      description: `${nextValue ? "Required" : "Cleared"} password-change flag for ${getEmployeeName(employee)}.`,
+      action: nextValue
+        ? "REQUIRE_PASSWORD_CHANGE"
+        : "CLEAR_PASSWORD_CHANGE_REQUIREMENT",
+      description: `${nextValue ? "Required" : "Cleared"} password-change flag for ${getEmployeeName(
+        employee
+      )}.`,
       severity: "warning",
       recordId: user.id,
       oldValue: user,
@@ -346,11 +401,24 @@ export default function UserCredentialsPage() {
   /// UI GUARDS
   if (checkingAccess) {
     return (
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
         <Sidebar />
-        <main className="flex flex-1 items-center justify-center p-8">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-sm text-slate-300">
-            Checking page access...
+
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="SYSTEM SECURITY / USER CREDENTIALS" />
+
+          <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                Security
+              </p>
+              <h1 className="mt-2 text-xl font-black text-slate-950">
+                Checking page access...
+              </h1>
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                Please wait while OPSCORE validates your permission.
+              </p>
+            </div>
           </div>
         </main>
       </div>
@@ -359,224 +427,370 @@ export default function UserCredentialsPage() {
 
   if (!hasPageAccess) {
     return (
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
         <Sidebar />
-        <main className="flex flex-1 items-center justify-center p-8">
-          <div className="max-w-md rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
-            <Lock className="mx-auto text-red-300" size={36} />
-            <h1 className="mt-4 text-2xl font-black text-red-200">Access Denied</h1>
-            <p className="mt-2 text-sm text-red-100/80">{accessMessage}</p>
+
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="SYSTEM SECURITY / USER CREDENTIALS" />
+
+          <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <div className="max-w-md rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-red-200 bg-red-50 text-red-700">
+                <Lock size={26} />
+              </div>
+              <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.24em] text-red-700">
+                Access Denied
+              </p>
+              <h1 className="mt-2 text-xl font-black text-slate-950">
+                You cannot access this page.
+              </h1>
+              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                {accessMessage}
+              </p>
+            </div>
           </div>
         </main>
       </div>
     );
   }
 
+  /// UI
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-400">
-              System Security
-            </p>
-            <h1 className="mt-2 text-4xl font-black">User Credentials</h1>
-            <p className="mt-2 max-w-4xl text-sm text-slate-400">
-              Manage OPSCORE account access. Passwords are handled securely by Supabase Auth; this page only controls OPSCORE access flags and user linkage.
-            </p>
-          </div>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="SYSTEM SECURITY / USER CREDENTIALS" />
 
-          <button
-            onClick={refreshData}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 hover:bg-slate-900 disabled:opacity-50"
-          >
-            <RefreshCcw size={16} />
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-5">
-          <SummaryCard icon={<Users size={22} />} title="Employees" value={employees.length} />
-          <SummaryCard icon={<UserCheck size={22} />} title="Active Users" value={activeUserCount} />
-          <SummaryCard icon={<ShieldCheck size={22} />} title="Inactive Users" value={inactiveUserCount} />
-          <SummaryCard icon={<KeyRound size={22} />} title="No OPSCORE User" value={noCredentialCount} />
-          <SummaryCard icon={<AlertTriangle size={22} />} title="Unlinked Auth" value={unlinkedAuthCount} danger={unlinkedAuthCount > 0} />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-bold">Selected Account</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Select an employee from the list to review their OPSCORE access.
-            </p>
-
-            <div className="mt-5 space-y-4">
-              <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Employee</p>
-                <h3 className="mt-2 text-lg font-black text-white">
-                  {selectedEmployee ? getEmployeeName(selectedEmployee) : "None selected"}
-                </h3>
-                {selectedEmployee && (
-                  <p className="mt-1 text-sm text-slate-400">
-                    {selectedEmployee.department || "No Dept"} • {selectedEmployee.position || "No Position"}
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
-                <Row label="Username" value={selectedUser?.username || "No OPSCORE user"} />
-                <Row label="Auth Link" value={selectedUser?.auth_user_id ? "Linked" : "Not linked"} danger={!selectedUser?.auth_user_id} />
-                <Row label="Role" value={selectedRole?.role_name || "No role assigned"} danger={!selectedRole} />
-                <Row label="Status" value={selectedUser ? (selectedUser.is_active ? "Active" : "Inactive") : "Not created"} danger={selectedUser ? !selectedUser.is_active : true} />
-                <Row label="Must Change Password" value={selectedUser?.must_change_password ? "Yes" : "No"} danger={Boolean(selectedUser?.must_change_password)} />
-                <Row label="Last Login" value={selectedUser?.last_login_at ? new Date(selectedUser.last_login_at).toLocaleString("en-PH") : "Never"} />
-              </div>
-
-              <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-xs leading-6 text-amber-100">
-                <p className="font-black">Password reset note</p>
-                <p className="mt-1">
-                  Do not store or reset passwords in system_users. Use Supabase Authentication to create/reset Auth users, then link auth_user_id to system_users.
-                </p>
-              </div>
-
-              <button
-                onClick={() => selectedUser && toggleUserStatus(selectedUser)}
-                disabled={!selectedUser || saving}
-                className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black disabled:opacity-50 ${
-                  selectedUser?.is_active
-                    ? "bg-red-500/10 text-red-300 hover:bg-red-500/20"
-                    : "bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
-                }`}
-              >
-                {selectedUser?.is_active ? "Deactivate Access" : "Activate Access"}
-              </button>
-
-              <button
-                onClick={() => selectedUser && toggleMustChangePassword(selectedUser)}
-                disabled={!selectedUser || saving}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-3 text-sm font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-              >
-                {selectedUser?.must_change_password
-                  ? "Clear Password Change Requirement"
-                  : "Require Password Change"}
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-            <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Credential List</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Click an employee row to review or update their access flags.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-                <Search size={17} className="text-slate-500" />
-                <input
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search employee, username, role..."
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-600 xl:w-80"
-                />
-              </div>
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                System Security
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                User Credentials
+              </h1>
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                Manage OPSCORE account access. Passwords are handled securely by
+                Supabase Auth; this page controls OPSCORE access flags and user
+                linkage.
+              </p>
             </div>
 
-            <div className="overflow-auto rounded-xl border border-slate-800">
-              <table className="w-full min-w-[1050px] text-sm">
-                <thead className="bg-slate-950 text-left text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Employee</th>
-                    <th className="px-4 py-3">Department</th>
-                    <th className="px-4 py-3">Role</th>
-                    <th className="px-4 py-3">Username</th>
-                    <th className="px-4 py-3">Auth</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Password Flag</th>
-                    <th className="px-4 py-3">Last Login</th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredEmployees.map(({ employee, user, role }) => (
-                    <tr key={employee.id} className="border-t border-slate-800 hover:bg-slate-800/30">
-                      <td className="px-4 py-3">
-                        <button onClick={() => quickSelectEmployee(employee)} className="text-left">
-                          <p className="font-black text-white">{getEmployeeName(employee)}</p>
-                          <p className="text-xs text-slate-500">{employee.employee_no || "No employee no"}</p>
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">
-                        {employee.department || "-"}
-                        <p className="text-xs text-slate-500">{employee.position || "No position"}</p>
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">{role?.role_name || "No Access"}</td>
-                      <td className="px-4 py-3 font-bold text-amber-300">
-                        {user?.username || "No OPSCORE user"}
-                      </td>
-                      <td className="px-4 py-3">
-                        {user?.auth_user_id ? (
-                          <Badge label="Linked" tone="success" />
-                        ) : (
-                          <Badge label="Not linked" tone="danger" />
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {user ? (
-                          <Badge label={user.is_active ? "Active" : "Inactive"} tone={user.is_active ? "success" : "danger"} />
-                        ) : (
-                          <Badge label="Not Created" tone="muted" />
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {user?.must_change_password ? (
-                          <Badge label="Required" tone="warning" />
-                        ) : (
-                          <Badge label="Clear" tone="muted" />
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {user?.last_login_at
-                          ? new Date(user.last_login_at).toLocaleString("en-PH")
-                          : "Never"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => quickSelectEmployee(employee)}
-                          className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-black text-slate-950 hover:bg-amber-300"
-                        >
-                          Review
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filteredEmployees.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
-                        No employees found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        {mustChangeCount > 0 && (
-          <section className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 text-sm text-yellow-100">
-            <p className="font-black text-yellow-300">Password Change Required</p>
-            <p className="mt-1">
-              {mustChangeCount} account(s) will be forced to change their password on next login.
-            </p>
+            <button
+              onClick={refreshData}
+              disabled={loading}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCcw size={16} />
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
           </section>
-        )}
+
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <SummaryCard
+              icon={<Users size={20} />}
+              title="Employees"
+              value={employees.length}
+            />
+            <SummaryCard
+              icon={<UserCheck size={20} />}
+              title="Active Users"
+              value={activeUserCount}
+            />
+            <SummaryCard
+              icon={<ShieldCheck size={20} />}
+              title="Inactive Users"
+              value={inactiveUserCount}
+            />
+            <SummaryCard
+              icon={<KeyRound size={20} />}
+              title="No OPSCORE User"
+              value={noCredentialCount}
+            />
+            <SummaryCard
+              icon={<AlertTriangle size={20} />}
+              title="Unlinked Auth"
+              value={unlinkedAuthCount}
+              tone={unlinkedAuthCount > 0 ? "danger" : "default"}
+            />
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <aside className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 p-6">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Account Review
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Selected Account
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Select an employee from the list to review their OPSCORE
+                  access.
+                </p>
+              </div>
+
+              <div className="space-y-4 p-6">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Employee
+                  </p>
+                  <h3 className="mt-2 text-xl font-black text-slate-950">
+                    {selectedEmployee
+                      ? getEmployeeName(selectedEmployee)
+                      : "None selected"}
+                  </h3>
+
+                  {selectedEmployee && (
+                    <p className="mt-1 text-sm font-semibold text-slate-600">
+                      {selectedEmployee.department || "No Dept"} •{" "}
+                      {selectedEmployee.position || "No Position"}
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                  <Row
+                    label="Username"
+                    value={selectedUser?.username || "No OPSCORE user"}
+                  />
+                  <Row
+                    label="Auth Link"
+                    value={selectedUser?.auth_user_id ? "Linked" : "Not linked"}
+                    danger={!selectedUser?.auth_user_id}
+                  />
+                  <Row
+                    label="Role"
+                    value={selectedRole?.role_name || "No role assigned"}
+                    danger={!selectedRole}
+                  />
+                  <Row
+                    label="Status"
+                    value={
+                      selectedUser
+                        ? selectedUser.is_active
+                          ? "Active"
+                          : "Inactive"
+                        : "Not created"
+                    }
+                    danger={selectedUser ? !selectedUser.is_active : true}
+                  />
+                  <Row
+                    label="Must Change Password"
+                    value={selectedUser?.must_change_password ? "Yes" : "No"}
+                    danger={Boolean(selectedUser?.must_change_password)}
+                  />
+                  <Row
+                    label="Last Login"
+                    value={
+                      selectedUser?.last_login_at
+                        ? new Date(selectedUser.last_login_at).toLocaleString(
+                            "en-PH"
+                          )
+                        : "Never"
+                    }
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
+                    Password Reset Note
+                  </p>
+                  <p className="mt-2 text-sm font-bold leading-6 text-blue-700">
+                    Do not store or reset passwords in system_users. Use
+                    Supabase Authentication to create/reset Auth users, then
+                    link auth_user_id to system_users.
+                  </p>
+                </div>
+
+                <div className="space-y-3 border-t border-slate-100 pt-4">
+                  <button
+                    onClick={() => selectedUser && toggleUserStatus(selectedUser)}
+                    disabled={!selectedUser || saving}
+                    className={
+                      selectedUser?.is_active
+                        ? "h-11 w-full rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                        : "h-11 w-full rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    }
+                  >
+                    {selectedUser?.is_active
+                      ? "Deactivate Access"
+                      : "Activate Access"}
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      selectedUser && toggleMustChangePassword(selectedUser)
+                    }
+                    disabled={!selectedUser || saving}
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {selectedUser?.must_change_password
+                      ? "Clear Password Change Requirement"
+                      : "Require Password Change"}
+                  </button>
+                </div>
+              </div>
+            </aside>
+
+            <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Credential Registry
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-slate-950">
+                      Credential List
+                    </h2>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                      Click an employee row to review or update their access
+                      flags.
+                    </p>
+                  </div>
+
+                  <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-slate-500 transition-all duration-200 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
+                    <Search size={17} />
+                    <input
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Search employee, username, role..."
+                      className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400 xl:w-80"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-auto">
+                <table className="w-full min-w-[1050px]">
+                  <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-6 py-4">Employee</th>
+                      <th className="px-6 py-4">Department</th>
+                      <th className="px-6 py-4">Role</th>
+                      <th className="px-6 py-4">Username</th>
+                      <th className="px-6 py-4">Auth</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Password Flag</th>
+                      <th className="px-6 py-4">Last Login</th>
+                      <th className="px-6 py-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                    {filteredEmployees.map(({ employee, user, role }) => (
+                      <tr
+                        key={employee.id}
+                        className="transition-all duration-200 hover:bg-slate-50"
+                      >
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => quickSelectEmployee(employee)}
+                            className="text-left"
+                          >
+                            <p className="font-black text-slate-950">
+                              {getEmployeeName(employee)}
+                            </p>
+                            <p className="mt-1 text-xs font-bold text-slate-500">
+                              {employee.employee_no || "No employee no"}
+                            </p>
+                          </button>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          {employee.department || "-"}
+                          <p className="mt-1 text-xs font-bold text-slate-500">
+                            {employee.position || "No position"}
+                          </p>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          {role?.role_name || "No Access"}
+                        </td>
+
+                        <td className="px-6 py-4 font-black text-slate-950">
+                          {user?.username || "No OPSCORE user"}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          {user?.auth_user_id ? (
+                            <Badge label="Linked" tone="success" />
+                          ) : (
+                            <Badge label="Not linked" tone="danger" />
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          {user ? (
+                            <Badge
+                              label={user.is_active ? "Active" : "Inactive"}
+                              tone={user.is_active ? "success" : "danger"}
+                            />
+                          ) : (
+                            <Badge label="Not Created" tone="muted" />
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          {user?.must_change_password ? (
+                            <Badge label="Required" tone="warning" />
+                          ) : (
+                            <Badge label="Clear" tone="muted" />
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          {user?.last_login_at
+                            ? new Date(user.last_login_at).toLocaleString(
+                                "en-PH"
+                              )
+                            : "Never"}
+                        </td>
+
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => quickSelectEmployee(employee)}
+                            className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                          >
+                            Review
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {filteredEmployees.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="px-6 py-14 text-center">
+                          <h3 className="text-sm font-black text-slate-950">
+                            No employees found.
+                          </h3>
+                          <p className="mt-2 text-sm font-medium text-slate-500">
+                            Try adjusting the search keyword or refresh the
+                            records.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          {mustChangeCount > 0 && (
+            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm font-bold text-amber-700">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em]">
+                Password Change Required
+              </p>
+              <p className="mt-2">
+                {mustChangeCount} account(s) will be forced to change their
+                password on next login.
+              </p>
+            </section>
+          )}
+        </div>
       </main>
     </div>
   );
@@ -586,20 +800,32 @@ function SummaryCard({
   icon,
   title,
   value,
-  danger = false,
+  tone = "default",
 }: {
   icon: any;
   title: string;
   value: any;
-  danger?: boolean;
+  tone?: "default" | "danger";
 }) {
   return (
-    <div className={`rounded-2xl border p-6 ${danger ? "border-red-500/30 bg-red-500/10" : "border-slate-800 bg-slate-900"}`}>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-3">
-        <div className={`rounded-full p-3 ${danger ? "bg-red-500/10 text-red-300" : "bg-slate-800 text-amber-400"}`}>{icon}</div>
-        <p className="text-sm text-slate-400">{title}</p>
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
+            tone === "danger"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          {icon}
+        </div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          {title}
+        </p>
       </div>
-      <h2 className="text-2xl font-black">{value}</h2>
+      <h2 className="text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </h2>
     </div>
   );
 }
@@ -614,24 +840,40 @@ function Row({
   danger?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-800 py-2 last:border-b-0">
-      <span className="text-slate-500">{label}</span>
-      <span className={`max-w-[220px] truncate text-right font-bold ${danger ? "text-red-300" : "text-slate-200"}`}>
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 last:border-b-0">
+      <span className="text-sm font-bold text-slate-500">{label}</span>
+      <span
+        className={`max-w-[220px] truncate text-right text-sm font-black ${
+          danger ? "text-red-700" : "text-slate-950"
+        }`}
+      >
         {value}
       </span>
     </div>
   );
 }
 
-function Badge({ label, tone }: { label: string; tone: "success" | "danger" | "warning" | "muted" }) {
+function Badge({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "success" | "danger" | "warning" | "muted";
+}) {
   const className =
     tone === "success"
-      ? "bg-emerald-500/10 text-emerald-400"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : tone === "danger"
-      ? "bg-red-500/10 text-red-400"
+      ? "border-red-200 bg-red-50 text-red-700"
       : tone === "warning"
-      ? "bg-yellow-500/10 text-yellow-300"
-      : "bg-slate-800 text-slate-400";
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-slate-200 bg-slate-100 text-slate-700";
 
-  return <span className={`rounded-full px-3 py-1 text-xs font-black ${className}`}>{label}</span>;
+  return (
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${className}`}
+    >
+      {label}
+    </span>
+  );
 }

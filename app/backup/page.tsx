@@ -1,6 +1,7 @@
 "use client";
 
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import {
@@ -260,7 +261,11 @@ const objectToCsv = (rows: any[]) => {
   return csvRows.join("\n");
 };
 
-const downloadTextFile = (content: string, fileName: string, mimeType: string) => {
+const downloadTextFile = (
+  content: string,
+  fileName: string,
+  mimeType: string
+) => {
   const blob = new Blob([content], {
     type: `${mimeType};charset=utf-8;`,
   });
@@ -291,7 +296,7 @@ const createAuditLog = async ({
 }) => {
   try {
     await supabase.from("audit_logs").insert({
-      module: "Backup Center", // V1 Hardening Complete
+      module: "Backup Center",
       action,
       description,
       severity,
@@ -516,111 +521,144 @@ const exportFullBackup = async () => {
 export default function BackupPage() {
   return (
     <PageGuard moduleKey="backup_restore">
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
         <Sidebar />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-400">
-              System Safety
-            </p>
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="SYSTEM SAFETY / BACKUP CENTER" />
 
-            <h1 className="mt-2 text-4xl font-black">Backup Center</h1>
-
-            <p className="mt-2 max-w-4xl text-sm text-slate-400">
-              Export important OPSCORE data before payroll testing, imports, deployment,
-              database edits, or major system changes.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4">
-            <div className="flex items-center gap-2 text-emerald-300">
-              <ShieldCheck size={18} />
-              <span className="font-black">Backup Ready</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-8 grid grid-cols-1 gap-5 xl:grid-cols-3">
-          <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 xl:col-span-2">
-            <p className="font-black text-yellow-300">Recommended</p>
-            <p className="mt-1 text-sm leading-6 text-yellow-100/80">
-              Export a full OPSCORE backup before employee testing, payroll generation,
-              attendance import, SQL migrations, deployment, or major edits.
-            </p>
-          </div>
-
-          <button
-            onClick={exportFullBackup}
-            className="flex items-center justify-center gap-3 rounded-2xl border border-emerald-500 bg-emerald-500 px-5 py-5 text-sm font-black text-slate-950 transition hover:bg-emerald-400"
-          >
-            <FileArchive size={22} />
-            Export Full OPSCORE Backup
-          </button>
-        </section>
-
-        <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {backupGroups.map((group) => {
-            const Icon = group.icon;
-
-            return (
-              <button
-                key={group.group}
-                onClick={() => exportBackupGroup(group.group as BackupItem["group"])}
-                className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition hover:border-emerald-500 hover:bg-slate-800/70"
-              >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-                  <Icon size={24} />
-                </div>
-
-                <h3 className="text-lg font-black">{group.title} Backup</h3>
-
-                <p className="mt-2 text-sm text-slate-400">
-                  Export all {group.title.toLowerCase()} related tables as one JSON backup file.
+          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <section className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  System Safety
                 </p>
-              </button>
-            );
-          })}
-        </section>
 
-        <section className="space-y-8">
-          {backupGroups.map((group) => {
-            const items = backupItems.filter((item) => item.group === group.group);
-            const Icon = group.icon;
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  Backup Center
+                </h1>
 
-            return (
-              <section
-                key={group.group}
-                className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6"
+                <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                  Export important OPSCORE data before payroll testing, imports,
+                  deployment, database edits, or major system changes.
+                </p>
+              </div>
+
+              <button
+                onClick={exportFullBackup}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
               >
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-full bg-slate-800 p-3 text-emerald-400">
-                    <Icon size={22} />
-                  </div>
+                <FileArchive size={17} />
+                Export Full OPSCORE Backup
+              </button>
+            </section>
 
-                  <div>
-                    <h2 className="text-2xl font-black">{group.title}</h2>
-                    <p className="text-sm text-slate-400">
-                      Individual CSV exports for {group.title.toLowerCase()} tables.
-                    </p>
-                  </div>
-                </div>
+            <section className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm font-bold leading-6 text-amber-700">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em]">
+                Recommended
+              </p>
+              <p className="mt-2">
+                Export a full OPSCORE backup before employee testing, payroll
+                generation, attendance import, SQL migrations, deployment, or
+                major edits.
+              </p>
+            </section>
 
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {items.map((item) => (
-                    <BackupCard
-                      key={item.table}
-                      title={item.title}
-                      description={item.description}
-                      onClick={() => exportTable(item.table, item.fileName)}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </section>
+            <section className="mb-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Backup Groups
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Group Backup Actions
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Export full module groups as JSON backup files.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
+                {backupGroups.map((group) => {
+                  const Icon = group.icon;
+
+                  return (
+                    <button
+                      key={group.group}
+                      onClick={() =>
+                        exportBackupGroup(group.group as BackupItem["group"])
+                      }
+                      className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md active:scale-[0.98]"
+                    >
+                      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
+                        <Icon size={19} />
+                      </div>
+
+                      <h3 className="text-sm font-black text-slate-950">
+                        {group.title} Backup
+                      </h3>
+
+                      <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                        Export all {group.title.toLowerCase()} related tables
+                        as one JSON backup file.
+                      </p>
+
+                      <p className="mt-4 inline-flex h-10 items-center rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold uppercase tracking-[0.16em] text-slate-700">
+                        Export Group
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="space-y-6">
+              {backupGroups.map((group) => {
+                const items = backupItems.filter(
+                  (item) => item.group === group.group
+                );
+
+                const Icon = group.icon;
+
+                return (
+                  <section
+                    key={group.group}
+                    className="rounded-3xl border border-slate-200 bg-white shadow-sm"
+                  >
+                    <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
+                        <Icon size={19} />
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                          Individual CSV Exports
+                        </p>
+                        <h2 className="mt-2 text-xl font-black text-slate-950">
+                          {group.title}
+                        </h2>
+                        <p className="mt-1 text-sm font-medium text-slate-500">
+                          Individual CSV exports for{" "}
+                          {group.title.toLowerCase()} tables.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-slate-100">
+                      {items.map((item) => (
+                        <BackupRow
+                          key={item.table}
+                          title={item.title}
+                          description={item.description}
+                          table={item.table}
+                          onClick={() => exportTable(item.table, item.fileName)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </section>
+          </div>
         </main>
       </div>
     </PageGuard>
@@ -628,27 +666,39 @@ export default function BackupPage() {
 }
 
 /// HELPER COMPONENTS
-function BackupCard({
+function BackupRow({
   title,
   description,
+  table,
   onClick,
 }: {
   title: string;
   description: string;
+  table: string;
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition hover:border-emerald-500 hover:bg-slate-800/70"
-    >
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-        <Download size={24} />
+    <div className="flex flex-col gap-4 px-6 py-5 transition-all duration-200 hover:bg-slate-50 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-sm font-black text-slate-950">{title}</h3>
+          <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+            {table}
+          </span>
+        </div>
+
+        <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-500">
+          {description}
+        </p>
       </div>
 
-      <h3 className="text-lg font-black">{title}</h3>
-
-      <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
-    </button>
+      <button
+        onClick={onClick}
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+      >
+        <Download size={16} />
+        Export CSV
+      </button>
+    </div>
   );
 }

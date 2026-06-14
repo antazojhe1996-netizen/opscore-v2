@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 
 export default function ForecastingPage() {
@@ -101,6 +102,15 @@ export default function ForecastingPage() {
     setForecastingRules(data?.setting_data || null);
   };
 
+  const refreshForecasting = () => {
+    getOccupancyData();
+    getRoomSales();
+    getSchedules();
+    getEventAddons();
+    loadHCRules();
+    loadForecastingRules();
+  };
+
   const getEventForDate = (date: string) => {
     return eventAddons.find(
       (event) => String(event.event_date) === String(date)
@@ -167,13 +177,12 @@ export default function ForecastingPage() {
   const isWorkingScheduleShift = (shift: any) => {
     const normalized = String(shift || "").trim().toUpperCase();
 
-    // Missing row/value is not scheduled.
-    // OFF and RD are valid rest days, not working manpower.
-    // LEAVE is also not counted as scheduled HC.
-    return Boolean(normalized) &&
+    return (
+      Boolean(normalized) &&
       normalized !== "OFF" &&
       normalized !== "RD" &&
-      normalized !== "LEAVE";
+      normalized !== "LEAVE"
+    );
   };
 
   const getScheduledHC = (date: string) => {
@@ -206,38 +215,39 @@ export default function ForecastingPage() {
     return "Normal";
   };
 
-  const statusBadge = (status: string) => {
-    if (status === "Low Staff" || status === "High Risk" || status === "High") {
-      return "border-red-500/30 bg-red-500/20 text-red-400";
+  const getBadgeClass = (status: string) => {
+    if (
+      status === "Low Staff" ||
+      status === "High Risk" ||
+      status === "High"
+    ) {
+      return "border-red-200 bg-red-50 text-red-700";
     }
 
-    if (status === "Over Staff" || status === "Normal") {
-      return "border-yellow-500/30 bg-yellow-500/20 text-yellow-400";
+    if (
+      status === "Over Staff" ||
+      status === "Overstaff Risk" ||
+      status === "Normal"
+    ) {
+      return "border-amber-200 bg-amber-50 text-amber-700";
     }
 
-    return "border-green-500/30 bg-green-500/20 text-green-400";
+    if (status === "Low" || status === "Very Low") {
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    }
+
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
   };
 
-  const demandBadge = (status: string) => {
-    if (status === "High") {
-      return "border-green-500/30 bg-green-500/20 text-green-400";
-    }
-
-    if (status === "Normal") {
-      return "border-yellow-500/30 bg-yellow-500/20 text-yellow-400";
-    }
-
-    return "border-red-500/30 bg-red-500/20 text-red-400";
+  const getGapClass = (gap: number) => {
+    if (gap < 0) return "text-red-700";
+    if (gap > 0) return "text-amber-700";
+    return "text-emerald-700";
   };
 
   /// EFFECTS
   useEffect(() => {
-    getOccupancyData();
-    getRoomSales();
-    getSchedules();
-    getEventAddons();
-    loadHCRules();
-    loadForecastingRules();
+    refreshForecasting();
   }, []);
 
   /// CALCULATIONS
@@ -259,7 +269,10 @@ export default function ForecastingPage() {
     });
 
     const grouped = activeRoomSales.reduce((acc: Record<string, any>, row) => {
-      const date = String(row.check_in || row.arrival_date || row.created_at || "").slice(0, 10);
+      const date = String(
+        row.check_in || row.arrival_date || row.created_at || ""
+      ).slice(0, 10);
+
       if (!date) return acc;
 
       if (!acc[date]) {
@@ -274,17 +287,20 @@ export default function ForecastingPage() {
       }
 
       acc[date].rooms_sold += 1;
-      acc[date].available_rooms = Math.max(TOTAL_ROOMS - acc[date].rooms_sold, 0);
+      acc[date].available_rooms = Math.max(
+        TOTAL_ROOMS - acc[date].rooms_sold,
+        0
+      );
       acc[date].occupancy = Math.min(
         Math.round((acc[date].rooms_sold / TOTAL_ROOMS) * 100),
-        100,
+        100
       );
 
       return acc;
     }, {});
 
     return Object.values(grouped).sort((a: any, b: any) =>
-      String(a.business_date).localeCompare(String(b.business_date)),
+      String(a.business_date).localeCompare(String(b.business_date))
     );
   }, [roomSales]);
 
@@ -316,13 +332,7 @@ export default function ForecastingPage() {
         staffing_status: staffingStatus,
       };
     });
-  }, [
-    forecastInputData,
-    schedules,
-    eventAddons,
-    hcRules,
-    forecastingRules,
-  ]);
+  }, [forecastInputData, schedules, eventAddons, hcRules, forecastingRules]);
 
   const rangedData = forecastData.slice(0, Number(viewRange));
 
@@ -333,6 +343,10 @@ export default function ForecastingPage() {
 
   const criticalDays = rangedData.filter(
     (day) => day.staffing_status === "Low Staff"
+  );
+
+  const overStaffDays = rangedData.filter(
+    (day) => day.staffing_status === "Over Staff"
   );
 
   const totalEventPax = eventAddons.reduce(
@@ -367,292 +381,444 @@ export default function ForecastingPage() {
       ? "Overstaff Risk"
       : "Normal";
 
+  const dataQualityAlerts = [
+    !hcRules ? "HC rules are not configured." : "",
+    schedules.length === 0 ? "No schedules loaded for comparison." : "",
+    forecastInputData.length === 0 ? "No occupancy or room sales forecast data." : "",
+  ].filter(Boolean);
+
   /// UI
   return (
-  <div className="flex min-h-screen bg-slate-950 text-white">
-    <Sidebar />
+    <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+      <Sidebar />
 
-    <main className="flex-1 p-6">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Forecasting</h1>
-          <p className="text-sm text-slate-400">
-            View future demand from room occupancy, staffing risk, and occasional events.
-          </p>
-        </div>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+        <TopNavbar breadcrumb="WORKFORCE / FORECASTING" />
 
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/forecasting/occupancy-import"
-            className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-yellow-300"
-          >
-            Import Room Occupancy
-          </Link>
-
-          <Link
-            href="/forecasting/event-addons"
-            className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:border-yellow-400 hover:bg-slate-800"
-          >
-            Event Add-ons
-          </Link>
-
-          <button
-            onClick={() => setShowAlertPanel(true)}
-            className="rounded-xl border border-red-500/40 bg-red-500/20 px-5 py-3 text-sm font-bold text-red-300 hover:bg-red-500/30"
-          >
-            View Alerts
-          </button>
-        </div>
-      </div>
-
-      <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5">
-          <p className="text-sm text-yellow-300">Peak Room Occupancy Day</p>
-          <h2 className="mt-2 text-2xl font-bold">
-            {peakDemandDay?.business_date || "No data"}
-          </h2>
-          <p className="mt-1 text-xs text-yellow-300">
-            {peakDemandDay?.occupancy || 0}% room occupancy
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-5">
-          <p className="text-sm text-green-300">Upcoming Events</p>
-          <h2 className="mt-2 text-3xl font-bold">{eventAddons.length}</h2>
-          <p className="mt-1 text-xs text-green-300">
-            {totalEventPax} total pax
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5">
-          <p className="text-sm text-red-300">Staff Alerts</p>
-          <h2 className="mt-2 text-3xl font-bold">{criticalDays.length}</h2>
-          <p className="mt-1 text-xs text-red-300">Need manpower review</p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Labor Risk</p>
-          <h2 className="mt-2 text-3xl font-bold">{laborRisk}</h2>
-        </div>
-      </section>
-
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <label className="mb-2 block text-sm text-slate-400">View Range</label>
-            <select
-              value={viewRange}
-              onChange={(e) => setViewRange(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-            >
-              <option value="7">Next 7 Days</option>
-              <option value="14">Next 14 Days</option>
-              <option value="30">Next 30 Days</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm text-slate-400">Staffing Risk</label>
-            <select
-              value={riskFilter}
-              onChange={(e) => setRiskFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none"
-            >
-              <option value="All">All</option>
-              <option value="Low Staff">Low Staff</option>
-              <option value="Normal">Normal</option>
-              <option value="Over Staff">Over Staff</option>
-            </select>
-          </div>
-
-          <div className="xl:col-span-2">
-            <p className="mb-2 text-sm text-slate-400">Forecast Summary</p>
-            <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-              Main demand uses imported occupancy data. If occupancy import is empty, OPSCORE falls back to Room Sales reservations for demo forecasting. Events are added when encoded.
+        <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                Workforce
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                Forecasting
+              </h1>
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                View future room demand, event load, staffing coverage, and
+                manpower risk using occupancy, room sales, schedules, and HC
+                rules.
+              </p>
             </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold">Room Occupancy Demand Forecast</h2>
-          <p className="text-sm text-slate-400">
-            Future demand based on occupancy import, with Room Sales fallback when occupancy data is empty. Event data appears when available.
-          </p>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-            <tr className="border-b border-slate-800 text-left text-slate-400">
-            <th className="py-3 pr-4">Date</th>
-            <th className="py-3 pr-4">Room Occupancy</th>
-            <th className="py-3 pr-4">Rooms Sold</th>
-            <th className="py-3 pr-4">Available Rooms</th>
-            <th className="py-3 pr-4">Required HC</th>
-            <th className="py-3 pr-4">Scheduled HC</th>
-            <th className="py-3 pr-4">Gap</th>
-            <th className="w-[220px] py-3 pr-6">Event</th>
-            <th className="w-[90px] py-3 pr-6">Pax</th>
-            <th className="py-3 pr-4">Demand</th>
-            <th className="py-3 pr-4">Staffing Risk</th>
-          </tr>
-                      </thead>
-
-            <tbody>
-              {filteredData.map((day) => (
-                <tr
-            key={day.id}
-            className="border-b border-slate-800/70 text-slate-200 hover:bg-slate-800/30"
-          >
-            <td className="py-3 pr-4">{day.business_date}</td>
-            <td className="py-3 pr-4 font-semibold">{day.occupancy}%</td>
-            <td className="py-3 pr-4">{day.rooms_sold}</td>
-            <td className="py-3 pr-4">{day.available_rooms}</td>
-            <td className="py-3 pr-4">{day.required_hc}</td>
-            <td className="py-3 pr-4">{day.scheduled_hc}</td>
-            <td className={day.gap < 0 ? "py-3 pr-4 font-black text-red-400" : day.gap > 0 ? "py-3 pr-4 font-black text-yellow-400" : "py-3 pr-4 font-black text-green-400"}>
-              {day.gap > 0 ? `+${day.gap}` : day.gap}
-            </td>
-
-            <td className="w-[220px] py-3 pr-6 text-slate-300">
-          {day.event_name || "-"}
-        </td>
-
-            <td className="w-[90px] py-3 pr-6">
-              {day.expected_pax || "-"}
-            </td>
-
-            <td className="py-3 pr-4">
-              <span
-                className={`rounded-full border px-3 py-1 text-xs font-semibold ${demandBadge(
-                  day.demand_status
-                )}`}
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/forecasting/occupancy-import"
+                className="h-11 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
               >
-                {day.demand_status}
-              </span>
-            </td>
+                Import Occupancy
+              </Link>
 
-            <td className="py-3 pr-4">
-              <span
-                className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadge(
-                  day.staffing_status
-                )}`}
+              <Link
+                href="/forecasting/event-addons"
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
-                {day.staffing_status}
-              </span>
-            </td>
-          </tr>
-              ))}
-
-              {filteredData.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="py-8 text-center text-slate-500">
-                    No forecast data found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {showAlertPanel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
-          <div className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Forecast Alerts</h2>
-                <p className="text-sm text-slate-400">
-                  Review upcoming events and staffing risks.
-                </p>
-              </div>
+                Event Add-ons
+              </Link>
 
               <button
-                onClick={() => setShowAlertPanel(false)}
-                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold hover:bg-slate-700"
+                onClick={() => setShowAlertPanel(true)}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
-                Close
+                View Alerts
               </button>
             </div>
+          </div>
 
-            <div className="space-y-4">
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-                <h3 className="mb-3 font-bold text-red-400">Staffing Alerts</h3>
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Peak Demand
+              </p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                {peakDemandDay?.business_date || "No data"}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                {peakDemandDay?.occupancy || 0}% room occupancy
+              </p>
+            </div>
 
-                <div className="space-y-2">
-                  {criticalDays.length > 0 ? (
-                    criticalDays.map((day) => (
-                      <div
-                        key={day.id}
-                        className="rounded-lg bg-slate-900 p-3"
-                      >
-                        <div className="flex justify-between">
-                          <span className="font-semibold">
-                            {day.business_date}
-                          </span>
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Upcoming Events
+              </p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                {eventAddons.length}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                {totalEventPax} total pax
+              </p>
+            </div>
 
-                          <span className="font-bold text-red-400">
-                            Gap {day.gap}
-                          </span>
-                        </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Staff Alerts
+              </p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                {criticalDays.length}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Need manpower review
+              </p>
+            </div>
 
-                        <div className="mt-1 text-sm text-slate-300">
-                          Required HC: {day.required_hc}
-                        </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Labor Risk
+              </p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                {laborRisk}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Net gap: {totalGap > 0 ? `+${totalGap}` : totalGap}
+              </p>
+            </div>
+          </section>
 
-                        <div className="text-sm text-slate-300">
-                          Scheduled HC: {day.scheduled_hc}
-                        </div>
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-6">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Forecast Controls
+              </p>
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Filters and Source Status
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Current source: {forecastSourceLabel}
+              </p>
+            </div>
 
-                        <div className="text-sm text-red-400">
-                          {day.staffing_status}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-400">
-                      No staffing alerts.
-                    </p>
-                  )}
-                </div>
+            <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  View Range
+                </label>
+                <select
+                  value={viewRange}
+                  onChange={(e) => setViewRange(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                >
+                  <option value="7">Next 7 Days</option>
+                  <option value="14">Next 14 Days</option>
+                  <option value="30">Next 30 Days</option>
+                </select>
               </div>
 
-              <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4">
-                <h3 className="mb-3 font-bold text-green-400">Upcoming Events</h3>
+              <div>
+                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Staffing Risk
+                </label>
+                <select
+                  value={riskFilter}
+                  onChange={(e) => setRiskFilter(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                >
+                  <option value="All">All</option>
+                  <option value="Low Staff">Low Staff</option>
+                  <option value="Normal">Normal</option>
+                  <option value="Over Staff">Over Staff</option>
+                </select>
+              </div>
 
-                <div className="space-y-2">
-                  {eventAddons.length > 0 ? (
-                    eventAddons.map((event) => (
-                      <div
-                        key={event.id}
-                        className="flex items-center justify-between rounded-lg bg-slate-900 p-3"
-                      >
-                        <div>
-                          <p className="font-semibold text-white">
-                            {event.event_name}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {event.event_date}
-                          </p>
-                        </div>
-
-                        <div className="rounded-full bg-green-500/20 px-3 py-1 text-sm font-bold text-green-400">
-                          {event.expected_pax} Pax
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-400">No events added.</p>
-                  )}
+              <div className="xl:col-span-2">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Forecast Summary
+                </p>
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-700">
+                  Main demand uses imported occupancy data. If empty, OPSCORE
+                  falls back to Room Sales reservations. Events are added when
+                  encoded.
                 </div>
               </div>
             </div>
-          </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Demand Forecast
+              </p>
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Room Occupancy Demand Forecast
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Future demand based on occupancy import, Room Sales fallback,
+                event data, HC rules, and schedule coverage.
+              </p>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="w-full min-w-[1180px]">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Occupancy</th>
+                    <th className="px-6 py-4">Rooms Sold</th>
+                    <th className="px-6 py-4">Available</th>
+                    <th className="px-6 py-4">Required HC</th>
+                    <th className="px-6 py-4">Scheduled HC</th>
+                    <th className="px-6 py-4">Gap</th>
+                    <th className="px-6 py-4">Event</th>
+                    <th className="px-6 py-4">Pax</th>
+                    <th className="px-6 py-4">Demand</th>
+                    <th className="px-6 py-4">Staffing Risk</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {filteredData.map((day) => (
+                    <tr
+                      key={day.id}
+                      className="transition-all duration-200 hover:bg-slate-50"
+                    >
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {day.business_date}
+                      </td>
+                      <td className="px-6 py-4 font-black text-slate-950">
+                        {day.occupancy}%
+                      </td>
+                      <td className="px-6 py-4">{day.rooms_sold || 0}</td>
+                      <td className="px-6 py-4">
+                        {day.available_rooms || 0}
+                      </td>
+                      <td className="px-6 py-4">{day.required_hc}</td>
+                      <td className="px-6 py-4">{day.scheduled_hc}</td>
+                      <td
+                        className={`px-6 py-4 font-black ${getGapClass(
+                          Number(day.gap || 0)
+                        )}`}
+                      >
+                        {day.gap > 0 ? `+${day.gap}` : day.gap}
+                      </td>
+                      <td className="px-6 py-4">{day.event_name || "-"}</td>
+                      <td className="px-6 py-4">
+                        {day.expected_pax || "-"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getBadgeClass(
+                            day.demand_status
+                          )}`}
+                        >
+                          {day.demand_status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getBadgeClass(
+                            day.staffing_status
+                          )}`}
+                        >
+                          {day.staffing_status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {filteredData.length === 0 && (
+                    <tr>
+                      <td colSpan={11} className="px-6 py-14 text-center">
+                        <h3 className="text-sm font-black text-slate-950">
+                          No forecast data found.
+                        </h3>
+                        <p className="mt-2 text-sm font-medium text-slate-500">
+                          Import occupancy data or add room sales reservations
+                          to generate the forecast.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
-      )}
-    </main>
-  </div>
-);
+
+        {showAlertPanel && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-slate-950/35"
+              onClick={() => setShowAlertPanel(false)}
+            />
+
+            <aside className="fixed right-0 top-16 z-50 flex h-[calc(100vh-64px)] w-full max-w-[820px] flex-col border-l border-slate-200 bg-white shadow-2xl">
+              <div className="flex items-start justify-between border-b border-slate-100 p-6">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Forecast Review
+                  </p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">
+                    Forecast Alerts
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Review upcoming event load, staffing gaps, and data quality
+                    risks.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowAlertPanel(false)}
+                  className="h-11 w-11 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto p-6">
+                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Staffing Alerts
+                  </p>
+                  <h3 className="mt-2 text-xl font-black text-slate-950">
+                    Low Staff Days
+                  </h3>
+
+                  <div className="mt-4 space-y-3">
+                    {criticalDays.length > 0 ? (
+                      criticalDays.map((day) => (
+                        <div
+                          key={day.id}
+                          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700"
+                        >
+                          <div className="flex justify-between gap-4">
+                            <span>{day.business_date}</span>
+                            <span>Gap {day.gap}</span>
+                          </div>
+                          <p className="mt-2 text-xs leading-5">
+                            Required HC: {day.required_hc} · Scheduled HC:{" "}
+                            {day.scheduled_hc}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                        No staffing alerts.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Cost Risk
+                  </p>
+                  <h3 className="mt-2 text-xl font-black text-slate-950">
+                    Over Staff Days
+                  </h3>
+
+                  <div className="mt-4 space-y-3">
+                    {overStaffDays.length > 0 ? (
+                      overStaffDays.map((day) => (
+                        <div
+                          key={day.id}
+                          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700"
+                        >
+                          <div className="flex justify-between gap-4">
+                            <span>{day.business_date}</span>
+                            <span>+{day.gap}</span>
+                          </div>
+                          <p className="mt-2 text-xs leading-5">
+                            Review possible schedule adjustment or
+                            cross-deployment.
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">
+                        No overstaff alerts.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Upcoming Events
+                  </p>
+                  <h3 className="mt-2 text-xl font-black text-slate-950">
+                    Event Load
+                  </h3>
+
+                  <div className="mt-4 space-y-3">
+                    {eventAddons.length > 0 ? (
+                      eventAddons.map((event) => (
+                        <div
+                          key={event.id}
+                          className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700"
+                        >
+                          <div className="flex justify-between gap-4">
+                            <span>{event.event_name}</span>
+                            <span>{event.expected_pax} Pax</span>
+                          </div>
+                          <p className="mt-2 text-xs leading-5">
+                            Event Date: {event.event_date}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">
+                        No events added.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Data Quality
+                  </p>
+                  <h3 className="mt-2 text-xl font-black text-slate-950">
+                    Forecast Reliability
+                  </h3>
+
+                  <div className="mt-4 space-y-3">
+                    {dataQualityAlerts.length > 0 ? (
+                      dataQualityAlerts.map((alert) => (
+                        <p
+                          key={alert}
+                          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700"
+                        >
+                          {alert}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                        Forecast data sources are ready.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              </div>
+
+              <div className="sticky bottom-0 flex justify-end gap-3 border-t border-slate-100 bg-white/95 p-6">
+                <button
+                  onClick={refreshForecasting}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  Refresh
+                </button>
+
+                <button
+                  onClick={() => setShowAlertPanel(false)}
+                  className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                >
+                  Close Review
+                </button>
+              </div>
+            </aside>
+          </>
+        )}
+      </main>
+    </div>
+  );
 }
