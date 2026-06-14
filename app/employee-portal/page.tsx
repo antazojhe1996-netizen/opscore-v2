@@ -1,6 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  CreditCard,
+  FileText,
+  Home,
+  LogOut,
+  Megaphone,
+  Menu,
+  PhilippinePeso,
+  ShieldCheck,
+  UserCircle,
+  WalletCards,
+  X,
+} from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
 
 type PortalSchedule = {
@@ -156,6 +173,7 @@ type PortalTab =
   | "payslip"
   | "cashadvance"
   | "announcements"
+  | "approvals"
   | "manager"
   | "profile";
 
@@ -176,6 +194,7 @@ export default function EmployeePortalPage() {
   const [approverAssignments, setApproverAssignments] = useState<any[]>([]);
   const [cancelLeaveModal, setCancelLeaveModal] = useState<LeaveRequest | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
+  const [selectedApprovalModal, setSelectedApprovalModal] = useState<ApprovalRequest | null>(null);
   const [rejectApprovalModal, setRejectApprovalModal] = useState<ApprovalRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState<string | number | null>(null);
@@ -236,17 +255,17 @@ export default function EmployeePortalPage() {
     },
   };
 
-  const menuItems: { key: PortalTab; label: string; icon: string }[] = [
-    { key: "home", label: "Home", icon: "⌂" },
-    { key: "schedule", label: "My Schedule", icon: "◷" },
-    { key: "attendance", label: "Attendance", icon: "✓" },
-    { key: "performance", label: "Performance", icon: "★" },
-    { key: "leave", label: "Leave", icon: "↗" },
-    { key: "payslip", label: "Payslips", icon: "₱" },
-    { key: "cashadvance", label: "Cash Advances", icon: "₱" },
-    { key: "announcements", label: "Announcements", icon: "!" },
-    { key: "manager", label: "Manager Tools", icon: "◆" },
-    { key: "profile", label: "Profile", icon: "◎" },
+  const menuItems: { key: PortalTab; label: string; icon: any }[] = [
+    { key: "home", label: "Home", icon: Home },
+    { key: "schedule", label: "My Schedule", icon: CalendarDays },
+    { key: "attendance", label: "Attendance", icon: CheckCircle2 },
+    { key: "performance", label: "Performance", icon: ShieldCheck },
+    { key: "leave", label: "Leave", icon: FileText },
+    { key: "payslip", label: "Payslips", icon: PhilippinePeso },
+    { key: "cashadvance", label: "Cash Advances", icon: WalletCards },
+    { key: "announcements", label: "Announcements", icon: Megaphone },
+    { key: "approvals", label: "Approvals", icon: ShieldCheck },
+    { key: "profile", label: "Profile", icon: UserCircle },
   ];
 
   /// CALCULATIONS
@@ -279,7 +298,7 @@ export default function EmployeePortalPage() {
   const canUseManagerTools = isAssignedApprover;
 
   const portalMenuItems = menuItems.filter(
-    (item) => item.key !== "manager" || canUseManagerTools
+    (item) => item.key !== "approvals" || canUseManagerTools
   );
 
   const getMinutes = (time: string | null) => {
@@ -867,41 +886,23 @@ export default function EmployeePortalPage() {
     const username = String(employee.username || "").trim();
     const employeeNameValue = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
 
-    const lookupPairs = [
-      { column: "approver_employee_id", value: employeeId },
-      { column: "approver_id", value: employeeId },
-      { column: "approver_user_id", value: systemUserId },
-      { column: "system_user_id", value: systemUserId },
-      { column: "employee_id", value: employeeId },
-      { column: "assigned_employee_id", value: employeeId },
-      { column: "user_id", value: employeeId },
-      { column: "approver_employee_no", value: employeeNo },
-      { column: "employee_no", value: employeeNo },
-      { column: "username", value: username },
-      { column: "approver_username", value: username },
-      { column: "approver_name", value: employeeNameValue },
-      { column: "employee_name", value: employeeNameValue },
-    ].filter((item) => item.value);
+    const { data: matchedAssignments, error: assignmentError } = await supabase
+      .from("approval_assignments")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .eq("is_active", true)
+      .limit(50);
 
-    let matchedAssignments: any[] = [];
-
-    for (const lookup of lookupPairs) {
-      const { data, error } = await supabase
-        .from("approval_assignments")
-        .select("*")
-        .eq(lookup.column, lookup.value)
-        .limit(20);
-
-      if (!error && data && data.length > 0) {
-        matchedAssignments = data;
-        break;
-      }
+    if (assignmentError) {
+      console.log("PORTAL APPROVAL ASSIGNMENTS ERROR:", assignmentError.message);
+      setApproverAssignments([]);
+      setIsAssignedApprover(false);
+      return;
     }
 
-    const activeAssignments = matchedAssignments.filter((assignment) => {
-      const activeValue = assignment.is_active ?? assignment.active ?? true;
-      const status = String(assignment.status || "Active").toLowerCase();
-      return activeValue !== false && !["inactive", "disabled", "archived"].includes(status);
+    const activeAssignments = (matchedAssignments || []).filter((assignment) => {
+      const activeValue = assignment.is_active ?? true;
+      return activeValue !== false && !!assignment.employee_id;
     });
 
     setApproverAssignments(activeAssignments);
@@ -914,16 +915,29 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    const { data, error } = await supabase
+    const companyId = String(
+      currentUser?.company_id ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("opscore_current_company_id")
+          : "") ||
+        ""
+    ).trim();
+
+    let query = supabase
       .from("approval_requests")
       .select("*")
-      .in("request_type", ["LEAVE_REQUEST", "LEAVE_CANCELLATION"])
       .eq("status", "PENDING")
-      .order("id", { ascending: false })
-      .limit(50);
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
-      console.log("MANAGER APPROVALS ERROR:", error.message);
+      console.log("PORTAL APPROVAL CENTER ERROR:", error.message);
       setManagerApprovals([]);
       return;
     }
@@ -1196,7 +1210,7 @@ export default function EmployeePortalPage() {
       .from("approval_requests")
       .select("*")
       .eq("request_type", "LEAVE_CANCELLATION")
-      .eq("status", "PENDING")
+      .in("status", ["PENDING", "Pending"])
       .eq("request_payload->>employee_id", cleanEmployeeId)
       .order("created_at", { ascending: false });
 
@@ -1885,6 +1899,118 @@ export default function EmployeePortalPage() {
     alert("Request rejected.");
   };
 
+
+  const getApprovalPayload = (request: ApprovalRequest) => {
+    return request?.request_payload || {};
+  };
+
+  const getApprovalTypeLabel = (request: ApprovalRequest) => {
+    const type = String(request?.request_type || "").replaceAll("_", " ").toLowerCase();
+
+    if (type.includes("leave cancellation")) return "Leave Cancellation";
+    if (type.includes("leave request")) return "Leave Request";
+    if (type.includes("cash advance")) return "Cash Advance";
+    if (type.includes("cash out")) return "Cash Out Request";
+    if (type.includes("cash drawer")) return "Cash Drawer Request";
+    if (type.includes("cash expense")) return "Cash Expense Release";
+    if (type.includes("expense")) return "Expense Request";
+    if (type.includes("owner withdrawal")) return "Owner Withdrawal";
+    if (type.includes("bank deposit")) return "Bank Deposit";
+    if (type.includes("remittance")) return "Remittance Request";
+    if (type.includes("adjustment")) return "Adjustment Request";
+    if (type.includes("payroll")) return "Payroll Request";
+    if (type.includes("overtime") || type.includes("ot")) return "Overtime Request";
+    if (type.includes("schedule")) return "Schedule Request";
+
+    return type
+      ? type.replace(/\b\w/g, (letter) => letter.toUpperCase())
+      : "Approval Request";
+  };
+
+  const getApprovalEmployeeName = (request: ApprovalRequest) => {
+    const payload = getApprovalPayload(request);
+
+    return (
+      payload.employee_name ||
+      payload.requestor_name ||
+      payload.requested_for ||
+      payload.name ||
+      payload.holder_name ||
+      payload.drawer_holder ||
+      payload.requester ||
+      request.requested_by ||
+      "Requestor"
+    );
+  };
+
+  const getApprovalPrimaryDetail = (request: ApprovalRequest) => {
+    const payload = getApprovalPayload(request);
+    const type = String(request?.request_type || "").toUpperCase();
+
+    if (type.includes("LEAVE")) {
+      const leaveType = payload.leave_type || "Leave";
+      const start = payload.start_date ? formatDate(payload.start_date) : "-";
+      const end = payload.end_date ? formatDate(payload.end_date) : "-";
+      return `${leaveType} • ${start} to ${end}`;
+    }
+
+    const amountValue =
+      payload.amount ??
+      payload.total_amount ??
+      payload.request_amount ??
+      payload.cash_amount ??
+      payload.expense_amount ??
+      null;
+
+    if (amountValue !== null && amountValue !== undefined && amountValue !== "") {
+      return formatMoney(amountValue);
+    }
+
+    if (payload.category || payload.payment_method || payload.source) {
+      return [payload.category, payload.payment_method, payload.source].filter(Boolean).join(" • ");
+    }
+
+    if (payload.reason) return String(payload.reason);
+    if (payload.purpose) return String(payload.purpose);
+    if (payload.remarks) return String(payload.remarks);
+
+    return request.description || "Review request details.";
+  };
+
+  const getApprovalReason = (request: ApprovalRequest) => {
+    const payload = getApprovalPayload(request);
+
+    return (
+      payload.reason ||
+      payload.purpose ||
+      payload.remarks ||
+      payload.description ||
+      payload.notes ||
+      request.description ||
+      "No reason provided."
+    );
+  };
+
+  const getApprovalSubmittedAt = (request: ApprovalRequest) => {
+    if (!request.created_at) return "-";
+
+    return new Date(request.created_at).toLocaleString("en-PH", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const pendingApprovalCount = managerApprovals.filter(
+    (request) => String(request.status || "").toUpperCase() === "PENDING"
+  ).length;
+
+  const openApprovalDetails = (request: ApprovalRequest) => {
+    setSelectedApprovalModal(request);
+  };
+
+
   useEffect(() => {
     loadCurrentUser();
   }, []);
@@ -1894,6 +2020,36 @@ export default function EmployeePortalPage() {
 
     reloadEmployeeData(currentUser.id);
   }, [currentUser, isAssignedApprover]);
+
+  useEffect(() => {
+    if (!currentUser?.id || !isAssignedApprover) return;
+
+    const channel = supabase
+      .channel(`employee-portal-approvals-${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "approval_requests",
+        },
+        async (payload) => {
+          await getManagerApprovals();
+
+          if (payload.eventType === "INSERT") {
+            const request: any = payload.new;
+            const type = String(request?.request_type || "Approval Request").replaceAll("_", " ");
+
+            alert(`New approval request: ${type}`);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, isAssignedApprover]);
 
   /// UI
   // OPSCORE V1.3 Vincent mobile app shell: full-width violet header, floating shift card, large attendance buttons, app-style quick actions.
@@ -1912,15 +2068,15 @@ export default function EmployeePortalPage() {
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-600 p-5 text-white shadow-xl shadow-violet-200/70">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-100">VINCENT</p>
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-white shadow-xl shadow-slate-200/70">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-100">VINCENT</p>
           <div className="mt-4 flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/30 bg-white/20 text-lg font-black text-white shadow-sm">
               {firstName.slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-xl font-black">{employeeName}</h2>
-              <p className="mt-1 truncate text-sm font-semibold text-violet-100">{employeeDepartment}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-blue-100">{employeeDepartment}</p>
             </div>
           </div>
           <p className="mt-4 rounded-xl border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white">
@@ -1931,6 +2087,7 @@ export default function EmployeePortalPage() {
         <nav className="mt-5 space-y-2">
           {portalMenuItems.map((item) => {
             const active = activeTab === item.key;
+            const Icon = item.icon;
 
             return (
               <button
@@ -1938,11 +2095,17 @@ export default function EmployeePortalPage() {
                 onClick={() => openTab(item.key)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${
                   active
-                    ? "border border-violet-200 bg-violet-50 text-violet-700 shadow-sm"
-                    : "border border-slate-200 bg-white/80 text-slate-700 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                    ? "border border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
+                    : "border border-slate-200 bg-white/80 text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                 }`}
               >
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-sm font-black tracking-wider">{item.icon}</span>
+                <span
+                  className={`grid h-9 w-9 place-items-center rounded-xl ${
+                    active ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  <Icon size={18} strokeWidth={2.4} />
+                </span>
                 <span>{item.label}</span>
               </button>
             );
@@ -1958,9 +2121,9 @@ export default function EmployeePortalPage() {
       </aside>
 
       <section className="mx-auto min-h-screen max-w-md bg-white pb-28 shadow-2xl shadow-slate-950/10 sm:max-w-6xl sm:pb-10">
-        <header className="relative overflow-hidden rounded-b-[2.25rem] bg-gradient-to-br from-violet-950 via-violet-700 to-indigo-600 px-5 pb-24 pt-10 text-white shadow-xl shadow-violet-200/70">
+        <header className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-5 pb-20 pt-8 text-white shadow-xl shadow-slate-200/70">
           <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
-          <div className="pointer-events-none absolute -left-24 bottom-5 h-56 w-56 rounded-full bg-fuchsia-300/20 blur-2xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-5 h-56 w-56 rounded-full bg-blue-300/10 blur-2xl" />
           <div className="pointer-events-none absolute bottom-8 right-0 h-40 w-40 rounded-full bg-blue-300/20 blur-2xl" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-white/10 [clip-path:polygon(0_45%,45%_100%,100%_40%,100%_100%,0_100%)]" />
           <div className="pointer-events-none absolute right-20 top-28 grid grid-cols-5 gap-2 opacity-20">
@@ -1975,11 +2138,11 @@ export default function EmployeePortalPage() {
               aria-label="Open employee menu"
               className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/25 bg-white/15 text-2xl font-black text-white shadow-sm backdrop-blur transition-all duration-200 hover:bg-white/20 active:scale-[0.98]"
             >
-              ☰
+              <Menu size={22} strokeWidth={2.6} />
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[10px] font-black uppercase tracking-[0.28em] text-violet-100">VINCENT RESORT HOTEL</p>
+              <p className="truncate text-[10px] font-black uppercase tracking-[0.28em] text-blue-100">VINCENT RESORT HOTEL</p>
               <h1 className="mt-1 truncate text-lg font-black tracking-tight text-white">Employee Portal</h1>
             </div>
 
@@ -1988,7 +2151,7 @@ export default function EmployeePortalPage() {
               aria-label="Open announcements"
               className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/25 bg-white/15 text-lg font-black text-white shadow-sm backdrop-blur transition-all duration-200 hover:bg-white/20 active:scale-[0.98]"
             >
-              !
+              <Bell size={20} strokeWidth={2.6} />
               {portalNotifications.length > 0 && (
                 <span className="absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-md">
                   {Math.min(portalNotifications.length, 9)}
@@ -2005,40 +2168,43 @@ export default function EmployeePortalPage() {
             </button>
           </div>
 
-          <div className="relative mt-10 flex items-end justify-between gap-4">
+          <div className="relative mt-9 flex items-end justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-lg font-bold text-violet-100">{greeting},</p>
-              <h2 className="mt-1 truncate text-4xl font-black tracking-tight text-white">{firstName}</h2>
-              <p className="mt-2 max-w-[190px] text-sm font-medium leading-5 text-violet-100">
-                Here&apos;s what&apos;s happening today.
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-100">{greeting}</p>
+              <h2 className="mt-2 line-clamp-2 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">{employeeName}</h2>
+              <p className="mt-2 text-sm font-semibold leading-5 text-blue-100">
+                {employeeDepartment}
+              </p>
+              <p className="text-xs font-bold leading-5 text-blue-100/90">
+                Employee #{employeeNumber}
               </p>
             </div>
 
-            <div className="shrink-0 rounded-3xl border border-white/25 bg-white/15 px-4 py-4 text-right shadow-sm backdrop-blur">
-              <p className="text-3xl font-black text-white">{currentTimeLabel}</p>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-100">PH Time</p>
+            <div className="shrink-0 rounded-2xl border border-white/25 bg-white/15 px-4 py-3 text-right shadow-sm backdrop-blur">
+              <p className="text-2xl font-black text-white">{currentTimeLabel}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-100">PH Time</p>
             </div>
           </div>
         </header>
 
         {activeTab === "home" && (
-          <div className="-mt-16 space-y-5 px-5">
-            <section className="relative z-10 rounded-[1.75rem] border border-violet-100 bg-white p-4 shadow-xl shadow-violet-100/80">
-              <div className="grid grid-cols-2 divide-x divide-slate-100">
-                <div className="flex items-center gap-3 pr-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-100 text-2xl font-black text-violet-700">◷</div>
+          <div className="-mt-10 space-y-5 px-5 sm:px-6">
+            <section className="relative z-10 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:divide-x sm:divide-slate-100">
+                <div className="flex items-center gap-3 sm:pr-3">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Clock3 size={24} strokeWidth={2.5} /></div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">Today&apos;s Shift</p>
-                    <p className="mt-1 truncate text-lg font-bold text-slate-950">{todayShiftLabel}</p>
-                    <p className="truncate text-xs font-medium text-slate-500">{todayShiftTimeLabel}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">Today&apos;s Shift</p>
+                    <p className="mt-1 text-base font-black leading-5 text-slate-950">{todayShiftLabel === "No schedule" ? "No Schedule Assigned" : todayShiftLabel}</p>
+                    <p className="text-xs font-medium leading-5 text-slate-500">{todayShiftTimeLabel}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pl-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-100 text-2xl font-black text-violet-700">✓</div>
+                <div className="flex items-center gap-3 sm:pl-3">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><CheckCircle2 size={24} strokeWidth={2.5} /></div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">Status</p>
-                    <p className="mt-1 truncate text-lg font-bold text-emerald-700">{todayAttendance?.status || "Not Timed In"}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">Attendance Status</p>
+                    <p className="mt-1 text-base font-black leading-5 text-emerald-700">{todayAttendance?.status || "Not Timed In"}</p>
                     <p className="truncate text-xs font-medium text-slate-500">
                       {formatTime(todayAttendance?.time_in)} - {formatTime(todayAttendance?.time_out)}
                     </p>
@@ -2053,7 +2219,7 @@ export default function EmployeePortalPage() {
                 disabled={loading || !!todayAttendance?.time_in || !currentUser}
                 className="min-h-[88px] rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 px-4 py-4 text-left text-white shadow-xl shadow-emerald-200 transition-all duration-200 hover:from-emerald-500 hover:to-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <span className="block text-3xl leading-none">◷</span>
+                <Clock3 size={26} strokeWidth={2.6} />
                 <span className="mt-3 block text-lg font-black">TIME IN</span>
                 <span className="block text-xs font-medium text-emerald-50">
                   {todayAttendance?.time_in ? formatTime(todayAttendance.time_in) : "Tap to time in"}
@@ -2063,15 +2229,33 @@ export default function EmployeePortalPage() {
               <button
                 onClick={handleTimeOut}
                 disabled={loading || !todayAttendance?.time_in || !!todayAttendance?.time_out}
-                className="min-h-[88px] rounded-3xl bg-gradient-to-br from-violet-400 to-violet-700 px-4 py-4 text-left text-white shadow-xl shadow-violet-200 transition-all duration-200 hover:from-violet-500 hover:to-violet-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-[88px] rounded-3xl bg-gradient-to-br from-blue-500 to-blue-700 px-4 py-4 text-left text-white shadow-xl shadow-slate-200 transition-all duration-200 hover:from-blue-600 hover:to-blue-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <span className="block text-3xl leading-none">◴</span>
+                <Clock3 size={26} strokeWidth={2.6} />
                 <span className="mt-3 block text-lg font-black">TIME OUT</span>
-                <span className="block text-xs font-medium text-violet-50">
+                <span className="block text-xs font-medium text-blue-50">
                   {todayAttendance?.time_out ? formatTime(todayAttendance.time_out) : "Tap to time out"}
                 </span>
               </button>
             </section>
+
+            {canUseManagerTools && (
+              <button
+                onClick={() => openTab("approvals")}
+                className="flex w-full items-center justify-between rounded-3xl border border-blue-200 bg-blue-50 p-4 text-left shadow-sm transition-all duration-200 hover:bg-blue-100 active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-700 text-white">
+                    <ShieldCheck size={22} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700">Approval Workspace</p>
+                    <p className="mt-1 text-base font-black text-slate-950">{pendingApprovalCount} pending approval{pendingApprovalCount === 1 ? "" : "s"}</p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700">Open</span>
+              </button>
+            )}
 
             <MobileSectionHeader title="Quick Actions" action="View All ›" onClick={() => openTab("profile")} />
 
@@ -2122,13 +2306,13 @@ export default function EmployeePortalPage() {
             <section className="pb-2">
               <button
                 onClick={() => openTab("schedule")}
-                className="flex w-full items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:border-violet-200 hover:bg-violet-50 active:scale-[0.98]"
+                className="flex w-full items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:border-blue-200 hover:bg-blue-50 active:scale-[0.98]"
               >
-                <div className="overflow-hidden rounded-2xl border border-violet-200 bg-white text-center shadow-sm">
-                  <p className="bg-violet-600 px-4 py-1 text-[10px] font-black uppercase text-white">
+                <div className="overflow-hidden rounded-2xl border border-blue-200 bg-white text-center shadow-sm">
+                  <p className="bg-blue-700 px-4 py-1 text-[10px] font-black uppercase text-white">
                     {new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { month: "short" })}
                   </p>
-                  <p className="px-4 py-1 text-3xl font-black text-violet-700">{new Date(`${today}T00:00:00`).getDate()}</p>
+                  <p className="px-4 py-1 text-3xl font-black text-blue-700">{new Date(`${today}T00:00:00`).getDate()}</p>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-lg font-bold text-slate-950">{todayShiftLabel}</p>
@@ -2248,7 +2432,7 @@ export default function EmployeePortalPage() {
                 </div>
 
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-700">Total request: {leaveDays} day(s)</div>
-                <button onClick={submitLeaveRequest} disabled={loading} className="h-11 w-full rounded-xl bg-violet-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-700 active:scale-[0.98] disabled:opacity-50">Submit Leave Request</button>
+                <button onClick={submitLeaveRequest} disabled={loading} className="h-11 w-full rounded-xl bg-blue-700 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-700 active:scale-[0.98] disabled:opacity-50">Submit Leave Request</button>
               </div>
             </PortalCard>
 
@@ -2282,7 +2466,7 @@ export default function EmployeePortalPage() {
             <PortalCard label="Payroll" title="Payslips">
               <div className="space-y-3">
                 {payslips.map((payslip) => (
-                  <button key={`${payslip.id}`} onClick={() => setActivePayslip(payslip)} className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:border-violet-200 hover:bg-violet-50">
+                  <button key={`${payslip.id}`} onClick={() => setActivePayslip(payslip)} className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:border-blue-200 hover:bg-blue-50">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold text-slate-950">{getPayslipPeriodLabel(payslip)}</p>
@@ -2332,27 +2516,74 @@ export default function EmployeePortalPage() {
           </div>
         )}
 
-        {activeTab === "manager" && canUseManagerTools && (
+        {activeTab === "approvals" && canUseManagerTools && (
           <div className="space-y-4 px-5 pt-5">
-            <PortalCard label="Approval Queue" title="Manager Approvals">
-              <div className="space-y-3">
+            <PortalCard label="Mobile Approval Center" title="Approval Center Queue">
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">Pending Approvals</p>
+                <p className="mt-1 text-3xl font-black text-slate-950">{pendingApprovalCount}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-600">
+                  Mirrors the main Approval Center queue.
+                </p>
+              </div>
+
+              <div className="mt-4 space-y-3">
                 {managerApprovals.map((request) => (
                   <div key={`${request.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-950">{request.title || request.request_type || "Approval Request"}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-500">{request.requested_by || "Employee"}</p>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">
+                          {getApprovalTypeLabel(request)}
+                        </p>
+                        <p className="mt-1 truncate text-base font-black text-slate-950">
+                          {getApprovalEmployeeName(request)}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">
+                          {getApprovalPrimaryDetail(request)}
+                        </p>
                       </div>
                       <StatusBadge status={request.status || "Pending"} />
                     </div>
-                    <p className="mt-3 text-sm font-medium leading-6 text-slate-600">{request.description || "No description provided."}</p>
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <button onClick={() => approveMobileApproval(request)} disabled={actionLoadingId === request.id} className="h-10 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">Approve</button>
-                      <button onClick={() => rejectMobileApproval(request)} disabled={actionLoadingId === request.id} className="h-10 rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50">Reject</button>
+
+                    <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-slate-600">
+                      {getApprovalReason(request)}
+                    </p>
+
+                    <div className="mt-3 text-[11px] font-semibold text-slate-500">
+                      Submitted: {getApprovalSubmittedAt(request)}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => openApprovalDetails(request)}
+                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => approveMobileApproval(request)}
+                        disabled={actionLoadingId === request.id}
+                        className="h-10 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectMobileApproval(request)}
+                        disabled={actionLoadingId === request.id}
+                        className="h-10 rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
                     </div>
                   </div>
                 ))}
-                {managerApprovals.length === 0 && <EmptyStateInline title="No pending approvals" helper="Assigned approval requests will appear here." />}
+
+                {managerApprovals.length === 0 && (
+                  <EmptyStateInline
+                    title="No pending approvals"
+                    helper="All pending Approval Center requests assigned to your approver access will appear here."
+                  />
+                )}
               </div>
             </PortalCard>
           </div>
@@ -2361,9 +2592,9 @@ export default function EmployeePortalPage() {
         {activeTab === "profile" && (
           <div className="space-y-4 px-5 pt-5">
             <PortalCard label="Employee Details" title="Profile">
-              <div className="rounded-3xl border border-violet-100 bg-violet-50 p-5">
+              <div className="rounded-3xl border border-slate-200 bg-blue-50 p-5">
                 <div className="flex items-center gap-4">
-                  <div className="grid h-16 w-16 place-items-center rounded-3xl bg-violet-600 text-2xl font-black text-white">{firstName.slice(0, 1).toUpperCase()}</div>
+                  <div className="grid h-16 w-16 place-items-center rounded-3xl bg-blue-700 text-2xl font-black text-white">{firstName.slice(0, 1).toUpperCase()}</div>
                   <div className="min-w-0">
                     <p className="truncate text-xl font-black text-slate-950">{employeeName}</p>
                     <p className="mt-1 truncate text-sm font-medium text-slate-600">{employeeDepartment}</p>
@@ -2381,13 +2612,16 @@ export default function EmployeePortalPage() {
         <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-3 pb-3 pt-2 shadow-2xl backdrop-blur sm:hidden">
           <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
             {[
-              { key: "home", label: "Home", icon: "⌂" },
-              { key: "schedule", label: "Schedule", icon: "◷" },
-              { key: "attendance", label: "Attend", icon: "✓" },
-              { key: "payslip", label: "Payslip", icon: "▣" },
-              { key: "profile", label: "Profile", icon: "◎" },
+              { key: "home", label: "Home", icon: Home },
+              ...(canUseManagerTools
+                ? [{ key: "approvals", label: "Approvals", icon: ShieldCheck }]
+                : [{ key: "schedule", label: "Schedule", icon: CalendarDays }]),
+              { key: "attendance", label: "Attend", icon: CheckCircle2 },
+              { key: "leave", label: "Leave", icon: FileText },
+              { key: "profile", label: "Profile", icon: UserCircle },
             ].map((item) => {
               const active = activeTab === item.key;
+              const Icon = item.icon;
 
               return (
                 <button
@@ -2395,11 +2629,13 @@ export default function EmployeePortalPage() {
                   onClick={() => openTab(item.key as PortalTab)}
                   className={`flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-semibold transition-all duration-200 ${
                     active
-                      ? "bg-violet-600 text-white shadow-md shadow-violet-200"
-                      : "bg-white text-slate-500 hover:bg-violet-50 hover:text-violet-700"
+                      ? "bg-blue-700 text-white shadow-md shadow-slate-200"
+                      : "bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-700"
                   }`}
                 >
-                  <span className="text-lg leading-none">{item.icon}</span>
+                  <span className="grid h-5 w-5 place-items-center">
+                    <Icon size={18} strokeWidth={2.4} />
+                  </span>
                   <span className="mt-1 max-w-full truncate">{item.label}</span>
                 </button>
               );
@@ -2416,6 +2652,67 @@ export default function EmployeePortalPage() {
             <div className="mt-5 flex justify-end gap-3">
               <button onClick={() => setCancelLeaveModal(null)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Cancel</button>
               <button onClick={submitLeaveCancellationRequest} disabled={loading} className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:opacity-50">Submit</button>
+            </div>
+          </ModalShell>
+        )}
+
+        {selectedApprovalModal && (
+          <ModalShell title="Approval Details">
+            <div className="space-y-3 text-sm">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">
+                  {getApprovalTypeLabel(selectedApprovalModal)}
+                </p>
+                <p className="mt-1 text-lg font-black text-slate-950">
+                  {getApprovalEmployeeName(selectedApprovalModal)}
+                </p>
+                <p className="mt-1 font-semibold text-slate-600">
+                  {getApprovalPrimaryDetail(selectedApprovalModal)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Reason / Description</p>
+                <p className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 font-medium leading-6 text-slate-700">
+                  {getApprovalReason(selectedApprovalModal)}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <InfoTile label="Requested By" value={selectedApprovalModal.requested_by || "-"} />
+                <InfoTile label="Submitted" value={getApprovalSubmittedAt(selectedApprovalModal)} />
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setSelectedApprovalModal(null)}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const request = selectedApprovalModal;
+                  setSelectedApprovalModal(null);
+                  approveMobileApproval(request);
+                }}
+                disabled={actionLoadingId === selectedApprovalModal.id}
+                className="h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => {
+                  const request = selectedApprovalModal;
+                  setSelectedApprovalModal(null);
+                  rejectMobileApproval(request);
+                }}
+                disabled={actionLoadingId === selectedApprovalModal.id}
+                className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                Reject
+              </button>
             </div>
           </ModalShell>
         )}
@@ -2441,7 +2738,7 @@ export default function EmployeePortalPage() {
             </div>
             <div className="mt-5 flex justify-end gap-3">
               <button onClick={() => setActivePayslip(null)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Close</button>
-              <button onClick={() => downloadPayslipPDF(activePayslip)} className="h-11 rounded-xl bg-violet-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-700 active:scale-[0.98]">Print</button>
+              <button onClick={() => downloadPayslipPDF(activePayslip)} className="h-11 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-700 active:scale-[0.98]">Print</button>
             </div>
           </ModalShell>
         )}
@@ -2539,7 +2836,7 @@ function MobileSectionHeader({
     <div className="flex items-center justify-between">
       <h3 className="text-[22px] font-bold tracking-tight text-slate-950">{title}</h3>
       {action && (
-        <button onClick={onClick} className="text-sm font-bold text-violet-700">
+        <button onClick={onClick} className="text-sm font-bold text-blue-700">
           {action}
         </button>
       )}
@@ -2560,7 +2857,7 @@ function MobileActionCard({
 }) {
   const toneClass =
     tone === "violet"
-      ? "border-violet-200 bg-violet-50 text-violet-700 shadow-violet-100"
+      ? "border-blue-200 bg-blue-50 text-blue-700 shadow-violet-100"
       : tone === "emerald"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-emerald-100"
       : tone === "blue"
@@ -2569,7 +2866,7 @@ function MobileActionCard({
 
   const iconClass =
     tone === "violet"
-      ? "bg-violet-600 shadow-violet-200"
+      ? "bg-blue-700 shadow-slate-200"
       : tone === "emerald"
       ? "bg-emerald-500 shadow-emerald-200"
       : tone === "blue"
@@ -2669,3 +2966,13 @@ function FormLabel({ label }: { label: string }) {
   );
 }
 
+
+
+function InfoTile({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-bold text-slate-800">{value || "-"}</p>
+    </div>
+  );
+}

@@ -1149,23 +1149,47 @@ export default function SchedulingPage() {
     return "blue";
   };
 
-  const getShiftColorClass = (shiftName: string) => {
-    if (shiftName === "OFF" || shiftName === "RD") {
-      return "border-slate-200 bg-slate-100 text-slate-700";
-    }
+  const shiftColorClassMap: Record<string, string> = {
+    blue: "border-blue-200 bg-blue-50 text-blue-700",
+    sky: "border-sky-200 bg-sky-50 text-sky-700",
+    cyan: "border-cyan-200 bg-cyan-50 text-cyan-700",
+    teal: "border-teal-200 bg-teal-50 text-teal-700",
+    green: "border-green-200 bg-green-50 text-green-700",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    lime: "border-lime-200 bg-lime-50 text-lime-700",
+    yellow: "border-yellow-200 bg-yellow-50 text-yellow-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    orange: "border-orange-200 bg-orange-50 text-orange-700",
+    red: "border-red-200 bg-red-50 text-red-700",
+    rose: "border-rose-200 bg-rose-50 text-rose-700",
+    pink: "border-pink-200 bg-pink-50 text-pink-700",
+    purple: "border-purple-200 bg-purple-50 text-purple-700",
+    violet: "border-violet-200 bg-violet-50 text-violet-700",
+    indigo: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    slate: "border-slate-200 bg-slate-100 text-slate-700",
+    gray: "border-gray-200 bg-gray-100 text-gray-700",
+  };
 
+  const getShiftTemplateByName = (shiftName: string) => {
+    const normalizedShiftName = normalizeShiftName(shiftName);
+
+    return (
+      shifts.find((item) => String(item.shift_name || "") === String(shiftName || "")) ||
+      shifts.find((item) => String(item.shift_name || "") === normalizedShiftName) ||
+      defaultShifts.find((item) => String(item.shift_name || "") === normalizedShiftName) ||
+      null
+    );
+  };
+
+  const getShiftColorClass = (shiftName: string) => {
     if (shiftName === UNSCHEDULED_SHIFT) {
       return "border-red-200 bg-red-50 text-red-700";
     }
 
-    const normalized = normalizeShiftName(shiftName);
+    const shiftTemplate = getShiftTemplateByName(shiftName);
+    const colorKey = normalizeColor(shiftTemplate?.color || "");
 
-    if (normalized === "AM Shift") return "border-amber-200 bg-amber-50 text-amber-700";
-    if (normalized === "PM Shift") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    if (normalized === "Mid Shift") return "border-blue-200 bg-blue-50 text-blue-700";
-    if (normalized === "GY Shift") return "border-slate-200 bg-slate-100 text-slate-700";
-
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return shiftColorClassMap[colorKey] || shiftColorClassMap.blue;
   };
 
   const getShortShiftLabel = (shiftName: string) => {
@@ -1189,6 +1213,23 @@ export default function SchedulingPage() {
     getShiftTemplates();
     loadHCRules();
     getEventAddons();
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("scheduling-shift-template-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shift_templates" },
+        () => {
+          getShiftTemplates();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
