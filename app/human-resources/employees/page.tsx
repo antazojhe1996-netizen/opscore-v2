@@ -13,34 +13,48 @@ import * as XLSX from "xlsx";
 type Employee = {
   id: string;
   company_id?: string;
+
+  system_role_id?: string | null;
+  admin_access_enabled?: boolean;
+
   employee_no: string;
   first_name: string;
   last_name: string;
   email: string;
+
   department: string;
   position: string;
+
   employment_status: string;
   employment_type: string;
+
   daily_rate: number;
   rate_type: string;
   basic_rate: number;
+
   payroll_active: boolean;
   payroll_notes: string;
+
   portal_enabled?: boolean;
   attendance_source_preference?: string;
+
   hire_date: string;
   contact_number: string;
+
   sss_no?: string;
   philhealth_no?: string;
   pagibig_no?: string;
   tin_no?: string;
+
   birth_date?: string;
   gender?: string;
   civil_status?: string;
   address?: string;
+
   emergency_contact_name?: string;
   emergency_contact_number?: string;
   emergency_contact_relationship?: string;
+
   has_resume?: boolean;
   has_valid_id?: boolean;
   has_contract?: boolean;
@@ -52,12 +66,12 @@ type Employee = {
 export default function EmployeesPage() {
   const router = useRouter();
 
-  /// STATES
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [employmentStatuses, setEmploymentStatuses] = useState<any[]>([]);
   const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
+
   const [editingEmployeeNo, setEditingEmployeeNo] = useState("");
   const [employeeNo, setEmployeeNo] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -77,32 +91,39 @@ export default function EmployeesPage() {
   const [emergencyContactNumber, setEmergencyContactNumber] = useState("");
   const [emergencyContactRelationship, setEmergencyContactRelationship] =
     useState("");
+
   const [sssNo, setSssNo] = useState("");
   const [philhealthNo, setPhilhealthNo] = useState("");
   const [pagibigNo, setPagibigNo] = useState("");
   const [tinNo, setTinNo] = useState("");
+
   const [hasResume, setHasResume] = useState("No");
   const [hasValidId, setHasValidId] = useState("No");
   const [hasContract, setHasContract] = useState("No");
   const [hasNbiClearance, setHasNbiClearance] = useState("No");
   const [hasMedical, setHasMedical] = useState("No");
   const [hasTrainingRecords, setHasTrainingRecords] = useState("No");
+
   const [rateType, setRateType] = useState("Daily");
   const [basicRate, setBasicRate] = useState("");
   const [payrollActive, setPayrollActive] = useState("Yes");
   const [payrollNotes, setPayrollNotes] = useState("");
   const [portalEnabled, setPortalEnabled] = useState("Yes");
+  const [adminAccessEnabled, setAdminAccessEnabled] = useState("No");
   const [attendanceSourcePreference, setAttendanceSourcePreference] =
     useState("Biometrics");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("Active");
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
   const [previewRows, setPreviewRows] = useState<any[]>([]);
   const [fileName, setFileName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+
   const [permissions, setPermissions] = useState<any>(null);
   const [currentEmployeeId, setCurrentEmployeeId] = useState("");
   const [currentSystemUserId, setCurrentSystemUserId] = useState("");
@@ -112,7 +133,6 @@ export default function EmployeesPage() {
   const canDelete = permissions?.can_delete === true;
   const canModify = canCreate || canEdit;
 
-  /// DATA
   const rateTypes = ["Daily", "Weekly", "Monthly"];
   const genderOptions = ["Male", "Female", "Prefer not to say"];
   const civilStatusOptions = ["Single", "Married", "Widowed", "Separated"];
@@ -123,7 +143,6 @@ export default function EmployeesPage() {
     "Manual Review",
   ];
 
-  /// FUNCTIONS
   const formatMoney = (value: any) =>
     `₱${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
@@ -176,61 +195,7 @@ export default function EmployeesPage() {
     );
   };
 
-  const createEmployeeAccount = async (employee: Employee) => {
-    if (!employee.email || employee.portal_enabled === false) {
-      return {
-        skipped: true,
-        message: "Portal account skipped because email or portal access is missing.",
-      };
-    }
-
-    const companyId = employee.company_id || getCurrentCompanyId();
-
-    if (!companyId) {
-      return {
-        skipped: true,
-        message:
-          "Employee saved, but account was not created because company_id was not found.",
-      };
-    }
-
-    const response = await fetch("/api/hr/create-employee-account", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        employee_id: employee.id,
-        email: employee.email,
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        role: "employee",
-        company_id: companyId,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return {
-        skipped: false,
-        error: result?.error || "Failed to create employee account.",
-      };
-    }
-
-    return {
-      skipped: false,
-      success: true,
-      temporaryPassword: result?.temporary_password || "Temp123!",
-    };
-  };
-
   const getCurrentPermissions = async () => {
-    const roleId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_role_id")
-        : null;
-
     const systemUserId =
       typeof window !== "undefined"
         ? localStorage.getItem("opscore_current_system_user_id")
@@ -241,7 +206,7 @@ export default function EmployeesPage() {
         ? localStorage.getItem("opscore_current_company_id")
         : null;
 
-    if (!roleId || !systemUserId || !companyId) {
+    if (!systemUserId || !companyId) {
       setPermissions(null);
       return;
     }
@@ -351,6 +316,7 @@ export default function EmployeesPage() {
     setPayrollActive("Yes");
     setPayrollNotes("");
     setPortalEnabled("Yes");
+    setAdminAccessEnabled("No");
     setAttendanceSourcePreference("Biometrics");
     setFormError("");
   };
@@ -366,17 +332,12 @@ export default function EmployeesPage() {
       !rateType ||
       !basicRate
     ) {
-      setFormError("Please complete all required fields.");
+      setFormError("Please complete all required employee fields.");
       return false;
     }
 
     if (email.trim() && !email.includes("@")) {
       setFormError("Please enter a valid email address.");
-      return false;
-    }
-
-    if (portalEnabled === "Yes" && !email.trim()) {
-      setFormError("Email is required when Portal Access is enabled.");
       return false;
     }
 
@@ -443,6 +404,7 @@ export default function EmployeesPage() {
       payroll_notes: payrollNotes.trim(),
       portal_enabled: portalEnabled === "Yes",
       attendance_source_preference: attendanceSourcePreference,
+      admin_access_enabled: adminAccessEnabled === "Yes",
     };
 
     if (companyId) {
@@ -453,15 +415,11 @@ export default function EmployeesPage() {
       ? employees.find((employee) => employee.employee_no === editingEmployeeNo)
       : null;
 
-    let savedEmployee: Employee | null = null;
-
     if (editingEmployeeNo) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("employees")
         .update(payload)
-        .eq("employee_no", editingEmployeeNo)
-        .select("*")
-        .single();
+        .eq("employee_no", editingEmployeeNo);
 
       if (error) {
         setIsSaving(false);
@@ -469,43 +427,17 @@ export default function EmployeesPage() {
         alert("Failed to save employee.");
         return;
       }
-
-      savedEmployee = data;
     } else {
-      const { data, error } = await supabase
-        .from("employees")
-        .insert({
-          ...payload,
-          created_at: new Date().toISOString(),
-        })
-        .select("*")
-        .single();
+      const { error } = await supabase.from("employees").insert({
+        ...payload,
+        created_at: new Date().toISOString(),
+      });
 
       if (error) {
         setIsSaving(false);
         console.log("SAVE EMPLOYEE ERROR:", error.message);
         alert("Failed to save employee.");
         return;
-      }
-
-      savedEmployee = data;
-    }
-
-    let accountMessage = "";
-
-    if (!editingEmployeeNo && savedEmployee?.portal_enabled !== false && savedEmployee?.email) {
-      const accountResult = await createEmployeeAccount(savedEmployee);
-
-      if (accountResult.success) {
-        accountMessage = `\n\nPortal account created.\nTemporary password: ${accountResult.temporaryPassword}`;
-      }
-
-      if (accountResult.error) {
-        accountMessage = `\n\nEmployee was saved, but portal account creation failed:\n${accountResult.error}`;
-      }
-
-      if (accountResult.skipped && accountResult.message) {
-        accountMessage = `\n\n${accountResult.message}`;
       }
     }
 
@@ -530,7 +462,7 @@ export default function EmployeesPage() {
     alert(
       editingEmployeeNo
         ? "Employee updated successfully."
-        : `Employee saved successfully.${accountMessage}`,
+        : "Employee saved successfully.",
     );
   };
 
@@ -573,10 +505,23 @@ export default function EmployeesPage() {
     setPayrollActive(employee.payroll_active === false ? "No" : "Yes");
     setPayrollNotes(employee.payroll_notes || "");
     setPortalEnabled(employee.portal_enabled === false ? "No" : "Yes");
-    setAttendanceSourcePreference(employee.attendance_source_preference || "Biometrics");
+    setAdminAccessEnabled(employee.admin_access_enabled === true ? "Yes" : "No");
+    setAttendanceSourcePreference(
+      
+      employee.attendance_source_preference || "Biometrics",
+      
+    );
 
-    setShowEmployeeForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+   setShowEmployeeForm(true);
+
+setTimeout(() => {
+  document
+    .getElementById("employee-form")
+    ?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+}, 150);
   };
 
   const archiveEmployee = async (employee: Employee) => {
@@ -668,7 +613,6 @@ export default function EmployeesPage() {
 
     getEmployees();
   };
-
 
   const deleteEmployee = async (employee: Employee) => {
     if (!canDelete) {
@@ -879,6 +823,14 @@ export default function EmployeesPage() {
             ).toLowerCase() === "no"
               ? false
               : true,
+          admin_access_enabled:
+            String(
+              getValue(row, [
+                "Admin Access",
+                "Admin/System User Access",
+                "admin_access_enabled",
+              ]),
+            ).toLowerCase() === "yes",
           attendance_source_preference:
             String(
               getValue(row, [
@@ -906,9 +858,16 @@ export default function EmployeesPage() {
       return;
     }
 
+    const companyId = getCurrentCompanyId();
+
+    const rows = previewRows.map((row) => ({
+      ...row,
+      company_id: row.company_id || companyId || null,
+    }));
+
     setIsImporting(true);
 
-    const { error } = await supabase.from("employees").insert(previewRows);
+    const { error } = await supabase.from("employees").insert(rows);
 
     setIsImporting(false);
 
@@ -922,15 +881,15 @@ export default function EmployeesPage() {
       userName: "OPSCORE USER",
       module: "Employees",
       action: "Import Employees",
-      description: `${previewRows.length} employee record(s) imported from ${
+      description: `${rows.length} employee record(s) imported from ${
         fileName || "uploaded file"
       }`,
       severity: "info",
       recordId: fileName || null,
       newValue: {
         fileName,
-        importedCount: previewRows.length,
-        sampleRows: previewRows.slice(0, 10),
+        importedCount: rows.length,
+        sampleRows: rows.slice(0, 10),
       },
     });
 
@@ -954,6 +913,8 @@ export default function EmployeesPage() {
       "Basic Rate": emp.basic_rate || emp.daily_rate || 0,
       "Payroll Active": emp.payroll_active === false ? "No" : "Yes",
       "Portal Enabled": emp.portal_enabled === false ? "No" : "Yes",
+      "Admin/System User Access":
+        emp.admin_access_enabled === true ? "Yes" : "No",
       "Attendance Source": emp.attendance_source_preference || "Biometrics",
       "Contact Number": emp.contact_number,
       "Hire Date": emp.hire_date,
@@ -984,7 +945,6 @@ export default function EmployeesPage() {
     XLSX.writeFile(workbook, "opscore_employees_export.xlsx");
   };
 
-  /// EFFECTS
   useEffect(() => {
     setCurrentEmployeeId(localStorage.getItem("opscore_current_employee_id") || "");
     setCurrentSystemUserId(
@@ -996,7 +956,6 @@ export default function EmployeesPage() {
     getDropdownData();
   }, []);
 
-  /// CALCULATIONS
   const inactiveStatuses = [
     "archived",
     "resigned",
@@ -1026,7 +985,7 @@ export default function EmployeesPage() {
 
   const missingEmailCount = activeEmployeeRows.filter((emp) => !emp.email).length;
 
-const incomplete201Count = activeEmployeeRows.filter(
+  const incomplete201Count = activeEmployeeRows.filter(
     (emp) =>
       !emp.contact_number ||
       !emp.hire_date ||
@@ -1053,7 +1012,7 @@ const incomplete201Count = activeEmployeeRows.filter(
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
-const employeesWithIssues = activeEmployeeRows.filter(
+  const employeesWithIssues = activeEmployeeRows.filter(
     (emp) =>
       !emp.department ||
       !emp.position ||
@@ -1099,7 +1058,6 @@ const employeesWithIssues = activeEmployeeRows.filter(
     statusFilter,
   ]);
 
-  /// UI
   return (
     <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
       <Sidebar />
@@ -1140,11 +1098,15 @@ const employeesWithIssues = activeEmployeeRows.filter(
                     }
 
                     setShowEmployeeForm(true);
-                    window.setTimeout(() => {
+
+                    setTimeout(() => {
                       document
                         .getElementById("employee-form")
-                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 50);
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                    }, 100);
                   }}
                   className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
                 >
@@ -1231,8 +1193,7 @@ const employeesWithIssues = activeEmployeeRows.filter(
                   </h2>
                   <p className="mt-1 text-sm font-medium text-slate-500">
                     {filteredEmployees.length} employee
-                    {filteredEmployees.length === 1 ? "" : "s"} shown. Use
-                    filters above to narrow records.
+                    {filteredEmployees.length === 1 ? "" : "s"} shown.
                   </p>
                 </div>
 
@@ -1426,7 +1387,6 @@ const employeesWithIssues = activeEmployeeRows.filter(
                                 </button>
                               )}
 
-
                               {canDelete && emp.id !== currentEmployeeId && (
                                 <button
                                   onClick={() => deleteEmployee(emp)}
@@ -1468,7 +1428,7 @@ const employeesWithIssues = activeEmployeeRows.filter(
                         {editingEmployeeNo ? "Edit Employee" : "New Employee"}
                       </h2>
                       <p className="mt-1 text-sm font-medium text-slate-500">
-                        Required fields must be completed before saving.
+                        This creates or updates the employee record only. Admin/system access is managed separately.
                       </p>
                     </div>
 
@@ -1578,6 +1538,12 @@ const employeesWithIssues = activeEmployeeRows.filter(
                           label="Portal Access"
                           value={portalEnabled}
                           setValue={setPortalEnabled}
+                          options={yesNoOptions}
+                        />
+                        <Select
+                          label="Admin/System User Access"
+                          value={adminAccessEnabled}
+                          setValue={setAdminAccessEnabled}
                           options={yesNoOptions}
                         />
                         <div className="sm:col-span-2">
@@ -1720,7 +1686,7 @@ const employeesWithIssues = activeEmployeeRows.filter(
                           ? "Saving..."
                           : editingEmployeeNo
                             ? "Update Employee"
-                            : "Save Employee + Account"}
+                            : "Save Employee"}
                       </button>
 
                       <button

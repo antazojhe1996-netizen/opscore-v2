@@ -21,7 +21,8 @@ import { supabase } from "@/app/lib/supabase";
 type Employee = {
   id: string;
   company_id?: string;
-  system_role_id?: string;
+  system_role_id?: string | null;
+  admin_access_enabled?: boolean;
   employee_no: string;
   first_name: string;
   last_name: string;
@@ -67,7 +68,10 @@ type PortalAccount = {
 export default function Employee201ProfilePage() {
   const router = useRouter();
   const params = useParams();
-  const employeeId = String(params?.id || "");
+
+  const employeeId = Array.isArray(params?.id)
+    ? String(params?.id?.[0] || "")
+    : String(params?.id || "");
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [form, setForm] = useState<Partial<Employee>>({});
@@ -79,48 +83,100 @@ export default function Employee201ProfilePage() {
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [saveError, setSaveError] = useState("");
 
-  const getEmployee = async () => {
-    setLoading(true);
-    setSaveError("");
-
-    const { data, error } = await supabase
-      .from("employees")
-      .select("*")
-      .eq("id", employeeId)
-      .maybeSingle();
-
-    setLoading(false);
-
-    if (error) {
-      console.log("GET EMPLOYEE 201 ERROR:", error.message);
-      setSaveError(error.message);
-      return;
-    }
-
-    setEmployee(data || null);
-    setForm(data || {});
-
-    if (data?.id) {
-      const { data: accountData, error: accountError } = await supabase
+  const loadPortalAccount = async (id: string) => {
+    try {
+      const { data, error } = await supabase
         .from("system_users")
         .select("id, username, is_active")
-        .eq("employee_id", data.id)
+        .eq("employee_id", id)
         .maybeSingle();
 
-      if (accountError) {
-        console.log("GET PORTAL ACCOUNT ERROR:", accountError.message);
+      if (error) {
+        console.log("GET PORTAL ACCOUNT ERROR:", error.message);
         setPortalAccount(null);
         return;
       }
 
-      setPortalAccount(accountData || null);
-    } else {
+      setPortalAccount(data || null);
+    } catch (error: any) {
+      console.log("GET PORTAL ACCOUNT UNEXPECTED ERROR:", error?.message || error);
       setPortalAccount(null);
     }
   };
 
+  const getEmployee = async () => {
+    setLoading(true);
+    setSaveError("");
+    setTemporaryPassword("");
+
+    if (!employeeId || employeeId === "undefined" || employeeId === "null") {
+      setEmployee(null);
+      setForm({});
+      setPortalAccount(null);
+      setSaveError("Invalid employee ID.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let employeeData: Employee | null = null;
+
+      const { data: byId, error: byIdError } = await supabase
+        .from("employees")
+        .select("*")
+        .eq("id", employeeId)
+        .maybeSingle();
+
+      if (byIdError) {
+        console.log("GET EMPLOYEE BY ID ERROR:", byIdError.message);
+      }
+
+      if (byId) {
+        employeeData = byId as Employee;
+      }
+
+      if (!employeeData) {
+        const { data: byEmployeeNo, error: byEmployeeNoError } = await supabase
+          .from("employees")
+          .select("*")
+          .eq("employee_no", employeeId)
+          .maybeSingle();
+
+        if (byEmployeeNoError) {
+          console.log("GET EMPLOYEE BY EMPLOYEE NO ERROR:", byEmployeeNoError.message);
+        }
+
+        if (byEmployeeNo) {
+          employeeData = byEmployeeNo as Employee;
+        }
+      }
+
+      if (!employeeData) {
+        setEmployee(null);
+        setForm({});
+        setPortalAccount(null);
+        setSaveError("Employee record not found.");
+        setLoading(false);
+        return;
+      }
+
+      setEmployee(employeeData);
+      setForm(employeeData);
+      setLoading(false);
+
+      loadPortalAccount(employeeData.id);
+    } catch (error: any) {
+      console.log("GET EMPLOYEE 201 UNEXPECTED ERROR:", error?.message || error);
+      setEmployee(null);
+      setForm({});
+      setPortalAccount(null);
+      setSaveError(error?.message || "Unexpected loading error.");
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (employeeId) getEmployee();
+    getEmployee();
   }, [employeeId]);
 
   const updateForm = (key: keyof Employee, value: any) => {
@@ -146,6 +202,8 @@ export default function Employee201ProfilePage() {
 
     setIsSaving(true);
     setSaveError("");
+
+    const rateValue = Number(form.basic_rate || form.daily_rate || 0);
 
     const payload = {
       first_name: String(form.first_name || "").trim(),
@@ -176,13 +234,14 @@ export default function Employee201ProfilePage() {
       has_nbi_clearance: form.has_nbi_clearance === true,
       has_medical: form.has_medical === true,
       has_training_records: form.has_training_records === true,
-      payroll_active: form.payroll_active === true,
-      portal_enabled: form.portal_enabled === true,
+      payroll_active: form.payroll_active !== false,
+      portal_enabled: form.portal_enabled !== false,
+      admin_access_enabled: form.admin_access_enabled === true,
       attendance_source_preference:
         String(form.attendance_source_preference || "").trim() || "Biometrics",
       rate_type: String(form.rate_type || "").trim() || "Daily",
-      basic_rate: Number(form.basic_rate || form.daily_rate || 0),
-      daily_rate: Number(form.basic_rate || form.daily_rate || 0),
+      basic_rate: rateValue,
+      daily_rate: rateValue,
       payroll_notes: String(form.payroll_notes || "").trim(),
     };
 
@@ -235,7 +294,8 @@ export default function Employee201ProfilePage() {
         first_name: employee.first_name,
         last_name: employee.last_name,
         company_id: employee.company_id,
-        role_id: employee.system_role_id,
+        account_type: "employee_portal",
+        create_admin_access: false,
       }),
     });
 
@@ -334,9 +394,10 @@ export default function Employee201ProfilePage() {
         >
           <ArrowLeft size={16} /> Back
         </button>
-        <p className="text-sm font-bold text-red-700">
-          Employee record not found.
-        </p>
+
+        {saveError && (
+          <p className="text-sm font-bold text-red-700">{saveError}</p>
+        )}
       </Shell>
     );
   }
@@ -469,7 +530,7 @@ export default function Employee201ProfilePage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard
               label="Payroll"
               value={source?.payroll_active === false ? "Inactive" : "Active"}
@@ -485,6 +546,10 @@ export default function Employee201ProfilePage() {
               }
             />
             <SummaryCard
+              label="Admin Access"
+              value={source?.admin_access_enabled === true ? "Enabled" : "No"}
+            />
+            <SummaryCard
               label="Attendance"
               value={source?.attendance_source_preference || "Biometrics"}
             />
@@ -493,254 +558,77 @@ export default function Employee201ProfilePage() {
 
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           <InfoPanel title="Personal Information">
-            <ProfileField
-              label="First Name"
-              value={source?.first_name}
-              editing={isEditing}
-              onChange={(value) => updateForm("first_name", value)}
-            />
-            <ProfileField
-              label="Last Name"
-              value={source?.last_name}
-              editing={isEditing}
-              onChange={(value) => updateForm("last_name", value)}
-            />
-            <ProfileField
-              label="Birth Date"
-              type="date"
-              value={source?.birth_date}
-              editing={isEditing}
-              onChange={(value) => updateForm("birth_date", value)}
-            />
-            <ProfileField
-              label="Gender"
-              value={source?.gender}
-              editing={isEditing}
-              onChange={(value) => updateForm("gender", value)}
-            />
-            <ProfileField
-              label="Civil Status"
-              value={source?.civil_status}
-              editing={isEditing}
-              onChange={(value) => updateForm("civil_status", value)}
-            />
+            <ProfileField label="First Name" value={source?.first_name} editing={isEditing} onChange={(value) => updateForm("first_name", value)} />
+            <ProfileField label="Last Name" value={source?.last_name} editing={isEditing} onChange={(value) => updateForm("last_name", value)} />
+            <ProfileField label="Birth Date" type="date" value={source?.birth_date} editing={isEditing} onChange={(value) => updateForm("birth_date", value)} />
+            <ProfileField label="Gender" value={source?.gender} editing={isEditing} onChange={(value) => updateForm("gender", value)} />
+            <ProfileField label="Civil Status" value={source?.civil_status} editing={isEditing} onChange={(value) => updateForm("civil_status", value)} />
           </InfoPanel>
 
           <InfoPanel title="Contact Information">
-            <ProfileField
-              label="Email"
-              type="email"
-              value={source?.email}
-              editing={isEditing}
-              onChange={(value) => updateForm("email", value)}
-            />
-            <ProfileField
-              label="Contact Number"
-              value={source?.contact_number}
-              editing={isEditing}
-              onChange={(value) => updateForm("contact_number", value)}
-            />
-            <ProfileField
-              label="Address"
-              value={source?.address}
-              editing={isEditing}
-              onChange={(value) => updateForm("address", value)}
-            />
+            <ProfileField label="Email" type="email" value={source?.email} editing={isEditing} onChange={(value) => updateForm("email", value)} />
+            <ProfileField label="Contact Number" value={source?.contact_number} editing={isEditing} onChange={(value) => updateForm("contact_number", value)} />
+            <ProfileField label="Address" value={source?.address} editing={isEditing} onChange={(value) => updateForm("address", value)} />
           </InfoPanel>
 
           <InfoPanel title="Employment Information">
-            <ProfileField
-              label="Department"
-              value={source?.department}
-              editing={isEditing}
-              onChange={(value) => updateForm("department", value)}
-            />
-            <ProfileField
-              label="Position"
-              value={source?.position}
-              editing={isEditing}
-              onChange={(value) => updateForm("position", value)}
-            />
-            <ProfileField
-              label="Employment Status"
-              value={source?.employment_status}
-              editing={isEditing}
-              onChange={(value) => updateForm("employment_status", value)}
-            />
-            <ProfileField
-              label="Employment Type"
-              value={source?.employment_type}
-              editing={isEditing}
-              onChange={(value) => updateForm("employment_type", value)}
-            />
-            <ProfileField
-              label="Hire Date"
-              type="date"
-              value={source?.hire_date}
-              editing={isEditing}
-              onChange={(value) => updateForm("hire_date", value)}
-            />
-            <ProfileField
-              label="Rate Type"
-              value={source?.rate_type}
-              editing={isEditing}
-              onChange={(value) => updateForm("rate_type", value)}
-            />
+            <ProfileField label="Department" value={source?.department} editing={isEditing} onChange={(value) => updateForm("department", value)} />
+            <ProfileField label="Position" value={source?.position} editing={isEditing} onChange={(value) => updateForm("position", value)} />
+            <ProfileField label="Employment Status" value={source?.employment_status} editing={isEditing} onChange={(value) => updateForm("employment_status", value)} />
+            <ProfileField label="Employment Type" value={source?.employment_type} editing={isEditing} onChange={(value) => updateForm("employment_type", value)} />
+            <ProfileField label="Hire Date" type="date" value={source?.hire_date} editing={isEditing} onChange={(value) => updateForm("hire_date", value)} />
+            <ProfileField label="Rate Type" value={source?.rate_type} editing={isEditing} onChange={(value) => updateForm("rate_type", value)} />
             <ProfileField
               label="Basic Rate"
               type="number"
               value={source?.basic_rate || source?.daily_rate || 0}
               editing={isEditing}
               onChange={(value) => updateForm("basic_rate", Number(value || 0))}
-              displayValue={`₱${Number(
-                source?.basic_rate || source?.daily_rate || 0,
-              ).toLocaleString("en-PH")}`}
+              displayValue={`₱${Number(source?.basic_rate || source?.daily_rate || 0).toLocaleString("en-PH")}`}
             />
           </InfoPanel>
 
           <InfoPanel title="Government Information">
-            <ProfileField
-              label="SSS"
-              value={source?.sss_no}
-              editing={isEditing}
-              onChange={(value) => updateForm("sss_no", value)}
-            />
-            <ProfileField
-              label="PhilHealth"
-              value={source?.philhealth_no}
-              editing={isEditing}
-              onChange={(value) => updateForm("philhealth_no", value)}
-            />
-            <ProfileField
-              label="Pag-IBIG"
-              value={source?.pagibig_no}
-              editing={isEditing}
-              onChange={(value) => updateForm("pagibig_no", value)}
-            />
-            <ProfileField
-              label="TIN"
-              value={source?.tin_no}
-              editing={isEditing}
-              onChange={(value) => updateForm("tin_no", value)}
-            />
+            <ProfileField label="SSS" value={source?.sss_no} editing={isEditing} onChange={(value) => updateForm("sss_no", value)} />
+            <ProfileField label="PhilHealth" value={source?.philhealth_no} editing={isEditing} onChange={(value) => updateForm("philhealth_no", value)} />
+            <ProfileField label="Pag-IBIG" value={source?.pagibig_no} editing={isEditing} onChange={(value) => updateForm("pagibig_no", value)} />
+            <ProfileField label="TIN" value={source?.tin_no} editing={isEditing} onChange={(value) => updateForm("tin_no", value)} />
           </InfoPanel>
 
           <InfoPanel title="Emergency Contact">
-            <ProfileField
-              label="Contact Person"
-              value={source?.emergency_contact_name}
-              editing={isEditing}
-              onChange={(value) => updateForm("emergency_contact_name", value)}
-            />
-            <ProfileField
-              label="Contact Number"
-              value={source?.emergency_contact_number}
-              editing={isEditing}
-              onChange={(value) => updateForm("emergency_contact_number", value)}
-            />
-            <ProfileField
-              label="Relationship"
-              value={source?.emergency_contact_relationship}
-              editing={isEditing}
-              onChange={(value) =>
-                updateForm("emergency_contact_relationship", value)
-              }
-            />
+            <ProfileField label="Contact Person" value={source?.emergency_contact_name} editing={isEditing} onChange={(value) => updateForm("emergency_contact_name", value)} />
+            <ProfileField label="Contact Number" value={source?.emergency_contact_number} editing={isEditing} onChange={(value) => updateForm("emergency_contact_number", value)} />
+            <ProfileField label="Relationship" value={source?.emergency_contact_relationship} editing={isEditing} onChange={(value) => updateForm("emergency_contact_relationship", value)} />
           </InfoPanel>
 
           <InfoPanel title="Requirements Tracker">
-            <RequirementField
-              label="Resume"
-              done={source?.has_resume === true}
-              editing={isEditing}
-              onChange={(value) => updateForm("has_resume", value)}
-            />
-            <RequirementField
-              label="Valid ID"
-              done={source?.has_valid_id === true}
-              editing={isEditing}
-              onChange={(value) => updateForm("has_valid_id", value)}
-            />
-            <RequirementField
-              label="NBI Clearance"
-              done={source?.has_nbi_clearance === true}
-              editing={isEditing}
-              onChange={(value) => updateForm("has_nbi_clearance", value)}
-            />
-            <RequirementField
-              label="Medical"
-              done={source?.has_medical === true}
-              editing={isEditing}
-              onChange={(value) => updateForm("has_medical", value)}
-            />
-            <RequirementField
-              label="Contract"
-              done={source?.has_contract === true}
-              editing={isEditing}
-              onChange={(value) => updateForm("has_contract", value)}
-            />
-            <RequirementField
-              label="Training Records"
-              done={source?.has_training_records === true}
-              editing={isEditing}
-              onChange={(value) => updateForm("has_training_records", value)}
-            />
+            <RequirementField label="Resume" done={source?.has_resume === true} editing={isEditing} onChange={(value) => updateForm("has_resume", value)} />
+            <RequirementField label="Valid ID" done={source?.has_valid_id === true} editing={isEditing} onChange={(value) => updateForm("has_valid_id", value)} />
+            <RequirementField label="NBI Clearance" done={source?.has_nbi_clearance === true} editing={isEditing} onChange={(value) => updateForm("has_nbi_clearance", value)} />
+            <RequirementField label="Medical" done={source?.has_medical === true} editing={isEditing} onChange={(value) => updateForm("has_medical", value)} />
+            <RequirementField label="Contract" done={source?.has_contract === true} editing={isEditing} onChange={(value) => updateForm("has_contract", value)} />
+            <RequirementField label="Training Records" done={source?.has_training_records === true} editing={isEditing} onChange={(value) => updateForm("has_training_records", value)} />
           </InfoPanel>
 
           <InfoPanel title="Payroll, Portal & Attendance">
             <RequirementField
-              label="Payroll Active"
-              done={source?.payroll_active !== false}
+              label="Admin / System User Access"
+              done={source?.admin_access_enabled === true}
               editing={isEditing}
-              onChange={(value) => updateForm("payroll_active", value)}
+              onChange={(value) => updateForm("admin_access_enabled", value)}
             />
-            <RequirementField
-              label="Portal Enabled"
-              done={source?.portal_enabled !== false}
-              editing={isEditing}
-              onChange={(value) => updateForm("portal_enabled", value)}
-            />
-            <ProfileField
-              label="Attendance Source"
-              value={source?.attendance_source_preference}
-              editing={isEditing}
-              onChange={(value) =>
-                updateForm("attendance_source_preference", value)
-              }
-            />
-            <ProfileField
-              label="Payroll Notes"
-              value={source?.payroll_notes}
-              editing={isEditing}
-              onChange={(value) => updateForm("payroll_notes", value)}
-            />
+            <RequirementField label="Payroll Active" done={source?.payroll_active !== false} editing={isEditing} onChange={(value) => updateForm("payroll_active", value)} />
+            <RequirementField label="Portal Enabled" done={source?.portal_enabled !== false} editing={isEditing} onChange={(value) => updateForm("portal_enabled", value)} />
+            <ProfileField label="Attendance Source" value={source?.attendance_source_preference} editing={isEditing} onChange={(value) => updateForm("attendance_source_preference", value)} />
+            <ProfileField label="Payroll Notes" value={source?.payroll_notes} editing={isEditing} onChange={(value) => updateForm("payroll_notes", value)} />
           </InfoPanel>
 
           <InfoPanel title="Portal Access">
-            <ProfileField
-              label="Portal Status"
-              value={source?.portal_enabled === false ? "Disabled" : "Enabled"}
-              editing={false}
-              onChange={() => undefined}
-            />
-            <ProfileField
-              label="Account Creation"
-              value={portalAccount ? "Created" : "Not Created"}
-              editing={false}
-              onChange={() => undefined}
-            />
-            <ProfileField
-              label="Username"
-              value={portalAccount?.username || source?.email || "Missing Email"}
-              editing={false}
-              onChange={() => undefined}
-            />
-            <ProfileField
-              label="Password Setup"
-              value={portalAccount ? "Temporary Password Issued" : "Pending Account Creation"}
-              editing={false}
-              onChange={() => undefined}
-            />
+            <ProfileField label="Portal Status" value={source?.portal_enabled === false ? "Disabled" : "Enabled"} editing={false} onChange={() => undefined} />
+            <ProfileField label="Admin Access Eligibility" value={source?.admin_access_enabled === true ? "Enabled" : "No"} editing={false} onChange={() => undefined} />
+            <ProfileField label="Account Creation" value={portalAccount ? "Created" : "Not Created"} editing={false} onChange={() => undefined} />
+            <ProfileField label="Username" value={portalAccount?.username || source?.email || "Missing Email"} editing={false} onChange={() => undefined} />
+            <ProfileField label="Password Setup" value={portalAccount ? "Temporary Password Issued" : "Pending Account Creation"} editing={false} onChange={() => undefined} />
 
             {!isEditing && !portalAccount && (
               <button
@@ -792,13 +680,7 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InfoPanel({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function InfoPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
@@ -872,12 +754,12 @@ function RequirementField({
         <span
           className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
             done
-              ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border border-red-200 bg-red-50 text-red-700"
+              ? "border border-blue-200 bg-blue-50 text-blue-700"
+              : "border border-slate-200 bg-slate-100 text-slate-700"
           }`}
         >
           {done ? <CheckCircle2 size={13} /> : <CircleAlert size={13} />}
-          {done ? "Complete" : "Missing"}
+          {done ? "Enabled" : "No"}
         </span>
       )}
     </div>

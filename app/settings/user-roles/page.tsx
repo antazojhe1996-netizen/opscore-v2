@@ -80,7 +80,6 @@ const emptyPermission = {
 type AuditSeverity = "info" | "warning" | "critical";
 
 export default function UserRolesPage() {
-  /// STATES
   const [roles, setRoles] = useState<any[]>([]);
   const [permissions, setPermissions] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -89,7 +88,6 @@ export default function UserRolesPage() {
   const [newRoleDescription, setNewRoleDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  /// CALCULATIONS
   const selectedRole = roles.find((role) => role.id === selectedRoleId);
 
   const rolePermissions = useMemo(() => {
@@ -99,7 +97,7 @@ export default function UserRolesPage() {
       const existing = permissions.find(
         (permission) =>
           permission.role_id === selectedRoleId &&
-          permission.module_key === module.key
+          permission.module_key === module.key,
       );
 
       mapped[module.key] = existing || {
@@ -113,10 +111,9 @@ export default function UserRolesPage() {
   }, [permissions, selectedRoleId]);
 
   const assignedEmployees = employees.filter(
-    (employee) => employee.system_role_id === selectedRoleId
+    (employee) => employee.system_role_id === selectedRoleId,
   );
 
-  /// FUNCTIONS
   const getCurrentUser = async () => {
     const localUser =
       typeof window !== "undefined"
@@ -137,9 +134,7 @@ export default function UserRolesPage() {
             "Unknown User",
           email: parsedUser?.email || null,
         };
-      } catch {
-        // Continue to Supabase auth fallback.
-      }
+      } catch {}
     }
 
     const { data } = await supabase.auth.getUser();
@@ -184,9 +179,7 @@ export default function UserRolesPage() {
       created_at: new Date().toISOString(),
     });
 
-    if (error) {
-      console.log("USER ROLES AUDIT ERROR:", error.message);
-    }
+    if (error) console.log("USER ROLES AUDIT ERROR:", error.message);
   };
 
   const getRoles = async () => {
@@ -223,11 +216,12 @@ export default function UserRolesPage() {
       .from("employees")
       .select("*")
       .eq("employment_status", "Active")
+      .eq("admin_access_enabled", true)
       .order("department", { ascending: true })
       .order("first_name", { ascending: true });
 
     if (error) {
-      console.log("GET EMPLOYEES ERROR:", error.message);
+      console.log("GET ADMIN ACCESS EMPLOYEES ERROR:", error.message);
       return;
     }
 
@@ -300,7 +294,7 @@ export default function UserRolesPage() {
         newValue: null,
       });
 
-      alert("Cannot delete role. Remove assigned employees first.");
+      alert("Cannot delete role. Remove assigned admin access employees first.");
       return;
     }
 
@@ -337,14 +331,14 @@ export default function UserRolesPage() {
   const updatePermissionLocal = (
     moduleKey: string,
     field: string,
-    value: boolean
+    value: boolean,
   ) => {
     if (!selectedRoleId) return;
 
     const existing = permissions.find(
       (permission) =>
         permission.role_id === selectedRoleId &&
-        permission.module_key === moduleKey
+        permission.module_key === moduleKey,
     );
 
     if (existing) {
@@ -353,8 +347,8 @@ export default function UserRolesPage() {
           permission.role_id === selectedRoleId &&
           permission.module_key === moduleKey
             ? { ...permission, [field]: value }
-            : permission
-        )
+            : permission,
+        ),
       );
       return;
     }
@@ -372,7 +366,7 @@ export default function UserRolesPage() {
 
   const setRolePermissionsFromPreset = async (
     presetName: string,
-    builder: (moduleKey: string) => any
+    builder: (moduleKey: string) => any,
   ) => {
     if (!selectedRoleId) {
       alert("Select role first.");
@@ -380,11 +374,11 @@ export default function UserRolesPage() {
     }
 
     const oldPermissions = permissions.filter(
-      (permission) => permission.role_id === selectedRoleId
+      (permission) => permission.role_id === selectedRoleId,
     );
 
     const otherRolePermissions = permissions.filter(
-      (permission) => permission.role_id !== selectedRoleId
+      (permission) => permission.role_id !== selectedRoleId,
     );
 
     const newRolePermissions = modules.map((module) => ({
@@ -527,30 +521,24 @@ export default function UserRolesPage() {
   const applyManagerPreset = async () => {
     const allowedView = [
       "dashboard",
-
       "audit_center",
       "activity_logs",
       "database_health",
-
       "workforce",
       "employees",
       "scheduling",
       "leave_management",
       "forecasting",
       "performance",
-
       "hotel_room_sales",
       "apartment_sales",
       "restaurant_sales",
-
       "finance_dashboard",
       "expenses",
       "expense_requests",
       "bills_monitoring",
       "cash_management",
-
       "approval_center",
-
     ];
 
     const allowedCreateEdit = [
@@ -584,60 +572,7 @@ export default function UserRolesPage() {
   };
 
   const applyOperationsManagerPreset = async () => {
-    const allowedView = [
-      "dashboard",
-
-      "audit_center",
-      "activity_logs",
-      "database_health",
-
-      "workforce",
-      "employees",
-      "scheduling",
-      "leave_management",
-      "forecasting",
-      "performance",
-
-      "hotel_room_sales",
-      "apartment_sales",
-      "restaurant_sales",
-
-      "finance_dashboard",
-      "expenses",
-      "expense_requests",
-      "bills_monitoring",
-      "cash_management",
-      "expense_allocation",
-      "finance_settings",
-
-      "approval_center",
-
-      "attendance",
-      "payroll_register",
-      "payroll_manager",
-      "payslips",
-      "employee_balances",
-      "payroll_snapshots",
-      "release_history",
-      "payroll_settings",
-
-      "settings",
-      "user_credentials",
-      "approval_controls",
-      "approval_assignments",
-      "user_roles",
-      "backup_restore",
-      "departments_settings",
-      "positions_settings",
-      "employment_settings",
-      "shift_settings",
-      "hc_rules",
-      "forecasting_rules",
-      "performance_kpi",
-      "leave_settings",
-      "property_settings",
-    ];
-
+    const allowedView = modules.map((module) => module.key);
     const noDelete = ["user_credentials", "user_roles", "backup_restore"];
 
     await setRolePermissionsFromPreset("Operations Manager", (moduleKey) => ({
@@ -661,7 +596,7 @@ export default function UserRolesPage() {
     }
 
     const oldRows = permissions.filter(
-      (permission) => permission.role_id === selectedRoleId
+      (permission) => permission.role_id === selectedRoleId,
     );
 
     const rows = modules.map((module) => ({
@@ -722,7 +657,8 @@ export default function UserRolesPage() {
       .update({
         system_role_id: roleId || null,
       })
-      .eq("id", employeeId);
+      .eq("id", employeeId)
+      .eq("admin_access_enabled", true);
 
     if (error) {
       alert(error.message);
@@ -761,314 +697,303 @@ export default function UserRolesPage() {
     refreshData();
   }, []);
 
-  /// UI
   return (
     <PageGuard moduleKey="user_roles">
       <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
-      <Sidebar />
-      <TopNavbar breadcrumb="SYSTEM / USER ROLES" />
+        <Sidebar />
+        <TopNavbar breadcrumb="SYSTEM / USER ROLES" />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
-        <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-              System Settings
-            </p>
-
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">User Roles</h1>
-
-            <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
-              Create roles, apply permission presets, assign employees, and
-              control access per module.
-            </p>
-          </div>
-
-          <button
-            onClick={refreshData}
-            className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-          >
-            <RefreshCcw size={16} />
-            Refresh
-          </button>
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <SummaryCard
-            icon={<ShieldCheck size={22} />}
-            title="Roles"
-            value={roles.length}
-          />
-          <SummaryCard
-            icon={<Users size={22} />}
-            title="Employees"
-            value={employees.length}
-          />
-          <SummaryCard
-            icon={<ShieldCheck size={22} />}
-            title="Selected Role"
-            value={selectedRole?.role_name || "-"}
-          />
-        </section>
-
-        <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-black text-slate-950">Create Role</h2>
-
-            <div className="mt-5 space-y-3">
-              <input
-                value={newRoleName}
-                onChange={(e) => setNewRoleName(e.target.value)}
-                placeholder="Role name"
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-              />
-
-              <input
-                value={newRoleDescription}
-                onChange={(e) => setNewRoleDescription(e.target.value)}
-                placeholder="Description"
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-              />
-
-              <button
-                onClick={createRole}
-                disabled={isSaving}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
-              >
-                <Plus size={16} />
-                Create Role
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-            <h2 className="text-xl font-black text-slate-950">Select Role</h2>
-
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-              {roles.map((role) => (
-                <button
-                  key={role.id}
-                  onClick={() => setSelectedRoleId(role.id)}
-                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
-                    selectedRoleId === role.id
-                      ? "border-slate-950 bg-slate-50 shadow-sm"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-md"
-                  }`}
-                >
-                  <p className="font-black">{role.role_name}</p>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
-                    {role.description || "No description"}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            {selectedRole && (
-              <button
-                onClick={deleteRole}
-                className="mt-5 flex h-11 items-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
-              >
-                <Trash2 size={16} />
-                Delete Selected Role
-              </button>
-            )}
-          </div>
-        </section>
-
-        <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="text-xl font-black text-slate-950">Module Permissions</h2>
-
-              <p className="mt-1 text-sm font-medium text-slate-500">
-                Use presets for faster setup, then fine-tune access per module.
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                System Settings
               </p>
 
-              <div className="mt-4 flex flex-wrap gap-3">
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                User Roles
+              </h1>
+
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                Create roles, apply permission presets, assign admin access
+                employees, and control OPSCORE module permissions.
+              </p>
+            </div>
+
+            <button
+              onClick={refreshData}
+              className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+            >
+              <RefreshCcw size={16} />
+              Refresh
+            </button>
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
+            <SummaryCard
+              icon={<ShieldCheck size={22} />}
+              title="Roles"
+              value={roles.length}
+            />
+            <SummaryCard
+              icon={<Users size={22} />}
+              title="Admin Access Employees"
+              value={employees.length}
+            />
+            <SummaryCard
+              icon={<ShieldCheck size={22} />}
+              title="Selected Role"
+              value={selectedRole?.role_name || "-"}
+            />
+          </section>
+
+          <section className="mb-6 rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm font-bold text-blue-700 shadow-sm">
+            Only employees with Admin/System User Access enabled in Employee 201
+            appear here. Normal employees do not need roles for portal,
+            attendance, leave, or payslips.
+          </section>
+
+          <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-black text-slate-950">Create Role</h2>
+
+              <div className="mt-5 space-y-3">
+                <input
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="Role name"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                />
+
+                <input
+                  value={newRoleDescription}
+                  onChange={(e) => setNewRoleDescription(e.target.value)}
+                  placeholder="Description"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                />
+
                 <button
-                  onClick={grantFullAccess}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
+                  onClick={createRole}
+                  disabled={isSaving}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
                 >
-                  Full Access
-                </button>
-                <button
-                  onClick={grantViewOnly}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  View Only
-                </button>
-                <button
-                  onClick={applyManagerPreset}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  Manager / Supervisor / Audit
-                </button>
-                <button
-                  onClick={applyOperationsManagerPreset}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  Operations Manager
-                </button>
-                <button
-                  onClick={applyPayrollPreset}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  Payroll Preset
-                </button>
-                <button
-                  onClick={applyHRPreset}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  HR Preset
-                </button>
-                <button
-                  onClick={applyCashierPreset}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  Front Office / Cashier
-                </button>
-                <button
-                  onClick={clearAllPermissions}
-                  disabled={!selectedRoleId}
-                  className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:opacity-50"
-                >
-                  Clear All
+                  <Plus size={16} />
+                  Create Role
                 </button>
               </div>
             </div>
 
-            <button
-              onClick={savePermissions}
-              disabled={isSaving || !selectedRoleId}
-              className="flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
-            >
-              <Save size={16} />
-              Save Permissions
-            </button>
-          </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
+              <h2 className="text-xl font-black text-slate-950">Select Role</h2>
 
-          <div className="overflow-auto rounded-3xl border border-slate-200">
-            <table className="w-full min-w-[1050px] text-sm">
-              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-slate-700">Module</th>
-                  <th className="px-4 py-3 text-center">View</th>
-                  <th className="px-4 py-3 text-center">Create</th>
-                  <th className="px-4 py-3 text-center">Edit</th>
-                  <th className="px-4 py-3 text-center">Delete</th>
-                  <th className="px-4 py-3 text-center">Approve</th>
-                  <th className="px-4 py-3 text-center">Release</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
-                {modules.map((module) => (
-                  <tr key={module.key} className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50">
-                    <td className="px-4 py-3 font-black text-slate-950">{module.label}</td>
-
-                    {[
-                      "can_view",
-                      "can_create",
-                      "can_edit",
-                      "can_delete",
-                      "can_approve",
-                      "can_release",
-                    ].map((field) => (
-                      <td key={field} className="px-4 py-3 text-center">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(rolePermissions[module.key]?.[field])}
-                          onChange={(e) =>
-                            updatePermissionLocal(
-                              module.key,
-                              field,
-                              e.target.checked
-                            )
-                          }
-                          className="h-4 w-4 accent-slate-950"
-                        />
-                      </td>
-                    ))}
-                  </tr>
+              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                {roles.map((role) => (
+                  <button
+                    key={role.id}
+                    onClick={() => setSelectedRoleId(role.id)}
+                    className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                      selectedRoleId === role.id
+                        ? "border-slate-950 bg-slate-50 shadow-sm"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-md"
+                    }`}
+                  >
+                    <p className="font-black">{role.role_name}</p>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                      {role.description || "No description"}
+                    </p>
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
 
-          <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-blue-700">
-            Audit actions covered: CREATE_ROLE, DELETE_ROLE,
-            DELETE_ROLE_BLOCKED, APPLY_PERMISSION_PRESET, SAVE_PERMISSIONS,
-            ASSIGN_EMPLOYEE_ROLE.
-          </div>
-        </section>
+              {selectedRole && (
+                <button
+                  onClick={deleteRole}
+                  className="mt-5 flex h-11 items-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
+                >
+                  <Trash2 size={16} />
+                  Delete Selected Role
+                </button>
+              )}
+            </div>
+          </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-black text-slate-950">Assign Employee Role</h2>
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-950">
+                  Module Permissions
+                </h2>
 
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            Select which role each employee should use when accessing OPSCORE.
-          </p>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Use presets for faster setup, then fine-tune access per module.
+                </p>
 
-          <div className="mt-5 overflow-auto rounded-3xl border border-slate-200">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-slate-700">Employee</th>
-                  <th className="px-4 py-3 text-slate-700">Department</th>
-                  <th className="px-4 py-3 text-slate-700">Position</th>
-                  <th className="px-4 py-3 text-slate-700">System Role</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
-                {employees.map((employee) => (
-                  <tr key={employee.id} className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50">
-                    <td className="px-4 py-3 font-black text-slate-950">
-                      {employee.first_name} {employee.last_name}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{employee.department || "-"}</td>
-                    <td className="px-4 py-3 text-slate-700">{employee.position || "-"}</td>
-                    <td className="px-4 py-3 text-slate-700">
-                      <select
-                        value={employee.system_role_id || ""}
-                        onChange={(e) =>
-                          assignEmployeeRole(employee.id, e.target.value)
-                        }
-                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                      >
-                        <option value="">No Access</option>
-                        {roles.map((role) => (
-                          <option key={role.id} value={role.id}>
-                            {role.role_name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-
-                {employees.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-4 py-10 text-center text-slate-500"
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {[
+                    ["Full Access", grantFullAccess],
+                    ["View Only", grantViewOnly],
+                    ["Manager / Supervisor / Audit", applyManagerPreset],
+                    ["Operations Manager", applyOperationsManagerPreset],
+                    ["Payroll Preset", applyPayrollPreset],
+                    ["HR Preset", applyHRPreset],
+                    ["Front Office / Cashier", applyCashierPreset],
+                  ].map(([label, handler]: any) => (
+                    <button
+                      key={label}
+                      onClick={handler}
+                      disabled={!selectedRoleId}
+                      className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                     >
-                      No employees found.
-                    </td>
+                      {label}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={clearAllPermissions}
+                    disabled={!selectedRoleId}
+                    className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={savePermissions}
+                disabled={isSaving || !selectedRoleId}
+                className="flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
+              >
+                <Save size={16} />
+                Save Permissions
+              </button>
+            </div>
+
+            <div className="overflow-auto rounded-3xl border border-slate-200">
+              <table className="w-full min-w-[1050px] text-sm">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 text-slate-700">Module</th>
+                    <th className="px-4 py-3 text-center">View</th>
+                    <th className="px-4 py-3 text-center">Create</th>
+                    <th className="px-4 py-3 text-center">Edit</th>
+                    <th className="px-4 py-3 text-center">Delete</th>
+                    <th className="px-4 py-3 text-center">Approve</th>
+                    <th className="px-4 py-3 text-center">Release</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </div>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {modules.map((module) => (
+                    <tr
+                      key={module.key}
+                      className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-3 font-black text-slate-950">
+                        {module.label}
+                      </td>
+
+                      {[
+                        "can_view",
+                        "can_create",
+                        "can_edit",
+                        "can_delete",
+                        "can_approve",
+                        "can_release",
+                      ].map((field) => (
+                        <td key={field} className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(rolePermissions[module.key]?.[field])}
+                            onChange={(e) =>
+                              updatePermissionLocal(
+                                module.key,
+                                field,
+                                e.target.checked,
+                              )
+                            }
+                            className="h-4 w-4 accent-slate-950"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-black text-slate-950">
+              Assign Admin Employee Role
+            </h2>
+
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              Only employees enabled for Admin/System User Access in Employee
+              201 are listed here.
+            </p>
+
+            <div className="mt-5 overflow-auto rounded-3xl border border-slate-200">
+              <table className="w-full min-w-[900px] text-sm">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 text-slate-700">Employee</th>
+                    <th className="px-4 py-3 text-slate-700">Department</th>
+                    <th className="px-4 py-3 text-slate-700">Position</th>
+                    <th className="px-4 py-3 text-slate-700">System Role</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {employees.map((employee) => (
+                    <tr
+                      key={employee.id}
+                      className="border-t border-slate-100 transition-all duration-200 hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-3 font-black text-slate-950">
+                        {employee.first_name} {employee.last_name}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {employee.department || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {employee.position || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        <select
+                          value={employee.system_role_id || ""}
+                          onChange={(e) =>
+                            assignEmployeeRole(employee.id, e.target.value)
+                          }
+                          className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        >
+                          <option value="">No Access</option>
+                          {roles.map((role) => (
+                            <option key={role.id} value={role.id}>
+                              {role.role_name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {employees.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-10 text-center text-slate-500"
+                      >
+                        No admin access employees found. Enable Admin/System
+                        User Access from Employee 201 first.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
     </PageGuard>
   );
 }
@@ -1090,7 +1015,9 @@ function SummaryCard({
         </div>
         <p className="text-sm font-medium text-slate-500">{title}</p>
       </div>
-      <h2 className="text-3xl font-black tracking-tight text-slate-950">{value}</h2>
+      <h2 className="text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </h2>
     </div>
   );
 }
