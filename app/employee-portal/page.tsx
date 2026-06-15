@@ -1424,7 +1424,7 @@ export default function EmployeePortalPage() {
               status,
             });
           },
-          options
+          options,
         );
       });
     };
@@ -1450,7 +1450,6 @@ export default function EmployeePortalPage() {
       console.log("OPSCORE GPS PERMISSION CHECK SKIPPED:", permissionError);
     }
 
-    // Attempt 1: mobile-friendly read. This is more reliable indoors and on older phones.
     const mobileFriendlyLocation = await readPosition({
       enableHighAccuracy: false,
       timeout: 30000,
@@ -1465,7 +1464,6 @@ export default function EmployeePortalPage() {
       return mobileFriendlyLocation;
     }
 
-    // Attempt 2: strict GPS read. This may be more accurate when the phone has a clear signal.
     const highAccuracyLocation = await readPosition({
       enableHighAccuracy: true,
       timeout: 30000,
@@ -1475,10 +1473,55 @@ export default function EmployeePortalPage() {
     return highAccuracyLocation;
   };
 
+  const requireValidPortalLocation = (
+    location: PortalLocationCapture,
+    action: "Time In" | "Time Out",
+  ) => {
+    const maxAccuracyMeters = 150;
+
+    if (location.status === "PERMISSION_DENIED") {
+      alert(
+        `Location permission is required before ${action}. Please allow location access in your browser settings, then try again.`,
+      );
+      return false;
+    }
+
+    if (location.status !== "GPS_CAPTURED") {
+      alert(
+        `Unable to capture GPS location before ${action}. Status: ${location.status}. Please turn on Location/GPS and try again.`,
+      );
+      return false;
+    }
+
+    const hasCoordinates =
+      location.latitude !== null &&
+      location.latitude !== undefined &&
+      location.longitude !== null &&
+      location.longitude !== undefined;
+
+    if (!hasCoordinates) {
+      alert(`GPS coordinates were not captured. ${action} was not saved.`);
+      return false;
+    }
+
+    const accuracy = Number(location.accuracy || 9999);
+
+    if (accuracy > maxAccuracyMeters) {
+      alert(
+        `GPS accuracy is too low (${Math.round(
+          accuracy,
+        )}m). Please move to an open area and try again. Required accuracy: ${maxAccuracyMeters}m or better.`,
+      );
+      return false;
+    }
+
+    return true;
+  };
+
   const buildLocationRemark = (
     baseRemark: string | null | undefined,
     action: "Time In" | "Time Out",
-    location: PortalLocationCapture
+    location: PortalLocationCapture,
   ) => {
     const existingRemark = String(baseRemark || `Employee Portal ${action}`).trim();
     const locationRemark =
@@ -1498,7 +1541,6 @@ export default function EmployeePortalPage() {
 
     const attendanceDate = getPhilippinesDate();
     const timeIn = getPhilippinesTime();
-    const location = await getPortalLocation();
 
     const { data: existingEntry, error: existingError } = await supabase
       .from("attendance_entries")
@@ -1522,9 +1564,16 @@ export default function EmployeePortalPage() {
       return;
     }
 
+    const location = await getPortalLocation();
+
+    if (!requireValidPortalLocation(location, "Time In")) {
+      setLoading(false);
+      return;
+    }
+
     const lateMinutes = computeLateMinutes(
       existingEntry?.scheduled_in || schedule?.scheduled_in || null,
-      timeIn
+      timeIn,
     );
 
     const attendancePayload = {
@@ -1544,7 +1593,7 @@ export default function EmployeePortalPage() {
       remarks: buildLocationRemark(
         existingEntry?.remarks || "Employee Portal Time In",
         "Time In",
-        location
+        location,
       ),
       time_in_latitude: location.latitude,
       time_in_longitude: location.longitude,
@@ -1567,10 +1616,7 @@ export default function EmployeePortalPage() {
 
     await reloadEmployeeData(currentUser.id);
     setLoading(false);
-
-    if (location.status !== "GPS_CAPTURED") {
-      alert(`Time In saved. GPS was not captured: ${location.status}.`);
-    }
+    alert("Time In saved with GPS location.");
   };
 
   const handleTimeOut = async () => {
@@ -1579,7 +1625,6 @@ export default function EmployeePortalPage() {
     setLoading(true);
 
     const attendanceDate = getPhilippinesDate();
-    const location = await getPortalLocation();
 
     const { data: latestEntry, error: latestError } = await supabase
       .from("attendance_entries")
@@ -1613,13 +1658,20 @@ export default function EmployeePortalPage() {
 
     if (String(latestEntry.time_in || "").slice(0, 5) === timeOut) {
       const confirmSameMinute = confirm(
-        "Time In and Time Out are the same minute. Continue only if this is intentional."
+        "Time In and Time Out are the same minute. Continue only if this is intentional.",
       );
 
       if (!confirmSameMinute) {
         setLoading(false);
         return;
       }
+    }
+
+    const location = await getPortalLocation();
+
+    if (!requireValidPortalLocation(location, "Time Out")) {
+      setLoading(false);
+      return;
     }
 
     const scheduledOut =
@@ -1638,7 +1690,7 @@ export default function EmployeePortalPage() {
         remarks: buildLocationRemark(
           latestEntry.remarks || "Employee Portal Time Out",
           "Time Out",
-          location
+          location,
         ),
         time_out_latitude: location.latitude,
         time_out_longitude: location.longitude,
@@ -1655,10 +1707,7 @@ export default function EmployeePortalPage() {
 
     await reloadEmployeeData(currentUser.id);
     setLoading(false);
-
-    if (location.status !== "GPS_CAPTURED") {
-      alert(`Time Out saved. GPS was not captured: ${location.status}.`);
-    }
+    alert("Time Out saved with GPS location.");
   };
 
   const getCurrentCompanyId = async () => {
