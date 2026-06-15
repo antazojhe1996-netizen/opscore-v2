@@ -565,6 +565,39 @@ export default function CashManagementPage() {
       ["Expense Release", "Cash Advance"].includes(String(item.source || "")),
   );
 
+  const getMovementReceiptInfo = (movement: any) => {
+    const remarksText = String(movement?.remarks || "");
+
+    if (remarksText.includes("[Receipt: WITHOUT_RECEIPT]")) {
+      const reasonMatch = remarksText.match(/\[No Receipt Reason: ([^\]]+)\]/);
+      const explanationMatch = remarksText.match(/\[No Receipt Explanation: ([^\]]+)\]/);
+
+      return {
+        status: "WITHOUT_RECEIPT",
+        label: "Without Receipt",
+        reason: reasonMatch?.[1] || "No reason captured",
+        explanation: explanationMatch?.[1] || "",
+      };
+    }
+
+    if (remarksText.includes("[Receipt: WITH_RECEIPT]")) {
+      return {
+        status: "WITH_RECEIPT",
+        label: "With Receipt",
+        reason: "",
+        explanation: "",
+      };
+    }
+
+    return {
+      status: "UNTRACKED",
+      label: "Not Tagged",
+      reason: "",
+      explanation: "",
+    };
+  };
+
+
   const withReceiptCount = receiptTrackedRows.filter(
     (item) => getMovementReceiptInfo(item).status === "WITH_RECEIPT",
   ).length;
@@ -990,38 +1023,6 @@ export default function CashManagementPage() {
     ]
       .filter(Boolean)
       .join(" ");
-  };
-
-  const getMovementReceiptInfo = (movement: any) => {
-    const remarksText = String(movement?.remarks || "");
-
-    if (remarksText.includes("[Receipt: WITHOUT_RECEIPT]")) {
-      const reasonMatch = remarksText.match(/\[No Receipt Reason: ([^\]]+)\]/);
-      const explanationMatch = remarksText.match(/\[No Receipt Explanation: ([^\]]+)\]/);
-
-      return {
-        status: "WITHOUT_RECEIPT",
-        label: "Without Receipt",
-        reason: reasonMatch?.[1] || "No reason captured",
-        explanation: explanationMatch?.[1] || "",
-      };
-    }
-
-    if (remarksText.includes("[Receipt: WITH_RECEIPT]")) {
-      return {
-        status: "WITH_RECEIPT",
-        label: "With Receipt",
-        reason: "",
-        explanation: "",
-      };
-    }
-
-    return {
-      status: "UNTRACKED",
-      label: "Not Tagged",
-      reason: "",
-      explanation: "",
-    };
   };
 
   const getApprovalPayload = (request: any) => {
