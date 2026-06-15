@@ -459,7 +459,7 @@ export default function CashManagementPage() {
 
   const activePayrollLabel = activePayrollPeriod
     ? `${activePayrollPeriod.period_name || "Payroll Period"} (${activePayrollPeriod.start_date} to ${activePayrollPeriod.end_date})`
-    : `No usable payroll period covers ${businessDate || "selected date"}`;
+    : `Unassigned payroll period (${businessDate || "selected date"})`;
 
   const cashApprovalRequests = useMemo(() => {
     return approvalRequests
@@ -2284,14 +2284,6 @@ export default function CashManagementPage() {
       ? await fetchPayrollPeriodForDate(businessDate)
       : null;
 
-    if (isCashAdvanceCashOut && !targetPayrollPeriod) {
-      alert(
-        `No usable payroll period covers ${businessDate}. Create, reopen, partially release, or release the correct cutoff first.`,
-      );
-      savingRef.current = false;
-      return;
-    }
-
     if (isExpenseRelease && !expenseCategory) {
       alert("Please select expense category.");
       savingRef.current = false;
@@ -2467,7 +2459,7 @@ export default function CashManagementPage() {
         payroll_period_label: isCashAdvanceCashOut
           ? targetPayrollPeriod
             ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
-            : activePayrollLabel
+            : "Unassigned Payroll Period"
           : null,
       };
 
@@ -2649,7 +2641,7 @@ export default function CashManagementPage() {
             ? `Source: ${paymentType === "Cash" ? "Cash Control" : paymentType}. Auto linked by selected date to: ${
                 targetPayrollPeriod
                   ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
-                  : activePayrollLabel
+                  : "Unassigned Payroll Period"
               }. ${cashAdvancePurpose.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`.trim()
             : `${remarks.trim()}${
                 expenseReleasedTo.trim()
@@ -2704,7 +2696,7 @@ export default function CashManagementPage() {
       if (isCashAdvanceCashOut) {
         const cutoffLabel = targetPayrollPeriod
           ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
-          : activePayrollLabel;
+          : "Unassigned Payroll Period";
 
         const cashDrawerReference = [
           `Source: ${paymentType === "Cash" ? "Cash Control" : paymentType}`,
@@ -2731,7 +2723,7 @@ export default function CashManagementPage() {
             status: "Active",
             source_module: "Cash Control",
             source_id: isUuid(movementData.id) ? movementData.id : null,
-            period_id: targetPayrollPeriod.id,
+            period_id: targetPayrollPeriod?.id || null,
             remarks: cashDrawerReference,
           })
           .select()
@@ -2772,10 +2764,12 @@ export default function CashManagementPage() {
             .update({ employee_balance_id: balanceData.id })
             .eq("id", expenseData.id);
 
-          await supabase
-            .from("payroll_periods")
-            .update({ needs_regeneration: true })
-            .eq("id", targetPayrollPeriod.id);
+          if (targetPayrollPeriod?.id) {
+            await supabase
+              .from("payroll_periods")
+              .update({ needs_regeneration: true })
+              .eq("id", targetPayrollPeriod.id);
+          }
         }
       }
     }
