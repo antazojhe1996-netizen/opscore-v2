@@ -36,6 +36,7 @@ type LoginEmployee = {
   department?: string | null;
   position?: string | null;
   employment_status: string | null;
+  portal_enabled?: boolean | null;
 };
 
 type CompanyUser = {
@@ -159,6 +160,10 @@ export default function PortalLoginPage() {
       return;
     }
 
+    // EMPLOYEE PORTAL RULE:
+    // Portal login is employee-first. company_users / role_id are optional and only used
+    // for manager/admin-style portal permissions. Portal-only staff must NOT be blocked
+    // just because they do not have Admin/System User Access.
     const { data: companyUserData, error: companyUserError } = await supabase
       .from("company_users")
       .select("*")
@@ -168,21 +173,11 @@ export default function PortalLoginPage() {
       .limit(1)
       .maybeSingle();
 
-    if (companyUserError || !companyUserData) {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("No active company access found for this user.");
-      return;
+    if (companyUserError) {
+      console.log("PORTAL COMPANY USER LOOKUP ERROR:", companyUserError.message);
     }
 
-    const companyUser = companyUserData as CompanyUser;
-
-    if (!companyUser.role_id) {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("No role assigned to this user.");
-      return;
-    }
+    const companyUser = (companyUserData || null) as CompanyUser | null;
 
     let employee: LoginEmployee | null = null;
     let employeeName = systemUser.username || "System User";
@@ -210,6 +205,13 @@ export default function PortalLoginPage() {
         return;
       }
 
+      if (employee.portal_enabled === false) {
+        await supabase.auth.signOut();
+        setIsLoading(false);
+        setErrorMessage("Employee portal access is disabled for this account.");
+        return;
+      }
+
       employeeName = `${employee.first_name || ""} ${
         employee.last_name || ""
       }`.trim();
@@ -221,7 +223,11 @@ export default function PortalLoginPage() {
 
     localStorage.setItem(systemUserIdKey, systemUser.id);
     localStorage.setItem(companyIdKey, systemUser.company_id);
-    localStorage.setItem(roleIdKey, companyUser.role_id);
+    if (companyUser?.role_id) {
+      localStorage.setItem(roleIdKey, companyUser.role_id);
+    } else {
+      localStorage.removeItem(roleIdKey);
+    }
     localStorage.setItem(mustChangePasswordKey, String(mustChangePassword));
 
     if (employee) {
@@ -229,9 +235,9 @@ export default function PortalLoginPage() {
         ...employee,
         auth_user_id: authUserId,
         system_user_id: systemUser.id,
-        company_user_id: companyUser.id,
+        company_user_id: companyUser?.id || null,
         company_id: systemUser.company_id,
-        role_id: companyUser.role_id,
+        role_id: companyUser?.role_id || null,
         username: systemUser.username,
         must_change_password: mustChangePassword,
       };
@@ -247,9 +253,9 @@ export default function PortalLoginPage() {
         id: systemUser.id,
         auth_user_id: authUserId,
         system_user_id: systemUser.id,
-        company_user_id: companyUser.id,
+        company_user_id: companyUser?.id || null,
         company_id: systemUser.company_id,
-        role_id: companyUser.role_id,
+        role_id: companyUser?.role_id || null,
         employee_id: employee?.id || null,
         name: employeeName,
         username: systemUser.username,

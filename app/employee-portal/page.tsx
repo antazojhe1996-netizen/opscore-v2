@@ -1291,31 +1291,38 @@ export default function EmployeePortalPage() {
   };
 
   const getPayslips = async (employeeId: string) => {
+    const cleanEmployeeId = String(employeeId || "").trim();
+
+    if (!cleanEmployeeId) {
+      setPayslips([]);
+      return;
+    }
+
+    const companyId = await getCurrentCompanyId();
     const employeeNo = String(currentUser?.employee_no || employeeNumber || "").trim();
-    const shortEmployeeNo = employeeNo.replace(/^BIO-/i, "");
-    const bioEmployeeNo = employeeNo && employeeNo.startsWith("BIO-")
-      ? employeeNo
-      : shortEmployeeNo
-      ? `BIO-${shortEmployeeNo.padStart(3, "0")}`
-      : "";
     const employeeNameFilter = employeeName.trim();
 
     const filters = [
-      `employee_id.eq.${employeeId}`,
+      `employee_id.eq.${cleanEmployeeId}`,
       employeeNo ? `employee_no.eq.${employeeNo}` : "",
-      shortEmployeeNo ? `employee_no.eq.${shortEmployeeNo}` : "",
-      bioEmployeeNo ? `employee_no.eq.${bioEmployeeNo}` : "",
       employeeNameFilter ? `employee_name.eq.${employeeNameFilter}` : "",
     ].filter(Boolean);
 
-    const query = supabase
-      .from("payroll_snapshots")
+    let query = supabase
+      .from("payroll_records")
       .select("*")
-      .order("id", { ascending: false })
+      .order("released_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
       .limit(12);
 
-    const { data, error } =
-      filters.length > 0 ? await query.or(filters.join(",")) : await query.eq("employee_id", employeeId);
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+
+    const { data: payrollRows, error } =
+      filters.length > 0
+        ? await query.or(filters.join(","))
+        : await query.eq("employee_id", cleanEmployeeId);
 
     if (error) {
       console.log("PAYSLIP HISTORY ERROR:", error.message);
@@ -1323,7 +1330,83 @@ export default function EmployeePortalPage() {
       return;
     }
 
-    setPayslips(data || []);
+    const releasedRows = (payrollRows || []).filter((row: any) => {
+      const status = String(row.status || "").toUpperCase();
+      const recordStatus = String(row.record_status || "").toUpperCase();
+      const releaseStatus = String(row.release_status || "").toUpperCase();
+
+      return (
+        status === "RELEASED" ||
+        recordStatus === "RELEASED" ||
+        releaseStatus === "RELEASED" ||
+        Boolean(row.released_at)
+      );
+    });
+
+    const periodIds = Array.from(
+      new Set(
+        releasedRows
+          .map((row: any) => row.period_id || row.payroll_period_id)
+          .filter(Boolean),
+      ),
+    );
+
+    let periodMap = new Map<string, any>();
+
+    if (periodIds.length > 0) {
+      const { data: periodRows, error: periodError } = await supabase
+        .from("payroll_periods")
+        .select("*")
+        .in("id", periodIds);
+
+      if (periodError) {
+        console.log("PAYSLIP PERIOD LOOKUP ERROR:", periodError.message);
+      } else {
+        periodMap = new Map(
+          (periodRows || []).map((period: any) => [String(period.id), period]),
+        );
+      }
+    }
+
+    const mappedPayslips = releasedRows.map((row: any) => {
+      const periodId = row.period_id || row.payroll_period_id || null;
+      const period = periodId ? periodMap.get(String(periodId)) || {} : {};
+      const periodLabel =
+        period.period_name ||
+        period.period_label ||
+        row.period_name ||
+        row.period_label ||
+        row.payroll_period ||
+        row.cutoff_name ||
+        "Released Payroll";
+
+      return {
+        ...row,
+        payroll_period_id: periodId,
+        period_id: periodId,
+        period: periodLabel,
+        period_name: periodLabel,
+        payroll_period: periodLabel,
+        cutoff_name: periodLabel,
+        start_date: period.start_date || row.start_date || row.period_start_date || null,
+        end_date: period.end_date || row.end_date || row.period_end_date || null,
+        employee_id: row.employee_id || cleanEmployeeId,
+        employee_no: row.employee_no || employeeNo || "",
+        employee_name: row.employee_name || employeeNameFilter || employeeName || "Employee",
+        department: row.department || currentUser?.department || "",
+        position: row.position || currentUser?.position || "",
+        gross_pay: Number(row.gross_pay || row.gross_amount || 0),
+        total_deductions: Number(row.total_deductions ?? row.deductions ?? row.total_deduction ?? 0),
+        deductions: Number(row.total_deductions ?? row.deductions ?? row.total_deduction ?? 0),
+        net_pay: Number(row.net_pay ?? row.net_amount ?? row.release_amount ?? 0),
+        final_pay: Number(row.net_pay ?? row.net_amount ?? row.release_amount ?? 0),
+        release_amount: Number(row.release_amount ?? row.released_amount ?? row.net_pay ?? row.net_amount ?? 0),
+        status: "RELEASED",
+        created_at: row.released_at || row.created_at || null,
+      };
+    });
+
+    setPayslips(mappedPayslips);
   };
 
   const getEmployeeBalances = async (employeeId: string) => {

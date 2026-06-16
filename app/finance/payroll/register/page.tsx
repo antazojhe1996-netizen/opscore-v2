@@ -10,7 +10,6 @@ import {
   DollarSign,
   Lock,
   Printer,
-  RotateCcw,
   Search,
   Send,
   Trash2,
@@ -101,60 +100,129 @@ export default function PayrollRegisterPage() {
   const periodStatus = String(selectedPeriod?.status || "OPEN").trim().toUpperCase();
   const payrollIsOutdated = Boolean(selectedPeriod?.needs_regeneration);
 
-  // OPSCORE V1.3 lifecycle:
-  // OPEN = attendance/register editable
-  // REGISTERED = snapshot created / Manager review stage. Attendance is still editable for corrections.
-  // LOCKED = frozen review state. Attendance/register edits are blocked.
-  // RELEASED = immutable released payroll. Attendance/register edits are blocked.
+  // OPSCORE Payroll V2 lifecycle lock:
+  // Payroll Period controls the cutoff header only.
+  // payroll_records.record_status controls each employee row.
+  // Register is editable only while OPEN/DRAFT, or for rows returned by Manager.
+  const PAYROLL_RECORD_STATUSES = {
+    DRAFT: "DRAFT",
+    REGISTERED: "REGISTERED",
+    MANAGER_REVIEW: "MANAGER_REVIEW",
+    RETURNED_FOR_CORRECTION: "RETURNED_FOR_CORRECTION",
+    LOCKED: "LOCKED",
+    RELEASED: "RELEASED",
+  } as const;
+
   const isOpenPeriod = ["OPEN", "REOPENED", "DRAFT"].includes(periodStatus);
   const isRegisteredPeriod = periodStatus === "REGISTERED";
   const isLocked =
     ["LOCKED", "RELEASED", "PAID", "PARTIALLY RELEASED"].includes(periodStatus) ||
     selectedPeriod?.attendance_locked === true;
 
-  const canEditPayroll = (isOpenPeriod || isRegisteredPeriod) && !isLocked;
+  const getRecordStatus = (record: any) => {
+    const explicitStatus = String(record?.record_status || "").trim().toUpperCase();
 
-  const closedRegisterStatuses = [
-    "For Approval",
-    "Approved",
-    "REGISTERED",
-    "LOCKED",
-    "RELEASED",
-    "Released",
-    "Partially Released",
-    "Paid",
-    "Cancelled",
-  ];
+    if (explicitStatus) return explicitStatus;
+
+    const legacyStatus = String(record?.status || "").trim().toUpperCase();
+    const releaseStatus = String(record?.release_status || "").trim().toUpperCase();
+    const paidAmount = Number(record?.paid_amount || record?.released_amount || 0);
+    const hasReleaseDate = Boolean(record?.released_at);
+
+    if (legacyStatus === "RETURNED_FOR_CORRECTION") return PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION;
+    if (legacyStatus === "FOR APPROVAL" || legacyStatus === "REGISTERED") return PAYROLL_RECORD_STATUSES.MANAGER_REVIEW;
+    if (legacyStatus === "APPROVED" || legacyStatus === "LOCKED") return PAYROLL_RECORD_STATUSES.LOCKED;
+    if (legacyStatus === "RELEASED" || legacyStatus === "PAID" || legacyStatus === "PARTIALLY RELEASED") return PAYROLL_RECORD_STATUSES.RELEASED;
+    if (releaseStatus === "RELEASED" || releaseStatus === "PAID" || releaseStatus === "PARTIALLY RELEASED" || paidAmount > 0 || hasReleaseDate) {
+      return PAYROLL_RECORD_STATUSES.RELEASED;
+    }
+
+    return PAYROLL_RECORD_STATUSES.DRAFT;
+  };
+
+  const canEditDraftRegister = isOpenPeriod && !isLocked && !isRegisteredPeriod;
+
+  const isReturnedCorrectionRecord = (record: any) =>
+    getRecordStatus(record) === PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION;
+
+  const canEditRecordInRegister = (record: any) =>
+    canEditDraftRegister || isReturnedCorrectionRecord(record);
+
+  const canEditPayroll = canEditDraftRegister;
+
+  const canGenerateRegister = Boolean(selectedPeriodId) && canEditDraftRegister;
+
+  const canManageRegisterForm = Boolean(selectedPeriodId) && canEditDraftRegister;
 
   const isRecordClosedForRegister = (record: any) => {
-    const status = String(record.status || "").trim();
-    const releaseStatus = String(record.release_status || "").trim();
-    const paidAmount = Number(record.paid_amount || record.released_amount || 0);
-    const hasReleaseDate = Boolean(record.released_at);
-
-    return (
-      closedRegisterStatuses.includes(status) ||
-      closedRegisterStatuses.includes(releaseStatus) ||
-      paidAmount > 0 ||
-      hasReleaseDate
-    );
+    const status = getRecordStatus(record);
+    return [
+      PAYROLL_RECORD_STATUSES.MANAGER_REVIEW,
+      PAYROLL_RECORD_STATUSES.LOCKED,
+      PAYROLL_RECORD_STATUSES.RELEASED,
+    ].includes(status as any);
   };
 
   const isRecordSendableFromRegister = (record: any) => {
-    const status = String(record.status || "Draft").trim();
-    const releaseStatus = String(record.release_status || "Pending").trim();
-
-    if (isRecordClosedForRegister(record)) return false;
-    if (["For Approval", "Approved"].includes(status)) return false;
-    if (["For Approval", "Approved"].includes(releaseStatus)) return false;
-
-    return true;
+    const status = getRecordStatus(record);
+    return (
+      (canEditDraftRegister && status === PAYROLL_RECORD_STATUSES.DRAFT) ||
+      status === PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION
+    );
   };
+
+  const canViewAuditFromRegister = (record: any) =>
+    getRecordStatus(record) !== PAYROLL_RECORD_STATUSES.DRAFT;
+
+  const getRecordStatusLabel = (record: any) =>
+    getRecordStatus(record).replace(/_/g, " ");
 
   const isSettingEnabled = (
     activeSettings: Record<string, string>,
     key: string
   ) => String(activeSettings[key] || "No") === "Yes";
+
+  const isOvertimeApprovalRequired = (
+    activeSettings: Record<string, string> = settings,
+  ) => {
+    const rawValue =
+      activeSettings.ot_requires_approval ??
+      activeSettings.overtime_requires_approval ??
+      activeSettings.ot_approval_required ??
+      activeSettings.overtime_approval_required ??
+      "Yes";
+
+    return !["No", "Off", "Disabled", "False", "0"].includes(String(rawValue));
+  };
+
+  const getOtApprovalStatus = (detectedMinutes: number, approvedMinutes: number) => {
+    if (detectedMinutes <= 0) return "NOT_REQUIRED";
+    if (approvedMinutes >= detectedMinutes) return "APPROVED";
+    if (approvedMinutes > 0) return "PARTIALLY_APPROVED";
+    return "PENDING_APPROVAL";
+  };
+
+  const getOtStatusStyle = (status: any) => {
+    const normalized = String(status || "").toUpperCase();
+
+    if (normalized === "APPROVED") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+
+    if (normalized === "PARTIALLY_APPROVED") {
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    }
+
+    if (normalized === "PENDING_APPROVAL") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+
+    if (normalized === "REJECTED") {
+      return "border-red-200 bg-red-50 text-red-700";
+    }
+
+    return "border-slate-200 bg-slate-100 text-slate-700";
+  };
 
   const isGovernmentEnabled = (activeSettings: Record<string, string>) =>
     isSettingEnabled(activeSettings, "government_contributions_enabled") ||
@@ -465,8 +533,8 @@ export default function PayrollRegisterPage() {
   };
 
   const updateRecordBalanceDeduction = async (record: any, rawValue: any) => {
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before editing CA deductions.");
+    if (!canEditRecordInRegister(record)) {
+      alert("This employee row is review-only. Only DRAFT rows during OPEN cutoff or RETURNED FOR CORRECTION rows can be edited in Payroll Register.");
       return;
     }
 
@@ -667,8 +735,8 @@ ${error.message}`);
       return;
     }
 
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before deleting.");
+    if (!canEditDraftRegister) {
+      alert("Only OPEN payroll periods can be deleted from Payroll Register. Sent, locked, or released cutoffs are controlled by Payroll Manager.");
       return;
     }
 
@@ -723,73 +791,7 @@ ${error.message}`);
   };
 
   const reopenPayroll = async () => {
-    if (!selectedPeriodId) return;
-
-    const reason = prompt(
-      "Reason for reopening payroll? This is required for audit trail."
-    );
-
-    if (!reason || !reason.trim()) {
-      alert("Reopen reason is required.");
-      return;
-    }
-
-    const confirmed = confirm(
-      "Reopen this payroll? This will return the period to OPEN and allow a new payroll snapshot registration."
-    );
-
-    if (!confirmed) return;
-
-    const { error: periodError } = await supabase
-      .from("payroll_periods")
-      .update({
-        status: "OPEN",
-        reopen_reason: reason.trim(),
-        reopened_at: new Date().toISOString(),
-        attendance_locked: false,
-        attendance_locked_at: null,
-        snapshot_created_at: null,
-      })
-      .eq("id", selectedPeriodId);
-
-    if (periodError) {
-      alert("Failed to reopen payroll period.");
-      return console.log("REOPEN PERIOD ERROR:", periodError.message);
-    }
-
-    const { error: recordsError } = await supabase
-      .from("payroll_records")
-      .update({
-        status: "Draft",
-        reopen_reason: reason.trim(),
-      })
-      .eq("period_id", selectedPeriodId);
-
-    if (recordsError) {
-      console.log("REOPEN RECORDS ERROR:", recordsError.message);
-    }
-
-    await getPeriods();
-    await getRecords(selectedPeriodId);
-    await getEmployeeBalances();
-    setSelectedRecordIds([]);
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Payroll",
-      action: "Reopen Payroll Period",
-      description: `Reopened payroll period to OPEN ${selectedPeriod?.period_name || selectedPeriodId}. Reason: ${reason.trim()}`,
-      severity: "critical",
-      recordId: selectedPeriodId,
-      oldValue: selectedPeriod,
-      newValue: {
-        status: "OPEN",
-        reopen_reason: reason.trim(),
-        attendance_locked: false,
-      },
-    });
-
-    alert("Payroll reopened.");
+    alert("Register-side reopen is disabled after payroll is sent to Manager. Use Payroll Manager return/request reopen workflow.");
   };
 
   const getAttendanceRows = async (employeeId: string) => {
@@ -832,6 +834,16 @@ ${error.message}`);
 
     const paidLeaveDays = leavePayEnabled ? leaveRows.length : 0;
 
+    const detectedOtMinutes = workRows.reduce(
+      (sum, row) => sum + Number(row.ot_minutes || 0),
+      0,
+    );
+
+    const approvedOtMinutes = workRows.reduce(
+      (sum, row) => sum + Number(row.approved_ot_minutes || 0),
+      0,
+    );
+
     return {
       scheduledDays: scheduledRows.length,
       restDays: restRows.length,
@@ -842,7 +854,10 @@ ${error.message}`);
       lateMinutes: workRows.reduce((sum, row) => sum + Number(row.late_minutes || 0), 0),
       undertimeMinutes: workRows.reduce((sum, row) => sum + Number(row.undertime_minutes || 0), 0),
       absentDays: workRows.filter((row) => isAbsent(row) || !hasActualTime(row)).length,
-      otMinutes: workRows.reduce((sum, row) => sum + Number(row.ot_minutes || 0), 0),
+      otMinutes: detectedOtMinutes,
+      detectedOtMinutes,
+      approvedOtMinutes,
+      otApprovalStatus: getOtApprovalStatus(detectedOtMinutes, approvedOtMinutes),
       holidayWorkedDates: workRows
         .filter((row) => hasActualTime(row))
         .map((row) => normalizeDate(row.attendance_date)),
@@ -915,8 +930,17 @@ ${error.message}`);
     const absentDays = Number(base.absent_days || 0);
     const lateMinutes = Number(base.late_minutes || 0);
     const undertimeMinutes = Number(base.undertime_minutes || 0);
-    const otMinutes = Number(base.ot_minutes || 0);
-    const otHours = otMinutes / 60;
+    const detectedOtMinutes = Number(base.detected_ot_minutes ?? base.ot_minutes ?? 0);
+    const approvedOtMinutes = Number(base.approved_ot_minutes || 0);
+    const otApprovalRequired = isOvertimeApprovalRequired(activeSettings);
+    const payableOtMinutes = otApprovalRequired ? approvedOtMinutes : detectedOtMinutes;
+    const otMinutes = detectedOtMinutes;
+    const otHours = payableOtMinutes / 60;
+    const otApprovalStatus = otApprovalRequired
+      ? getOtApprovalStatus(detectedOtMinutes, approvedOtMinutes)
+      : detectedOtMinutes > 0
+        ? "NOT_REQUIRED"
+        : "NOT_REQUIRED";
 
     const dailyRate = rateType === "Monthly" ? basicRate / 26 : basicRate;
     const hourlyRate = dailyRate / paidHours;
@@ -940,7 +964,14 @@ ${error.message}`);
     const absentDeduction =
       absentEnabled && rateType === "Monthly" ? absentDays * dailyRate : 0;
 
-    const otPay = otEnabled ? otHours * hourlyRate * otMultiplier : 0;
+    // OPSCORE V1.5 OT rule:
+    // Detected OT is never payable by itself when approval is required.
+    // Approved OT minutes are the source of truth for payroll payout.
+    // If approved minutes exist, compute OT pay even when legacy OT toggle keys are missing/mismatched.
+    const otComputationEnabled = otEnabled || payableOtMinutes > 0;
+    const otPay = otComputationEnabled && payableOtMinutes > 0
+      ? otHours * hourlyRate * otMultiplier
+      : 0;
 
     const holidayWorkedDates = Array.from(
       new Set((base.holiday_worked_dates || []).map(normalizeDate).filter(Boolean))
@@ -1053,9 +1084,13 @@ ${error.message}`);
     return {
       ...cleanBase,
       status: "Draft",
+      record_status: PAYROLL_RECORD_STATUSES.DRAFT,
       basic_pay: basicPay,
       holiday_pay: holidayPay,
       ot_pay: otPay,
+      detected_ot_minutes: detectedOtMinutes,
+      approved_ot_minutes: approvedOtMinutes,
+      ot_approval_status: otApprovalStatus,
       allowance: manualEarnings,
       manual_deduction: manualDeductions,
       balance_deduction: balanceDeduction,
@@ -1090,8 +1125,8 @@ ${error.message}`);
       return;
     }
 
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before generating again.");
+    if (!canGenerateRegister) {
+      alert("Generate Register is only allowed while the payroll period is OPEN. After REGISTERED, Manager must return individual employee rows for correction.");
       return;
     }
 
@@ -1158,27 +1193,20 @@ ${error.message}`);
       selectedPeriod?.attendance_locked === false &&
       selectedPeriod?.needs_regeneration === true;
 
+    // Protect only records that have entered approval/release lifecycle.
+    // IMPORTANT:
+    // Draft/Pending open-register records must be refreshable when attendance,
+    // approved OT, CA deductions, or settings change. The previous guard protected
+    // any record with remaining_amount > 0, which blocked OT recomputation after
+    // an overtime approval.
     const protectedExistingRecords = isAttendanceReopenRegeneration
       ? []
       : (existingPeriodRecords || []).filter((record) => {
-          const status = String(record.status || "");
-          const releaseStatus = String(record.release_status || "");
-          const paidAmount = Number(record.paid_amount || 0);
-          const remainingAmount = Number(record.remaining_amount || 0);
-
-          return (
-            status === "For Approval" ||
-            status === "Approved" ||
-            status === "Released" ||
-            status === "Paid" ||
-            status === "Partially Released" ||
-            releaseStatus === "For Approval" ||
-            releaseStatus === "Approved" ||
-            releaseStatus === "Released" ||
-            releaseStatus === "Partially Released" ||
-            paidAmount > 0 ||
-            (remainingAmount > 0 && status !== "Draft")
-          );
+          const status = getRecordStatus(record);
+          return ![
+            PAYROLL_RECORD_STATUSES.DRAFT,
+            PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION,
+          ].includes(status as any);
         });
 
     const protectedEmployeeIds = new Set(
@@ -1263,6 +1291,9 @@ ${error.message}`);
           undertime_minutes: attendance.undertimeMinutes,
           absent_days: attendance.absentDays,
           ot_minutes: attendance.otMinutes,
+          detected_ot_minutes: attendance.detectedOtMinutes,
+          approved_ot_minutes: attendance.approvedOtMinutes,
+          ot_approval_status: attendance.otApprovalStatus,
           holiday_worked_dates: attendance.holidayWorkedDates,
           remarks:
             attendance.leaveDays > 0
@@ -1328,12 +1359,12 @@ ${error.message}`);
       },
     });
 
-    alert(`Payroll generated. CA balances are available for manual partial deduction. Preserved released/partial records: ${protectedExistingRecords.length}.`);
+    alert(`Payroll generated. CA balances are available for manual partial deduction. Preserved approved/released records: ${protectedExistingRecords.length}.`);
   };
 
   const addAdjustment = async () => {
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before adding adjustments.");
+    if (!canManageRegisterForm) {
+      alert("Adjustments can only be added while the payroll period is OPEN. For sent payroll, Manager must return the employee row for correction.");
       return;
     }
 
@@ -1510,8 +1541,8 @@ ${error.message}`);
   };
 
   const deleteAdjustment = async (id: string) => {
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before deleting adjustments.");
+    if (!canManageRegisterForm) {
+      alert("Adjustments can only be deleted while the payroll period is OPEN.");
       return;
     }
 
@@ -1569,8 +1600,8 @@ ${error.message}`);
   };
 
   const deleteEmployeeBalance = async (balance: any) => {
-    if (!canEditPayroll) {
-      alert("This payroll is locked. Reopen first before cancelling employee balances.");
+    if (!canManageRegisterForm) {
+      alert("Employee balances can only be cancelled from Register while the payroll period is OPEN.");
       return;
     }
 
@@ -1699,6 +1730,15 @@ This will remove it from future payroll deductions but keep the audit trail.`
       const lateMinutes = Number(entry.late_minutes || 0);
       const undertimeMinutes = Number(entry.undertime_minutes || 0);
       const otMinutes = Number(entry.ot_minutes || 0);
+      const approvedOtMinutes = Number(entry.approved_ot_minutes || 0);
+      const otApprovalRequired = isOvertimeApprovalRequired(activeSettings);
+      const payableOtMinutes = otApprovalRequired ? approvedOtMinutes : otMinutes;
+      const otHours = payableOtMinutes / 60;
+      const otMultiplier = Number(activeSettings.ot_multiplier || 1.25);
+      const otAmount = otHours * (dailyRate / paidHours) * otMultiplier;
+      const otApprovalStatus = otApprovalRequired
+        ? getOtApprovalStatus(otMinutes, approvedOtMinutes)
+        : "NOT_REQUIRED";
 
       const lateAmount =
         lateEnabled && lateMinutes > lateGrace ? lateMinutes * minuteRate : 0;
@@ -1725,7 +1765,11 @@ This will remove it from future payroll deductions but keep the audit trail.`
       if (!restDay && !leaveDay && absent) issueParts.push("Absent from scheduled work day");
       if (lateMinutes > 0) issueParts.push(`${lateMinutes} mins late`);
       if (undertimeMinutes > 0) issueParts.push(`${undertimeMinutes} mins undertime`);
-      if (otMinutes > 0) issueParts.push(`${otMinutes} mins OT`);
+      if (otMinutes > 0) {
+        issueParts.push(
+          `${otMinutes} mins OT • Approved ${approvedOtMinutes} mins • ${otApprovalStatus.replace(/_/g, " ")}`
+        );
+      }
 
       if (issueParts.length > 0) issue = issueParts.join(" • ");
 
@@ -1738,6 +1782,10 @@ This will remove it from future payroll deductions but keep the audit trail.`
         lateAmount,
         undertimeAmount,
         absentAmount,
+        otAmount,
+        detectedOtMinutes: otMinutes,
+        approvedOtMinutes,
+        otApprovalStatus,
         totalAmount: lateAmount + undertimeAmount + absentAmount,
         isDeduction: lateAmount + undertimeAmount + absentAmount > 0,
       };
@@ -1888,6 +1936,9 @@ This will remove it from future payroll deductions but keep the audit trail.`
           late_minutes: Number(record.late_minutes || 0),
           undertime_minutes: Number(record.undertime_minutes || 0),
           ot_minutes: Number(record.ot_minutes || 0),
+          detected_ot_minutes: Number(record.detected_ot_minutes ?? record.ot_minutes ?? 0),
+          approved_ot_minutes: Number(record.approved_ot_minutes || 0),
+          ot_approval_status: record.ot_approval_status || "NOT_REQUIRED",
           holiday_worked_dates: record.holiday_worked_dates || [],
           remarks: record.remarks || "",
         },
@@ -1901,6 +1952,9 @@ This will remove it from future payroll deductions but keep the audit trail.`
           basic_pay: Number(record.basic_pay || 0),
           holiday_pay: Number(record.holiday_pay || 0),
           ot_pay: Number(record.ot_pay || 0),
+          detected_ot_minutes: Number(record.detected_ot_minutes ?? record.ot_minutes ?? 0),
+          approved_ot_minutes: Number(record.approved_ot_minutes || 0),
+          ot_approval_status: record.ot_approval_status || "NOT_REQUIRED",
           allowance: Number(record.allowance || 0),
           late_deduction: Number(record.late_deduction || 0),
           undertime_deduction: Number(record.undertime_deduction || 0),
@@ -1917,6 +1971,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
           release_amount: getDisplayedReleaseAmount(record),
           carry_forward_amount: getDisplayedCarryForwardAmount(record),
           legacy_record_status: record.status || "Draft",
+          record_status: getRecordStatus(record),
         },
         created_at: now,
       };
@@ -1952,31 +2007,146 @@ This will remove it from future payroll deductions but keep the audit trail.`
     return true;
   };
 
-  const sendPayrollToManager = async (mode: "all" | "selected") => {
+  const sendPayrollToManager = async () => {
     if (!selectedPeriodId || records.length === 0) return;
 
-    if (mode !== "all") {
-      alert("OPSCORE V1.3 requires full payroll period registration. Use Register Payroll to snapshot the whole cutoff.");
+    const sendableRecords = records.filter((record) => isRecordSendableFromRegister(record));
+    const selectedSendableRecords = selectedRecords.filter((record) => isRecordSendableFromRegister(record));
+    const targetRecords = selectedSendableRecords.length > 0 ? selectedSendableRecords : sendableRecords;
+    const isSelectedAction = selectedSendableRecords.length > 0;
+
+    if (targetRecords.length === 0) {
+      alert("No DRAFT or RETURNED FOR CORRECTION payroll records are ready to send to Manager.");
       return;
     }
 
-    if (!canEditPayroll) {
-      alert("This payroll period is already registered, locked, or released. Reopen workflow is required.");
-      return;
-    }
-
-    if (selectedPeriod?.needs_regeneration) {
+    if (selectedPeriod?.needs_regeneration && targetRecords.some((record) => getRecordStatus(record) === PAYROLL_RECORD_STATUSES.DRAFT)) {
       alert(
         "Cannot register payroll. Payroll is outdated because attendance, adjustments, or employee balances changed. Generate Register first."
       );
       return;
     }
 
-    const sendableRecords = records.filter((record) => isRecordSendableFromRegister(record));
-    const targetRecords = sendableRecords;
+    const payrollBlockingApprovalTypes = [
+      "OVERTIME_APPROVAL",
+      "PAYROLL_ADJUSTMENT",
+      "PAYROLL_REOPEN",
+      "LEAVE_REQUEST",
+      "LEAVE_CANCELLATION",
+      "CASH_ADVANCE_RELEASE",
+    ];
 
-    if (targetRecords.length === 0) {
-      alert("No payroll records ready for registration.");
+    let approvalQuery = supabase
+      .from("approval_requests")
+      .select("id, request_type, status, company_id, reference_id, title, requested_by, request_payload, created_at")
+      .eq("status", "PENDING")
+      .in("request_type", payrollBlockingApprovalTypes);
+
+    const currentCompanyForApprovalCheck = getCurrentCompanyId();
+
+    if (currentCompanyForApprovalCheck) {
+      approvalQuery = approvalQuery.eq("company_id", currentCompanyForApprovalCheck);
+    }
+
+    const { data: pendingApprovalData, error: pendingApprovalError } = await approvalQuery;
+
+    if (pendingApprovalError) {
+      alert(`Cannot verify Approval Center before registration. ${pendingApprovalError.message}`);
+      return;
+    }
+
+    const parseApprovalPayload = (payload: any) => {
+      if (!payload) return {};
+      if (typeof payload === "string") {
+        try {
+          return JSON.parse(payload);
+        } catch {
+          return {};
+        }
+      }
+      return payload;
+    };
+
+    const dateFallsInsideSelectedPeriod = (value: any) => {
+      const normalized = normalizeDate(value);
+      const periodStart = normalizeDate(selectedPeriod?.start_date);
+      const periodEnd = normalizeDate(selectedPeriod?.end_date);
+
+      if (!normalized || !periodStart || !periodEnd) return false;
+      return normalized >= periodStart && normalized <= periodEnd;
+    };
+
+    const targetEmployeeIds = new Set(targetRecords.map((record) => String(record.employee_id)));
+
+    const approvalTouchesSelectedPeriod = (request: any) => {
+      const payload = parseApprovalPayload(request.request_payload);
+      const periodId = String(
+        payload.period_id ||
+          payload.payroll_period_id ||
+          payload.periodId ||
+          payload.payrollPeriodId ||
+          "",
+      ).trim();
+
+      if (periodId && periodId !== selectedPeriodId) return false;
+
+      const payloadEmployeeId = String(payload.employee_id || payload.employeeId || "").trim();
+      if (payloadEmployeeId && !targetEmployeeIds.has(payloadEmployeeId)) return false;
+
+      if (request.request_type === "OVERTIME_APPROVAL") {
+        return dateFallsInsideSelectedPeriod(
+          payload.attendance_date ||
+            payload.business_date ||
+            payload.date,
+        );
+      }
+
+      if (request.request_type === "LEAVE_REQUEST" || request.request_type === "LEAVE_CANCELLATION") {
+        const start = normalizeDate(payload.start_date || payload.leave_start_date || payload.from_date);
+        const end = normalizeDate(payload.end_date || payload.leave_end_date || payload.to_date || start);
+        const periodStart = normalizeDate(selectedPeriod?.start_date);
+        const periodEnd = normalizeDate(selectedPeriod?.end_date);
+
+        if (!start || !end || !periodStart || !periodEnd) return true;
+        return start <= periodEnd && end >= periodStart;
+      }
+
+      if (request.request_type === "CASH_ADVANCE_RELEASE") {
+        return true;
+      }
+
+      return true;
+    };
+
+    const blockingApprovals = (pendingApprovalData || []).filter(approvalTouchesSelectedPeriod);
+
+    if (blockingApprovals.length > 0) {
+      const approvalLabels: Record<string, string> = {
+        OVERTIME_APPROVAL: "Overtime Approval",
+        PAYROLL_ADJUSTMENT: "Payroll Adjustment",
+        PAYROLL_REOPEN: "Payroll Reopen",
+        LEAVE_REQUEST: "Leave Request",
+        LEAVE_CANCELLATION: "Leave Cancellation",
+        CASH_ADVANCE_RELEASE: "Cash Advance Release",
+      };
+
+      const summaryMap = blockingApprovals.reduce(
+        (acc: Record<string, number>, item: any) => {
+          const type = String(item.request_type || "UNKNOWN").toUpperCase();
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        },
+        {},
+      );
+
+      const summary = Object.entries(summaryMap)
+        .map(([type, count]) => `- ${count} ${approvalLabels[type] || type}`)
+        .join("\n");
+
+      alert(
+        `Cannot send payroll yet.\n\nPending payroll-impacting approvals found:\n\n${summary}\n\nResolve all pending approvals in Approval Center first, then Generate Register again.`,
+      );
+
       return;
     }
 
@@ -2003,31 +2173,18 @@ This will remove it from future payroll deductions but keep the audit trail.`
         targetRecords.some((record) => record.employee_name === alert.employee)
     );
 
-    const confirmMessage = `Register Payroll Snapshot?
+    const isCorrectionResubmit = targetRecords.every(
+      (record) => getRecordStatus(record) === PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION
+    );
 
-Lifecycle:
-OPEN → REGISTERED
-
-Employees: ${targetRecords.length}
-Gross Pay: ${formatMoney(targetGross)}
-Deductions: ${formatMoney(targetDeductions)}
-Net Pay: ${formatMoney(targetNet)}
-
-High Alerts: ${targetHighAlerts.length}
-
-OPSCORE V1.4 Rules:
-- This creates the payroll snapshot.
-- REGISTERED is Manager Review, not final lock.
-- Attendance remains editable until Manager locks or releases the cutoff.
-- Payroll Manager must read snapshot data only.
-- Payslips will only be allowed after payroll release.`;
+    const confirmMessage = `${isCorrectionResubmit ? "Resubmit Returned Correction" : "Send Payroll to Manager"}?\n\nAction: ${isSelectedAction ? "Selected employee row(s) only" : "All ready employee rows"}\nEmployees: ${targetRecords.length}\nGross Pay: ${formatMoney(targetGross)}\nDeductions: ${formatMoney(targetDeductions)}\nNet Pay: ${formatMoney(targetNet)}\nHigh Alerts: ${targetHighAlerts.length}\n\nRules:\n- Only DRAFT or RETURNED FOR CORRECTION rows are sent.\n- Other Manager Review, Locked, or Released rows are untouched.\n- Register becomes review-only after sending.\n- Manager owns Return, Lock, Release, and Reopen Request.`;
 
     const confirmed = confirm(confirmMessage);
     if (!confirmed) return;
 
     if (targetHighAlerts.length > 0) {
       const proceed = confirm(
-        `There are ${targetHighAlerts.length} HIGH alert(s). Register snapshot anyway?`
+        `There are ${targetHighAlerts.length} HIGH alert(s). Send anyway?`
       );
 
       if (!proceed) return;
@@ -2039,7 +2196,7 @@ OPSCORE V1.4 Rules:
 
     const snapshotOk = await createPayrollSnapshots(
       targetRecords,
-      "Payroll Register Snapshot"
+      isCorrectionResubmit ? "Returned Correction Resubmission Snapshot" : "Payroll Register Snapshot"
     );
 
     if (!snapshotOk) {
@@ -2047,29 +2204,34 @@ OPSCORE V1.4 Rules:
       return;
     }
 
-    const { error: periodError } = await supabase
-      .from("payroll_periods")
-      .update({
-        status: "REGISTERED",
-        attendance_locked: false,
-        attendance_locked_at: null,
-        snapshot_created_at: now,
-        needs_regeneration: false,
-      })
-      .eq("id", selectedPeriodId);
+    if (isOpenPeriod) {
+      const { error: periodError } = await supabase
+        .from("payroll_periods")
+        .update({
+          status: "REGISTERED",
+          attendance_locked: false,
+          attendance_locked_at: null,
+          snapshot_created_at: now,
+          needs_regeneration: false,
+        })
+        .eq("id", selectedPeriodId);
 
-    if (periodError) {
-      setIsSaving(false);
-      alert("Failed to update payroll period to REGISTERED.");
-      return console.log("REGISTER PERIOD ERROR:", periodError.message);
+      if (periodError) {
+        setIsSaving(false);
+        alert("Failed to update payroll period to REGISTERED.");
+        return console.log("REGISTER PERIOD ERROR:", periodError.message);
+      }
     }
 
     const { error: recordsError } = await supabase
       .from("payroll_records")
       .update({
         status: "For Approval",
+        record_status: PAYROLL_RECORD_STATUSES.MANAGER_REVIEW,
         period_label: selectedPeriod?.period_name || "Payroll Period",
         snapshot_created_at: now,
+        resubmitted_at: isCorrectionResubmit ? now : null,
+        return_reason: null,
       })
       .in("id", targetIds);
 
@@ -2079,12 +2241,12 @@ OPSCORE V1.4 Rules:
         userName: "OPSCORE USER",
         module: "Payroll",
         action: "Register Payroll Records Failed",
-        description: `Snapshot was created but legacy payroll_records failed to update for ${selectedPeriod?.period_name || selectedPeriodId}: ${recordsError.message}`,
+        description: `Snapshot was created but payroll_records failed to update for ${selectedPeriod?.period_name || selectedPeriodId}: ${recordsError.message}`,
         severity: "critical",
         recordId: selectedPeriodId,
         newValue: { error: recordsError.message, targetCount: targetRecords.length },
       });
-      alert("Snapshot created, but legacy payroll records failed to update. Check payroll_records table.");
+      alert("Snapshot created, but payroll records failed to update. Check payroll_records table and record_status column.");
       return console.log("REGISTER RECORDS ERROR:", recordsError.message);
     }
 
@@ -2098,19 +2260,19 @@ OPSCORE V1.4 Rules:
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Payroll",
-      action: "Register Payroll Snapshot",
-      description: `${targetRecords.length} payroll record(s) registered into immutable snapshot for ${selectedPeriod?.period_name || selectedPeriodId}`,
+      action: isCorrectionResubmit ? "Resubmit Returned Payroll Correction" : "Send Payroll to Manager",
+      description: `${targetRecords.length} payroll record(s) sent to Manager Review for ${selectedPeriod?.period_name || selectedPeriodId}`,
       severity: "warning",
       recordId: selectedPeriodId,
       newValue: {
-        lifecycle: "OPEN_TO_REGISTERED_REVIEW",
+        lifecycle: isCorrectionResubmit ? "RETURNED_FOR_CORRECTION_TO_MANAGER_REVIEW" : "DRAFT_TO_MANAGER_REVIEW",
         recordCount: targetRecords.length,
         totalNet: targetNet,
         targetIds,
       },
     });
 
-    alert("Payroll REGISTERED. Snapshot created and sent to Payroll Manager review. Attendance remains editable until Manager locks or releases this cutoff.");
+    alert(isCorrectionResubmit ? "Returned correction resubmitted to Payroll Manager." : "Payroll sent to Payroll Manager review.");
   };
 
   useEffect(() => {
@@ -2129,44 +2291,99 @@ OPSCORE V1.4 Rules:
     }
   }, [selectedPeriodId]);
 
-  const editableRegisterRecords = useMemo(() => {
-    return records.filter((record) => !isRecordClosedForRegister(record));
+  const draftRegisterRecords = useMemo(() => {
+    return records.filter(
+      (record) => getRecordStatus(record) === PAYROLL_RECORD_STATUSES.DRAFT
+    );
   }, [records]);
 
+  const returnedCorrectionRecords = useMemo(() => {
+    return records.filter(
+      (record) =>
+        getRecordStatus(record) ===
+        PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION
+    );
+  }, [records]);
+
+  const managerReviewRecords = useMemo(() => {
+    return records.filter(
+      (record) =>
+        getRecordStatus(record) === PAYROLL_RECORD_STATUSES.MANAGER_REVIEW
+    );
+  }, [records]);
+
+  const lockedOrReleasedRecords = useMemo(() => {
+    return records.filter((record) =>
+      [
+        PAYROLL_RECORD_STATUSES.LOCKED,
+        PAYROLL_RECORD_STATUSES.RELEASED,
+      ].includes(getRecordStatus(record) as any)
+    );
+  }, [records]);
+
+  const reviewOnlyRecords = useMemo(() => {
+    return [...managerReviewRecords, ...lockedOrReleasedRecords];
+  }, [managerReviewRecords, lockedOrReleasedRecords]);
+
+  // Register table display rule:
+  // - OPEN cutoff: show editable DRAFT register rows.
+  // - REGISTERED/LOCKED/RELEASED with returned rows: show only returned correction rows.
+  // - REGISTERED/LOCKED/RELEASED with no returned rows: show review-only rows for visibility/audit.
+  const registerDisplayRecords = useMemo(() => {
+    if (canEditDraftRegister) return draftRegisterRecords;
+    if (returnedCorrectionRecords.length > 0) return returnedCorrectionRecords;
+    return reviewOnlyRecords;
+  }, [
+    canEditDraftRegister,
+    draftRegisterRecords,
+    returnedCorrectionRecords,
+    reviewOnlyRecords,
+  ]);
+
+  // Action queue is intentionally stricter than display rows.
+  // MANAGER_REVIEW / LOCKED / RELEASED may be visible in Register,
+  // but only DRAFT or RETURNED_FOR_CORRECTION can be sent/resubmitted.
+  const registerQueueRecords = useMemo(() => {
+    if (canEditDraftRegister) return draftRegisterRecords;
+    return returnedCorrectionRecords;
+  }, [canEditDraftRegister, draftRegisterRecords, returnedCorrectionRecords]);
+
+  const editableRegisterRecords = registerQueueRecords;
+
   const filteredRecords = useMemo(() => {
-    return editableRegisterRecords.filter((record) =>
-      `${record.employee_name} ${record.department} ${record.position}`
+    return registerDisplayRecords.filter((record) =>
+      `${record.employee_name} ${record.department} ${record.position} ${getRecordStatusLabel(record)}`
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
     );
-  }, [editableRegisterRecords, searchTerm]);
+  }, [registerDisplayRecords, searchTerm]);
 
-  const totalGross = editableRegisterRecords.reduce(
+  const totalGross = filteredRecords.reduce(
     (sum, record) => sum + Number(record.gross_pay || 0),
     0
   );
 
-  const totalDeductions = editableRegisterRecords.reduce(
+  const totalDeductions = filteredRecords.reduce(
     (sum, record) => sum + getDisplayedTotalDeductions(record),
     0
   );
 
-  const totalNet = editableRegisterRecords.reduce(
+  const totalNet = filteredRecords.reduce(
     (sum, record) => sum + getDisplayedNetPay(record),
     0
   );
 
-  const totalReleaseAmount = editableRegisterRecords.reduce(
+  const totalReleaseAmount = filteredRecords.reduce(
     (sum, record) => sum + getDisplayedReleaseAmount(record),
     0
   );
 
-  const totalCarryForwardAmount = editableRegisterRecords.reduce(
+  const totalCarryForwardAmount = filteredRecords.reduce(
     (sum, record) => sum + getDisplayedCarryForwardAmount(record),
     0
   );
 
-  const totalGovernmentDeductions = editableRegisterRecords.reduce(
+  const totalGovernmentDeductions = filteredRecords.reduce(
     (sum, record) =>
       sum +
       Number(record.sss_deduction || 0) +
@@ -2188,9 +2405,18 @@ OPSCORE V1.4 Rules:
     (item) => String(item.status || "Pending") === "Rejected"
   );
 
-  const selectedRecords = editableRegisterRecords.filter((record) =>
+  const selectedRecords = registerQueueRecords.filter((record) =>
     selectedRecordIds.includes(String(record.id))
   );
+
+  const sendableFilteredRecords = filteredRecords.filter((record) => isRecordSendableFromRegister(record));
+  const allFilteredSendableSelected =
+    sendableFilteredRecords.length > 0 &&
+    sendableFilteredRecords.every((record) => selectedRecordIds.includes(String(record.id)));
+  const selectedSendableCount = selectedRecords.filter((record) => isRecordSendableFromRegister(record)).length;
+  const registerActionLabel = selectedSendableCount > 0
+    ? `Send Selected (${selectedSendableCount})`
+    : `Send All Ready (${sendableFilteredRecords.length})`;
 
   const selectedGross = selectedRecords.reduce(
     (sum, record) => sum + Number(record.gross_pay || 0),
@@ -2245,7 +2471,9 @@ OPSCORE V1.4 Rules:
     const absentDays = Number(record.absent_days || 0);
     const lateMinutes = Number(record.late_minutes || 0);
     const undertimeMinutes = Number(record.undertime_minutes || 0);
-    const otMinutes = Number(record.ot_minutes || 0);
+    const otMinutes = Number(record.detected_ot_minutes ?? record.ot_minutes ?? 0);
+    const approvedOtMinutes = Number(record.approved_ot_minutes || 0);
+    const otApprovalStatus = getOtApprovalStatus(otMinutes, approvedOtMinutes);
     const netPay = getDisplayedNetPay(record);
     const basicPay = Number(record.basic_pay || 0);
     const totalDeduction = getDisplayedTotalDeductions(record);
@@ -2328,11 +2556,20 @@ OPSCORE V1.4 Rules:
       });
     }
 
-    if (otMinutes > 0 && settings.ot_requires_approval === "Yes") {
+    if (otMinutes > 0 && isOvertimeApprovalRequired(settings) && approvedOtMinutes <= 0) {
       alerts.push({
         employee: record.employee_name,
-        type: "OT Needs Supervisor Review",
-        message: `${otMinutes} OT minutes detected and OT review is enabled in Payroll Settings.`,
+        type: "OT Pending Approval",
+        message: `${otMinutes} OT minutes detected. Approved OT is ${approvedOtMinutes} minutes. Payroll will not pay OT until approval is completed.`,
+        severity: "Medium",
+      });
+    }
+
+    if (otMinutes > 0 && ["APPROVED", "PARTIALLY_APPROVED"].includes(String(otApprovalStatus))) {
+      alerts.push({
+        employee: record.employee_name,
+        type: "Approved OT Included",
+        message: `${approvedOtMinutes} approved OT minutes will be included in payroll.`,
         severity: "Medium",
       });
     }
@@ -2412,7 +2649,7 @@ OPSCORE V1.4 Rules:
   };
 
   const selectAllFiltered = () => {
-    setSelectedRecordIds(filteredRecords.map((record) => String(record.id)));
+    setSelectedRecordIds(sendableFilteredRecords.map((record) => String(record.id)));
   };
 
   const clearSelection = () => {
@@ -2518,7 +2755,7 @@ OPSCORE V1.4 Rules:
           {
             type: "Information",
             tone: "info",
-            text: `${editableRegisterRecords.length} editable payroll record(s) loaded for ${selectedPeriod?.period_name || "selected period"}.`,
+            text: `${registerQueueRecords.length} register queue record(s), ${returnedCorrectionRecords.length} returned correction(s), ${managerReviewRecords.length} in Manager Review, and ${lockedOrReleasedRecords.length} locked/released row(s).`,
           },
         ]
       : [
@@ -2613,33 +2850,18 @@ OPSCORE V1.4 Rules:
           <div className="flex flex-wrap gap-2">
             <button
               onClick={generatePayroll}
-              disabled={isSaving || !selectedPeriodId || isLocked}
+              disabled={isSaving || !canGenerateRegister}
               className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {selectedPeriod?.needs_regeneration ? "Regenerate Register" : "Generate Register"}
             </button>
 
             <button
-              onClick={reopenPayroll}
-              disabled={isSaving || !selectedPeriodId || !isLocked}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RotateCcw size={15} /> Reopen
-            </button>
-
-            <button
-              onClick={() =>
-                selectedRecordIds.length > 0
-                  ? sendPayrollToManager("selected")
-                  : sendPayrollToManager("all")
-              }
-              disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
+              onClick={sendPayrollToManager}
+              disabled={sendableFilteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration && canEditDraftRegister) || isSaving}
               className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              <Send size={15} />
-              {selectedRecordIds.length > 0
-                ? `Register Selected (${selectedRecordIds.length})`
-                : "Register All Ready"}
+              <Send size={15} /> {registerActionLabel}
             </button>
           </div>
         </section>
@@ -2679,7 +2901,7 @@ OPSCORE V1.4 Rules:
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <CompactMetric label="Records" value={editableRegisterRecords.length} />
+              <CompactMetric label="Queue" value={registerQueueRecords.length} />
               <CompactMetric label="Net Pay" value={formatMoney(totalNet)} danger={totalNet < 0} />
               <CompactMetric label="To Manager" value={formatMoney(totalReleaseAmount)} />
               <CompactMetric label="Alerts" value={managerAlerts.length} danger={managerAlerts.length > 0} />
@@ -2699,12 +2921,30 @@ OPSCORE V1.4 Rules:
 
               <button
                 onClick={generatePayroll}
-                disabled={isSaving || !selectedPeriodId || isLocked}
+                disabled={isSaving || !canGenerateRegister}
                 className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-black text-slate-950 hover:bg-red-400 disabled:opacity-50"
               >
                 Regenerate Register
               </button>
             </div>
+          </section>
+        )}
+
+        {selectedPeriodId && !canEditDraftRegister && returnedCorrectionRecords.length === 0 && (
+          <section className="mb-5 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+            <p className="font-black text-slate-950">Payroll Register is review-only.</p>
+            <p className="mt-1 font-semibold">
+              This cutoff has already been sent to Payroll Manager. Register-side reopen is disabled. Only employees returned by Manager will appear here for correction.
+            </p>
+          </section>
+        )}
+
+        {selectedPeriodId && returnedCorrectionRecords.length > 0 && (
+          <section className="mb-5 rounded-3xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <p className="font-black text-blue-900">Returned Corrections Queue: {returnedCorrectionRecords.length} employee row(s)</p>
+            <p className="mt-1 font-semibold">
+              Fix only the returned employee row(s), then use {registerActionLabel}. Other Manager Review, Locked, or Released employees remain untouched.
+            </p>
           </section>
         )}
 
@@ -2725,44 +2965,6 @@ OPSCORE V1.4 Rules:
           </section>
         )}
 
-        {selectedRecordIds.length > 0 && (
-          <section className="sticky top-3 z-40 mb-6 rounded-3xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="text-sm font-black text-blue-700">
-                  {selectedRecordIds.length} employee(s) selected
-                </p>
-                <p className="mt-1 text-xs font-semibold text-blue-700">
-                  Gross: {formatMoney(selectedGross)} • Deductions:{" "}
-                  {formatMoney(selectedDeductions)} • Computed Net:{" "}
-                  {formatMoney(selectedNet)} • To Manager: {formatMoney(selectedReleaseAmount)} • Carry Forward: {formatMoney(selectedCarryForwardAmount)}
-                  {(showGovernmentSection || showTax) && (
-                    <> • Gov/Tax: {formatMoney(selectedGovernmentDeductions)}</>
-                  )}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={clearSelection}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
-                >
-                  Clear
-                </button>
-
-                <button
-                  onClick={() => sendPayrollToManager("selected")}
-                  disabled={selectedRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                  className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
-                >
-                  <Send size={16} /> Register Selected to Manager
-                </button>
-
-              </div>
-            </div>
-          </section>
-        )}
-
         <section className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-6 py-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -2777,29 +2979,6 @@ OPSCORE V1.4 Rules:
               </div>
 
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <button
-                  onClick={selectAllFiltered}
-                  disabled={filteredRecords.length === 0}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  Select All
-                </button>
-
-                <button
-                  onClick={() =>
-                    selectedRecordIds.length > 0
-                      ? sendPayrollToManager("selected")
-                      : sendPayrollToManager("all")
-                  }
-                  disabled={filteredRecords.length === 0 || Boolean(selectedPeriod?.needs_regeneration) || isSaving}
-                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
-                >
-                  <Send size={16} />
-                  {selectedRecordIds.length > 0
-                    ? `Register Selected (${selectedRecordIds.length})`
-                    : "Register All Ready"}
-                </button>
-
                 <div className="relative lg:w-80">
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -2837,11 +3016,20 @@ OPSCORE V1.4 Rules:
               <table className="w-full table-fixed text-sm">
                 <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   <tr>
-                    <th className="w-[44px] px-3 py-3">Sel</th>
+                    <th className="w-[44px] px-3 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSendableSelected}
+                        disabled={sendableFilteredRecords.length === 0}
+                        onChange={() => (allFilteredSendableSelected ? clearSelection() : selectAllFiltered())}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                    </th>
                     <th className="w-[18%] px-3 py-3">Employee</th>
                     <th className="w-[90px] px-3 py-3">Status</th>
                     <th className="w-[74px] px-3 py-3 text-center">Work</th>
                     <th className="w-[86px] px-3 py-3 text-right">Late/UT</th>
+                    <th className="w-[112px] px-3 py-3 text-right">OT</th>
                     <th className="w-[88px] px-3 py-3 text-right">Basic</th>
                     <th className="w-[92px] px-3 py-3 text-right">Auto Ded.</th>
                     <th className="w-[92px] px-3 py-3 text-right">Manual</th>
@@ -2863,26 +3051,25 @@ OPSCORE V1.4 Rules:
                     const displayedNetPay = getDisplayedNetPay(record);
                     const displayedReleaseAmount = getDisplayedReleaseAmount(record);
                     const displayedCarryForwardAmount = getDisplayedCarryForwardAmount(record);
-                    const selected = selectedRecordIds.includes(String(record.id));
                     const riskCount = managerAlerts.filter((alert) => alert.employee === record.employee_name).length;
+                    const detectedOtMinutes = Number(record.detected_ot_minutes ?? record.ot_minutes ?? 0);
+                    const approvedOtMinutes = Number(record.approved_ot_minutes || 0);
+                    const otApprovalStatus = getOtApprovalStatus(detectedOtMinutes, approvedOtMinutes);
 
                     return (
                       <tr
                         key={record.id}
-                        className={`transition-all duration-200 hover:bg-slate-50 ${
-                          selected ? "bg-slate-50" : "bg-white"
-                        }`}
+                        className="bg-white transition-all duration-200 hover:bg-slate-50"
                       >
-                        <td className="px-3 py-3 align-middle">
+                        <td className="px-3 py-3 text-center align-middle">
                           <input
                             type="checkbox"
-                            checked={selected}
+                            checked={selectedRecordIds.includes(String(record.id))}
+                            disabled={!isRecordSendableFromRegister(record)}
                             onChange={() => toggleRecordSelection(record.id)}
-                            className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-slate-950"
-                            aria-label={`Select ${record.employee_name}`}
+                            className="h-4 w-4 rounded border-slate-300"
                           />
                         </td>
-
                         <td className="px-3 py-3 align-middle">
                           <button
                             onClick={() => openEmployeeAudit(record)}
@@ -2899,7 +3086,7 @@ OPSCORE V1.4 Rules:
                         </td>
 
                         <td className="px-3 py-3 align-middle">
-                          <StatusBadge status={record.status || "Draft"} />
+                          <StatusBadge status={getRecordStatusLabel(record)} />
                         </td>
 
                         <td className="px-3 py-3 text-center align-middle">
@@ -2913,6 +3100,22 @@ OPSCORE V1.4 Rules:
                           </p>
                           {riskCount > 0 && (
                             <p className="text-[10px] font-bold text-amber-700">{riskCount} alert/s</p>
+                          )}
+                        </td>
+
+                        <td className="px-3 py-3 text-right align-middle">
+                          <p className={detectedOtMinutes > 0 ? "font-black text-slate-950" : "font-black text-slate-400"}>
+                            {detectedOtMinutes / 60}h
+                          </p>
+                          {detectedOtMinutes > 0 && (
+                            <div className="mt-1 flex flex-col items-end gap-1">
+                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] ${getOtStatusStyle(otApprovalStatus)}`}>
+                                {String(otApprovalStatus).replace(/_/g, " ")}
+                              </span>
+                              <p className="text-[10px] font-bold text-slate-500">
+                                Approved {approvedOtMinutes / 60}h • {formatMoney(record.ot_pay)}
+                              </p>
+                            </div>
                           )}
                         </td>
 
@@ -2946,7 +3149,7 @@ OPSCORE V1.4 Rules:
                                   min="0"
                                   max={maxBalance}
                                   value={draftValue}
-                                  disabled={!canEditPayroll || maxBalance <= 0 || isSaving}
+                                  disabled={!canEditRecordInRegister(record) || maxBalance <= 0 || isSaving}
                                   onChange={(event) => {
                                     const value = event.target.value;
                                     setBalanceDrafts((prev) => ({
@@ -2978,12 +3181,16 @@ OPSCORE V1.4 Rules:
                         </td>
 
                         <td className="px-3 py-3 text-right align-middle">
-                          <button
-                            onClick={() => openEmployeeAudit(record)}
-                            className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-                          >
-                            View Audit
-                          </button>
+                          {canViewAuditFromRegister(record) ? (
+                            <button
+                              onClick={() => openEmployeeAudit(record)}
+                              className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                            >
+                              View Audit
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-bold text-slate-400">After Send</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -2991,7 +3198,7 @@ OPSCORE V1.4 Rules:
 
                   {filteredRecords.length === 0 && (
                     <tr>
-                      <td colSpan={(showGovernmentSection || showTax) ? 14 : 13} className="px-4 py-14 text-center">
+                      <td colSpan={(showGovernmentSection || showTax) ? 16 : 15} className="px-4 py-14 text-center">
                         <p className="font-black text-slate-950">No payroll records found.</p>
                         <p className="mt-1 text-sm font-semibold text-slate-500">Select a period, generate payroll, or adjust your search.</p>
                       </td>
@@ -3015,7 +3222,7 @@ OPSCORE V1.4 Rules:
                 value={periodName}
                 onChange={(e) => setPeriodName(e.target.value)}
                 placeholder="June 1-15, 2026"
-                disabled={isLocked}
+                disabled={!canEditDraftRegister && Boolean(selectedPeriodId)}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
               />
 
@@ -3024,7 +3231,7 @@ OPSCORE V1.4 Rules:
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  disabled={isLocked}
+                  disabled={!canEditDraftRegister && Boolean(selectedPeriodId)}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
                 />
 
@@ -3032,14 +3239,14 @@ OPSCORE V1.4 Rules:
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  disabled={isLocked}
+                  disabled={!canEditDraftRegister && Boolean(selectedPeriodId)}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
                 />
               </div>
 
               <button
                 onClick={createPeriod}
-                disabled={isSaving || isLocked}
+                disabled={isSaving || (Boolean(selectedPeriodId) && !canEditDraftRegister)}
                 className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 Create Period
@@ -3058,35 +3265,27 @@ OPSCORE V1.4 Rules:
                 ))}
               </select>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <button
                   onClick={generatePayroll}
-                  disabled={isSaving || !selectedPeriodId || isLocked}
-                  className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                  disabled={isSaving || !canGenerateRegister}
+                  className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
                 >
                   Generate Register
                 </button>
 
                 <button
-                  onClick={reopenPayroll}
-                  disabled={isSaving || !selectedPeriodId || !isLocked}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <RotateCcw size={16} /> Reopen
-                </button>
-
-                <button
                   onClick={deletePeriod}
-                  disabled={isSaving || !selectedPeriodId || isLocked}
+                  disabled={isSaving || !selectedPeriodId || !canEditDraftRegister}
                   className="rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white hover:bg-red-700 disabled:opacity-50"
                 >
                   Delete
                 </button>
               </div>
 
-              {selectedPeriodId && isLocked && (
+              {selectedPeriodId && !canEditDraftRegister && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-semibold leading-5 text-blue-700">
-                  This payroll is locked. Click <span className="font-black">Reopen</span> to unlock attendance, regenerate payroll, or edit partial CA deductions.
+                  Register is review-only after sending to Manager. Returned employees only will appear in the correction queue.
                 </div>
               )}
 
@@ -3106,7 +3305,7 @@ OPSCORE V1.4 Rules:
                   )}
                   {selectedPeriod?.attendance_locked && (
                     <p className="mt-2 flex items-center gap-1 text-xs text-blue-700">
-                      <Lock size={12} /> Attendance locked for this cutoff. Reopen payroll to unlock.
+                      <Lock size={12} /> Attendance locked for this cutoff. Manager controls reopen or return workflow.
                     </p>
                   )}
                   {selectedPeriod?.last_generated_at && (
@@ -3116,7 +3315,7 @@ OPSCORE V1.4 Rules:
                   )}
                   {isLocked && (
                     <p className="mt-2 flex items-center gap-1 text-xs text-blue-700">
-                      <Lock size={12} /> Locked. Reopen to edit.
+                      <Lock size={12} /> Locked. Register-side editing is disabled.
                     </p>
                   )}
                 </div>
@@ -3150,7 +3349,7 @@ OPSCORE V1.4 Rules:
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                disabled={!canEditPayroll}
+                disabled={!canManageRegisterForm}
                 className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50 md:col-span-2"
               >
                 <option value="">Select employee</option>
@@ -3164,7 +3363,7 @@ OPSCORE V1.4 Rules:
               <select
                 value={adjustmentType}
                 onChange={(e) => setAdjustmentType(e.target.value)}
-                disabled={!canEditPayroll}
+                disabled={!canManageRegisterForm}
                 className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
               >
                 {[...earningTypes, ...deductionTypes].map((type) => (
@@ -3177,13 +3376,13 @@ OPSCORE V1.4 Rules:
                 value={adjustmentAmount}
                 onChange={(e) => setAdjustmentAmount(e.target.value)}
                 placeholder="Amount"
-                disabled={!canEditPayroll}
+                disabled={!canManageRegisterForm}
                 className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
               />
 
               <button
                 onClick={addAdjustment}
-                disabled={isSaving || !selectedPeriodId || !canEditPayroll}
+                disabled={isSaving || !selectedPeriodId || !canManageRegisterForm}
                 className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 Save
@@ -3193,7 +3392,7 @@ OPSCORE V1.4 Rules:
                 value={adjustmentRemarks}
                 onChange={(e) => setAdjustmentRemarks(e.target.value)}
                 placeholder="Remarks"
-                disabled={!canEditPayroll}
+                disabled={!canManageRegisterForm}
                 className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50 md:col-span-5"
               />
             </div>
@@ -3233,7 +3432,7 @@ OPSCORE V1.4 Rules:
 
                           <button
                             onClick={() => deleteAdjustment(item.id)}
-                            disabled={!canEditPayroll}
+                            disabled={!canManageRegisterForm}
                             className="rounded-xl bg-slate-700 px-3 py-1 text-xs font-bold hover:bg-slate-600 disabled:opacity-50"
                           >
                             Delete
@@ -3312,7 +3511,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                     <td className="px-4 py-3">
                       <button
                         onClick={() => deleteEmployeeBalance(balance)}
-                        disabled={!canEditPayroll || isSaving}
+                        disabled={!canManageRegisterForm || isSaving}
                         className="rounded-xl bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
                       >
                         Cancel
@@ -3444,7 +3643,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                           </button>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
+                        <div className="mt-3 grid grid-cols-5 overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
                           <div className="border-r border-slate-100 p-2">
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Late</p>
                             <p className="mt-1 font-black text-red-600">{formatMoney(log.lateAmount)}</p>
@@ -3457,8 +3656,17 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Absent</p>
                             <p className="mt-1 font-black text-red-600">{formatMoney(log.absentAmount)}</p>
                           </div>
+                          <div className="border-r border-slate-100 p-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">OT Pay</p>
+                            <p className="mt-1 font-black text-emerald-700">{formatMoney(log.otAmount)}</p>
+                            {Number(log.detectedOtMinutes || 0) > 0 && (
+                              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-slate-500">
+                                {String(log.otApprovalStatus || "").replace(/_/g, " ")}
+                              </p>
+                            )}
+                          </div>
                           <div className="p-2">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total Ded.</p>
                             <p className="mt-1 font-black text-red-600">{formatMoney(log.totalAmount)}</p>
                           </div>
                         </div>
@@ -3598,7 +3806,16 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                       <tbody>
                         <PayslipLine label="Basic Pay" value={formatMoney(selectedPayslip.basic_pay)} />
                         <PayslipLine label="Holiday Pay" value={formatMoney(selectedPayslip.holiday_pay)} />
-                        <PayslipLine label="OT Pay" value={formatMoney(selectedPayslip.ot_pay)} />
+                        <PayslipLine
+                          label={`OT Pay (${(
+                            Number(selectedPayslip.approved_ot_minutes || 0) > 0
+                              ? Number(selectedPayslip.approved_ot_minutes || 0)
+                              : Number(selectedPayslip.ot_pay || 0) > 0
+                                ? Number(selectedPayslip.detected_ot_minutes ?? selectedPayslip.ot_minutes ?? 0)
+                                : 0
+                          ) / 60}h approved / ${Number(selectedPayslip.detected_ot_minutes ?? selectedPayslip.ot_minutes ?? 0) / 60}h detected)`}
+                          value={formatMoney(selectedPayslip.ot_pay)}
+                        />
                         <PayslipLine label="Allowance / Bonus" value={formatMoney(selectedPayslip.allowance)} />
                         <PayslipLine label="Gross Pay" value={formatMoney(selectedPayslip.gross_pay)} strong />
                       </tbody>
@@ -3840,11 +4057,16 @@ function StatusBadge({ status }: { status: string }) {
     normalized === "Active" ||
     normalized === "Approved" ||
     normalized === "For Approval" ||
+    normalized === "MANAGER REVIEW" ||
+    normalized === "LOCKED" ||
+    normalized === "RELEASED" ||
     normalized === "Released" ||
     normalized === "Paid"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : normalized === "Pending" ||
         normalized === "OPEN" ||
+        normalized === "DRAFT" ||
+        normalized === "RETURNED FOR CORRECTION" ||
         normalized === "Partially Approved" ||
         normalized === "Reopened" ||
         normalized === "Draft"

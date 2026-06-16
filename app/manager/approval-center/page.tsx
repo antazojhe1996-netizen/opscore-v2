@@ -34,6 +34,7 @@ export default function ApprovalCenterPage() {
   const processingRequestRef = useRef<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [overtimePreview, setOvertimePreview] = useState<any | null>(null);
 
   /// FUNCTIONS
   const getApprovalRequests = async () => {
@@ -127,6 +128,106 @@ export default function ApprovalCenterPage() {
     }
 
     return request.request_payload;
+  };
+
+  const loadOvertimePreviewForRequest = async (request: any | null) => {
+    if (!request || request.request_type !== "OVERTIME_APPROVAL") {
+      setOvertimePreview(null);
+      return;
+    }
+
+    const payload = getPayload(request) || {};
+
+    const detectedMinutes = Number(
+      payload.detected_ot_minutes ||
+        payload.ot_minutes ||
+        payload.otMinutes ||
+        payload.detected_ot ||
+        0,
+    );
+
+    const approvedMinutes = Number(
+      payload.approved_ot_minutes ||
+        payload.approvedOtMinutes ||
+        detectedMinutes ||
+        0,
+    );
+
+    const savedEstimatedPay = Number(
+      payload.estimated_ot_pay || payload.estimatedOtPay || payload.ot_pay || 0,
+    );
+
+    const employeeId = String(payload.employee_id || payload.employeeId || "").trim();
+
+    if (!employeeId || detectedMinutes <= 0) {
+      setOvertimePreview({
+        detectedMinutes,
+        approvedMinutes,
+        estimatedOtPay: savedEstimatedPay,
+        source: savedEstimatedPay > 0 ? "payload" : "missing-rate",
+      });
+      return;
+    }
+
+    const { data: settingRows, error: settingsError } = await supabase
+      .from("payroll_settings")
+      .select("setting_key, setting_value");
+
+    if (settingsError) {
+      console.log("LOAD OT PREVIEW SETTINGS ERROR:", settingsError.message);
+    }
+
+    const settingMap: Record<string, string> = {};
+    (settingRows || []).forEach((row: any) => {
+      settingMap[row.setting_key] = row.setting_value;
+    });
+
+    const paidHours = Number(settingMap.paid_hours || payload.paid_hours || 8);
+    const otMultiplier = Number(settingMap.ot_multiplier || payload.ot_multiplier || 1.25);
+
+    const { data: employeeData, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, employee_no, first_name, last_name, rate_type, basic_rate, daily_rate")
+      .eq("id", employeeId)
+      .maybeSingle();
+
+    if (employeeError) {
+      console.log("LOAD OT PREVIEW EMPLOYEE ERROR:", employeeError.message);
+    }
+
+    const rateType = String(
+      employeeData?.rate_type || payload.rate_type || "Daily",
+    );
+
+    const basicRate = Number(
+      employeeData?.basic_rate ||
+        employeeData?.daily_rate ||
+        payload.basic_rate ||
+        payload.daily_rate ||
+        0,
+    );
+
+    const dailyRate = rateType === "Monthly" ? basicRate / 26 : basicRate;
+    const hourlyRate = Number(payload.hourly_rate || (paidHours > 0 ? dailyRate / paidHours : 0));
+
+    const computedEstimatedPay =
+      approvedMinutes > 0 && hourlyRate > 0
+        ? (approvedMinutes / 60) * hourlyRate * otMultiplier
+        : 0;
+
+    setOvertimePreview({
+      detectedMinutes,
+      approvedMinutes,
+      estimatedOtPay: savedEstimatedPay > 0 ? savedEstimatedPay : computedEstimatedPay,
+      computedEstimatedPay,
+      savedEstimatedPay,
+      paidHours,
+      otMultiplier,
+      dailyRate,
+      hourlyRate,
+      rateType,
+      source: savedEstimatedPay > 0 ? "payload" : "computed",
+    });
   };
 
   const getCompanyIdForRequest = async (request: any, payload?: any) => {
@@ -577,6 +678,7 @@ export default function ApprovalCenterPage() {
       PAYROLL_REOPEN: "Payroll Reopen",
       LEAVE_REQUEST: "Leave Request",
       LEAVE_CANCELLATION: "Leave Cancellation",
+      OVERTIME_APPROVAL: "Overtime Approval",
     };
 
     return labels[type] || type;
@@ -593,6 +695,8 @@ export default function ApprovalCenterPage() {
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
     if (type === "LEAVE_CANCELLATION")
       return "border-slate-200 bg-slate-100 text-slate-700";
+    if (type === "OVERTIME_APPROVAL")
+      return "border-indigo-200 bg-indigo-50 text-indigo-700";
     if (type === "CASH_ADVANCE_RELEASE")
       return "border-blue-200 bg-blue-50 text-blue-700";
     if (type === "OWNER_WITHDRAWAL")
@@ -619,6 +723,7 @@ export default function ApprovalCenterPage() {
     if (request.request_type === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
     if (request.request_type === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
     if (request.request_type === "PAYROLL_REOPEN") return "PAYROLL_ADJUSTMENT";
+    if (request.request_type === "OVERTIME_APPROVAL") return "OVERTIME_APPROVAL";
 
     return request.request_type;
   };
@@ -731,6 +836,10 @@ export default function ApprovalCenterPage() {
       return "LEAVE";
     }
 
+    if (requestType === "OVERTIME_APPROVAL") {
+      return "OVERTIME";
+    }
+
     return "OTHER";
   };
 
@@ -741,6 +850,7 @@ export default function ApprovalCenterPage() {
       CASH: "Cash",
       PAYROLL: "Payroll",
       LEAVE: "Leave",
+      OVERTIME: "Overtime",
       OTHER: "Other",
     };
 
@@ -1281,10 +1391,19 @@ export default function ApprovalCenterPage() {
     }
 
     const payload = getPayload(request) || {};
-    const snapshotId = String(
-      payload.snapshot_id ||
-        payload.snapshotId ||
+
+    const payrollRecordId = String(
+      payload.payroll_record_id ||
+        payload.payrollRecordId ||
+        payload.record_id ||
+        payload.recordId ||
         request.reference_id ||
+        "",
+    ).trim();
+
+    const employeeId = String(
+      payload.employee_id ||
+        payload.employeeId ||
         "",
     ).trim();
 
@@ -1308,9 +1427,6 @@ export default function ApprovalCenterPage() {
         ? "WITH_ATTENDANCE"
         : "PAYROLL_ONLY";
 
-    const targetStatus =
-      normalizedReopenType === "WITH_ATTENDANCE" ? "OPEN" : "REGISTERED";
-
     const reopenTypeLabel =
       normalizedReopenType === "WITH_ATTENDANCE"
         ? "Attendance / Time Entries Correction"
@@ -1322,147 +1438,110 @@ export default function ApprovalCenterPage() {
         "Payroll reopen approved.",
     ).trim();
 
-    if (!snapshotId) {
-      alert("Payroll reopen approval failed. Missing payroll snapshot ID.");
+    let payrollRecord: any = null;
+
+    if (payrollRecordId) {
+      const { data, error } = await supabase
+        .from("payroll_records")
+        .select("*")
+        .eq("id", payrollRecordId)
+        .maybeSingle();
+
+      if (error) {
+        console.log("FETCH PAYROLL RECORD FOR REOPEN ERROR:", error.message);
+        alert(`Payroll reopen failed before payroll record check. ${error.message}`);
+        return false;
+      }
+
+      payrollRecord = data || null;
+    }
+
+    if (!payrollRecord && employeeId && periodId) {
+      const { data, error } = await supabase
+        .from("payroll_records")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .eq("period_id", periodId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.log("FALLBACK PAYROLL RECORD FOR REOPEN ERROR:", error.message);
+        alert(`Payroll reopen failed before fallback payroll record check. ${error.message}`);
+        return false;
+      }
+
+      payrollRecord = data || null;
+    }
+
+    if (!payrollRecord) {
+      alert("Payroll reopen failed. Linked employee payroll record was not found.");
       return false;
     }
 
-    const { data: snapshotData, error: snapshotFetchError } = await supabase
-      .from("payroll_snapshots")
-      .select("*")
-      .eq("id", snapshotId)
-      .maybeSingle();
+    const currentRecordStatus = String(payrollRecord.record_status || payrollRecord.status || "").toUpperCase();
+    const currentReleaseStatus = String(payrollRecord.release_status || "").toUpperCase();
+    const hasReleaseEvidence =
+      currentRecordStatus === "RELEASED" ||
+      currentReleaseStatus === "RELEASED" ||
+      Boolean(payrollRecord.released_at) ||
+      Number(payrollRecord.paid_amount || 0) > 0;
 
-    if (snapshotFetchError) {
-      console.log(
-        "FETCH PAYROLL SNAPSHOT FOR REOPEN ERROR:",
-        snapshotFetchError.message,
-      );
-      alert(
-        `Payroll reopen failed before snapshot check. ${snapshotFetchError.message}`,
-      );
+    if (!hasReleaseEvidence) {
+      alert("Payroll reopen blocked. Only released employee payroll records can be reopened from Approval Center.");
       return false;
     }
 
-    if (!snapshotData) {
-      alert("Payroll reopen failed. Linked payroll snapshot was not found.");
+    periodId = String(periodId || payrollRecord.period_id || "").trim();
+
+    const returnedAt = new Date().toISOString();
+    const returnedBy = currentEmployeeName || "Manager Approval Center";
+
+    const recordUpdate = {
+      record_status: "RETURNED_FOR_CORRECTION",
+      status: "Returned for Correction",
+      release_status: "Returned for Correction",
+      return_reason: reason,
+      returned_at: returnedAt,
+      returned_by: returnedBy,
+      resubmitted_at: null,
+      resubmitted_by: null,
+    };
+
+    const { error: recordUpdateError } = await supabase
+      .from("payroll_records")
+      .update(recordUpdate)
+      .eq("id", payrollRecord.id);
+
+    if (recordUpdateError) {
+      console.log("SYNC PAYROLL REOPEN RECORD ERROR:", recordUpdateError.message);
+      alert(`Payroll record reopen failed. ${recordUpdateError.message}`);
       return false;
     }
 
-    if (!periodId) {
-      periodId = String(snapshotData.period_id || "").trim();
-    }
+    if (periodId) {
+      const periodUpdate =
+        normalizedReopenType === "WITH_ATTENDANCE"
+          ? {
+              status: "REGISTERED",
+              attendance_locked: false,
+              needs_regeneration: true,
+            }
+          : {
+              status: "REGISTERED",
+              attendance_locked: false,
+              needs_regeneration: false,
+            };
 
-    const snapshotStatus = String(snapshotData.status || "").toUpperCase();
+      const { error: periodError } = await supabase
+        .from("payroll_periods")
+        .update(periodUpdate)
+        .eq("id", periodId);
 
-    const { data: releasedHeader, error: releasedHeaderError } = await supabase
-      .from("released_payrolls")
-      .select("id, status")
-      .eq("snapshot_id", snapshotId)
-      .order("released_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (releasedHeaderError) {
-      console.log(
-        "FETCH RELEASED PAYROLL HEADER FOR REOPEN ERROR:",
-        releasedHeaderError.message,
-      );
-      alert(
-        `Payroll reopen failed before released payroll check. ${releasedHeaderError.message}`,
-      );
-      return false;
-    }
-
-    const hasReleasedPayroll = Boolean(releasedHeader?.id);
-
-    if (snapshotStatus !== "RELEASED" && !hasReleasedPayroll) {
-      alert(
-        "Payroll reopen blocked. Only payroll with released records can be reopened from Approval Center.",
-      );
-      return false;
-    }
-
-    const { error: snapshotError } = await supabase
-      .from("payroll_snapshots")
-      .update({
-        status: targetStatus,
-      })
-      .eq("id", snapshotId);
-
-    if (snapshotError) {
-      console.log("SYNC PAYROLL REOPEN SNAPSHOT ERROR:", snapshotError.message);
-      alert(`Payroll snapshot reopen failed. ${snapshotError.message}`);
-      return false;
-    }
-
-    if (!periodId) {
-      await createAuditLog({
-        userName: currentEmployeeName || "OPSCORE USER",
-        module: "Approval Center",
-        action: "Payroll Reopen Period Missing",
-        description:
-          "Payroll snapshot was reopened, but no linked payroll period was found for attendance unlock.",
-        severity: "critical",
-        recordId: request.id,
-        oldValue: request,
-        newValue: {
-          snapshotId,
-          snapshotData,
-          targetStatus,
-          reopenType: normalizedReopenType,
-          payload,
-        },
-      });
-
-      alert(
-        "Payroll snapshot reopened, but no linked payroll period was found. Attendance unlock was skipped.",
-      );
-      return false;
-    }
-
-    const periodUpdate =
-      normalizedReopenType === "WITH_ATTENDANCE"
-        ? {
-            status: "OPEN",
-            attendance_locked: false,
-            needs_regeneration: true,
-          }
-        : {
-            status: "REGISTERED",
-            attendance_locked: false,
-            needs_regeneration: false,
-          };
-
-    const { error: periodError } = await supabase
-      .from("payroll_periods")
-      .update(periodUpdate)
-      .eq("id", periodId);
-
-    if (periodError) {
-      console.log("SYNC PAYROLL REOPEN PERIOD ERROR:", periodError.message);
-      alert(`Payroll period reopen failed. ${periodError.message}`);
-      return false;
-    }
-
-    // Archive the previous released payroll header from the active release lane.
-    // The immutable release rows remain stored for audit/version history.
-    if (releasedHeader?.id) {
-      const { error: archiveError } = await supabase
-        .from("released_payrolls")
-        .update({
-          status: "REOPENED",
-        })
-        .eq("id", releasedHeader.id);
-
-      if (archiveError) {
-        console.log(
-          "ARCHIVE RELEASED PAYROLL FOR REOPEN ERROR:",
-          archiveError.message,
-        );
-        alert(
-          `Payroll reopened, but old released payroll archive failed. ${archiveError.message}`,
-        );
+      if (periodError) {
+        console.log("SYNC PAYROLL REOPEN PERIOD ERROR:", periodError.message);
+        alert(`Employee payroll was returned, but payroll period update failed. ${periodError.message}`);
         return false;
       }
     }
@@ -1471,19 +1550,19 @@ export default function ApprovalCenterPage() {
       userName: currentEmployeeName || "OPSCORE USER",
       module: "Approval Center",
       action: "Approve Payroll Reopen",
-      description: `${request.title || "Payroll Reopen"} approved as ${reopenTypeLabel}. Payroll returned to ${targetStatus}. Reason: ${reason}`,
+      description: `${request.title || "Payroll Reopen"} approved as ${reopenTypeLabel}. Employee row returned for correction only. Reason: ${reason}`,
       severity: "critical",
       recordId: request.id,
       oldValue: request,
       newValue: {
-        status: targetStatus,
-        snapshotId,
+        payrollRecordId: payrollRecord.id,
+        employeeId: payrollRecord.employee_id || employeeId || null,
+        employeeName: payrollRecord.employee_name || payload.employee_name || null,
         periodId,
         reopenType: normalizedReopenType,
         reopenTypeLabel,
-        attendance_locked: false,
-        needs_regeneration: true,
-        archivedReleaseId: releasedHeader?.id || null,
+        previousRecordStatus: payrollRecord.record_status || payrollRecord.status || null,
+        recordUpdate,
         payload,
       },
     });
@@ -1515,6 +1594,142 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
+
+  const syncOvertimeApproval = async (request: any) => {
+    if (request.request_type !== "OVERTIME_APPROVAL") {
+      return true;
+    }
+
+    const payload = getPayload(request) || {};
+    const attendanceEntryId = String(
+      payload.attendance_entry_id ||
+        payload.attendanceEntryId ||
+        request.reference_id ||
+        "",
+    ).trim();
+
+    const detectedMinutes = Number(
+      payload.detected_ot_minutes ||
+        payload.ot_minutes ||
+        payload.otMinutes ||
+        payload.detected_ot ||
+        0,
+    );
+
+    const approvedMinutes = Number(
+      payload.approved_ot_minutes ||
+        payload.approvedOtMinutes ||
+        detectedMinutes ||
+        0,
+    );
+
+    if (!attendanceEntryId) {
+      alert("Overtime approval failed. Missing attendance entry ID.");
+      return false;
+    }
+
+    if (!Number.isFinite(approvedMinutes) || approvedMinutes <= 0) {
+      alert("Overtime approval failed. Approved OT minutes must be greater than zero.");
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("attendance_entries")
+      .update({
+        approved_ot_minutes: approvedMinutes,
+        ot_approval_status: "APPROVED",
+        ot_approval_request_id: request.id,
+        ot_approved_by: currentEmployeeName || "Manager Approval Center",
+        ot_approved_at: new Date().toISOString(),
+        ot_rejected_by: null,
+        ot_rejected_at: null,
+        ot_rejection_reason: null,
+      })
+      .eq("id", attendanceEntryId);
+
+    if (error) {
+      console.log("SYNC OVERTIME APPROVAL ERROR:", error.message);
+      alert(`Overtime approval sync failed. ${error.message}`);
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Approve Overtime",
+      description: `${approvedMinutes} OT minute(s) approved for ${payload.employee_name || request.requested_by || "employee"}.`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "APPROVED",
+        attendanceEntryId,
+        detected_ot_minutes: detectedMinutes,
+        approved_ot_minutes: approvedMinutes,
+        employeeName: payload.employee_name || request.requested_by || "-",
+        attendanceDate: payload.attendance_date || "-",
+        payload,
+      },
+    });
+
+    return true;
+  };
+
+  const syncOvertimeRejection = async (request: any, reason: string) => {
+    if (request.request_type !== "OVERTIME_APPROVAL") {
+      return true;
+    }
+
+    const payload = getPayload(request) || {};
+    const attendanceEntryId = String(
+      payload.attendance_entry_id ||
+        payload.attendanceEntryId ||
+        request.reference_id ||
+        "",
+    ).trim();
+
+    if (!attendanceEntryId) {
+      alert("Overtime rejection failed. Missing attendance entry ID.");
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("attendance_entries")
+      .update({
+        approved_ot_minutes: 0,
+        ot_approval_status: "REJECTED",
+        ot_approval_request_id: request.id,
+        ot_rejected_by: currentEmployeeName || "Manager Approval Center",
+        ot_rejected_at: new Date().toISOString(),
+        ot_rejection_reason: reason,
+      })
+      .eq("id", attendanceEntryId);
+
+    if (error) {
+      console.log("SYNC OVERTIME REJECTION ERROR:", error.message);
+      alert(`Overtime rejection sync failed. ${error.message}`);
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Reject Overtime",
+      description: `${request.title || "Overtime Approval"} rejected. Reason: ${reason}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "REJECTED",
+        attendanceEntryId,
+        rejectedBy: currentEmployeeName || "Manager Approval Center",
+        rejectionReason: reason,
+        payload,
+      },
+    });
+
+    return true;
+  };
 
   const approveRequest = async (request: any) => {
     if (!request?.id || isProcessing) return;
@@ -1651,6 +1866,16 @@ export default function ApprovalCenterPage() {
       }
     }
 
+    if (request.request_type === "OVERTIME_APPROVAL") {
+      const synced = await syncOvertimeApproval(request);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("approval_requests")
       .update({
@@ -1762,6 +1987,16 @@ export default function ApprovalCenterPage() {
       }
     }
 
+    if (request.request_type === "OVERTIME_APPROVAL") {
+      const synced = await syncOvertimeRejection(request, finalReason);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("approval_requests")
       .update({
@@ -1813,6 +2048,10 @@ export default function ApprovalCenterPage() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  useEffect(() => {
+    loadOvertimePreviewForRequest(selectedRequest);
+  }, [selectedRequest?.id]);
+
   /// CALCULATIONS
   const visibleRequests = requests.filter((request) =>
     canCurrentUserApproveRequest(request),
@@ -1855,6 +2094,11 @@ export default function ApprovalCenterPage() {
       label: "Leave",
       count: getCategoryCount(activeTab, "LEAVE"),
     },
+    {
+      key: "OVERTIME",
+      label: "Overtime",
+      count: getCategoryCount(activeTab, "OVERTIME"),
+    },
   ];
 
   const filteredRequests = visibleRequests.filter((request) => {
@@ -1885,8 +2129,8 @@ export default function ApprovalCenterPage() {
                 Approval Center
               </h1>
               <p className="mt-1 max-w-3xl text-sm font-medium text-slate-500">
-                Review, approve, or reject assigned finance, cash, payroll, and
-                leave requests.
+                Review, approve, or reject assigned finance, cash, payroll, leave, and
+                overtime requests.
               </p>
             </div>
 
@@ -2237,6 +2481,7 @@ export default function ApprovalCenterPage() {
                       request={selectedRequest}
                       payload={getPayload(selectedRequest)}
                       formatMoney={formatMoney}
+                      overtimePreview={overtimePreview}
                     />
                   )}
                 </section>
@@ -2424,8 +2669,78 @@ function ApprovalTopNavbar() {
   );
 }
 
-function ApprovalRequestDetails({ request, payload, formatMoney }: any) {
+function ApprovalRequestDetails({ request, payload, formatMoney, overtimePreview }: any) {
   const requestType = String(request?.request_type || "");
+
+  if (requestType === "OVERTIME_APPROVAL") {
+    const detectedMinutes = Number(
+      payload?.detected_ot_minutes || payload?.ot_minutes || payload?.otMinutes || 0,
+    );
+    const approvedMinutes = Number(
+      payload?.approved_ot_minutes || payload?.approvedOtMinutes || detectedMinutes || 0,
+    );
+    const savedEstimatedPay = Number(
+      payload?.estimated_ot_pay || payload?.estimatedOtPay || payload?.ot_pay || 0,
+    );
+    const computedEstimatedPay = Number(overtimePreview?.estimatedOtPay || 0);
+    const estimatedPay = savedEstimatedPay > 0 ? savedEstimatedPay : computedEstimatedPay;
+
+    return (
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+        <ApprovalInfoRow
+          label="Employee"
+          value={payload?.employee_name || payload?.employeeName || request?.requested_by || "-"}
+        />
+        <ApprovalInfoRow
+          label="Attendance Date"
+          value={payload?.attendance_date || payload?.attendanceDate || "-"}
+        />
+        <ApprovalInfoRow
+          label="Schedule"
+          value={payload?.schedule_label || payload?.scheduleLabel || payload?.shift || "-"}
+        />
+        <ApprovalInfoRow
+          label="Actual Time"
+          value={
+            payload?.actual_time ||
+            payload?.actualTime ||
+            `${payload?.time_in || "-"} - ${payload?.time_out || "-"}`
+          }
+        />
+        <ApprovalInfoRow
+          label="Detected OT"
+          value={`${detectedMinutes} minute(s)`}
+        />
+        <ApprovalInfoRow
+          label="Approved OT"
+          value={`${approvedMinutes} minute(s)`}
+        />
+        <ApprovalInfoRow
+          label="Estimated OT Pay"
+          value={formatMoney(estimatedPay)}
+        />
+        <ApprovalInfoRow
+          label="OT Rate Source"
+          value={
+            estimatedPay > 0
+              ? overtimePreview?.source === "computed"
+                ? `Computed • ${formatMoney(overtimePreview?.hourlyRate || 0)}/hr × ${Number(overtimePreview?.otMultiplier || 1.25)}x`
+                : "Saved in request"
+              : "Pending rate data"
+          }
+        />
+        <ApprovalInfoRow
+          label="Approval Status"
+          value="Pending manager approval"
+        />
+        <ApprovalInfoRow
+          label="Remarks"
+          value={payload?.remarks || request?.description || "Detected overtime requires approval before payroll."}
+          wide
+        />
+      </div>
+    );
+  }
 
   if (requestType === "EXPENSE_REQUEST") {
     return (
