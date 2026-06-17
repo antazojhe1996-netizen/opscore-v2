@@ -679,6 +679,8 @@ export default function ApprovalCenterPage() {
       LEAVE_REQUEST: "Leave Request",
       LEAVE_CANCELLATION: "Leave Cancellation",
       OVERTIME_APPROVAL: "Overtime Approval",
+      POS_VOID: "POS Void",
+      POS_REFUND: "POS Refund",
     };
 
     return labels[type] || type;
@@ -697,6 +699,10 @@ export default function ApprovalCenterPage() {
       return "border-slate-200 bg-slate-100 text-slate-700";
     if (type === "OVERTIME_APPROVAL")
       return "border-indigo-200 bg-indigo-50 text-indigo-700";
+    if (type === "POS_VOID")
+      return "border-red-200 bg-red-50 text-red-700";
+    if (type === "POS_REFUND")
+      return "border-orange-200 bg-orange-50 text-orange-700";
     if (type === "CASH_ADVANCE_RELEASE")
       return "border-blue-200 bg-blue-50 text-blue-700";
     if (type === "OWNER_WITHDRAWAL")
@@ -724,6 +730,8 @@ export default function ApprovalCenterPage() {
     if (request.request_type === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
     if (request.request_type === "PAYROLL_REOPEN") return "PAYROLL_ADJUSTMENT";
     if (request.request_type === "OVERTIME_APPROVAL") return "OVERTIME_APPROVAL";
+    if (request.request_type === "POS_VOID") return "POS_VOID";
+    if (request.request_type === "POS_REFUND") return "POS_REFUND";
 
     return request.request_type;
   };
@@ -840,6 +848,10 @@ export default function ApprovalCenterPage() {
       return "OVERTIME";
     }
 
+    if (requestType === "POS_VOID" || requestType === "POS_REFUND") {
+      return "POS";
+    }
+
     return "OTHER";
   };
 
@@ -851,6 +863,7 @@ export default function ApprovalCenterPage() {
       PAYROLL: "Payroll",
       LEAVE: "Leave",
       OVERTIME: "Overtime",
+      POS: "POS",
       OTHER: "Other",
     };
 
@@ -1731,6 +1744,240 @@ export default function ApprovalCenterPage() {
     return true;
   };
 
+
+  const syncPOSVoidApproval = async (request: any) => {
+    if (request.request_type !== "POS_VOID") {
+      return true;
+    }
+
+    const payload = getPayload(request) || {};
+    const orderId = String(
+      payload.order_id ||
+        payload.orderId ||
+        request.reference_id ||
+        "",
+    ).trim();
+
+    if (!orderId) {
+      alert("POS void approval failed. Missing linked order ID.");
+      return false;
+    }
+
+    const { data: orderData, error: orderFetchError } = await supabase
+      .from("pos_orders")
+      .select("*")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (orderFetchError) {
+      console.log("FETCH POS ORDER FOR VOID ERROR:", orderFetchError.message);
+      alert(`POS void failed before order check. ${orderFetchError.message}`);
+      return false;
+    }
+
+    if (!orderData) {
+      alert("POS void failed. Linked POS order was not found.");
+      return false;
+    }
+
+    const orderStatus = String(orderData.status || "").toUpperCase();
+
+    if (["VOIDED", "CANCELLED", "REFUNDED"].includes(orderStatus)) {
+      alert(`POS void blocked. Order is already ${orderData.status}.`);
+      return false;
+    }
+
+    const now = new Date().toISOString();
+    const reason = String(
+      payload.reason ||
+        payload.void_reason ||
+        request.description ||
+        "POS void approved.",
+    ).trim();
+
+    const { error: orderUpdateError } = await supabase
+      .from("pos_orders")
+      .update({
+        status: "VOIDED",
+        payment_status: "VOIDED",
+        production_status: "CANCELLED",
+        voided_at: now,
+        voided_by: currentEmployeeName || "Manager Approval Center",
+        void_reason: reason,
+      })
+      .eq("id", orderId);
+
+    if (orderUpdateError) {
+      console.log("SYNC POS VOID APPROVAL ERROR:", orderUpdateError.message);
+      alert(`POS void approval sync failed. ${orderUpdateError.message}`);
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Approve POS Void",
+      description: `${request.title || "POS Void"} approved. ${formatMoney(payload.total_amount || orderData.total_amount || 0)}. Reason: ${reason}`,
+      severity: "critical",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "VOIDED",
+        orderId,
+        order: orderData,
+        reason,
+        payload,
+      },
+    });
+
+    return true;
+  };
+
+  const syncPOSRefundApproval = async (request: any) => {
+    if (request.request_type !== "POS_REFUND") {
+      return true;
+    }
+
+    const payload = getPayload(request) || {};
+    const orderId = String(
+      payload.order_id ||
+        payload.orderId ||
+        request.reference_id ||
+        "",
+    ).trim();
+
+    if (!orderId) {
+      alert("POS refund approval failed. Missing linked order ID.");
+      return false;
+    }
+
+    const { data: orderData, error: orderFetchError } = await supabase
+      .from("pos_orders")
+      .select("*")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (orderFetchError) {
+      console.log("FETCH POS ORDER FOR REFUND ERROR:", orderFetchError.message);
+      alert(`POS refund failed before order check. ${orderFetchError.message}`);
+      return false;
+    }
+
+    if (!orderData) {
+      alert("POS refund failed. Linked POS order was not found.");
+      return false;
+    }
+
+    const orderStatus = String(orderData.status || "").toUpperCase();
+
+    if (["VOIDED", "CANCELLED", "REFUNDED"].includes(orderStatus)) {
+      alert(`POS refund blocked. Order is already ${orderData.status}.`);
+      return false;
+    }
+
+    const now = new Date().toISOString();
+    const reason = String(
+      payload.reason ||
+        payload.refund_reason ||
+        request.description ||
+        "POS refund approved.",
+    ).trim();
+
+    const refundAmount = Number(
+      payload.refund_amount ||
+        payload.amount ||
+        payload.total_amount ||
+        orderData.total_amount ||
+        0,
+    );
+
+    const { error: orderUpdateError } = await supabase
+      .from("pos_orders")
+      .update({
+        status: "REFUNDED",
+        payment_status: "REFUNDED",
+        refunded_at: now,
+        refunded_by: currentEmployeeName || "Manager Approval Center",
+        refund_reason: reason,
+        refund_amount: refundAmount,
+      })
+      .eq("id", orderId);
+
+    if (orderUpdateError) {
+      console.log("SYNC POS REFUND APPROVAL ERROR:", orderUpdateError.message);
+      alert(`POS refund approval sync failed. ${orderUpdateError.message}`);
+      return false;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Approve POS Refund",
+      description: `${request.title || "POS Refund"} approved. ${formatMoney(refundAmount)}. Reason: ${reason}`,
+      severity: "critical",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "REFUNDED",
+        orderId,
+        order: orderData,
+        refundAmount,
+        reason,
+        payload,
+      },
+    });
+
+    return true;
+  };
+
+  const syncPOSVoidRejection = async (request: any, reason: string) => {
+    if (request.request_type !== "POS_VOID") {
+      return true;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Reject POS Void",
+      description: `${request.title || "POS Void"} rejected. Reason: ${reason}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "VOID_REJECTED",
+        rejectedBy: currentEmployeeName || "Manager Approval Center",
+        rejectionReason: reason,
+        payload: getPayload(request),
+      },
+    });
+
+    return true;
+  };
+
+  const syncPOSRefundRejection = async (request: any, reason: string) => {
+    if (request.request_type !== "POS_REFUND") {
+      return true;
+    }
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Reject POS Refund",
+      description: `${request.title || "POS Refund"} rejected. Reason: ${reason}`,
+      severity: "warning",
+      recordId: request.id,
+      oldValue: request,
+      newValue: {
+        status: "REFUND_REJECTED",
+        rejectedBy: currentEmployeeName || "Manager Approval Center",
+        rejectionReason: reason,
+        payload: getPayload(request),
+      },
+    });
+
+    return true;
+  };
+
   const approveRequest = async (request: any) => {
     if (!request?.id || isProcessing) return;
 
@@ -1876,6 +2123,26 @@ export default function ApprovalCenterPage() {
       }
     }
 
+    if (request.request_type === "POS_VOID") {
+      const synced = await syncPOSVoidApproval(request);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
+    if (request.request_type === "POS_REFUND") {
+      const synced = await syncPOSRefundApproval(request);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("approval_requests")
       .update({
@@ -1997,6 +2264,26 @@ export default function ApprovalCenterPage() {
       }
     }
 
+    if (request.request_type === "POS_VOID") {
+      const synced = await syncPOSVoidRejection(request, finalReason);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
+    if (request.request_type === "POS_REFUND") {
+      const synced = await syncPOSRefundRejection(request, finalReason);
+
+      if (!synced) {
+        setIsProcessing(false);
+        processingRequestRef.current = null;
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("approval_requests")
       .update({
@@ -2098,6 +2385,11 @@ export default function ApprovalCenterPage() {
       key: "OVERTIME",
       label: "Overtime",
       count: getCategoryCount(activeTab, "OVERTIME"),
+    },
+    {
+      key: "POS",
+      label: "POS",
+      count: getCategoryCount(activeTab, "POS"),
     },
   ];
 

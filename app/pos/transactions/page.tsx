@@ -6,12 +6,16 @@ import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 import {
+  AlertTriangle,
+  Ban,
   Download,
   Eye,
   Loader2,
   ReceiptText,
   RefreshCw,
+  RotateCcw,
   Search,
+  ShieldCheck,
   ShoppingBag,
   UserRound,
   X,
@@ -54,6 +58,20 @@ type Employee = {
   first_name: string | null;
   last_name: string | null;
 };
+
+type PosApprovalRequest = {
+  id: string;
+  company_id: string | null;
+  request_type: "POS_VOID" | "POS_REFUND" | string;
+  reference_id: string | null;
+  status: string | null;
+  title: string | null;
+  description: string | null;
+  request_payload: any;
+  created_at: string | null;
+};
+
+type PosApprovalAction = "POS_VOID" | "POS_REFUND";
 
 type DateFilter = "today" | "week" | "month" | "all";
 
@@ -111,7 +129,15 @@ const getStatusBadgeClass = (status: string | null) => {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 
-  if (normalized === "VOIDED" || normalized === "CANCELLED") {
+  if (normalized === "VOID PENDING" || normalized === "REFUND PENDING") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  if (normalized === "VOID APPROVED" || normalized === "REFUND APPROVED") {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+
+  if (normalized === "VOIDED" || normalized === "CANCELLED" || normalized === "REFUNDED") {
     return "border-red-200 bg-red-50 text-red-700";
   }
 
@@ -130,6 +156,7 @@ export default function POSTransactionsPage() {
   const [orders, setOrders] = useState<PosOrder[]>([]);
   const [orderItems, setOrderItems] = useState<PosOrderItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [approvalRequests, setApprovalRequests] = useState<PosApprovalRequest[]>([]);
 
   const [selectedOrder, setSelectedOrder] = useState<PosOrder | null>(null);
   const [selectedOrderItems, setSelectedOrderItems] = useState<PosOrderItem[]>(
@@ -141,6 +168,11 @@ export default function POSTransactionsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [orderTypeFilter, setOrderTypeFilter] = useState("all");
+
+  const [actionOrder, setActionOrder] = useState<PosOrder | null>(null);
+  const [actionType, setActionType] = useState<PosApprovalAction>("POS_VOID");
+  const [actionReason, setActionReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
 
   const companyId =
     typeof window !== "undefined"
@@ -201,6 +233,7 @@ export default function POSTransactionsPage() {
       setMessage(orderError.message);
       setOrders([]);
       setOrderItems([]);
+      setApprovalRequests([]);
       setLoading(false);
       return;
     }
@@ -257,9 +290,35 @@ export default function POSTransactionsPage() {
       loadedEmployees = (employeeData || []) as Employee[];
     }
 
+    let loadedApprovalRequests: PosApprovalRequest[] = [];
+
+    if (orderIds.length > 0) {
+      let approvalQuery = supabase
+        .from("approval_requests")
+        .select(
+          "id, company_id, request_type, reference_id, status, title, description, request_payload, created_at",
+        )
+        .in("request_type", ["POS_VOID", "POS_REFUND"])
+        .in("reference_id", orderIds)
+        .order("created_at", { ascending: false });
+
+      if (companyId) {
+        approvalQuery = approvalQuery.eq("company_id", companyId);
+      }
+
+      const { data: approvalData, error: approvalError } = await approvalQuery;
+
+      if (approvalError) {
+        setMessage(approvalError.message);
+      } else {
+        loadedApprovalRequests = (approvalData || []) as PosApprovalRequest[];
+      }
+    }
+
     setOrders(loadedOrders);
     setOrderItems(loadedItems);
     setEmployees(loadedEmployees);
+    setApprovalRequests(loadedApprovalRequests);
     setLoading(false);
   };
 
@@ -283,6 +342,47 @@ export default function POSTransactionsPage() {
     orderItems
       .filter((item) => item.order_id === orderId)
       .reduce((sum, item) => sum + Number(item.qty || 0), 0);
+
+  const getApprovalForOrder = (orderId: string, requestType: PosApprovalAction) =>
+    approvalRequests.find(
+      (request) =>
+        request.reference_id === orderId &&
+        request.request_type === requestType &&
+        ["PENDING", "APPROVED"].includes(String(request.status || "").toUpperCase()),
+    ) || null;
+
+  const getOperationalStatus = (order: PosOrder) => {
+    const voidRequest = getApprovalForOrder(order.id, "POS_VOID");
+    const refundRequest = getApprovalForOrder(order.id, "POS_REFUND");
+
+    if (voidRequest) {
+      return String(voidRequest.status || "").toUpperCase() === "APPROVED"
+        ? "VOID APPROVED"
+        : "VOID PENDING";
+    }
+
+    if (refundRequest) {
+      return String(refundRequest.status || "").toUpperCase() === "APPROVED"
+        ? "REFUND APPROVED"
+        : "REFUND PENDING";
+    }
+
+    return order.status || "-";
+  };
+
+  const canRequestVoid = (order: PosOrder) => {
+    const status = String(order.status || "").toUpperCase();
+    if (["VOIDED", "CANCELLED", "REFUNDED"].includes(status)) return false;
+    return !getApprovalForOrder(order.id, "POS_VOID");
+  };
+
+  const canRequestRefund = (order: PosOrder) => {
+    const status = String(order.status || "").toUpperCase();
+    const paymentStatus = String(order.payment_status || "").toUpperCase();
+    if (["VOIDED", "CANCELLED", "REFUNDED"].includes(status)) return false;
+    if (paymentStatus !== "PAID") return false;
+    return !getApprovalForOrder(order.id, "POS_REFUND");
+  };
 
   const paymentOptions = useMemo(() => {
     return Array.from(
@@ -361,7 +461,9 @@ export default function POSTransactionsPage() {
   ).length;
 
   const voidedOrders = filteredOrders.filter((order) =>
-    ["VOIDED", "CANCELLED"].includes(String(order.status || "").toUpperCase()),
+    ["VOIDED", "CANCELLED", "REFUNDED", "VOID APPROVED"].includes(
+      getOperationalStatus(order).toUpperCase(),
+    ),
   ).length;
 
   const averageTicket =
@@ -379,6 +481,7 @@ export default function POSTransactionsPage() {
       "Payment Status",
       "Production Status",
       "Status",
+      "Approval Status",
       "Items",
       "Subtotal",
       "Discount",
@@ -397,6 +500,7 @@ export default function POSTransactionsPage() {
       order.payment_status || "",
       order.production_status || "",
       order.status || "",
+      getOperationalStatus(order),
       getOrderItemCount(order.id),
       Number(order.subtotal || 0),
       Number(order.discount_amount || 0),
@@ -444,6 +548,90 @@ export default function POSTransactionsPage() {
   const closeModal = () => {
     setSelectedOrder(null);
     setSelectedOrderItems([]);
+  };
+
+  const openApprovalAction = (order: PosOrder, type: PosApprovalAction) => {
+    setActionOrder(order);
+    setActionType(type);
+    setActionReason("");
+    setMessage("");
+  };
+
+  const closeApprovalAction = () => {
+    setActionOrder(null);
+    setActionReason("");
+    setActionLoading(false);
+  };
+
+  const submitApprovalAction = async () => {
+    if (!actionOrder || actionLoading) return;
+
+    const reason = actionReason.trim();
+
+    if (!reason) {
+      setMessage("Reason is required before submitting POS void/refund approval.");
+      return;
+    }
+
+    const existingRequest = getApprovalForOrder(actionOrder.id, actionType);
+
+    if (existingRequest) {
+      setMessage("This transaction already has a pending or approved request.");
+      closeApprovalAction();
+      return;
+    }
+
+    setActionLoading(true);
+    setMessage("");
+
+    const cashierName = getCashierName(actionOrder.cashier_id);
+    const requestLabel = actionType === "POS_VOID" ? "POS Void" : "POS Refund";
+    const reference = getOrderReference(actionOrder);
+
+    const payload = {
+      order_id: actionOrder.id,
+      company_id: actionOrder.company_id || companyId,
+      session_id: actionOrder.session_id,
+      cashier_id: actionOrder.cashier_id,
+      cashier_name: cashierName,
+      order_number: actionOrder.order_number,
+      receipt_no: actionOrder.receipt_no,
+      order_type: actionOrder.order_type,
+      table_no: actionOrder.table_no,
+      payment_method:
+        actionOrder.payment_method_name || actionOrder.payment_method || null,
+      payment_status: actionOrder.payment_status,
+      current_status: actionOrder.status,
+      total_amount: Number(actionOrder.total_amount || 0),
+      reason,
+      requested_at: new Date().toISOString(),
+      approver_role: "MANAGER",
+    };
+
+    const { error } = await supabase.from("approval_requests").insert({
+      company_id: actionOrder.company_id || companyId,
+      request_type: actionType,
+      module: "POS",
+      reference_id: actionOrder.id,
+      title: `${requestLabel} Request - ${reference}`,
+      description: `${requestLabel} requested for ${reference} / ${peso(
+        actionOrder.total_amount,
+      )}. Reason: ${reason}`,
+      requested_by: cashierName || "POS Transactions",
+      status: "PENDING",
+      request_payload: payload,
+    });
+
+    setActionLoading(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    closeApprovalAction();
+    setMessage(`${requestLabel} submitted to Approval Center.`);
+    await loadTransactions();
   };
 
   return (
@@ -709,10 +897,10 @@ export default function POSTransactionsPage() {
                             <div className="flex flex-col gap-1">
                               <span
                                 className={`inline-flex w-fit rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${getStatusBadgeClass(
-                                  order.status,
+                                  getOperationalStatus(order),
                                 )}`}
                               >
-                                {order.status || "-"}
+                                {getOperationalStatus(order)}
                               </span>
                               <span className="text-[10px] font-bold uppercase text-slate-500">
                                 Production: {order.production_status || "-"}
@@ -721,13 +909,31 @@ export default function POSTransactionsPage() {
                           </td>
 
                           <td className="px-5 py-4">
-                            <div className="flex justify-end">
+                            <div className="flex flex-wrap justify-end gap-2">
                               <button
                                 onClick={() => openOrderModal(order)}
                                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                               >
                                 <Eye size={15} />
                                 View
+                              </button>
+
+                              <button
+                                onClick={() => openApprovalAction(order, "POS_VOID")}
+                                disabled={!canRequestVoid(order)}
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-xs font-bold text-red-700 transition-all duration-200 hover:bg-red-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Ban size={15} />
+                                Void
+                              </button>
+
+                              <button
+                                onClick={() => openApprovalAction(order, "POS_REFUND")}
+                                disabled={!canRequestRefund(order)}
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 transition-all duration-200 hover:bg-amber-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <RotateCcw size={15} />
+                                Refund
                               </button>
                             </div>
                           </td>
@@ -739,6 +945,93 @@ export default function POSTransactionsPage() {
               </div>
             </section>
           </div>
+
+          {actionOrder && (
+            <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-slate-950/40 p-4">
+              <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+                <div className="flex items-start gap-3">
+                  <div
+                    className={
+                      actionType === "POS_VOID"
+                        ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-700"
+                        : "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700"
+                    }
+                  >
+                    {actionType === "POS_VOID" ? <Ban size={20} /> : <RotateCcw size={20} />}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">
+                      Approval Required
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black text-slate-950">
+                      {actionType === "POS_VOID" ? "Request POS Void" : "Request POS Refund"}
+                    </h2>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                      This will create a manager approval request. The transaction will not be changed until approved in Approval Center.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={closeApprovalAction}
+                    disabled={actionLoading}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-all duration-200 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <InfoCard label="Order" value={getOrderReference(actionOrder)} />
+                  <InfoCard label="Total" value={peso(actionOrder.total_amount)} />
+                  <InfoCard label="Cashier" value={getCashierName(actionOrder.cashier_id)} />
+                  <InfoCard
+                    label="Payment"
+                    value={actionOrder.payment_method_name || actionOrder.payment_method || "-"}
+                  />
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex gap-3">
+                    <AlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={18} />
+                    <p className="text-sm font-bold leading-6 text-amber-800">
+                      Reason is required for audit trail and manager approval.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Reason
+                  </label>
+                  <textarea
+                    value={actionReason}
+                    onChange={(event) => setActionReason(event.target.value)}
+                    placeholder="Enter reason for this request..."
+                    className="mt-2 min-h-[120px] w-full rounded-2xl border border-slate-300 bg-white p-4 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={closeApprovalAction}
+                    disabled={actionLoading}
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitApprovalAction}
+                    disabled={actionLoading || !actionReason.trim()}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                    Submit to Approval Center
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {selectedOrder && (
             <div className="fixed inset-0 z-[10050] flex justify-end bg-slate-950/35">
@@ -797,6 +1090,10 @@ export default function POSTransactionsPage() {
                         <InfoCard
                           label="Payment Status"
                           value={selectedOrder.payment_status || "-"}
+                        />
+                        <InfoCard
+                          label="Approval Status"
+                          value={getOperationalStatus(selectedOrder)}
                         />
                       </section>
 

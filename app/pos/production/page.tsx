@@ -287,7 +287,10 @@ export default function POSProductionQueuePage() {
   }, [items, selectedStationKey, stations]);
 
   const groupedByStatus = useMemo(() => {
-    const result: Record<ProductionStatus, { orderId: string; order: QueueOrder | null; items: QueueItem[] }[]> = {
+    const result: Record<
+      ProductionStatus,
+      { orderId: string; order: QueueOrder | null; items: QueueItem[] }[]
+    > = {
       PENDING: [],
       PREPARING: [],
       READY: [],
@@ -306,11 +309,13 @@ export default function POSProductionQueuePage() {
         groups.set(item.order_id, [...current, item]);
       });
 
-      result[status] = Array.from(groups.entries()).map(([orderId, orderItems]) => ({
-        orderId,
-        order: orderItems[0]?.order || null,
-        items: orderItems,
-      }));
+      result[status] = Array.from(groups.entries()).map(
+        ([orderId, orderItems]) => ({
+          orderId,
+          order: orderItems[0]?.order || null,
+          items: orderItems,
+        }),
+      );
     });
 
     return result;

@@ -208,8 +208,8 @@ export default function POSParkedOrdersPage() {
   };
 
   return (
-    <PageGuard moduleKey="pos_parked_orders">
-      <div className="h-screen overflow-hidden bg-[#05080d] text-white">
+<PageGuard moduleKey="pos_terminal">
+        <div className="h-screen overflow-hidden bg-[#05080d] text-white">
         <main className="flex h-full flex-col p-2">
           <section className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#070b10] px-4 py-3 shadow-xl shadow-black/40">
             <div className="flex min-w-0 items-center gap-3">

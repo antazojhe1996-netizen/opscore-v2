@@ -85,6 +85,8 @@ export default function POSSessionsPage() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [readSession, setReadSession] = useState<PosSession | null>(null);
+  const [readType, setReadType] = useState<"X_READ" | "Z_READ">("X_READ");
 
   const companyId =
     typeof window !== "undefined"
@@ -326,6 +328,31 @@ export default function POSSessionsPage() {
     setLoading(false);
   }
 
+  function openRead(session: PosSession, type: "X_READ" | "Z_READ") {
+    setReadSession(session);
+    setReadType(type);
+  }
+
+  function closeRead() {
+    setReadSession(null);
+  }
+
+  function getReadExpectedCash(session: PosSession) {
+    return session.status === "OPEN"
+      ? Number(session.opening_cash || 0) + getSessionCashSales(session.id)
+      : Number(session.expected_cash || 0);
+  }
+
+  function getReadActualCash(session: PosSession) {
+    return Number(session.actual_cash || session.closing_cash || 0);
+  }
+
+  function getReadVariance(session: PosSession) {
+    return session.status === "OPEN"
+      ? 0
+      : Number(session.variance || getReadActualCash(session) - getReadExpectedCash(session));
+  }
+
   return (
     <PageGuard moduleKey="pos_sessions">
       <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -524,6 +551,13 @@ export default function POSSessionsPage() {
                     </div>
 
                     <button
+                      onClick={() => openRead(activeSession, "X_READ")}
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                    >
+                      View X Read
+                    </button>
+
+                    <button
                       onClick={closeSession}
                       disabled={loading}
                       className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
@@ -602,6 +636,7 @@ export default function POSSessionsPage() {
                         "Variance",
                         "Opened",
                         "Closed",
+                        "Read",
                       ].map((header) => (
                         <th
                           key={header}
@@ -617,7 +652,7 @@ export default function POSSessionsPage() {
                     {loading ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="px-5 py-14 text-center text-sm font-semibold text-slate-500"
                         >
                           Loading sessions...
@@ -626,7 +661,7 @@ export default function POSSessionsPage() {
                     ) : sessions.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="px-5 py-14 text-center text-sm font-semibold text-slate-500"
                         >
                           No POS sessions found.
@@ -693,6 +728,20 @@ export default function POSSessionsPage() {
                             <td className="px-5 py-4">
                               {formatDateTime(session.closed_at)}
                             </td>
+
+                            <td className="px-5 py-4">
+                              <button
+                                onClick={() =>
+                                  openRead(
+                                    session,
+                                    session.status === "OPEN" ? "X_READ" : "Z_READ",
+                                  )
+                                }
+                                className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                              >
+                                {session.status === "OPEN" ? "X Read" : "Z Read"}
+                              </button>
+                            </td>
                           </tr>
                         );
                       })
@@ -720,6 +769,109 @@ export default function POSSessionsPage() {
               </div>
             </section>
           </div>
+
+          {readSession && (
+            <div className="fixed inset-0 z-[10050] flex justify-end bg-slate-950/40">
+              <div className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
+                <div className="border-b border-slate-100 p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    {readType === "X_READ" ? "X Read Preview" : "Z Read Final"}
+                  </p>
+
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">
+                    {cashierName(readSession)}
+                  </h2>
+
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Opened: {formatDateTime(readSession.opened_at)}
+                  </p>
+
+                  {readSession.closed_at && (
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Closed: {formatDateTime(readSession.closed_at)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <MiniCard
+                      label="Opening Cash"
+                      value={peso(readSession.opening_cash)}
+                    />
+                    <MiniCard
+                      label="Total Sales"
+                      value={peso(getSessionSales(readSession.id))}
+                    />
+                    <MiniCard
+                      label="Cash Sales"
+                      value={peso(getSessionCashSales(readSession.id))}
+                    />
+                    <MiniCard
+                      label="Expected Cash"
+                      value={peso(getReadExpectedCash(readSession))}
+                    />
+                    <MiniCard
+                      label="Actual Cash"
+                      value={peso(getReadActualCash(readSession))}
+                    />
+                    <MiniCard
+                      label="Variance"
+                      value={peso(getReadVariance(readSession))}
+                    />
+                  </div>
+
+                  <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Payment Breakdown
+                    </p>
+
+                    <div className="mt-4 space-y-3">
+                      {getPaymentBreakdown(readSession.id).length === 0 ? (
+                        <p className="text-sm font-semibold text-slate-500">
+                          No paid transactions.
+                        </p>
+                      ) : (
+                        getPaymentBreakdown(readSession.id).map((item) => (
+                          <div
+                            key={item.payment}
+                            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                          >
+                            <p className="text-sm font-black text-slate-700">
+                              {item.payment}
+                            </p>
+                            <p className="text-sm font-black text-slate-950">
+                              {peso(item.amount)}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-3xl border border-blue-200 bg-blue-50 p-5">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">
+                      {readType === "X_READ" ? "X Read" : "Z Read"}
+                    </p>
+                    <p className="mt-2 text-sm font-bold leading-6 text-blue-800">
+                      {readType === "X_READ"
+                        ? "X Read is a live preview for the open session. It does not close or finalize the cashier drawer."
+                        : "Z Read is the final session summary after cashier closing. This is the basis for cashier accountability and variance review."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 p-6">
+                  <button
+                    onClick={closeRead}
+                    className="h-11 w-full rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </PageGuard>
