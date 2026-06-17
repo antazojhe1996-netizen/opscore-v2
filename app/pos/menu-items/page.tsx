@@ -4,22 +4,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
+import TopNavbar from "@/components/TopNavbar";
 import { supabase } from "@/app/lib/supabase";
 import {
   CheckCircle2,
   Download,
   Edit,
+  Flame,
   ImageIcon,
   Package,
   Plus,
   RefreshCw,
   Search,
   Star,
+  Sparkles,
   Upload,
   X,
   XCircle,
-  Flame,
-  Sparkles,
 } from "lucide-react";
 
 type Category = {
@@ -163,25 +164,11 @@ const getPosterCategoryDescription = (categoryName: string) => {
     return "Liquor, spirits, and alcoholic beverages";
   }
 
-  if (upper.includes("JUICE")) {
-    return "Juices and fruit drink products";
-  }
-
-  if (upper.includes("COFFEE")) {
-    return "Coffee and ready-to-drink coffee products";
-  }
-
-  if (upper.includes("SHAKE")) {
-    return "Shakes and blended drink products";
-  }
-
-  if (upper.includes("ICE")) {
-    return "Ice cream and cold dessert products";
-  }
-
-  if (upper.includes("BEVERAGE")) {
-    return "Beverages and drink products";
-  }
+  if (upper.includes("JUICE")) return "Juices and fruit drink products";
+  if (upper.includes("COFFEE")) return "Coffee and ready-to-drink coffee products";
+  if (upper.includes("SHAKE")) return "Shakes and blended drink products";
+  if (upper.includes("ICE")) return "Ice cream and cold dessert products";
+  if (upper.includes("BEVERAGE")) return "Beverages and drink products";
 
   return "Auto-created POS category from Poster import";
 };
@@ -194,6 +181,7 @@ export default function POSMenuItemsPage() {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [message, setMessage] = useState("");
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -212,6 +200,8 @@ export default function POSMenuItemsPage() {
       : null;
 
   const loadCategories = async () => {
+    setMessage("");
+
     let query = supabase
       .from("pos_categories")
       .select("id, name, category_code, status")
@@ -224,7 +214,7 @@ export default function POSMenuItemsPage() {
     const { data, error } = await query;
 
     if (error) {
-      alert(error.message);
+      setMessage(error.message);
       setCategories([]);
       return;
     }
@@ -234,6 +224,7 @@ export default function POSMenuItemsPage() {
 
   const loadItems = async () => {
     setLoading(true);
+    setMessage("");
 
     let query = supabase
       .from("pos_menu_items")
@@ -257,7 +248,7 @@ export default function POSMenuItemsPage() {
     const { data, error } = await query;
 
     if (error) {
-      alert(error.message);
+      setMessage(error.message);
       setItems([]);
       setLoading(false);
       return;
@@ -350,16 +341,17 @@ export default function POSMenuItemsPage() {
 
   const uploadImage = async (file: File) => {
     if (!companyId) {
-      alert("Company not detected. Please login again.");
+      setMessage("Company not detected. Please login again.");
       return null;
     }
 
     if (!file.type.startsWith("image/")) {
-      alert("Please upload an image file.");
+      setMessage("Please upload an image file.");
       return null;
     }
 
     setUploadingImage(true);
+    setMessage("");
 
     const extension = file.name.split(".").pop() || "jpg";
     const safeExtension = extension.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -375,7 +367,7 @@ export default function POSMenuItemsPage() {
       });
 
     if (error) {
-      alert(error.message);
+      setMessage(error.message);
       setUploadingImage(false);
       return null;
     }
@@ -390,18 +382,20 @@ export default function POSMenuItemsPage() {
   };
 
   const saveItem = async () => {
+    setMessage("");
+
     if (!companyId) {
-      alert("Company not detected. Please login again.");
+      setMessage("Company not detected. Please login again.");
       return;
     }
 
     if (!form.name.trim()) {
-      alert("Item name is required.");
+      setMessage("Item name is required.");
       return;
     }
 
     if (!form.category_id) {
-      alert("Category is required.");
+      setMessage("Category is required.");
       return;
     }
 
@@ -431,7 +425,7 @@ export default function POSMenuItemsPage() {
         .eq("id", editingItem.id);
 
       if (error) {
-        alert(error.message);
+        setMessage(error.message);
         setSaving(false);
         return;
       }
@@ -439,7 +433,7 @@ export default function POSMenuItemsPage() {
       const { error } = await supabase.from("pos_menu_items").insert([payload]);
 
       if (error) {
-        alert(error.message);
+        setMessage(error.message);
         setSaving(false);
         return;
       }
@@ -451,6 +445,8 @@ export default function POSMenuItemsPage() {
   };
 
   const toggleStatus = async (item: MenuItem) => {
+    setMessage("");
+
     const nextStatus = item.status === "active" ? "inactive" : "active";
 
     const { error } = await supabase
@@ -462,14 +458,14 @@ export default function POSMenuItemsPage() {
       .eq("id", item.id);
 
     if (error) {
-      alert(error.message);
+      setMessage(error.message);
       return;
     }
 
     await loadItems();
   };
 
-    const exportCsv = () => {
+  const exportCsv = () => {
     const headers = [
       "item_code",
       "name",
@@ -603,9 +599,7 @@ export default function POSMenuItemsPage() {
       );
     });
 
-    if (headerRowIndex === -1) {
-      return [];
-    }
+    if (headerRowIndex === -1) return [];
 
     const headers = matrix[headerRowIndex].map((cell) =>
       normalizeHeader(String(cell)),
@@ -630,16 +624,17 @@ export default function POSMenuItemsPage() {
 
   const importFile = async (file: File) => {
     if (!companyId) {
-      alert("Company not detected. Please login again.");
+      setMessage("Company not detected. Please login again.");
       return;
     }
 
     if (categories.length === 0) {
-      alert("Please add/import categories first.");
+      setMessage("Please add/import categories first.");
       return;
     }
 
     setImporting(true);
+    setMessage("");
 
     try {
       const lowerName = file.name.toLowerCase();
@@ -650,13 +645,12 @@ export default function POSMenuItemsPage() {
           : await readCsvFile(file);
 
       if (rows.length === 0) {
-        alert("File is empty or missing data rows.");
+        setMessage("File is empty or missing data rows.");
         setImporting(false);
         return;
       }
 
       let liveCategories = [...categories];
-
       let categoryMap = new Map<string, Category>();
 
       const rebuildCategoryMap = () => {
@@ -718,7 +712,7 @@ export default function POSMenuItemsPage() {
             .select("id, name, category_code, status");
 
         if (categoryCreateError) {
-          alert(categoryCreateError.message);
+          setMessage(categoryCreateError.message);
           setImporting(false);
           return;
         }
@@ -842,14 +836,14 @@ export default function POSMenuItemsPage() {
             ]),
           );
 
-          const rawInventoryFlag = getCell(row, [
-            "is_inventory_tracked",
-            "inventory_tracked",
-            "track_inventory",
-            "tracked",
-          ]);
-
-          const isInventoryTracked = normalizeBoolean(rawInventoryFlag);
+          const isInventoryTracked = normalizeBoolean(
+            getCell(row, [
+              "is_inventory_tracked",
+              "inventory_tracked",
+              "track_inventory",
+              "tracked",
+            ]),
+          );
 
           const isBestSeller = normalizeBoolean(
             getCell(row, [
@@ -886,10 +880,10 @@ export default function POSMenuItemsPage() {
           };
         })
         .filter(Boolean) as any[];
-        
+
       if (payloads.length === 0) {
-        alert(
-          `No valid items to import.\nNo name: ${skippedNoName}\nNo category match: ${skippedNoCategory}\nDuplicates: ${skippedDuplicate}`,
+        setMessage(
+          `No valid items to import. No name: ${skippedNoName}. No category match: ${skippedNoCategory}. Duplicates: ${skippedDuplicate}.`,
         );
         setImporting(false);
         return;
@@ -898,18 +892,18 @@ export default function POSMenuItemsPage() {
       const { error } = await supabase.from("pos_menu_items").insert(payloads);
 
       if (error) {
-        alert(error.message);
+        setMessage(error.message);
         setImporting(false);
         return;
       }
 
       await loadItems();
 
-      alert(
-        `Import successful. ${payloads.length} items added.\nAuto-created categories: ${autoCreatedCategories}\nSkipped no name: ${skippedNoName}\nSkipped no category match: ${skippedNoCategory}\nSkipped duplicates: ${skippedDuplicate}`,
+      setMessage(
+        `Import successful. ${payloads.length} items added. Auto-created categories: ${autoCreatedCategories}. Skipped no name: ${skippedNoName}. Skipped no category match: ${skippedNoCategory}. Skipped duplicates: ${skippedDuplicate}.`,
       );
     } catch (error: any) {
-      alert(error?.message || "Import failed.");
+      setMessage(error?.message || "Import failed.");
     }
 
     setImporting(false);
@@ -921,22 +915,24 @@ export default function POSMenuItemsPage() {
 
     return (
     <PageGuard moduleKey="pos_menu_items">
-      <div className="flex min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
         <Sidebar />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-6">
-          <section className="mb-8 overflow-hidden rounded-[2rem] border border-blue-300/10 bg-gradient-to-br from-slate-900 via-slate-950 to-black p-6 shadow-2xl shadow-black/30">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
+          <TopNavbar breadcrumb="POS / MENU ITEMS" />
+
+          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+            <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-300">
-                  OPSCORE POS
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                  POS
                 </p>
 
-                <h1 className="mt-3 text-4xl font-black tracking-tight text-white">
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                   Menu Items
                 </h1>
 
-                <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-400">
+                <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
                   Manage sellable POS products, photos, badges, category
                   mapping, pricing, cost, inventory tracking flags, and item
                   status.
@@ -958,7 +954,7 @@ export default function POSMenuItemsPage() {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={importing}
-                  className="flex items-center gap-2 rounded-2xl border border-blue-300/20 bg-blue-500/10 px-4 py-3 text-xs font-black text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   <Upload size={16} />
                   {importing ? "Importing..." : "Import CSV / Excel"}
@@ -966,7 +962,7 @@ export default function POSMenuItemsPage() {
 
                 <button
                   onClick={exportCsv}
-                  className="flex items-center gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 px-4 py-3 text-xs font-black text-emerald-200 transition hover:bg-emerald-500/20"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                 >
                   <Download size={16} />
                   Export CSV
@@ -974,323 +970,303 @@ export default function POSMenuItemsPage() {
 
                 <button
                   onClick={openAddModal}
-                  className="flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
                 >
                   <Plus size={16} />
                   Add Item
                 </button>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-[1.5rem] border border-blue-300/10 bg-white/[0.035] p-5 shadow-xl shadow-black/20">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                Total Items
-              </p>
-              <p className="mt-3 text-3xl font-black text-white">
-                {items.length}
-              </p>
-            </div>
+            {message && (
+              <section className="mb-6 rounded-3xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-700 shadow-sm">
+                {message}
+              </section>
+            )}
 
-            <div className="rounded-[1.5rem] border border-emerald-400/15 bg-emerald-500/10 p-5 shadow-xl shadow-black/20">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">
-                Active
-              </p>
-              <p className="mt-3 text-3xl font-black text-emerald-200">
-                {activeCount}
-              </p>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-red-400/15 bg-red-500/10 p-5 shadow-xl shadow-black/20">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-red-300">
-                Inactive
-              </p>
-              <p className="mt-3 text-3xl font-black text-red-200">
-                {inactiveCount}
-              </p>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-violet-400/15 bg-violet-500/10 p-5 shadow-xl shadow-black/20">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-300">
-                With Photos
-              </p>
-              <p className="mt-3 text-3xl font-black text-violet-100">
-                {withImageCount}
-              </p>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-amber-400/15 bg-amber-500/10 p-5 shadow-xl shadow-black/20">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
-                Catalog Value
-              </p>
-              <p className="mt-3 text-3xl font-black text-amber-100">
-                {peso(catalogValue)}
-              </p>
-            </div>
-          </section>
-
-          <section className="mb-6 grid grid-cols-1 gap-3 xl:grid-cols-[1fr_220px_180px_auto]">
-            <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-3 top-3.5 text-slate-500"
+            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <KpiCard label="Total Items" value={String(items.length)} />
+              <KpiCard
+                label="Active"
+                value={String(activeCount)}
+                tone="success"
               />
-
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search item, code, category..."
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 pl-10 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-400/40"
+              <KpiCard
+                label="Inactive"
+                value={String(inactiveCount)}
+                tone="danger"
               />
-            </div>
+              <KpiCard
+                label="With Photos"
+                value={String(withImageCount)}
+                tone="info"
+              />
+              <KpiCard
+                label="Catalog Value"
+                value={peso(catalogValue)}
+                tone="warning"
+              />
+            </section>
 
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_220px_180px_auto]">
+                <div className="relative">
+                  <Search
+                    size={18}
+                    className="absolute left-3 top-3.5 text-slate-400"
+                  />
 
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search item, code, category..."
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 pl-10 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </div>
 
-            <button
-              onClick={reloadAll}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-black text-slate-300 transition hover:bg-slate-800"
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
-          </section>
+                <select
+                  value={categoryFilter}
+                  onChange={(event) => setCategoryFilter(event.target.value)}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                >
+                  <option value="all">All Categories</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
 
-          <section className="overflow-hidden rounded-[1.75rem] border border-blue-300/10 bg-white/[0.035] shadow-xl shadow-black/20">
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="border-b border-blue-300/10 bg-slate-950/80">
-                  <tr>
-                    <th className="px-5 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Item
-                    </th>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
 
-                    <th className="px-5 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Photo
-                    </th>
+                <button
+                  onClick={reloadAll}
+                  disabled={loading}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <RefreshCw size={16} />
+                  Refresh
+                </button>
+              </div>
+            </section>
 
-                    <th className="px-5 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Category
-                    </th>
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Product Ledger
+                </p>
 
-                    <th className="px-5 py-4 text-right text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Price
-                    </th>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  POS Menu Items
+                </h2>
+              </div>
 
-                    <th className="px-5 py-4 text-right text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Cost
-                    </th>
-
-                    <th className="px-5 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Badges
-                    </th>
-
-                    <th className="px-5 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Inventory
-                    </th>
-
-                    <th className="px-5 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Status
-                    </th>
-
-                    <th className="px-5 py-4 text-right text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {loading ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="bg-slate-50">
                     <tr>
-                      <td
-                        colSpan={9}
-                        className="px-5 py-12 text-center text-sm text-slate-500"
-                      >
-                        Loading menu items...
-                      </td>
+                      {[
+                        "Item",
+                        "Photo",
+                        "Category",
+                        "Price",
+                        "Cost",
+                        "Badges",
+                        "Inventory",
+                        "Status",
+                        "Actions",
+                      ].map((header) => (
+                        <th
+                          key={header}
+                          className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500"
+                        >
+                          {header}
+                        </th>
+                      ))}
                     </tr>
-                  ) : filteredItems.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="px-5 py-12 text-center text-sm text-slate-500"
-                      >
-                        No menu items found.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredItems.map((item) => (
-                      <tr
-                        key={item.id}
-                        className="border-b border-slate-800/80 transition hover:bg-blue-500/5"
-                      >
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="rounded-2xl border border-blue-300/10 bg-blue-500/10 p-2 text-blue-200">
-                              <Package size={16} />
-                            </div>
+                  </thead>
 
-                            <div>
-                              <p className="font-black text-white">
-                                {item.name}
-                              </p>
-                              <p className="mt-0.5 text-[11px] text-slate-500">
-                                {item.item_code || "No item code"}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          {item.image_url ? (
-                            <img
-                              src={item.image_url}
-                              alt={item.name}
-                              className="h-14 w-20 rounded-xl object-cover ring-1 ring-white/10"
-                            />
-                          ) : (
-                            <div className="flex h-14 w-20 items-center justify-center rounded-xl bg-slate-900 text-slate-600 ring-1 ring-white/10">
-                              <ImageIcon size={18} />
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4 text-sm text-slate-300">
-                          {item.category?.name || "-"}
-                        </td>
-
-                        <td className="px-5 py-4 text-right text-sm font-black text-emerald-200">
-                          {peso(Number(item.price || 0))}
-                        </td>
-
-                        <td className="px-5 py-4 text-right text-sm text-slate-300">
-                          {peso(Number(item.cost || 0))}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <div className="flex flex-wrap gap-1.5">
-                            {item.is_best_seller && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-1 text-[10px] font-black text-black">
-                                <Star size={11} />
-                                BEST
-                              </span>
-                            )}
-
-                            {item.is_hot && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-red-500 px-2 py-1 text-[10px] font-black text-white">
-                                <Flame size={11} />
-                                HOT
-                              </span>
-                            )}
-
-                            {item.is_new && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-1 text-[10px] font-black text-white">
-                                <Sparkles size={11} />
-                                NEW
-                              </span>
-                            )}
-
-                            {!item.is_best_seller &&
-                              !item.is_hot &&
-                              !item.is_new && (
-                                <span className="text-xs font-semibold text-slate-600">
-                                  -
-                                </span>
-                              )}
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          {item.is_inventory_tracked ? (
-                            <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-300">
-                              Tracked
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-slate-500/10 px-3 py-1 text-xs font-black text-slate-400">
-                              Not Tracked
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          {item.status === "active" ? (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-300">
-                              <CheckCircle2 size={13} />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-1 text-xs font-black text-red-300">
-                              <XCircle size={13} />
-                              Inactive
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => openEditModal(item)}
-                              className="rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-300 transition hover:border-blue-300/30 hover:text-white"
-                              title="Edit"
-                            >
-                              <Edit size={16} />
-                            </button>
-
-                            <button
-                              onClick={() => toggleStatus(item)}
-                              className="rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-300 transition hover:border-blue-300/30 hover:text-white"
-                              title={
-                                item.status === "active"
-                                  ? "Deactivate"
-                                  : "Activate"
-                              }
-                            >
-                              {item.status === "active" ? (
-                                <XCircle size={16} />
-                              ) : (
-                                <CheckCircle2 size={16} />
-                              )}
-                            </button>
-                          </div>
+                  <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                    {loading ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-5 py-14 text-center text-sm font-semibold text-slate-500"
+                        >
+                          Loading menu items...
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                    ) : filteredItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-5 py-14 text-center text-sm font-semibold text-slate-500"
+                        >
+                          No menu items found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredItems.map((item) => (
+                        <tr
+                          key={item.id}
+                          className="transition-all duration-200 hover:bg-slate-50"
+                        >
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
+                                <Package size={16} />
+                              </div>
 
-                    {modalOpen && (
-            <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-              <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[2rem] border border-blue-300/10 bg-slate-950 shadow-2xl shadow-black">
-                <div className="flex items-center justify-between border-b border-blue-300/10 p-5">
+                              <div>
+                                <p className="font-black text-slate-950">
+                                  {item.name}
+                                </p>
+                                <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                                  {item.item_code || "No item code"}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-4">
+                            {item.image_url ? (
+                              <img
+                                src={item.image_url}
+                                alt={item.name}
+                                className="h-14 w-20 rounded-xl object-cover ring-1 ring-slate-200"
+                              />
+                            ) : (
+                              <div className="flex h-14 w-20 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400">
+                                <ImageIcon size={18} />
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            {item.category?.name || "-"}
+                          </td>
+
+                          <td className="px-5 py-4 text-right font-black text-slate-950">
+                            {peso(Number(item.price || 0))}
+                          </td>
+
+                          <td className="px-5 py-4 text-right text-slate-600">
+                            {peso(Number(item.cost || 0))}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <div className="flex flex-wrap gap-1.5">
+                              {item.is_best_seller && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
+                                  <Star size={11} />
+                                  BEST
+                                </span>
+                              )}
+
+                              {item.is_hot && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">
+                                  <Flame size={11} />
+                                  HOT
+                                </span>
+                              )}
+
+                              {item.is_new && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                                  <Sparkles size={11} />
+                                  NEW
+                                </span>
+                              )}
+
+                              {!item.is_best_seller &&
+                                !item.is_hot &&
+                                !item.is_new && (
+                                  <span className="text-xs font-semibold text-slate-400">
+                                    -
+                                  </span>
+                                )}
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-4">
+                            {item.is_inventory_tracked ? (
+                              <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">
+                                Tracked
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-700">
+                                Not Tracked
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            {item.status === "active" ? (
+                              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+                                <CheckCircle2 size={13} />
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-red-700">
+                                <XCircle size={13} />
+                                Inactive
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => openEditModal(item)}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                                title="Edit"
+                              >
+                                <Edit size={16} />
+                              </button>
+
+                              <button
+                                onClick={() => toggleStatus(item)}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                                title={
+                                  item.status === "active"
+                                    ? "Deactivate"
+                                    : "Activate"
+                                }
+                              >
+                                {item.status === "active" ? (
+                                  <XCircle size={16} />
+                                ) : (
+                                  <CheckCircle2 size={16} />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          {modalOpen && (
+            <div className="fixed inset-0 z-[10050] flex justify-end bg-slate-950/35">
+              <div className="flex h-[calc(100vh-64px)] w-full max-w-[820px] flex-col border-l border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 p-6">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-300">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
                       POS Menu Item
                     </p>
-                    <h2 className="mt-1 text-xl font-black text-white">
+
+                    <h2 className="mt-1 text-xl font-black text-slate-950">
                       {editingItem ? "Edit Item" : "Add Item"}
                     </h2>
                   </div>
@@ -1298,18 +1274,15 @@ export default function POSMenuItemsPage() {
                   <button
                     onClick={closeModal}
                     disabled={saving || uploadingImage}
-                    className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-all duration-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <X size={16} />
                   </button>
                 </div>
 
-                <div className="max-h-[68vh] overflow-y-auto p-5">
+                <div className="flex-1 overflow-y-auto p-6">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Item Code
-                      </label>
+                    <Field label="Item Code">
                       <input
                         value={form.item_code}
                         onChange={(event) =>
@@ -1319,14 +1292,11 @@ export default function POSMenuItemsPage() {
                           }))
                         }
                         placeholder="Example: SML001"
-                        className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                       />
-                    </div>
+                    </Field>
 
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Category
-                      </label>
+                    <Field label="Category">
                       <select
                         value={form.category_id}
                         onChange={(event) =>
@@ -1335,7 +1305,7 @@ export default function POSMenuItemsPage() {
                             category_id: event.target.value,
                           }))
                         }
-                        className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                       >
                         <option value="">Select category</option>
                         {activeCategories.map((category) => (
@@ -1344,113 +1314,107 @@ export default function POSMenuItemsPage() {
                           </option>
                         ))}
                       </select>
+                    </Field>
+
+                    <div className="md:col-span-2">
+                      <Field label="Item Name">
+                        <input
+                          value={form.name}
+                          onChange={(event) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              name: event.target.value,
+                            }))
+                          }
+                          placeholder="Example: American Breakfast"
+                          className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        />
+                      </Field>
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Item Name
-                      </label>
-                      <input
-                        value={form.name}
-                        onChange={(event) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            name: event.target.value,
-                          }))
-                        }
-                        placeholder="Example: American Breakfast"
-                        className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
-                      />
-                    </div>
+                      <Field label="Product Image">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-[160px_1fr]">
+                          <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                            {form.image_url ? (
+                              <img
+                                src={form.image_url}
+                                alt="Product preview"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-400">
+                                <ImageIcon size={30} />
+                                <p className="mt-2 text-[11px] font-bold uppercase">
+                                  No Photo
+                                </p>
+                              </div>
+                            )}
+                          </div>
 
-                    <div className="md:col-span-2">
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Product Image
-                      </label>
+                          <div className="flex flex-col justify-center gap-3">
+                            <input
+                              ref={imageInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (event) => {
+                                const file = event.target.files?.[0];
+                                if (!file) return;
 
-                      <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-[160px_1fr]">
-                        <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-                          {form.image_url ? (
-                            <img
-                              src={form.image_url}
-                              alt="Product preview"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center text-slate-600">
-                              <ImageIcon size={30} />
-                              <p className="mt-2 text-[11px] font-black uppercase">
-                                No Photo
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                                const publicUrl = await uploadImage(file);
 
-                        <div className="flex flex-col justify-center gap-3">
-                          <input
-                            ref={imageInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={async (event) => {
-                              const file = event.target.files?.[0];
-                              if (!file) return;
+                                if (!publicUrl) return;
 
-                              const publicUrl = await uploadImage(file);
-
-                              if (!publicUrl) return;
-
-                              setForm((prev) => ({
-                                ...prev,
-                                image_url: publicUrl,
-                              }));
-                            }}
-                          />
-
-                          <button
-                            type="button"
-                            onClick={() => imageInputRef.current?.click()}
-                            disabled={uploadingImage}
-                            className="flex items-center justify-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-500/10 px-4 py-3 text-xs font-black text-violet-200 transition hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <Upload size={16} />
-                            {uploadingImage ? "Uploading..." : "Upload Image"}
-                          </button>
-
-                          <input
-                            value={form.image_url}
-                            onChange={(event) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                image_url: event.target.value,
-                              }))
-                            }
-                            placeholder="Or paste image URL"
-                            className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-xs text-white outline-none focus:border-blue-400/40"
-                          />
-
-                          {form.image_url && (
-                            <button
-                              type="button"
-                              onClick={() =>
                                 setForm((prev) => ({
                                   ...prev,
-                                  image_url: "",
+                                  image_url: publicUrl,
+                                }));
+                              }}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => imageInputRef.current?.click()}
+                              disabled={uploadingImage}
+                              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
+                            >
+                              <Upload size={16} />
+                              {uploadingImage ? "Uploading..." : "Upload Image"}
+                            </button>
+
+                            <input
+                              value={form.image_url}
+                              onChange={(event) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  image_url: event.target.value,
                                 }))
                               }
-                              className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-xs font-black text-red-300 transition hover:bg-red-500/20"
-                            >
-                              Remove Image
-                            </button>
-                          )}
+                              placeholder="Or paste image URL"
+                              className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            />
+
+                            {form.image_url && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    image_url: "",
+                                  }))
+                                }
+                                className="h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
+                              >
+                                Remove Image
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </Field>
                     </div>
 
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Price
-                      </label>
+                    <Field label="Price">
                       <input
                         value={form.price}
                         onChange={(event) =>
@@ -1460,14 +1424,11 @@ export default function POSMenuItemsPage() {
                           }))
                         }
                         placeholder="0.00"
-                        className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                       />
-                    </div>
+                    </Field>
 
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Cost
-                      </label>
+                    <Field label="Cost">
                       <input
                         value={form.cost}
                         onChange={(event) =>
@@ -1477,96 +1438,75 @@ export default function POSMenuItemsPage() {
                           }))
                         }
                         placeholder="0.00"
-                        className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                       />
+                    </Field>
+
+                    <div className="md:col-span-2">
+                      <Field label="Description">
+                        <textarea
+                          value={form.description}
+                          onChange={(event) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              description: event.target.value,
+                            }))
+                          }
+                          placeholder="Optional description"
+                          rows={3}
+                          className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        />
+                      </Field>
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Description
-                      </label>
-                      <textarea
-                        value={form.description}
-                        onChange={(event) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            description: event.target.value,
-                          }))
-                        }
-                        placeholder="Optional description"
-                        rows={3}
-                        className="mt-2 w-full resize-none rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
-                      />
+                      <Field label="POS Badges">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                          <ToggleButton
+                            active={form.is_best_seller}
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                is_best_seller: !prev.is_best_seller,
+                              }))
+                            }
+                            label="Best Seller"
+                            icon={<Star size={15} />}
+                            tone="warning"
+                          />
+
+                          <ToggleButton
+                            active={form.is_hot}
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                is_hot: !prev.is_hot,
+                              }))
+                            }
+                            label="Hot"
+                            icon={<Flame size={15} />}
+                            tone="danger"
+                          />
+
+                          <ToggleButton
+                            active={form.is_new}
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                is_new: !prev.is_new,
+                              }))
+                            }
+                            label="New"
+                            icon={<Sparkles size={15} />}
+                            tone="success"
+                          />
+                        </div>
+                      </Field>
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        POS Badges
-                      </label>
-
-                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              is_best_seller: !prev.is_best_seller,
-                            }))
-                          }
-                          className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-black transition ${
-                            form.is_best_seller
-                              ? "bg-amber-500 text-black"
-                              : "border border-slate-800 bg-slate-900 text-slate-400 hover:bg-slate-800"
-                          }`}
-                        >
-                          <Star size={15} />
-                          BEST SELLER
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              is_hot: !prev.is_hot,
-                            }))
-                          }
-                          className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-black transition ${
-                            form.is_hot
-                              ? "bg-red-500 text-white"
-                              : "border border-slate-800 bg-slate-900 text-slate-400 hover:bg-slate-800"
-                          }`}
-                        >
-                          <Flame size={15} />
-                          HOT
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              is_new: !prev.is_new,
-                            }))
-                          }
-                          className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-black transition ${
-                            form.is_new
-                              ? "bg-emerald-500 text-white"
-                              : "border border-slate-800 bg-slate-900 text-slate-400 hover:bg-slate-800"
-                          }`}
-                        >
-                          <Sparkles size={15} />
-                          NEW
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Inventory Tracking
-                      </label>
-                      <button
-                        type="button"
+                    <Field label="Inventory Tracking">
+                      <ToggleButton
+                        active={form.is_inventory_tracked}
                         onClick={() =>
                           setForm((prev) => ({
                             ...prev,
@@ -1574,22 +1514,16 @@ export default function POSMenuItemsPage() {
                               !prev.is_inventory_tracked,
                           }))
                         }
-                        className={`mt-2 w-full rounded-2xl border px-4 py-3 text-left text-sm font-black transition ${
+                        label={
                           form.is_inventory_tracked
-                            ? "border-blue-300/20 bg-blue-500/10 text-blue-200"
-                            : "border-slate-800 bg-slate-900 text-slate-400"
-                        }`}
-                      >
-                        {form.is_inventory_tracked
-                          ? "Tracked"
-                          : "Not Tracked"}
-                      </button>
-                    </div>
+                            ? "Tracked"
+                            : "Not Tracked"
+                        }
+                        tone="info"
+                      />
+                    </Field>
 
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                        Status
-                      </label>
+                    <Field label="Status">
                       <select
                         value={form.status}
                         onChange={(event) =>
@@ -1598,20 +1532,20 @@ export default function POSMenuItemsPage() {
                             status: event.target.value,
                           }))
                         }
-                        className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400/40"
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                       >
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                       </select>
-                    </div>
+                    </Field>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 border-t border-blue-300/10 p-5">
+                <div className="sticky bottom-0 flex justify-end gap-3 border-t border-slate-100 bg-white/95 p-6">
                   <button
                     onClick={closeModal}
                     disabled={saving || uploadingImage}
-                    className="rounded-2xl border border-slate-700 px-5 py-3 text-xs font-black text-slate-300 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -1619,7 +1553,7 @@ export default function POSMenuItemsPage() {
                   <button
                     onClick={saveItem}
                     disabled={saving || uploadingImage}
-                    className="rounded-2xl bg-blue-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
                   >
                     {saving
                       ? "Saving..."
@@ -1634,5 +1568,96 @@ export default function POSMenuItemsPage() {
         </main>
       </div>
     </PageGuard>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "success" | "warning" | "danger" | "info";
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : tone === "danger"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : tone === "info"
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-slate-200 bg-white text-slate-500";
+
+  return (
+    <div className={`rounded-3xl border p-5 shadow-sm ${toneClass}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em]">
+        {label}
+      </p>
+
+      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function ToggleButton({
+  active,
+  onClick,
+  label,
+  icon,
+  tone,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon?: React.ReactNode;
+  tone?: "success" | "warning" | "danger" | "info";
+}) {
+  const activeClass =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : tone === "danger"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : tone === "info"
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-slate-200 bg-slate-100 text-slate-700";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex h-11 w-full items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition-all duration-200 active:scale-[0.98]",
+        active
+          ? activeClass
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+      ].join(" ")}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

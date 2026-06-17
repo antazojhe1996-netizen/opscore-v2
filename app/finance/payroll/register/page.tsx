@@ -171,11 +171,10 @@ export default function PayrollRegisterPage() {
     );
   };
 
-  const canViewAuditFromRegister = (record: any) =>
-    getRecordStatus(record) !== PAYROLL_RECORD_STATUSES.DRAFT;
+const canViewAuditFromRegister = (record: any) => Boolean(record?.id);
 
-  const getRecordStatusLabel = (record: any) =>
-    getRecordStatus(record).replace(/_/g, " ");
+const getRecordStatusLabel = (record: any) =>
+  getRecordStatus(record).replace(/_/g, " ");
 
   const isSettingEnabled = (
     activeSettings: Record<string, string>,
@@ -3189,8 +3188,12 @@ This will remove it from future payroll deductions but keep the audit trail.`
                               View Audit
                             </button>
                           ) : (
-                            <span className="text-[11px] font-bold text-slate-400">After Send</span>
-                          )}
+<button
+  onClick={() => openEmployeeAudit(record)}
+  className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+>
+  View Audit
+</button>                          )}
                         </td>
                       </tr>
                     );

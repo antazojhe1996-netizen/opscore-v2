@@ -18,9 +18,11 @@ import {
   KeyRound,
   LayoutDashboard,
   Menu,
+  Package,
   Receipt,
   Settings,
   ShieldCheck,
+  Store,
   UserCheck,
   UserPlus,
   Users,
@@ -171,6 +173,72 @@ const menuSections = [
         href: "/finance/restaurant-import",
         icon: Receipt,
         moduleKey: "restaurant_sales",
+      },
+    ],
+  },
+  {
+    title: "POS",
+    icon: Store,
+    items: [
+      {
+        label: "POS Dashboard",
+        href: "/pos",
+        icon: BarChart3,
+        moduleKey: "pos_dashboard",
+      },
+      {
+        label: "Terminal",
+        href: "/pos/terminal",
+        icon: Store,
+        moduleKey: "pos_terminal",
+      },
+      {
+        label: "Transactions",
+        href: "/pos/transactions",
+        icon: Receipt,
+        moduleKey: "pos_transactions",
+      },
+      {
+        label: "Sessions",
+        href: "/pos/sessions",
+        icon: UserCheck,
+        moduleKey: "pos_sessions",
+      },
+      {
+        label: "Parked Orders",
+        href: "/pos/parked-orders",
+        icon: Clock,
+        moduleKey: "pos_parked_orders",
+      },
+      {
+        label: "Production",
+        href: "/pos/production",
+        icon: ClipboardList,
+        moduleKey: "pos_production",
+      },
+      {
+        label: "Categories",
+        href: "/pos/categories",
+        icon: ClipboardList,
+        moduleKey: "pos_categories",
+      },
+      {
+        label: "Menu Items",
+        href: "/pos/menu-items",
+        icon: Package,
+        moduleKey: "pos_menu_items",
+      },
+      {
+        label: "Cashiers",
+        href: "/pos/cashiers",
+        icon: Users,
+        moduleKey: "pos_cashiers",
+      },
+      {
+        label: "Settings",
+        href: "/pos/settings",
+        icon: Settings,
+        moduleKey: "pos_settings",
       },
     ],
   },
@@ -409,7 +477,7 @@ export default function Sidebar() {
     setAllowedModules(
       (permissionData || [])
         .map((permission: any) => String(permission.module_key || "").trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
 
     setPermissionsLoaded(true);
@@ -430,7 +498,7 @@ export default function Sidebar() {
         }
 
         const visibleItems = (section.items || []).filter((item: any) =>
-          canViewModule(item.moduleKey)
+          canViewModule(item.moduleKey),
         );
 
         if (visibleItems.length === 0) return null;
@@ -475,20 +543,20 @@ export default function Sidebar() {
     const currentEmployeeId = String(
       localStorage.getItem("opscore_current_employee_id") ||
         parsedCurrentUser?.employee_id ||
-        ""
+        "",
     ).trim();
 
     const currentSystemUserId = String(
       localStorage.getItem("opscore_current_system_user_id") ||
         parsedCurrentUser?.system_user_id ||
-        ""
+        "",
     ).trim();
 
     const currentEmployeeName = String(
       localStorage.getItem("opscore_current_employee_name") ||
         parsedCurrentUser?.name ||
         parsedCurrentUser?.username ||
-        ""
+        "",
     ).trim();
 
     const { data: requestData, error: requestError } = await supabase
@@ -530,7 +598,7 @@ export default function Sidebar() {
       return (
         workflowData?.find(
           (workflow: any) =>
-            String(workflow.workflow_key || "") === String(workflowKey)
+            String(workflow.workflow_key || "") === String(workflowKey),
         ) || null
       );
     };
@@ -593,12 +661,12 @@ export default function Sidebar() {
       if (assignedApprovers.length === 0) return false;
 
       return assignedApprovers.some((assignment: any) =>
-        assignmentMatchesCurrentUser(assignment)
+        assignmentMatchesCurrentUser(assignment),
       );
     };
 
     const assignedPendingCount = (requestData || []).filter((request: any) =>
-      canCurrentUserApproveRequest(request)
+      canCurrentUserApproveRequest(request),
     ).length;
 
     setApprovalBadgeCount(assignedPendingCount);
@@ -614,6 +682,7 @@ export default function Sidebar() {
 
     if (path === "/finance") return currentPath === "/finance";
     if (path === "/settings") return currentPath === "/settings";
+    if (path === "/pos") return currentPath === "/pos";
 
     if (path === "/finance/payroll") {
       return currentPath === "/finance/payroll" || currentPath.startsWith("/finance/payroll/");
@@ -629,6 +698,19 @@ export default function Sidebar() {
     "/leave-management",
     "/settings/shifts",
     "/settings/hc-rules",
+  ];
+
+  const posRoutes = [
+    "/pos",
+    "/pos/terminal",
+    "/pos/transactions",
+    "/pos/sessions",
+    "/pos/parked-orders",
+    "/pos/production",
+    "/pos/categories",
+    "/pos/menu-items",
+    "/pos/cashiers",
+    "/pos/settings",
   ];
 
   const hrSettingsRoutes = [
@@ -699,6 +781,10 @@ export default function Sidebar() {
       return "Sales";
     }
 
+    if (isInRouteFamily(posRoutes)) {
+      return "POS";
+    }
+
     if (
       (currentPath === "/finance" || currentPath.startsWith("/finance/")) &&
       !currentPath.startsWith("/finance/payroll") &&
@@ -767,6 +853,7 @@ export default function Sidebar() {
         >
           <Icon size={14} />
         </span>
+
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
       </Link>
     );
@@ -800,6 +887,7 @@ export default function Sidebar() {
               >
                 <Icon size={15} />
               </span>
+
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
             </Link>
           );
@@ -843,6 +931,7 @@ export default function Sidebar() {
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                   {section.title}
                 </p>
+
                 <p className="mt-1 text-sm font-black text-white">Open module</p>
               </div>
 
@@ -878,6 +967,7 @@ export default function Sidebar() {
               ].join(" ")}
             >
               <Icon size={15} />
+
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
             </Link>
           );
@@ -898,8 +988,11 @@ export default function Sidebar() {
               ].join(" ")}
             >
               <Icon size={15} />
+
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
+
               {sectionBadge && <Badge value={sectionBadge} />}
+
               <ChevronRight
                 size={13}
                 className={expanded ? "rotate-90 transition" : "transition"}
@@ -919,6 +1012,7 @@ export default function Sidebar() {
                       className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold text-slate-300 hover:bg-blue-500/10 hover:text-white"
                     >
                       <ItemIcon size={13} />
+
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     </Link>
                   );
@@ -943,6 +1037,7 @@ export default function Sidebar() {
             <p className="truncate text-[11px] font-black uppercase tracking-[0.08em] text-white">
               Vincent Resort
             </p>
+
             <p className="truncate text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">
               Operations
             </p>

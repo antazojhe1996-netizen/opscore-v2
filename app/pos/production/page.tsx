@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import Sidebar from "@/components/Sidebar";
+import { useRouter } from "next/navigation";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import {
-  ArrowLeft,
   CheckCircle2,
   ChefHat,
   Clock3,
@@ -55,7 +53,8 @@ type QueueItem = {
   order?: QueueOrder | null;
 };
 
-const STATUS_FLOW: ProductionStatus[] = [
+const ACTIVE_STATUSES: ProductionStatus[] = ["PENDING", "PREPARING", "READY"];
+const ALL_STATUSES: ProductionStatus[] = [
   "PENDING",
   "PREPARING",
   "READY",
@@ -69,6 +68,13 @@ const statusLabel: Record<ProductionStatus, string> = {
   COMPLETED: "Completed",
 };
 
+const statusSubtext: Record<ProductionStatus, string> = {
+  PENDING: "Start cooking",
+  PREPARING: "Mark ready",
+  READY: "Complete handoff",
+  COMPLETED: "Done",
+};
+
 const normalizeCode = (value: string) =>
   value.trim().toUpperCase().replaceAll(" ", "_");
 
@@ -76,9 +82,18 @@ const formatTime = (value: string | null) => {
   if (!value) return "--:--";
 
   return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
   });
+};
+
+const getMinutesAgo = (value: string | null) => {
+  if (!value) return 0;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+
+  return Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
 };
 
 const getItemStationKey = (item: QueueItem) => {
@@ -89,22 +104,6 @@ const getItemStationKey = (item: QueueItem) => {
 
 const getStationKey = (station: ProductionStation) =>
   station.id || normalizeCode(station.code || station.name);
-
-const getStatusClass = (status: ProductionStatus) => {
-  if (status === "PENDING") {
-    return "border-amber-400/30 bg-amber-500/10 text-amber-200";
-  }
-
-  if (status === "PREPARING") {
-    return "border-sky-400/30 bg-sky-500/10 text-sky-200";
-  }
-
-  if (status === "READY") {
-    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-200";
-  }
-
-  return "border-white/10 bg-white/5 text-slate-300";
-};
 
 const getNextStatus = (status: string | null): ProductionStatus | null => {
   if (status === "PENDING") return "PREPARING";
@@ -120,17 +119,37 @@ const getNextButtonLabel = (status: string | null) => {
   return "Done";
 };
 
+const getLaneClass = (status: ProductionStatus) => {
+  if (status === "PENDING") return "border-amber-400/25 bg-amber-500/10";
+  if (status === "PREPARING") return "border-sky-400/25 bg-sky-500/10";
+  if (status === "READY") return "border-emerald-400/25 bg-emerald-500/10";
+  return "border-white/10 bg-white/[0.03]";
+};
+
+const getLaneTextClass = (status: ProductionStatus) => {
+  if (status === "PENDING") return "text-amber-300";
+  if (status === "PREPARING") return "text-sky-300";
+  if (status === "READY") return "text-emerald-300";
+  return "text-slate-300";
+};
+
+const getActionClass = (status: string | null) => {
+  if (status === "PENDING") return "bg-amber-400 text-black hover:bg-amber-300";
+  if (status === "PREPARING") return "bg-sky-400 text-black hover:bg-sky-300";
+  if (status === "READY") return "bg-emerald-400 text-black hover:bg-emerald-300";
+  return "bg-white text-black";
+};
+
 export default function POSProductionQueuePage() {
+  const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [message, setMessage] = useState("");
 
   const [stations, setStations] = useState<ProductionStation[]>([]);
   const [items, setItems] = useState<QueueItem[]>([]);
-
   const [selectedStationKey, setSelectedStationKey] = useState("ALL");
-  const [selectedStatus, setSelectedStatus] =
-    useState<ProductionStatus>("PENDING");
 
   const companyId =
     typeof window !== "undefined"
@@ -206,7 +225,7 @@ export default function POSProductionQueuePage() {
           )
         `,
         )
-        .in("production_status", STATUS_FLOW)
+        .in("production_status", ALL_STATUSES)
         .order("created_at", { ascending: true }),
     );
 
@@ -230,29 +249,26 @@ export default function POSProductionQueuePage() {
     return [
       {
         key: "ALL",
-        name: "All Stations",
-        printer_name: null,
+        name: "All",
+        printer_name: "All active stations",
       },
       ...stations.map((station) => ({
         key: getStationKey(station),
         name: station.name,
-        printer_name: station.printer_name,
+        printer_name: station.printer_name || "No printer",
       })),
       {
         key: "UNASSIGNED",
         name: "Unassigned",
-        printer_name: null,
+        printer_name: "Missing station",
       },
     ];
   }, [stations]);
 
-  const visibleItems = useMemo(() => {
+  const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      const itemStatus = (item.production_status || "PENDING") as ProductionStatus;
-
-      const matchesStatus = itemStatus === selectedStatus;
-
       const itemStationKey = getItemStationKey(item);
+
       const stationByCode = stations.find(
         (station) =>
           normalizeCode(station.code) === normalizeCode(item.production_area || ""),
@@ -262,35 +278,48 @@ export default function POSProductionQueuePage() {
         ? getStationKey(stationByCode)
         : itemStationKey;
 
-      const matchesStation =
+      return (
         selectedStationKey === "ALL" ||
         selectedStationKey === itemStationKey ||
-        selectedStationKey === matchedStationKey;
-
-      return matchesStatus && matchesStation;
+        selectedStationKey === matchedStationKey
+      );
     });
-  }, [items, selectedStationKey, selectedStatus, stations]);
+  }, [items, selectedStationKey, stations]);
 
-  const groupedOrders = useMemo(() => {
-    const groups = new Map<string, QueueItem[]>();
+  const groupedByStatus = useMemo(() => {
+    const result: Record<ProductionStatus, { orderId: string; order: QueueOrder | null; items: QueueItem[] }[]> = {
+      PENDING: [],
+      PREPARING: [],
+      READY: [],
+      COMPLETED: [],
+    };
 
-    visibleItems.forEach((item) => {
-      const key = item.order_id;
-      const current = groups.get(key) || [];
-      groups.set(key, [...current, item]);
+    ACTIVE_STATUSES.forEach((status) => {
+      const statusItems = filteredItems.filter(
+        (item) => item.production_status === status,
+      );
+
+      const groups = new Map<string, QueueItem[]>();
+
+      statusItems.forEach((item) => {
+        const current = groups.get(item.order_id) || [];
+        groups.set(item.order_id, [...current, item]);
+      });
+
+      result[status] = Array.from(groups.entries()).map(([orderId, orderItems]) => ({
+        orderId,
+        order: orderItems[0]?.order || null,
+        items: orderItems,
+      }));
     });
 
-    return Array.from(groups.entries()).map(([orderId, orderItems]) => ({
-      orderId,
-      order: orderItems[0]?.order || null,
-      items: orderItems,
-    }));
-  }, [visibleItems]);
+    return result;
+  }, [filteredItems]);
 
   const statusCounts = useMemo(() => {
-    return STATUS_FLOW.reduce(
+    return ALL_STATUSES.reduce(
       (acc, status) => {
-        acc[status] = items.filter(
+        acc[status] = filteredItems.filter(
           (item) => item.production_status === status,
         ).length;
 
@@ -298,7 +327,7 @@ export default function POSProductionQueuePage() {
       },
       {} as Record<ProductionStatus, number>,
     );
-  }, [items]);
+  }, [filteredItems]);
 
   const updateOrderProductionStatus = async (orderId: string) => {
     const { data } = await supabase
@@ -316,7 +345,9 @@ export default function POSProductionQueuePage() {
 
     if (statuses.every((status) => status === "COMPLETED")) {
       nextOrderStatus = "COMPLETED";
-    } else if (statuses.every((status) => status === "READY" || status === "COMPLETED")) {
+    } else if (
+      statuses.every((status) => status === "READY" || status === "COMPLETED")
+    ) {
       nextOrderStatus = "READY";
     } else if (statuses.some((status) => status === "PREPARING")) {
       nextOrderStatus = "PREPARING";
@@ -355,8 +386,12 @@ export default function POSProductionQueuePage() {
     setActionLoadingId("");
   };
 
-  const moveWholeOrder = async (orderId: string, orderItems: QueueItem[]) => {
-    const nextStatus = getNextStatus(selectedStatus);
+  const moveWholeOrder = async (
+    orderId: string,
+    orderItems: QueueItem[],
+    status: ProductionStatus,
+  ) => {
+    const nextStatus = getNextStatus(status);
 
     if (!nextStatus) return;
 
@@ -383,82 +418,69 @@ export default function POSProductionQueuePage() {
   };
 
   return (
-    <PageGuard moduleKey="pos_terminal">
-      <div className="flex min-h-screen bg-[#05080d] text-white">
-        <Sidebar />
-
-        <main className="min-w-0 flex-1 p-5">
-          <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/pos/terminal"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#101620] text-slate-300 transition hover:bg-white/5"
-                >
-                  <ArrowLeft size={18} />
-                </Link>
-
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-300">
-                    OPSCORE POS
-                  </p>
-                  <h1 className="text-3xl font-black tracking-tight">
-                    Production Queue
-                  </h1>
-                </div>
+    <PageGuard moduleKey="pos_production">
+      <div className="h-screen overflow-hidden bg-[#05080d] text-white">
+        <main className="flex h-full flex-col p-2">
+          <section className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#070b10] px-4 py-3 shadow-xl shadow-black/40">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                <ChefHat size={22} />
               </div>
 
-              <p className="mt-2 text-sm font-semibold text-slate-500">
-                Live kitchen, bar, coffee, and station queue from POS orders.
-              </p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">
+                  OPSCORE Kitchen Display
+                </p>
+                <h1 className="truncate text-2xl font-black leading-tight">
+                  Production Queue
+                </h1>
+              </div>
             </div>
 
-            <button
-              onClick={() => loadProductionQueue()}
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#101620] px-4 text-sm font-black text-white transition hover:bg-white/5"
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
+            <div className="hidden items-center gap-2 md:flex">
+              <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-200">
+                New {statusCounts.PENDING || 0}
+              </span>
+              <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-black text-sky-200">
+                Preparing {statusCounts.PREPARING || 0}
+              </span>
+              <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-200">
+                Ready {statusCounts.READY || 0}
+              </span>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => router.push("/pos/terminal")}
+                className="h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase text-white transition hover:bg-white/10 active:scale-[0.98]"
+              >
+                Terminal
+              </button>
+
+              <button
+                onClick={() => loadProductionQueue()}
+                disabled={loading}
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 active:scale-[0.98] disabled:opacity-40"
+              >
+                <RefreshCw size={18} />
+              </button>
+            </div>
           </section>
 
           {message && (
-            <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-bold text-red-200">
+            <section className="mb-2 shrink-0 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
               {message}
-            </div>
+            </section>
           )}
 
-          <section className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-            {STATUS_FLOW.map((status) => (
-              <button
-                key={status}
-                onClick={() => setSelectedStatus(status)}
-                className={`rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
-                  selectedStatus === status
-                    ? getStatusClass(status)
-                    : "border-white/10 bg-[#0b1017] text-slate-300 hover:bg-white/5"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-black uppercase tracking-[0.18em]">
-                    {statusLabel[status]}
-                  </p>
-                  <span className="rounded-full bg-black/30 px-2 py-1 text-xs font-black ring-1 ring-white/10">
-                    {statusCounts[status] || 0}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </section>
-
-          <section className="mb-4 flex gap-2 overflow-x-auto pb-1">
+          <section className="mb-2 flex shrink-0 gap-2 overflow-x-auto pb-1">
             {stationTabs.map((station) => (
               <button
                 key={station.key}
                 onClick={() => setSelectedStationKey(station.key)}
-                className={`min-w-[150px] shrink-0 rounded-2xl border px-4 py-3 text-left transition active:scale-[0.99] ${
+                className={`h-14 min-w-[150px] shrink-0 rounded-2xl border px-4 text-left transition active:scale-[0.98] ${
                   selectedStationKey === station.key
-                    ? "border-amber-300/60 bg-amber-400 text-black shadow-lg shadow-amber-950/20"
+                    ? "border-amber-300 bg-amber-400 text-black"
                     : "border-white/10 bg-[#0b1017] text-white hover:bg-white/5"
                 }`}
               >
@@ -466,142 +488,185 @@ export default function POSProductionQueuePage() {
                   {station.name}
                 </p>
                 <p
-                  className={`mt-1 truncate text-[10px] font-bold uppercase tracking-wide ${
+                  className={`mt-0.5 truncate text-[10px] font-bold uppercase ${
                     selectedStationKey === station.key
                       ? "text-black/60"
                       : "text-slate-500"
                   }`}
                 >
-                  {station.printer_name || "No printer assigned"}
+                  {station.printer_name}
                 </p>
               </button>
             ))}
           </section>
 
-          <section className="min-h-[500px] rounded-3xl border border-white/10 bg-[#070b10] p-4 shadow-2xl shadow-black/40">
-            {loading ? (
-              <div className="flex min-h-[420px] items-center justify-center text-slate-500">
-                <div className="text-center">
-                  <Loader2 className="mx-auto mb-3 animate-spin" size={34} />
-                  <p className="text-sm font-black uppercase tracking-wide">
-                    Loading queue...
-                  </p>
+          <section className="grid min-h-0 flex-1 grid-cols-3 gap-2">
+            {ACTIVE_STATUSES.map((status) => (
+              <section
+                key={status}
+                className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border ${getLaneClass(
+                  status,
+                )}`}
+              >
+                <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+                  <div>
+                    <p
+                      className={`text-[11px] font-black uppercase tracking-[0.18em] ${getLaneTextClass(
+                        status,
+                      )}`}
+                    >
+                      {statusLabel[status]}
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-slate-500">
+                      {statusSubtext[status]}
+                    </p>
+                  </div>
+
+                  <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-black/30 px-3 text-lg font-black ring-1 ring-white/10">
+                    {statusCounts[status] || 0}
+                  </span>
                 </div>
-              </div>
-            ) : groupedOrders.length === 0 ? (
-              <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-white/10 bg-black/10 text-center">
-                <div>
-                  <ChefHat size={44} className="mx-auto mb-4 text-slate-700" />
-                  <p className="text-lg font-black uppercase tracking-wide text-slate-300">
-                    No {statusLabel[selectedStatus]} Items
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-slate-500">
-                    Queue will update automatically after POS order submit.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-                {groupedOrders.map((group) => (
-                  <div
-                    key={group.orderId}
-                    className="overflow-hidden rounded-3xl border border-white/10 bg-[#0b1017] shadow-xl shadow-black/30"
-                  >
-                    <div className="border-b border-white/10 bg-black/20 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-xl font-black text-white">
-                            Order {group.orderId.slice(0, 8)}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
-                              {group.order?.order_type || "Order"}
-                            </span>
 
-                            {group.order?.table_no && (
-                              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
-                                {group.order.table_no}
-                              </span>
-                            )}
-
-                            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
-                              {formatTime(group.order?.created_at || group.items[0]?.created_at)}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div
-                          className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-black uppercase ${getStatusClass(
-                            selectedStatus,
-                          )}`}
-                        >
-                          {statusLabel[selectedStatus]}
-                        </div>
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+                  {loading ? (
+                    <div className="flex h-full items-center justify-center text-slate-500">
+                      <Loader2 className="animate-spin" size={28} />
+                    </div>
+                  ) : groupedByStatus[status].length === 0 ? (
+                    <div className="flex h-full min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 p-4 text-center">
+                      <div>
+                        <ChefHat size={30} className="mx-auto mb-2 text-slate-700" />
+                        <p className="text-sm font-black uppercase text-slate-400">
+                          No {statusLabel[status]} Orders
+                        </p>
                       </div>
                     </div>
+                  ) : (
+                    groupedByStatus[status].map((group) => {
+                      const createdAt =
+                        group.order?.created_at || group.items[0]?.created_at;
+                      const mins = getMinutesAgo(createdAt || null);
+                      const isDelayed =
+                        status === "PENDING"
+                          ? mins >= 15
+                          : status === "PREPARING"
+                            ? mins >= 25
+                            : mins >= 10;
 
-                    <div className="divide-y divide-white/10">
-                      {group.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4"
+                      return (
+                        <article
+                          key={group.orderId}
+                          className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1017] shadow-xl shadow-black/30"
                         >
-                          <div className="min-w-0">
-                            <p className="truncate text-base font-black text-white">
-                              {item.item_name}
-                            </p>
-                            <div className="mt-1 flex items-center gap-2">
-                              <span className="rounded-lg bg-amber-400 px-2 py-1 text-xs font-black text-black">
-                                x{item.qty}
-                              </span>
-                              <span className="truncate text-xs font-bold uppercase text-slate-500">
-                                {item.production_area || "No station"}
+                          <div className="border-b border-white/10 bg-black/20 px-3 py-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-lg font-black uppercase tracking-tight">
+                                  {group.order?.table_no ||
+                                    group.order?.order_type ||
+                                    `Order ${group.orderId.slice(0, 6)}`}
+                                </p>
+
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                                    {formatTime(createdAt || null)}
+                                  </span>
+
+                                  <span
+                                    className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ring-1 ${
+                                      isDelayed
+                                        ? "bg-red-500/10 text-red-300 ring-red-400/25"
+                                        : "bg-white/5 text-slate-400 ring-white/10"
+                                    }`}
+                                  >
+                                    {mins}m
+                                  </span>
+                                </div>
+                              </div>
+
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase ring-1 ${
+                                  isDelayed
+                                    ? "bg-red-500/10 text-red-300 ring-red-400/25"
+                                    : "bg-emerald-500/10 text-emerald-300 ring-emerald-400/25"
+                                }`}
+                              >
+                                {isDelayed ? "Delay" : "OK"}
                               </span>
                             </div>
                           </div>
 
-                          {selectedStatus !== "COMPLETED" && (
-                            <button
-                              onClick={() => moveItemStatus(item)}
-                              disabled={actionLoadingId === item.id}
-                              className="flex h-11 min-w-[96px] items-center justify-center gap-2 rounded-xl bg-white text-xs font-black uppercase text-black transition hover:bg-amber-300 disabled:opacity-50"
-                            >
-                              {actionLoadingId === item.id ? (
-                                <Loader2 size={15} className="animate-spin" />
-                              ) : selectedStatus === "PENDING" ? (
-                                <Flame size={15} />
-                              ) : selectedStatus === "PREPARING" ? (
-                                <Clock3 size={15} />
-                              ) : (
-                                <CheckCircle2 size={15} />
-                              )}
-                              {getNextButtonLabel(item.production_status)}
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                          <div className="divide-y divide-white/10">
+                            {group.items.map((item) => (
+                              <div
+                                key={item.id}
+                                className="grid grid-cols-[minmax(0,1fr)_92px] items-center gap-2 px-3 py-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-[15px] font-black text-white">
+                                    {item.item_name}
+                                  </p>
 
-                    {selectedStatus !== "COMPLETED" && group.items.length > 1 && (
-                      <div className="border-t border-white/10 p-3">
-                        <button
-                          onClick={() => moveWholeOrder(group.orderId, group.items)}
-                          disabled={actionLoadingId === group.orderId}
-                          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#f5c400] text-sm font-black uppercase text-black transition hover:bg-[#ffd21f] disabled:opacity-50"
-                        >
-                          {actionLoadingId === group.orderId ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Utensils size={16} />
+                                  <div className="mt-1 flex items-center gap-1.5">
+                                    <span className="rounded-lg bg-amber-400 px-2 py-0.5 text-xs font-black text-black">
+                                      x{item.qty}
+                                    </span>
+
+                                    <span className="truncate text-[10px] font-bold uppercase text-slate-500">
+                                      {item.production_area || "No station"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => moveItemStatus(item)}
+                                  disabled={actionLoadingId === item.id}
+                                  className={`flex h-10 items-center justify-center gap-1 rounded-xl text-[11px] font-black uppercase transition active:scale-[0.98] disabled:opacity-50 ${getActionClass(
+                                    item.production_status,
+                                  )}`}
+                                >
+                                  {actionLoadingId === item.id ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                  ) : status === "PENDING" ? (
+                                    <Flame size={14} />
+                                  ) : status === "PREPARING" ? (
+                                    <Clock3 size={14} />
+                                  ) : (
+                                    <CheckCircle2 size={14} />
+                                  )}
+                                  {getNextButtonLabel(item.production_status)}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {group.items.length > 1 && (
+                            <div className="border-t border-white/10 p-2">
+                              <button
+                                onClick={() =>
+                                  moveWholeOrder(group.orderId, group.items, status)
+                                }
+                                disabled={actionLoadingId === group.orderId}
+                                className={`flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-black uppercase transition active:scale-[0.98] disabled:opacity-50 ${getActionClass(
+                                  status,
+                                )}`}
+                              >
+                                {actionLoadingId === group.orderId ? (
+                                  <Loader2 size={15} className="animate-spin" />
+                                ) : (
+                                  <Utensils size={15} />
+                                )}
+                                Move Whole Order
+                              </button>
+                            </div>
                           )}
-                          Move Whole Order to {statusLabel[getNextStatus(selectedStatus) || selectedStatus]}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+            ))}
           </section>
         </main>
       </div>
