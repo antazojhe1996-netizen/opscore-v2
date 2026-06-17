@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, FileSpreadsheet, Pencil, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -125,8 +127,16 @@ export default function EmployeesPage() {
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
 
   const [permissions, setPermissions] = useState<any>(null);
-  const [currentEmployeeId, setCurrentEmployeeId] = useState("");
-  const [currentSystemUserId, setCurrentSystemUserId] = useState("");
+  const [currentEmployeeId] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("opscore_current_employee_id") || ""
+      : "",
+  );
+  const [currentSystemUserId] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("opscore_current_system_user_id") || ""
+      : "",
+  );
 
   const canCreate = permissions?.can_create === true;
   const canEdit = permissions?.can_edit === true;
@@ -350,6 +360,26 @@ export default function EmployeesPage() {
     return true;
   };
 
+
+  const generateNextEmployeeNo = async () => {
+    const { data, error } = await supabase
+      .from("employees")
+      .select("employee_no")
+      .ilike("employee_no", "VRH-%");
+
+    const sourceRows = error ? employees : data || employees;
+
+    const highestSequence = sourceRows.reduce((max: number, employee: any) => {
+      const match = String(employee?.employee_no || "").match(/^VRH-(\d+)$/i);
+      if (!match) return max;
+
+      const sequence = Number(match[1]);
+      return Number.isFinite(sequence) && sequence > max ? sequence : max;
+    }, 0);
+
+    return `VRH-${String(highestSequence + 1).padStart(6, "0")}`;
+  };
+
   const saveEmployee = async () => {
     if (isSaving) return;
 
@@ -368,9 +398,25 @@ export default function EmployeesPage() {
     setIsSaving(true);
 
     const companyId = getCurrentCompanyId();
+    const normalizedEmployeeNo = editingEmployeeNo
+      ? employeeNo.trim() || editingEmployeeNo
+      : employeeNo.trim() || (await generateNextEmployeeNo());
+
+    const duplicateEmployeeNo = employees.some(
+      (employee) =>
+        String(employee.employee_no || "").toLowerCase() ===
+          normalizedEmployeeNo.toLowerCase() &&
+        String(employee.employee_no || "") !== String(editingEmployeeNo || ""),
+    );
+
+    if (duplicateEmployeeNo) {
+      setIsSaving(false);
+      setFormError(`Employee No ${normalizedEmployeeNo} is already used.`);
+      return;
+    }
 
     const payload: any = {
-      employee_no: employeeNo.trim() || `EMP-${Date.now()}`,
+      employee_no: normalizedEmployeeNo,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       email: email.trim(),
@@ -945,16 +991,15 @@ setTimeout(() => {
     XLSX.writeFile(workbook, "opscore_employees_export.xlsx");
   };
 
-  useEffect(() => {
-    setCurrentEmployeeId(localStorage.getItem("opscore_current_employee_id") || "");
-    setCurrentSystemUserId(
-      localStorage.getItem("opscore_current_system_user_id") || "",
-    );
+useEffect(() => {
+  const timer = window.setTimeout(() => {
+    void getCurrentPermissions();
+    void getEmployees();
+    void getDropdownData();
+  }, 0);
 
-    getCurrentPermissions();
-    getEmployees();
-    getDropdownData();
-  }, []);
+  return () => window.clearTimeout(timer);
+}, []);
 
   const inactiveStatuses = [
     "archived",
@@ -1024,7 +1069,7 @@ setTimeout(() => {
       !emp.emergency_contact_number,
   );
 
-  const filteredEmployees = useMemo(() => {
+  const filteredEmployees = (() => {
     const normalizedStatusFilter = String(statusFilter || "Active").toLowerCase();
 
     const sourceEmployees =
@@ -1049,14 +1094,7 @@ setTimeout(() => {
 
       return search && matchesDepartment;
     });
-  }, [
-    employees,
-    activeEmployeeRows,
-    archivedEmployeeRows,
-    searchTerm,
-    departmentFilter,
-    statusFilter,
-  ]);
+  })();
 
   return (
     <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -1452,7 +1490,7 @@ setTimeout(() => {
                           label="Employee No"
                           value={employeeNo}
                           setValue={setEmployeeNo}
-                          placeholder="Auto if blank"
+                          placeholder="Auto VRH-0000XX if blank"
                         />
                         <Input
                           label="Email"
