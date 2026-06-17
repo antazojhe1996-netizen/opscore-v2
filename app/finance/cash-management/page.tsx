@@ -1,25 +1,95 @@
-// @ts-nocheck
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Bot,
+  Plus,
+  Save,
+  Settings,
+  X,
+} from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
-import TopNavbar from "@/components/TopNavbar";
+
+type Tone = "critical" | "warning" | "info" | "success" | "neutral";
+
+type AssistantReminder = {
+  tone?: Tone;
+  text: string;
+};
+
+const statusClass = (tone: Tone = "neutral") => {
+  if (tone === "critical") return "border-red-200 bg-red-50 text-red-700";
+  if (tone === "warning") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (tone === "info") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (tone === "success") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  return "border-slate-200 bg-slate-100 text-slate-700";
+};
+
+function OpscoreAssistant({ reminders = [] }: { reminders: AssistantReminder[] }) {
+  const prioritized = [...reminders]
+    .sort((a, b) => {
+      const order = { critical: 0, warning: 1, info: 2, success: 3, neutral: 4 };
+      return (order[a.tone || "neutral"] ?? 4) - (order[b.tone || "neutral"] ?? 4);
+    })
+    .slice(0, 5);
+
+  const hasCritical = prioritized.some((item) => item.tone === "critical");
+  const hasReminder = prioritized.length > 0;
+
+  return (
+    <div className="group fixed bottom-6 right-6 z-40">
+      <div className="absolute bottom-14 right-0 hidden w-[340px] rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl group-hover:block">
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+          OPSCORE
+        </p>
+        <h3 className="mt-1 text-xl font-black text-slate-950">
+          Assistant Reminders
+        </h3>
+        <div className="mt-4 space-y-2">
+          {prioritized.length === 0 ? (
+            <div className={`rounded-2xl border px-4 py-3 text-xs font-bold leading-5 ${statusClass("success")}`}>
+              Cash control is stable. No action required.
+            </div>
+          ) : (
+            prioritized.map((item, index) => (
+              <div
+                key={`${item.text}-${index}`}
+                className={`rounded-2xl border px-4 py-3 text-xs font-bold leading-5 ${statusClass(item.tone)}`}
+              >
+                {item.text}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+      <button
+        type="button"
+        className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98]"
+        title="OPSCORE Assistant"
+      >
+        {hasReminder && (
+          <span
+            className={`absolute -right-1 -top-1 h-4 w-4 rounded-full bg-red-600 ${
+              hasCritical ? "animate-ping" : "animate-pulse"
+            }`}
+          />
+        )}
+        <Bot size={22} />
+      </button>
+    </div>
+  );
+}
 
 export default function CashManagementPage() {
-  /// STATES - DATABASE DATA
-  const [movements, setMovements] = useState<any[]>([]);
-  const [drawers, setDrawers] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
-  const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
-  const [expenseSubcategories, setExpenseSubcategories] = useState<any[]>([]);
-  const [approvalRequests, setApprovalRequests] = useState<any[]>([]);
-  const [cashSources, setCashSources] = useState<any[]>([]);
-
-  /// STATES - DRAWER
   const getToday = () => {
     const now = new Date();
     const timezoneOffset = now.getTimezoneOffset() * 60000;
@@ -27,98 +97,83 @@ export default function CashManagementPage() {
   };
 
   const today = getToday();
+  const savingRef = useRef(false);
 
-  const [drawerHolder, setDrawerHolder] = useState("");
-  const [openingFloat, setOpeningFloat] = useState("");
-  const [drawerRemarks, setDrawerRemarks] = useState("");
-  const [actualClosingCash, setActualClosingCash] = useState("");
-  const [closeRemarks, setCloseRemarks] = useState("");
-  const [closingRemittanceAmount, setClosingRemittanceAmount] = useState("");
-  const [closingRemittanceReceivedBy, setClosingRemittanceReceivedBy] =
-    useState("");
-  const [closingRemittanceRemarks, setClosingRemittanceRemarks] = useState("");
+  const [movements, setMovements] = useState<any[]>([]);
+  const [drawers, setDrawers] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
+  const [expenseSubcategories, setExpenseSubcategories] = useState<any[]>([]);
+  const [approvalRequests, setApprovalRequests] = useState<any[]>([]);
+  const [cashSources, setCashSources] = useState<any[]>([]);
 
-  /// STATES - CASH MOVEMENT FORM
   const [businessDate, setBusinessDate] = useState(today);
   const [movementType, setMovementType] = useState("Cash In");
-  const [source, setSource] = useState("");
+  const [source, setSource] = useState("Restaurant Sales");
   const [paymentType, setPaymentType] = useState("Cash");
   const [amount, setAmount] = useState("");
-  const [fromPerson, setFromPerson] = useState("");
-  const [toPerson, setToPerson] = useState("");
-  const [encodedBy, setEncodedBy] = useState("");
   const [remarks, setRemarks] = useState("");
   const [receiptStatus, setReceiptStatus] = useState("WITH_RECEIPT");
   const [noReceiptReason, setNoReceiptReason] = useState("");
   const [noReceiptExplanation, setNoReceiptExplanation] = useState("");
 
-  /// STATES - CASH EXPENSE DIRECT POSTING
   const [expenseCategory, setExpenseCategory] = useState("");
   const [expenseSubcategory, setExpenseSubcategory] = useState("");
   const [expenseDepartment, setExpenseDepartment] = useState("");
   const [expenseDescription, setExpenseDescription] = useState("");
   const [expenseReleasedTo, setExpenseReleasedTo] = useState("");
-
-  /// STATES - CASH ADVANCE DIRECT POSTING
   const [cashAdvanceEmployeeId, setCashAdvanceEmployeeId] = useState("");
   const [cashAdvancePurpose, setCashAdvancePurpose] = useState("");
 
-  /// STATES - FILTERS
   const [dateFilter, setDateFilter] = useState(today);
-  const [ledgerDateScope, setLedgerDateScope] = useState("TODAY");
-  const [historyDateScope, setHistoryDateScope] = useState("ALL");
-  const [historyDateFilter, setHistoryDateFilter] = useState(today);
-  const [historyHolderFilter, setHistoryHolderFilter] = useState("ALL");
-  const [historyStatusFilter, setHistoryStatusFilter] = useState("ALL");
+  const [ledgerDateScope, setLedgerDateScope] = useState("CURRENT_DRAWER");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
-  const [holderFilter, setHolderFilter] = useState("AUTO");
   const [searchTerm, setSearchTerm] = useState("");
 
-  /// STATES - SYSTEM
-  const [isSaving, setIsSaving] = useState(false);
-  const savingRef = useRef(false);
   const [showOpenDrawer, setShowOpenDrawer] = useState(false);
   const [showCloseDrawer, setShowCloseDrawer] = useState(false);
-  const [showDrawerHolderSettings, setShowDrawerHolderSettings] =
-    useState(false);
-  const [drawerHolderSearch, setDrawerHolderSearch] = useState("");
-  const [authorizedDrawerHolders, setAuthorizedDrawerHolders] = useState<
-    string[]
-  >([]);
-  const [drawerHolderSettingsLoaded, setDrawerHolderSettingsLoaded] =
-    useState(false);
-  const [currentEmployeeId, setCurrentEmployeeId] = useState("");
-  const [currentSystemUserId, setCurrentSystemUserId] = useState("");
+  const [showSourceSettings, setShowSourceSettings] = useState(false);
+  const [showLiquidationModal, setShowLiquidationModal] = useState(false);
+  const [selectedLiquidationMovement, setSelectedLiquidationMovement] = useState<any>(null);
+  const [liquidationActualSpent, setLiquidationActualSpent] = useState("");
+  const [liquidationCashReturned, setLiquidationCashReturned] = useState("");
+  const [liquidationReceiptStatus, setLiquidationReceiptStatus] = useState("WITH_RECEIPT");
+  const [liquidationReceiptCount, setLiquidationReceiptCount] = useState("1");
+  const [liquidationNoReceiptReason, setLiquidationNoReceiptReason] = useState("");
+  const [liquidationNoReceiptExplanation, setLiquidationNoReceiptExplanation] = useState("");
+  const [liquidationRemarks, setLiquidationRemarks] = useState("");
+
+  const [drawerHolder, setDrawerHolder] = useState("");
+  const [openingFloat, setOpeningFloat] = useState("");
+  const [drawerRemarks, setDrawerRemarks] = useState("");
+  const [actualClosingCash, setActualClosingCash] = useState("");
+  const [closingRemittanceAmount, setClosingRemittanceAmount] = useState("");
+  const [closingRemittanceReceivedBy, setClosingRemittanceReceivedBy] = useState("");
+  const [closingRemittanceRemarks, setClosingRemittanceRemarks] = useState("");
+
+  const [sourceName, setSourceName] = useState("");
+  const [sourceMovementType, setSourceMovementType] = useState("Cash In");
+  const [sourceCategory, setSourceCategory] = useState("Revenue");
+
+  const [isSaving, setIsSaving] = useState(false);
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
-  const [currentRoleName, setCurrentRoleName] = useState("");
+  const [, setCurrentEmployeeId] = useState("");
   const [currentCompanyId, setCurrentCompanyId] = useState("");
-  const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
 
-  /// DATA - OPTIONS
   const movementTypes = ["Cash In", "Cash Out"];
-
-  const sourceOptions = useMemo(() => {
-    return cashSources
-      .filter((item) => item?.is_active !== false)
-      .map((item) => String(item?.name || item?.source_name || "").trim())
-      .filter(Boolean)
-      .filter((item, index, list) => list.indexOf(item) === index);
-  }, [cashSources]);
-
-  const availableSourceOptions = useMemo(() => {
-    if (movementType === "Cash Out") {
-      return ["Expense Release", "Cash Advance"];
-    }
-
-    if (movementType === "Cash In") {
-      return ["Restaurant Sales", "Room Sales"];
-    }
-
-    return [];
-  }, [movementType]);
-
   const paymentTypes = ["Cash", "GCash", "Bank", "Terminal"];
+
+  const fallbackCashSources = [
+    { name: "Restaurant Sales", movement_type: "Cash In", category: "Revenue", is_active: true },
+    { name: "Room Sales", movement_type: "Cash In", category: "Revenue", is_active: true },
+    { name: "Laundry Sales", movement_type: "Cash In", category: "Revenue", is_active: true },
+    { name: "Apartment Collection", movement_type: "Cash In", category: "Collection", is_active: true },
+    { name: "Other Sales", movement_type: "Cash In", category: "Revenue", is_active: true },
+    { name: "Expense Return", movement_type: "Cash In", category: "Return", is_active: true },
+    { name: "Expense Release", movement_type: "Cash Out", category: "Expense", is_active: true },
+    { name: "Cash Advance", movement_type: "Cash Out", category: "Advance", is_active: true },
+  ];
 
   const fallbackExpenseCategories = [
     "Food",
@@ -139,39 +194,11 @@ export default function CashManagementPage() {
   const fallbackSubcategories: Record<string, string[]> = {
     Food: ["Market", "Grocery", "Kitchen Ingredients", "Staff Meal", "Other"],
     Beverages: ["Soft Drinks", "Beer", "Liquor", "Coffee", "Other"],
-    Housekeeping: [
-      "Laundry",
-      "Linen",
-      "Amenities",
-      "Cleaning Supplies",
-      "Other",
-    ],
-    Maintenance: [
-      "Aircon",
-      "Electrical",
-      "Plumbing",
-      "Room Repair",
-      "Tools",
-      "Other",
-    ],
+    Housekeeping: ["Laundry", "Linen", "Amenities", "Cleaning Supplies", "Other"],
+    Maintenance: ["Aircon", "Electrical", "Plumbing", "Room Repair", "Tools", "Other"],
     Laundry: ["Guest Linen", "Staff Uniform", "Towels", "Other"],
     Frontdesk: ["Office Supplies", "Printing", "Guest Supplies", "Other"],
-    "Pool Maintenance": ["Chemicals", "Cleaning", "Equipment", "Other"],
-    "Gas Vehicle/RFID": [
-      "Gasoline",
-      "RFID",
-      "Parking",
-      "Vehicle Repair",
-      "Other",
-    ],
-    Sanitary: ["Garbage", "Pest Control", "Disinfection", "Other"],
-    "Employee Salary": ["Salary Release", "Allowance", "Other"],
-    Supplies: [
-      "Office Supplies",
-      "Hotel Supplies",
-      "Kitchen Supplies",
-      "Other",
-    ],
+    Supplies: ["Office Supplies", "Hotel Supplies", "Kitchen Supplies", "Other"],
     Other: ["Other"],
   };
 
@@ -197,707 +224,121 @@ export default function CashManagementPage() {
     "Other",
   ];
 
-  /// CALCULATIONS - ACTIVE DRAWER
-  const activeDrawer = drawers.find((drawer) => drawer.status === "OPEN");
+  const formatMoney = (value: any) =>
+    `₱${Number(value || 0).toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
-  /// CALCULATIONS - VOID SAFETY
+  const parseAmountValue = (value: any) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
+
   const getMovementStatus = (movement: any) =>
-    String(
-      movement?.status || movement?.movement_status || "ACTIVE",
-    ).toUpperCase();
+    String(movement?.status || movement?.movement_status || "ACTIVE").toUpperCase();
 
   const isVoidedMovement = (movement: any) =>
     getMovementStatus(movement) === "VOIDED" ||
     Boolean(movement?.voided_at) ||
     Boolean(movement?.void_reason);
 
-  const effectiveHolderFilter =
-    holderFilter === "AUTO" ? activeDrawer?.holder_name || "ALL" : holderFilter;
-
-  const isUuid = (value: any) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      String(value || "").trim(),
-    );
-
-  const getEmployeePayrollId = (employee: any) => {
-    const possibleIds = [
-      employee?.id,
-      employee?.employee_id,
-      employee?.employee_uuid,
-      employee?.profile_id,
-      employee?.user_id,
-    ];
-
-    return String(possibleIds.find((value) => isUuid(value)) || "");
-  };
+  const activeDrawer = drawers.find((drawer) => String(drawer.status || "").toUpperCase() === "OPEN");
 
   const getEmployeeFullName = (employee: any) =>
     `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
 
-  const getCurrentCompanyId = async () => {
-    const storedCompanyId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("opscore_current_company_id") || ""
-        : "";
-
-    const cachedCompanyId = String(
-      currentCompanyId ||
-        currentEmployeeRecord?.company_id ||
-        storedCompanyId ||
-        "",
-    ).trim();
-
-    if (cachedCompanyId) {
-      if (!currentCompanyId) setCurrentCompanyId(cachedCompanyId);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("opscore_current_company_id", cachedCompanyId);
-      }
-      return cachedCompanyId;
-    }
-
-    const systemUserId = String(currentSystemUserId || "").trim();
-
-    if (systemUserId) {
-      const { data: companyUser, error: companyUserError } = await supabase
-        .from("company_users")
-        .select("company_id")
-        .eq("user_id", systemUserId)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (companyUserError) {
-        console.log("GET COMPANY USER COMPANY ID ERROR:", companyUserError.message);
-      }
-
-      const companyId = String(companyUser?.company_id || "").trim();
-
-      if (companyId) {
-        setCurrentCompanyId(companyId);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("opscore_current_company_id", companyId);
-        }
-        return companyId;
-      }
-    }
-
-    const employeeId = String(currentEmployeeId || "").trim();
-
-    if (!employeeId) return "";
-
-    const { data, error } = await supabase
-      .from("employees")
-      .select("company_id")
-      .eq("id", employeeId)
-      .maybeSingle();
-
-    if (error) {
-      console.log("GET CURRENT COMPANY ID ERROR:", error.message);
-      return "";
-    }
-
-    const companyId = String(data?.company_id || "").trim();
-
-    if (companyId) {
-      setCurrentCompanyId(companyId);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("opscore_current_company_id", companyId);
-      }
-    }
-
-    return companyId;
-  };
-
-  const hasCompleteEmployeeIdentity = (employee: any) => {
-    const payrollEmployeeId = getEmployeePayrollId(employee);
-    const firstName = String(employee?.first_name || "").trim();
-    const lastName = String(employee?.last_name || "").trim();
-    const employeeNo = String(employee?.employee_no || "").trim();
-
-    return Boolean(payrollEmployeeId && firstName && lastName && employeeNo);
-  };
-
-  const validEmployeeOptions = useMemo(() => {
-    return employees
-      .filter((employee) => hasCompleteEmployeeIdentity(employee))
-      .sort((a, b) =>
-        getEmployeeFullName(a).localeCompare(getEmployeeFullName(b)),
-      );
-  }, [employees]);
-
-  const cashAdvanceEmployeeOptions = validEmployeeOptions;
-
-  const allEmployeeNames = validEmployeeOptions
-    .map((employee) => getEmployeeFullName(employee))
-    .filter(Boolean);
-
-  const drawerHolderOptions = validEmployeeOptions.filter((employee) =>
-    authorizedDrawerHolders.includes(getEmployeeFullName(employee)),
+  const validEmployees = useMemo(
+    () =>
+      employees
+        .filter((item) => item?.id && getEmployeeFullName(item))
+        .sort((a, b) => getEmployeeFullName(a).localeCompare(getEmployeeFullName(b))),
+    [employees],
   );
 
-  const currentEmployeeRecord = validEmployeeOptions.find((employee) => {
-    const employeeId = getEmployeePayrollId(employee);
-    const fullName = getEmployeeFullName(employee);
-
-    return (
-      String(employeeId || "") === String(currentEmployeeId || "") ||
-      String(fullName || "").toLowerCase() ===
-        String(currentEmployeeName || "").toLowerCase()
-    );
-  });
-
-  const currentDrawerHolderName = currentEmployeeRecord
-    ? getEmployeeFullName(currentEmployeeRecord)
-    : currentEmployeeName;
-
-  const canManageDrawerForOthers = (() => {
-    const roleText = String(currentRoleName || "").toLowerCase();
-    const positionText = String(
-      currentEmployeeRecord?.position || "",
-    ).toLowerCase();
-    const nameText = String(currentDrawerHolderName || "").toLowerCase();
-
-    return (
-      roleText.includes("admin") ||
-      roleText.includes("finance") ||
-      roleText.includes("manager") ||
-      positionText.includes("manager") ||
-      positionText.includes("finance") ||
-      positionText.includes("owner") ||
-      nameText.includes("princess") ||
-      nameText.includes("jherome")
-    );
-  })();
-
-  const allowedOpenDrawerHolderOptions = canManageDrawerForOthers
-    ? drawerHolderOptions
-    : drawerHolderOptions.filter(
-        (employee) => getEmployeeFullName(employee) === currentDrawerHolderName,
-      );
-
-  const filteredDrawerHolderSettingEmployees = validEmployeeOptions.filter(
-    (employee) => {
-      const fullName = getEmployeeFullName(employee);
-      const search = drawerHolderSearch.toLowerCase();
-
-      return (
-        fullName.toLowerCase().includes(search) ||
-        String(employee.department || "")
-          .toLowerCase()
-          .includes(search) ||
-        String(employee.position || "")
-          .toLowerCase()
-          .includes(search) ||
-        String(employee.employee_no || "")
-          .toLowerCase()
-          .includes(search)
-      );
-    },
-  );
-
-  const toggleAuthorizedDrawerHolder = (name: string) => {
-    if (!name) return;
-
-    setAuthorizedDrawerHolders((current) =>
-      current.includes(name)
-        ? current.filter((item) => item !== name)
-        : [...current, name].sort((a, b) => a.localeCompare(b)),
-    );
-  };
-
-  const isCashAdvanceCashOut =
-    movementType === "Cash Out" && source === "Cash Advance";
-
-  const isExpenseRelease =
-    movementType === "Cash Out" && source === "Expense Release";
-
-  const isCashExpenseCashOut = isExpenseRelease && paymentType === "Cash";
-
-  const shouldCreateExpenseFromCashOut =
-    isExpenseRelease || isCashAdvanceCashOut;
-
-  // CASH DRAWER APPROVAL GATE V1
-  // Money IN records immediately. Money OUT goes to Manager Approval Center first.
-  const isCashDrawerMoneyOut =
-    isCashAdvanceCashOut ||
-    isExpenseRelease ||
-    (paymentType === "Cash" &&
-      (movementType === "Cash Out" ||
-        source === "Owner Withdrawal" ||
-        source === "Bank Deposit"));
-
-  const getCashApprovalRequestType = () => {
-    if (isCashAdvanceCashOut) return "CASH_ADVANCE_RELEASE";
-    if (isExpenseRelease) return "CASH_EXPENSE_RELEASE";
-    if (source === "Owner Withdrawal") return "OWNER_WITHDRAWAL";
-    if (source === "Bank Deposit") return "BANK_DEPOSIT";
-    return "CASH_DRAWER_OUT";
-  };
-
-  const selectedCashAdvanceEmployee = validEmployeeOptions.find(
-    (employee) =>
-      String(getEmployeePayrollId(employee)) === String(cashAdvanceEmployeeId),
+  const selectedCashAdvanceEmployee = validEmployees.find(
+    (employee) => String(employee.id) === String(cashAdvanceEmployeeId),
   );
 
   const cashAdvanceEmployeeName = selectedCashAdvanceEmployee
     ? getEmployeeFullName(selectedCashAdvanceEmployee)
     : "";
 
-  const getPayrollPeriodCoveringDate = (dateValue: string) => {
-    if (!dateValue) return null;
+  const activeSourceRows = useMemo(() => {
+    const base = cashSources.length > 0 ? cashSources : fallbackCashSources;
+    return base.filter((item) => item?.is_active !== false);
+  }, [cashSources]);
 
-    return (
-      payrollPeriods.find(
-        (period) =>
-          String(period.start_date || "") <= dateValue &&
-          String(period.end_date || "") >= dateValue,
-      ) || null
-    );
-  };
+  const availableSourceOptions = useMemo(() => {
+    const list = activeSourceRows
+      .filter((item) => String(item.movement_type || item.direction || "Cash In") === movementType)
+      .map((item) => String(item.name || item.source_name || "").trim())
+      .filter(Boolean);
 
-  const activePayrollPeriod = getPayrollPeriodCoveringDate(businessDate);
+    return list.filter((item, index) => list.indexOf(item) === index);
+  }, [activeSourceRows, movementType]);
 
-  const activePayrollLabel = activePayrollPeriod
-    ? `${activePayrollPeriod.period_name || "Payroll Period"} (${activePayrollPeriod.start_date} to ${activePayrollPeriod.end_date})`
-    : `Unassigned payroll period (${businessDate || "selected date"})`;
-
-  const cashApprovalRequests = useMemo(() => {
-    return approvalRequests
-      .filter((request) => {
-        const requestType = String(request.request_type || "");
-        const moduleName = String(request.module || "");
-
-        return (
-          moduleName === "Cash Management" ||
-          requestType.includes("CASH") ||
-          requestType.includes("OWNER_WITHDRAWAL") ||
-          requestType.includes("BANK_DEPOSIT") ||
-          requestType.includes("ADJUSTMENT")
-        );
-      })
-      .sort((a, b) =>
-        String(b.created_at || "").localeCompare(String(a.created_at || "")),
-      );
-  }, [approvalRequests]);
-
-  const getApprovalStatusStyle = (status: string) => {
-    const normalized = String(status || "").toUpperCase();
-
-    if (normalized === "APPROVED") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-    if (normalized === "REJECTED") return "bg-red-50 text-red-700 ring-1 ring-red-200";
-    if (normalized === "PENDING") return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
-    if (normalized === "CANCELLED") return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
-
-    return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
-  };
-
-  const expenseCategoryOptions =
-    expenseCategories.length > 0
-      ? expenseCategories
-          .map(
-            (category) =>
-              category.name || category.category_name || category.label,
-          )
-          .filter(Boolean)
-      : fallbackExpenseCategories;
-
-  const selectedExpenseCategoryRecord = expenseCategories.find(
-    (item) =>
-      String(item.name || item.category_name || item.label || "") ===
-      String(expenseCategory || ""),
-  );
-
-  const databaseSubcategoryOptions = expenseSubcategories
-    .filter((item) => {
-      if (!expenseCategory) return false;
-
-      if (item.category_id && selectedExpenseCategoryRecord?.id) {
-        return (
-          String(item.category_id) === String(selectedExpenseCategoryRecord.id)
-        );
-      }
-
-      return String(item.category || "") === String(expenseCategory || "");
-    })
-    .map((item) => item.name || item.subcategory_name || item.label)
-    .filter(Boolean);
-
-  const expenseSubcategoryOptions =
-    databaseSubcategoryOptions.length > 0
-      ? databaseSubcategoryOptions
-      : fallbackSubcategories[expenseCategory] || [];
-
-  /// CALCULATIONS - BASE MOVEMENTS
-  const drawerScopedMovements = useMemo(() => {
-    if (activeDrawer) {
-      return movements.filter(
-        (item) => item.cash_drawer_id === activeDrawer.id,
-      );
+  useEffect(() => {
+    if (!availableSourceOptions.includes(source)) {
+      setSource(availableSourceOptions[0] || "");
     }
+  }, [movementType, availableSourceOptions]);
 
-    if (ledgerDateScope === "ALL") {
-      return movements;
-    }
+  const isCashAdvanceCashOut = movementType === "Cash Out" && source === "Cash Advance";
+  const isExpenseRelease = movementType === "Cash Out" && source === "Expense Release";
+  const shouldCreateExpenseFromCashOut = isExpenseRelease || isCashAdvanceCashOut;
 
-    if (ledgerDateScope === "TODAY") {
-      return movements.filter((item) => item.business_date === today);
-    }
-
-    return movements.filter((item) => item.business_date === dateFilter);
-  }, [movements, activeDrawer, ledgerDateScope, dateFilter, today]);
-
-  const activeDrawerMovements = useMemo(() => {
+  const cashOnlyMovements = useMemo(() => {
     if (!activeDrawer) return [];
-
     return movements.filter(
       (item) =>
         String(item.cash_drawer_id || "") === String(activeDrawer.id || "") &&
-        !isVoidedMovement(item),
+        !isVoidedMovement(item) &&
+        String(item.payment_type || "Cash") === "Cash",
     );
   }, [movements, activeDrawer]);
 
-  const operationalMovements = activeDrawer ? activeDrawerMovements : [];
-
-  const receiptTrackedRows = operationalMovements.filter(
-    (item) =>
-      !isVoidedMovement(item) &&
-      item.movement_type === "Cash Out" &&
-      ["Expense Release", "Cash Advance"].includes(String(item.source || "")),
-  );
-
-  const getMovementReceiptInfo = (movement: any) => {
-    const remarksText = String(movement?.remarks || "");
-
-    if (remarksText.includes("[Receipt: WITHOUT_RECEIPT]")) {
-      const reasonMatch = remarksText.match(/\[No Receipt Reason: ([^\]]+)\]/);
-      const explanationMatch = remarksText.match(/\[No Receipt Explanation: ([^\]]+)\]/);
-
-      return {
-        status: "WITHOUT_RECEIPT",
-        label: "Without Receipt",
-        reason: reasonMatch?.[1] || "No reason captured",
-        explanation: explanationMatch?.[1] || "",
-      };
-    }
-
-    if (remarksText.includes("[Receipt: WITH_RECEIPT]")) {
-      return {
-        status: "WITH_RECEIPT",
-        label: "With Receipt",
-        reason: "",
-        explanation: "",
-      };
-    }
-
-    return {
-      status: "UNTRACKED",
-      label: "Not Tagged",
-      reason: "",
-      explanation: "",
-    };
-  };
-
-
-  const withReceiptCount = receiptTrackedRows.filter(
-    (item) => getMovementReceiptInfo(item).status === "WITH_RECEIPT",
-  ).length;
-
-  const withoutReceiptCount = receiptTrackedRows.filter(
-    (item) => getMovementReceiptInfo(item).status === "WITHOUT_RECEIPT",
-  ).length;
-
-  const receiptComplianceRate =
-    receiptTrackedRows.length === 0
-      ? 100
-      : Math.round((withReceiptCount / receiptTrackedRows.length) * 100);
-
-  const receiptComplianceTone =
-    receiptComplianceRate >= 95
-      ? "default"
-      : receiptComplianceRate >= 80
-        ? "warning"
-        : "danger";
-
-  /// CALCULATIONS - LEDGER FILTERED MOVEMENTS
-  const filteredMovements = useMemo(() => {
-    return drawerScopedMovements.filter((item) => {
-      const matchesType =
-        typeFilter === "ALL" ? true : item.movement_type === typeFilter;
-
-      const matchesPayment =
-        paymentFilter === "ALL"
-          ? true
-          : (item.payment_type || "Cash") === paymentFilter;
-
-      const matchesHolder =
-        effectiveHolderFilter === "ALL"
-          ? true
-          : item.from_person === effectiveHolderFilter ||
-            item.to_person === effectiveHolderFilter ||
-            item.encoded_by === effectiveHolderFilter;
-
-      const search = searchTerm.toLowerCase();
-
-      const matchesSearch =
-        String(item.source || "")
-          .toLowerCase()
-          .includes(search) ||
-        String(item.from_person || "")
-          .toLowerCase()
-          .includes(search) ||
-        String(item.to_person || "")
-          .toLowerCase()
-          .includes(search) ||
-        String(item.encoded_by || "")
-          .toLowerCase()
-          .includes(search) ||
-        String(item.remarks || "")
-          .toLowerCase()
-          .includes(search);
-
-      return matchesType && matchesPayment && matchesHolder && matchesSearch;
-    });
-  }, [
-    drawerScopedMovements,
-    typeFilter,
-    paymentFilter,
-    effectiveHolderFilter,
-    searchTerm,
-  ]);
-
-  /// CALCULATIONS - CASH ONLY MOVEMENTS
-  const cashOnlyMovements = operationalMovements.filter(
-    (item) => (item.payment_type || "Cash") === "Cash",
-  );
-
-  const cashInTotal = cashOnlyMovements
-    .filter(
-      (item) =>
-        item.movement_type === "Opening Float" ||
-        item.movement_type === "Cash In" ||
-        (item.movement_type === "Adjustment" && Number(item.amount || 0) > 0),
-    )
+  const openingFloatTotal = cashOnlyMovements
+    .filter((item) => item.movement_type === "Opening Float")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
+  const cashInMovementTotal = cashOnlyMovements
+    .filter((item) => item.movement_type === "Cash In")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const cashInTotal = openingFloatTotal + cashInMovementTotal;
+
   const cashOutTotal = cashOnlyMovements
-    .filter(
-      (item) =>
-        item.movement_type === "Cash Out" ||
-        item.source === "Bank Deposit" ||
-        item.source === "Owner Withdrawal" ||
-        (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0),
-    )
+    .filter((item) => item.movement_type === "Cash Out")
     .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
   const remittanceTotal = cashOnlyMovements
     .filter((item) => item.movement_type === "Remittance")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const activeDrawerCash = cashInTotal - cashOutTotal - remittanceTotal;
   const cashOnHand = cashInTotal - cashOutTotal - remittanceTotal;
 
-  /// CALCULATIONS - DIGITAL / NON-CASH FUNDS
   const getNonCashSignedAmount = (item: any) => {
     const value = Math.abs(Number(item.amount || 0));
-
-    if (
-      item.movement_type === "Cash Out" ||
-      item.movement_type === "Remittance" ||
-      item.source === "Expense Release" ||
-      item.source === "Cash Advance" ||
-      item.source === "Owner Withdrawal" ||
-      item.source === "Bank Deposit" ||
-      (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
-    ) {
-      return -value;
-    }
-
+    if (item.movement_type === "Cash Out" || item.movement_type === "Remittance") return -value;
     return value;
   };
 
-  const gcashTotal = operationalMovements
-    .filter((item) => (item.payment_type || "Cash") === "GCash")
+  const gcashTotal = movements
+    .filter((item) => !isVoidedMovement(item) && String(item.payment_type || "Cash") === "GCash")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
-  const bankTotal = operationalMovements
-    .filter(
-      (item) =>
-        (item.payment_type || "Cash") === "Bank" ||
-        item.source === "Bank Deposit",
-    )
+  const bankTotal = movements
+    .filter((item) => !isVoidedMovement(item) && String(item.payment_type || "Cash") === "Bank")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
-  const terminalTotal = operationalMovements
-    .filter((item) => (item.payment_type || "Cash") === "Terminal")
+  const terminalTotal = movements
+    .filter((item) => !isVoidedMovement(item) && String(item.payment_type || "Cash") === "Terminal")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
-
-  /// CALCULATIONS - PAYMENT BALANCE GUARD
-  // Guard is per payment type. Cash Out using GCash should use GCash balance,
-  // not Cash on Hand. This prevents impossible negative balances while still
-  // allowing online banking releases when physical cash is zero.
-  const getAvailableBalanceByPaymentType = (type: string) => {
-    if (type === "Cash") return cashOnHand;
-    if (type === "GCash") return gcashTotal;
-    if (type === "Bank") return bankTotal;
-    if (type === "Terminal") return terminalTotal;
-    return 0;
-  };
-
-  const isBalanceGuardedMoneyOut = (selectedMovementType = movementType) => {
-    return (
-      selectedMovementType === "Cash Out" ||
-      source === "Expense Release" ||
-      source === "Cash Advance" ||
-      source === "Owner Withdrawal" ||
-      source === "Bank Deposit"
-    );
-  };
-
-  const getPaymentTypeLabel = (type: string) => {
-    const available = getAvailableBalanceByPaymentType(type);
-    const unavailable = isBalanceGuardedMoneyOut() && available <= 0;
-
-    return `${type} (${formatMoney(available)})${unavailable ? " - Unavailable" : ""}`;
-  };
-
-  const isPaymentTypeDisabled = (type: string) => {
-    if (!isBalanceGuardedMoneyOut()) return false;
-    return getAvailableBalanceByPaymentType(type) <= 0;
-  };
-
-  useEffect(() => {
-    if (!isBalanceGuardedMoneyOut()) return;
-
-    if (!isPaymentTypeDisabled(paymentType)) return;
-
-    const nextAvailablePaymentType = paymentTypes.find(
-      (item) => !isPaymentTypeDisabled(item),
-    );
-
-    if (nextAvailablePaymentType) {
-      setPaymentType(nextAvailablePaymentType);
-    }
-  }, [movementType, source, cashOnHand, gcashTotal, bankTotal, terminalTotal]);
-
-  const drawerDisplayName =
-    activeDrawer?.holder_name || currentDrawerHolderName || "Cashier";
-
-  const drawerFirstName =
-    String(drawerDisplayName || "Cashier")
-      .trim()
-      .split(" ")[0] || "Cashier";
 
   const onlineBankingTotal = gcashTotal + bankTotal + terminalTotal;
 
-  /// CALCULATIONS - DRAWER HISTORY CASH-ONLY LOGIC
-  const getDrawerCashSummary = (drawer: any) => {
-    const drawerMovements = movements.filter(
-      (item) =>
-        String(item.cash_drawer_id || "") === String(drawer.id || "") &&
-        !isVoidedMovement(item),
-    );
-
-    const cashMovements = drawerMovements.filter(
-      (item) => (item.payment_type || "Cash") === "Cash",
-    );
-
-    const cashIn = cashMovements
-      .filter(
-        (item) =>
-          item.movement_type === "Opening Float" ||
-          item.movement_type === "Cash In" ||
-          (item.movement_type === "Adjustment" && Number(item.amount || 0) > 0),
-      )
-      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-    const cashOut = cashMovements
-      .filter(
-        (item) =>
-          item.movement_type === "Cash Out" ||
-          item.source === "Owner Withdrawal" ||
-          (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0),
-      )
-      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
-
-    const closingRemittance = cashMovements
-      .filter(
-        (item) =>
-          item.movement_type === "Remittance" &&
-          (item.source === "Drawer Closing Remittance" ||
-            item.reference_type === "drawer_closing_remittance"),
-      )
-      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-    const manualRemittance = cashMovements
-      .filter(
-        (item) =>
-          item.movement_type === "Remittance" &&
-          item.source !== "Drawer Closing Remittance" &&
-          item.reference_type !== "drawer_closing_remittance",
-      )
-      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-    // Full-remittance policy:
-    // Variance is based on how much cash was actually turned over to the receiver.
-    // Remaining cash is shown for transparency, but it does not make the drawer balanced.
-    // Bank, GCash, and Terminal payments are intentionally excluded from drawer cash.
-    const expectedBeforeClosingRemittance = cashIn - cashOut - manualRemittance;
-    const actualCash = Number(drawer.actual_cash || 0);
-    const variance =
-      String(drawer.status || "").toUpperCase() === "CLOSED"
-        ? closingRemittance - expectedBeforeClosingRemittance
-        : 0;
-    const remainingCashAfterRemittance = actualCash - closingRemittance;
-
-    return {
-      cashIn,
-      cashOut,
-      manualRemittance,
-      closingRemittance,
-      totalRemittance: manualRemittance + closingRemittance,
-      expectedBeforeClosingRemittance,
-      actualCash,
-      variance,
-      remainingCashAfterRemittance,
-    };
-  };
-
-  const filteredDrawers = useMemo(() => {
-    return drawers.filter((drawer) => {
-      const drawerDate = String(
-        drawer.opened_at || drawer.created_at || "",
-      ).slice(0, 10);
-      const matchesDate =
-        historyDateScope === "ALL"
-          ? true
-          : historyDateScope === "TODAY"
-            ? drawerDate === today
-            : drawerDate === historyDateFilter;
-
-      const matchesHolder =
-        historyHolderFilter === "ALL"
-          ? true
-          : String(drawer.holder_name || "") === historyHolderFilter;
-
-      const matchesStatus =
-        historyStatusFilter === "ALL"
-          ? true
-          : String(drawer.status || "").toUpperCase() === historyStatusFilter;
-
-      return matchesDate && matchesHolder && matchesStatus;
-    });
-  }, [
-    drawers,
-    historyDateScope,
-    historyDateFilter,
-    historyHolderFilter,
-    historyStatusFilter,
-    today,
-  ]);
-
-  const totalLiquidFunds = cashOnHand + onlineBankingTotal;
-
-  const pendingCashApprovalCount = cashApprovalRequests.filter(
+  const pendingCashApprovalCount = approvalRequests.filter(
     (request) => String(request.status || "").toUpperCase() === "PENDING",
   ).length;
 
@@ -905,361 +346,188 @@ export default function CashManagementPage() {
     (item) => item.business_date === today && !isVoidedMovement(item),
   ).length;
 
-  const closedDrawerVarianceRows = filteredDrawers
-    .map((drawer) => {
-      const summary = getDrawerCashSummary(drawer);
-      return {
-        drawer,
-        holder: drawer.holder_name || "Cash Holder",
-        variance: Number(summary.variance || 0),
-        status: String(drawer.status || "").toUpperCase(),
-      };
-    })
-    .filter((item) => item.status === "CLOSED" && Math.abs(item.variance) > 0)
-    .sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance));
+  const isLiquidationEligible = (movement: any) => {
+    if (isVoidedMovement(movement)) return false;
+    if (movement.movement_type !== "Cash Out") return false;
+    if (!["Expense Release", "Cash Advance"].includes(String(movement.source || ""))) return false;
+    return String(movement.liquidation_status || "FOR_LIQUIDATION").toUpperCase() !== "LIQUIDATED";
+  };
 
-  const cashHealthScore = Math.max(
+  const pendingLiquidations = movements.filter(isLiquidationEligible);
+  const pendingLiquidationAmount = pendingLiquidations.reduce(
+    (sum, item) => sum + Math.abs(Number(item.amount || 0)),
     0,
-    100 -
-      (!activeDrawer ? 10 : 0) -
-      (cashOnHand <= 0 ? 18 : 0) -
-      (pendingCashApprovalCount > 0 ? 12 : 0) -
-      (closedDrawerVarianceRows.length > 0 ? 18 : 0) -
-      (totalLiquidFunds <= 0 ? 25 : 0),
   );
 
-  const cashWatchStatus =
-    cashHealthScore >= 85
-      ? "Healthy"
-      : cashHealthScore >= 70
-        ? "Watch"
-        : "Needs Attention";
+  const receiptTrackedRows = movements.filter(
+    (item) =>
+      !isVoidedMovement(item) &&
+      item.movement_type === "Cash Out" &&
+      ["Expense Release", "Cash Advance"].includes(String(item.source || "")),
+  );
 
-  const cashWatchTone =
-    cashHealthScore >= 85
-      ? "text-emerald-300"
-      : cashHealthScore >= 70
-        ? "text-orange-300"
-        : "text-red-300";
+  const receiptComplianceRate =
+    receiptTrackedRows.length === 0
+      ? 100
+      : Math.round(
+          (receiptTrackedRows.filter((item) => String(item.remarks || "").includes("[Receipt: WITH_RECEIPT]")).length /
+            receiptTrackedRows.length) *
+            100,
+        );
 
-  const cashWatchAlerts = [
-    ...(!activeDrawer ? ["No active cash drawer is open."] : []),
-    ...(activeDrawer ? [`${drawerDisplayName} has an open drawer.`] : []),
-    ...(cashOnHand <= 0 ? ["Physical cash balance is zero or negative."] : []),
-    ...(pendingCashApprovalCount > 0
-      ? [`${pendingCashApprovalCount} cash approval request(s) pending.`]
-      : []),
-    ...(closedDrawerVarianceRows.length > 0
-      ? [
-          `${closedDrawerVarianceRows.length} closed drawer(s) have variance in current history filter.`,
-        ]
-      : []),
-    ...(onlineBankingTotal > cashOnHand && onlineBankingTotal > 0
-      ? ["Most available funds are in GCash/Bank/Terminal channels."]
-      : []),
-  ];
+  const filteredMovements = useMemo(() => {
+    return movements.filter((item) => {
+      const matchesDrawerScope =
+        ledgerDateScope === "ALL"
+          ? true
+          : ledgerDateScope === "CURRENT_DRAWER"
+            ? activeDrawer
+              ? String(item.cash_drawer_id || "") === String(activeDrawer.id || "")
+              : item.business_date === today
+            : ledgerDateScope === "TODAY"
+              ? item.business_date === today
+              : item.business_date === dateFilter;
+      const matchesType = typeFilter === "ALL" ? true : item.movement_type === typeFilter;
+      const matchesPayment = paymentFilter === "ALL" ? true : (item.payment_type || "Cash") === paymentFilter;
+      const search = searchTerm.toLowerCase();
+      const matchesSearch =
+        String(item.source || "").toLowerCase().includes(search) ||
+        String(item.from_person || "").toLowerCase().includes(search) ||
+        String(item.to_person || "").toLowerCase().includes(search) ||
+        String(item.encoded_by || "").toLowerCase().includes(search) ||
+        String(item.remarks || "").toLowerCase().includes(search);
 
-  const cashWatchRecommendations = [
-    ...(cashOnHand > 20000
-      ? [
-          "Deposit excess physical cash or remit to management before end of shift.",
-        ]
-      : []),
-    ...(pendingCashApprovalCount > 0
-      ? [
-          "Review pending money-out approvals before releasing additional funds.",
-        ]
-      : []),
-    ...(activeDrawer
-      ? ["Close and print the drawer report once cash count is verified."]
-      : []),
-    ...(!activeDrawer
-      ? ["Open the correct drawer before accepting or releasing physical cash."]
-      : []),
-    ...(closedDrawerVarianceRows.length > 0
-      ? ["Review drawer variance reports and confirm remittance amounts."]
-      : []),
-    ...(onlineBankingTotal > 0
-      ? [
-          "Reconcile GCash, Bank, and Terminal balances against proof of payment.",
-        ]
-      : []),
-  ].slice(0, 5);
-
-  /// FUNCTIONS - FORMATTERS
-  const formatMoney = (value: any) => {
-    return `₱${Number(value || 0).toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
-
-  const formatDateTime = (value: any) => {
-    if (!value) return "-";
-    return String(value).slice(0, 16).replace("T", " ");
-  };
-
-  const parseAmountValue = (value: any) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : NaN;
-  };
-
-  const receiptLabel =
-    receiptStatus === "WITH_RECEIPT" ? "With Receipt" : "Without Receipt";
-
-  const buildReceiptAuditText = () => {
-    if (movementType !== "Cash Out") return "";
-
-    if (receiptStatus === "WITH_RECEIPT") {
-      return "[Receipt: WITH_RECEIPT]";
-    }
-
-    return [
-      "[Receipt: WITHOUT_RECEIPT]",
-      `[No Receipt Reason: ${noReceiptReason}]`,
-      noReceiptExplanation.trim()
-        ? `[No Receipt Explanation: ${noReceiptExplanation.trim()}]`
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-  };
-
-  const getApprovalPayload = (request: any) => {
-    return request?.request_payload || request?.payload || request?.details || {};
-  };
-
-  const getApprovalAmount = (request: any) => {
-    const payload = getApprovalPayload(request);
-    return Number(
-      request?.amount ||
-        request?.request_amount ||
-        payload?.amount ||
-        payload?.amount_value ||
-        payload?.total_amount ||
-        0,
-    );
-  };
-
-  const getApprovalRejectionReason = (request: any) => {
-    const payload = getApprovalPayload(request);
-
-    return String(
-      request?.rejection_reason ||
-        request?.reject_reason ||
-        request?.decline_reason ||
-        request?.decision_reason ||
-        request?.approval_remarks ||
-        request?.review_remarks ||
-        request?.manager_remarks ||
-        request?.remarks ||
-        payload?.rejection_reason ||
-        payload?.reject_reason ||
-        payload?.decline_reason ||
-        payload?.decision_reason ||
-        payload?.approval_remarks ||
-        payload?.review_remarks ||
-        payload?.manager_remarks ||
-        "",
-    ).trim();
-  };
-
-  const getMovementStyle = (type: string) => {
-    if (type === "Opening Float") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
-    if (type === "Cash In") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-    if (type === "Cash Out") return "bg-red-50 text-red-700 ring-1 ring-red-200";
-    if (type === "Remittance") return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
-    if (type === "Adjustment") return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
-    return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
-  };
-
-  const getPaymentStyle = (payment: string) => {
-    if (payment === "Cash") return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
-    if (payment === "GCash") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
-    if (payment === "Bank") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
-    if (payment === "Terminal") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
-    return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
-  };
-
-  /// FUNCTIONS - GET DATA
-  const getCashMovements = async () => {
-    const { data, error } = await supabase
-      .from("finance_cash_movements")
-      .select("*")
-      .order("business_date", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.log("GET CASH MOVEMENTS ERROR:", error.message);
-      return;
-    }
-
-    setMovements(data || []);
-  };
-
-  const getDrawers = async () => {
-    const { data, error } = await supabase
-      .from("finance_cash_drawers")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.log("GET DRAWERS ERROR:", error.message);
-      return;
-    }
-
-    setDrawers(data || []);
-  };
-
-  const getEmployees = async () => {
-    const { data, error } = await supabase
-      .from("employees")
-      .select(
-        "id, company_id, employee_no, first_name, last_name, department, position, employment_status, payroll_active",
-      )
-      .eq("payroll_active", true)
-      .order("first_name", { ascending: true });
-
-    if (error) {
-      console.log("GET EMPLOYEES ERROR:", error.message);
-      return;
-    }
-
-    const cleanEmployees = (data || []).filter((employee: any) => {
-      const payrollEmployeeId = getEmployeePayrollId(employee);
-      const firstName = String(employee?.first_name || "").trim();
-      const lastName = String(employee?.last_name || "").trim();
-      const employeeNo = String(employee?.employee_no || "").trim();
-
-      return Boolean(payrollEmployeeId && firstName && lastName && employeeNo);
+      return matchesDrawerScope && matchesType && matchesPayment && matchesSearch;
     });
+  }, [movements, ledgerDateScope, dateFilter, typeFilter, paymentFilter, searchTerm, today, activeDrawer?.id]);
 
-    setEmployees(cleanEmployees);
+  const drawerHolderOptions = validEmployees.map((employee) => getEmployeeFullName(employee));
+
+const assistantReminders = useMemo<AssistantReminder[]>(() => {
+      return [
+      ...(pendingLiquidations.length > 0
+        ? [
+            {
+              tone: "warning" as Tone,
+              text: `${pendingLiquidations.length} released cash item(s) need liquidation / returned change.`,
+            },
+          ]
+        : []),
+      ...(cashOnHand <= 0
+        ? [{ tone: "critical" as Tone, text: "Physical cash on hand is zero or negative." }]
+        : []),
+      ...(pendingCashApprovalCount > 0
+        ? [{ tone: "warning" as Tone, text: `${pendingCashApprovalCount} cash approval request(s) pending.` }]
+        : []),
+      ...(receiptComplianceRate < 80
+        ? [{ tone: "warning" as Tone, text: `Receipt compliance is low at ${receiptComplianceRate}%.` }]
+        : []),
+      ...(activeDrawer
+        ? [{ tone: "info" as Tone, text: `${activeDrawer.holder_name} has an open drawer.` }]
+        : [{ tone: "warning" as Tone, text: "No active cash drawer is open." }]),
+    ];
+  }, [
+  pendingLiquidations.length,
+  cashOnHand,
+  pendingCashApprovalCount,
+  receiptComplianceRate,
+  activeDrawer?.id,
+  activeDrawer?.holder_name,
+  activeDrawer?.status,
+]);
+
+  const getCurrentCompanyId = async () => {
+    const storedCompanyId = typeof window !== "undefined" ? localStorage.getItem("opscore_current_company_id") || "" : "";
+    const companyId = String(currentCompanyId || storedCompanyId || "").trim();
+    if (companyId) return companyId;
+
+    const { data } = await supabase.from("companies").select("id").limit(1).maybeSingle();
+    return String(data?.id || "");
   };
 
-  const payrollPeriodUsableStatuses = [
-    "Draft",
-    "Reopened",
-    "Partially Approved",
-    "Partially Released",
-    "Released",
-  ];
+  const loadIdentity = () => {
+    if (typeof window === "undefined") return;
+    const employeeName =
+      localStorage.getItem("opscore_current_employee_name") ||
+      localStorage.getItem("opscore_current_role_name") ||
+      "OPSCORE USER";
+    const employeeId = localStorage.getItem("opscore_current_employee_id") || "";
+    const companyId = localStorage.getItem("opscore_current_company_id") || "";
+    setCurrentEmployeeName(employeeName);
+    setCurrentEmployeeId(employeeId);
+    setCurrentCompanyId(companyId);
+  };
 
-  const getPayrollPeriods = async () => {
-    const { data, error } = await supabase
-      .from("payroll_periods")
-      .select("*")
-      .in("status", payrollPeriodUsableStatuses)
-      .order("start_date", { ascending: true });
-
+  const fetchTable = async (table: string, setter: (rows: any[]) => void, order = "created_at") => {
+    let query = supabase.from(table).select("*");
+    if (order) query = query.order(order, { ascending: false });
+    const { data, error } = await query;
     if (error) {
-      console.log("GET PAYROLL PERIODS ERROR:", error.message);
-      setPayrollPeriods([]);
+      console.log(`GET ${table} ERROR:`, error.message);
+      setter([]);
       return;
     }
-
-    setPayrollPeriods(data || []);
-  };
-
-  const fetchPayrollPeriodForDate = async (dateValue: string) => {
-    const { data, error } = await supabase
-      .from("payroll_periods")
-      .select("*")
-      .lte("start_date", dateValue)
-      .gte("end_date", dateValue)
-      .in("status", payrollPeriodUsableStatuses)
-      .order("start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.log("FETCH PAYROLL PERIOD FOR DATE ERROR:", error.message);
-      return null;
-    }
-
-    return data;
-  };
-
-  const getExpenseCategories = async () => {
-    const { data: categoriesData, error: categoryError } = await supabase
-      .from("expense_categories")
-      .select("*")
-      .order("name", { ascending: true });
-
-    if (!categoryError) {
-      setExpenseCategories(categoriesData || []);
-    } else {
-      console.log("GET EXPENSE CATEGORIES ERROR:", categoryError.message);
-      setExpenseCategories([]);
-    }
-
-    const { data: subcategoryData, error: subcategoryError } = await supabase
-      .from("expense_subcategories")
-      .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
-
-    if (!subcategoryError) {
-      setExpenseSubcategories(subcategoryData || []);
-    } else {
-      console.log("GET EXPENSE SUBCATEGORIES ERROR:", subcategoryError.message);
-      setExpenseSubcategories([]);
-    }
+    setter(data || []);
   };
 
   const getCashSources = async () => {
-    const { data, error } = await supabase
-      .from("finance_cash_sources")
-      .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
-
+    const { data, error } = await supabase.from("finance_cash_sources").select("*").order("movement_type").order("name");
     if (error) {
       console.log("GET CASH SOURCES ERROR:", error.message);
       setCashSources([]);
       return;
     }
-
     setCashSources(data || []);
   };
 
-  const getApprovalRequests = async () => {
+  const getEmployees = async () => {
     const { data, error } = await supabase
-      .from("approval_requests")
-      .select("*")
-      .or(
-        "module.eq.Cash Management,request_type.eq.CASH_ADVANCE_RELEASE,request_type.eq.CASH_EXPENSE_RELEASE,request_type.eq.CASH_DRAWER_OUT,request_type.eq.OWNER_WITHDRAWAL,request_type.eq.BANK_DEPOSIT,request_type.eq.ADJUSTMENT_OUT",
-      )
-      .order("created_at", { ascending: false });
-
+      .from("employees")
+      .select("id, company_id, employee_no, first_name, last_name, department, position, payroll_active")
+      .order("first_name", { ascending: true });
     if (error) {
-      console.log("GET CASH APPROVAL REQUESTS ERROR:", error.message);
-      setApprovalRequests([]);
+      console.log("GET EMPLOYEES ERROR:", error.message);
+      setEmployees([]);
       return;
     }
-
-    setApprovalRequests(data || []);
+    setEmployees(data || []);
   };
 
   const refreshCashManagement = async () => {
     await Promise.all([
-      getCashMovements(),
-      getDrawers(),
-      getApprovalRequests(),
-      getPayrollPeriods(),
+      fetchTable("finance_cash_movements", setMovements, "created_at"),
+      fetchTable("finance_cash_drawers", setDrawers, "created_at"),
+      fetchTable("approval_requests", setApprovalRequests, "created_at"),
+      getCashSources(),
+      getEmployees(),
+      fetchTable("expense_categories", setExpenseCategories, "name"),
+      fetchTable("expense_subcategories", setExpenseSubcategories, "name"),
     ]);
   };
 
-  /// FUNCTIONS - RESET
+  useEffect(() => {
+    loadIdentity();
+    void refreshCashManagement();
+
+    const channel = supabase.channel("cash-management-realtime");
+    ["finance_cash_movements", "finance_cash_drawers", "approval_requests", "finance_cash_sources", "expenses"].forEach((table) => {
+      channel.on("postgres_changes", { event: "*", schema: "public", table }, () => {
+        void refreshCashManagement();
+      });
+    });
+    channel.subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
   const resetForm = () => {
     setBusinessDate(getToday());
     setMovementType("Cash In");
     setSource("Restaurant Sales");
     setPaymentType("Cash");
     setAmount("");
-    setFromPerson("");
-    setToPerson("");
-    setEncodedBy("");
     setRemarks("");
     setReceiptStatus("WITH_RECEIPT");
     setNoReceiptReason("");
@@ -1273,1298 +541,72 @@ export default function CashManagementPage() {
     setCashAdvancePurpose("");
   };
 
-  const resetDrawerForm = () => {
-    setDrawerHolder("");
-    setOpeningFloat("");
-    setDrawerRemarks("");
-    setActualClosingCash("");
-    setCloseRemarks("");
-    setClosingRemittanceAmount("");
-    setClosingRemittanceReceivedBy("");
-    setClosingRemittanceRemarks("");
-  };
-
-  /// FUNCTIONS - PRINT REPORT
-  const printDrawerReport = (drawer: any, customSummary?: any) => {
-    const escapeHtml = (value: any) =>
-      String(value ?? "-")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-
-    const reportMovements = movements.filter(
-      (item) =>
-        String(item.cash_drawer_id || "") === String(drawer.id || "") &&
-        !isVoidedMovement(item),
-    );
-
-    const hasClosingRemittance = reportMovements.some(
-      (item) =>
-        item.movement_type === "Remittance" &&
-        (item.source === "Drawer Closing Remittance" ||
-          item.reference_type === "drawer_closing_remittance"),
-    );
-
-    const syntheticClosingRemittance =
-      Number(customSummary?.remittance_amount || 0) > 0 && !hasClosingRemittance
-        ? [
-            {
-              id: "closing-remittance-preview",
-              business_date: today,
-              movement_type: "Remittance",
-              source: "Drawer Closing Remittance",
-              payment_type: "Cash",
-              amount: Number(customSummary?.remittance_amount || 0),
-              from_person: drawer.holder_name,
-              to_person: customSummary?.received_by || "-",
-              encoded_by: drawer.holder_name,
-              remarks: closingRemittanceRemarks.trim() || "Closing remittance",
-              reference_type: "drawer_closing_remittance",
-            },
-          ]
-        : [];
-
-    const allReportMovements = [
-      ...reportMovements,
-      ...syntheticClosingRemittance,
-    ];
-
-    const sum = (rows: any[]) =>
-      rows.reduce((total, item) => total + Number(item.amount || 0), 0);
-
-    const absSum = (rows: any[]) =>
-      rows.reduce(
-        (total, item) => total + Math.abs(Number(item.amount || 0)),
-        0,
-      );
-
-    const byPayment = (payment: string) =>
-      allReportMovements.filter(
-        (item) => (item.payment_type || "Cash") === payment,
-      );
-
-    const cashRows = byPayment("Cash");
-    const gcashRows = byPayment("GCash");
-    const bankRows = byPayment("Bank");
-    const terminalRows = byPayment("Terminal");
-
-    const cashInRows = cashRows.filter(
-      (item) =>
-        item.movement_type === "Opening Float" ||
-        item.movement_type === "Cash In",
-    );
-
-    const openingFloatRows = cashRows.filter(
-      (item) => item.movement_type === "Opening Float",
-    );
-
-    const cashSalesRows = cashRows.filter(
-      (item) => item.movement_type === "Cash In",
-    );
-
-    const cashOutRows = cashRows.filter(
-      (item) =>
-        item.movement_type === "Cash Out" ||
-        item.source === "Owner Withdrawal" ||
-        (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0),
-    );
-
-    const closingRemittanceRows = cashRows.filter(
-      (item) =>
-        item.movement_type === "Remittance" &&
-        (item.source === "Drawer Closing Remittance" ||
-          item.reference_type === "drawer_closing_remittance"),
-    );
-
-    const manualRemittanceRows = cashRows.filter(
-      (item) =>
-        item.movement_type === "Remittance" &&
-        item.source !== "Drawer Closing Remittance" &&
-        item.reference_type !== "drawer_closing_remittance",
-    );
-
-    const openingFloat =
-      openingFloatRows.length > 0
-        ? sum(openingFloatRows)
-        : Number(drawer.opening_float || 0);
-    const cashSales = sum(cashSalesRows);
-    const cashExpenses = absSum(cashOutRows);
-    const manualRemittance = sum(manualRemittanceRows);
-    const closingRemittance = sum(closingRemittanceRows);
-    const expectedCash = Number(
-      customSummary?.expected_cash ??
-        openingFloat + cashSales - cashExpenses - manualRemittance,
-    );
-    const actualCash = Number(
-      customSummary?.actual_cash ?? drawer.actual_cash ?? 0,
-    );
-    const remainingCash = Number(
-      customSummary?.remaining_cash_after_remittance ??
-        actualCash - closingRemittance,
-    );
-    // Full-remittance policy for owner report:
-    // Expected Cash must be fully remitted. Any amount left unremitted becomes variance.
-    // Never trust saved drawer.variance here because older/legacy drawers may still store
-    // the old actual-count-based variance. Always recalculate from the remitted amount.
-    const variance = Number(closingRemittance - expectedCash);
-    const varianceStatus =
-      Math.abs(variance) < 0.01 ? "BALANCED" : variance < 0 ? "SHORT" : "OVER";
-
-    const cashCollections = cashSales;
-    const gcashCollections = sum(
-      gcashRows.filter((item) => item.movement_type === "Cash In"),
-    );
-    const bankCollections = sum(
-      bankRows.filter((item) => item.movement_type === "Cash In"),
-    );
-    const terminalCollections = sum(
-      terminalRows.filter((item) => item.movement_type === "Cash In"),
-    );
-    const totalCollections =
-      cashCollections +
-      gcashCollections +
-      bankCollections +
-      terminalCollections;
-
-    const salesRows = allReportMovements.filter(
-      (item) => item.movement_type === "Cash In",
-    );
-    const roomSales = sum(
-      salesRows.filter((item) => item.source === "Room Sales"),
-    );
-    const restaurantSales = sum(
-      salesRows.filter((item) => item.source === "Restaurant Sales"),
-    );
-    const apartmentCollections = sum(
-      salesRows.filter((item) => item.source === "Apartment Collection"),
-    );
-    const otherSales = Math.max(
-      sum(salesRows) - roomSales - restaurantSales - apartmentCollections,
-      0,
-    );
-    const totalSales =
-      roomSales + restaurantSales + apartmentCollections + otherSales;
-
-    const manualCashExpenses = absSum(
-      cashOutRows.filter(
-        (item) =>
-          item.source !== "Expense Release" &&
-          item.source !== "Cash Advance" &&
-          item.source !== "Owner Withdrawal" &&
-          item.source !== "Bank Deposit",
-      ),
-    );
-    const expenseReleases = absSum(
-      cashOutRows.filter((item) => item.source === "Expense Release"),
-    );
-    const cashAdvances = absSum(
-      cashOutRows.filter((item) => item.source === "Cash Advance"),
-    );
-    const ownerWithdrawals = absSum(
-      cashOutRows.filter((item) => item.source === "Owner Withdrawal"),
-    );
-    const bankDeposits = absSum(
-      cashOutRows.filter((item) => item.source === "Bank Deposit"),
-    );
-    const otherExpenses = Math.max(
-      cashExpenses -
-        manualCashExpenses -
-        expenseReleases -
-        cashAdvances -
-        ownerWithdrawals -
-        bankDeposits,
-      0,
-    );
-    const totalExpenses =
-      manualCashExpenses +
-      expenseReleases +
-      cashAdvances +
-      ownerWithdrawals +
-      bankDeposits +
-      otherExpenses;
-
-    const businessDate =
-      customSummary?.business_date ||
-      String(drawer.opened_at || drawer.created_at || today).slice(0, 10);
-    const generatedAt = formatDateTime(new Date().toISOString());
-    const receivedBy =
-      customSummary?.received_by || closingRemittanceRows[0]?.to_person || "-";
-    const preparedBy = drawer.holder_name || "-";
-    const managementRemarks =
-      customSummary?.remarks ||
-      drawer.remarks ||
-      closeRemarks ||
-      drawer.drawerRemarks ||
-      "-";
-
-    const formatPlainMoney = (value: any) =>
-      formatMoney(value).replace("₱-", "(₱") +
-      (Number(value || 0) < 0 ? ")" : "");
-
-    const line = (
-      label: string,
-      value: any,
-      bold = false,
-      negative = false,
-    ) => `
-      <div class="line ${bold ? "bold" : ""}">
-        <span>${escapeHtml(label)}</span>
-        <strong class="${negative ? "negative" : ""}">${formatPlainMoney(value)}</strong>
-      </div>
-    `;
-
-    const transactionRows = allReportMovements
-      .map(
-        (item, index) => `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(item.business_date || "-")}</td>
-            <td>${escapeHtml(item.movement_type || "-")}</td>
-            <td>${escapeHtml(item.source || "-")}</td>
-            <td>${escapeHtml(item.payment_type || "Cash")}</td>
-            <td>${escapeHtml(item.from_person || "-")}</td>
-            <td>${escapeHtml(item.to_person || "-")}</td>
-            <td>${escapeHtml(item.encoded_by || "-")}</td>
-            <td class="amount">${formatMoney(item.amount)}</td>
-            <td>${escapeHtml(item.remarks || "-")}</td>
-          </tr>
-        `,
-      )
-      .join("");
-
-    const html = `
-      <html>
-        <head>
-          <title>Daily Cash Control Report</title>
-          <style>
-            @page { size: A4 portrait; margin: 10mm; }
-            * { box-sizing: border-box; }
-            body {
-              margin: 0;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #111827;
-              background: #f3f4f6;
-              font-size: 11px;
-            }
-            .print-btn {
-              position: fixed;
-              top: 10px;
-              right: 10px;
-              z-index: 10;
-              background: #111827;
-              color: white;
-              border: 0;
-              border-radius: 8px;
-              padding: 10px 14px;
-              font-weight: 800;
-              cursor: pointer;
-            }
-            .page {
-              width: 210mm;
-              min-height: 297mm;
-              margin: 0 auto;
-              background: white;
-              padding: 12mm;
-              page-break-after: always;
-            }
-            .page:last-child { page-break-after: auto; }
-            .header {
-              display: grid;
-              grid-template-columns: 1fr auto;
-              gap: 12px;
-              align-items: start;
-              border-bottom: 3px solid #111827;
-              padding-bottom: 10px;
-              margin-bottom: 10px;
-            }
-            .brand { font-size: 25px; font-weight: 900; letter-spacing: -0.04em; }
-            .sub { margin-top: 4px; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-            .muted { color: #4b5563; font-size: 10px; margin-top: 4px; }
-            .report-title { text-align: right; font-size: 22px; font-weight: 900; letter-spacing: .02em; }
-            .status { margin-top: 6px; font-size: 11px; font-weight: 900; }
-            .status.balanced { color: #047857; }
-            .status.short { color: #b91c1c; }
-            .status.over { color: #b45309; }
-            .info-grid {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 8px;
-              margin-bottom: 10px;
-            }
-            .info {
-              border-left: 4px solid #d4af37;
-              background: #f9fafb;
-              padding: 8px 9px;
-              min-height: 46px;
-            }
-            .label { font-size: 8px; font-weight: 900; color: #374151; letter-spacing: .12em; text-transform: uppercase; }
-            .value { margin-top: 5px; font-size: 13px; font-weight: 900; }
-            .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-            .box {
-              border: 1px solid #d1d5db;
-              padding: 9px 10px;
-              margin-bottom: 10px;
-              break-inside: avoid;
-            }
-            .box h3 {
-              margin: 0 0 7px;
-              font-size: 11px;
-              letter-spacing: .22em;
-              text-transform: uppercase;
-              border-bottom: 2px solid #111827;
-              padding-bottom: 5px;
-            }
-            .line {
-              display: flex;
-              justify-content: space-between;
-              gap: 10px;
-              padding: 4px 0;
-              border-bottom: 1px solid #e5e7eb;
-            }
-            .line.bold { font-weight: 900; border-top: 2px solid #111827; margin-top: 4px; padding-top: 6px; }
-            .line strong { white-space: nowrap; }
-            .negative { color: #b91c1c; }
-            .remarks {
-              min-height: 40px;
-              border: 1px solid #d1d5db;
-              padding: 8px 10px;
-              margin: 8px 0 16px;
-            }
-            .remarks-title { font-size: 9px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #374151; margin-bottom: 5px; }
-            .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 24px; }
-            .sig { text-align: center; border-top: 1px solid #111827; padding-top: 6px; font-size: 10px; }
-            .sig strong { display: block; font-size: 11px; }
-            .footer { position: relative; margin-top: 36px; display:flex; justify-content:space-between; color:#4b5563; font-size:9px; }
-            table { width: 100%; border-collapse: collapse; font-size: 9px; }
-            th { background: #111827; color: white; text-align: left; padding: 6px 5px; text-transform: uppercase; font-size: 7.5px; letter-spacing: .06em; }
-            td { border-bottom: 1px solid #e5e7eb; padding: 6px 5px; vertical-align: top; }
-            .amount { text-align: right; font-weight: 900; white-space: nowrap; }
-            .note {
-              border: 1px solid #bfdbfe;
-              background: #eff6ff;
-              color: #1e3a8a;
-              padding: 8px 10px;
-              margin-bottom: 10px;
-              font-size: 9.5px;
-              line-height: 1.45;
-            }
-            @media print {
-              body { background: white; }
-              .print-btn { display: none; }
-              .page { margin: 0; width: auto; min-height: auto; box-shadow: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
-
-          <section class="page">
-            <div class="header">
-              <div>
-                <div class="brand">Vincent Resort Hotel</div>
-                <div class="sub">Operations Finance Control</div>
-                <div class="muted">Generated: ${escapeHtml(generatedAt)}</div>
-              </div>
-              <div>
-                <div class="report-title">DAILY CASH DRAWER REPORT</div>
-                <div class="muted">Business Date: ${escapeHtml(businessDate)}</div>
-                <div class="muted">Report Status: ${escapeHtml(customSummary?.status || drawer.status || "OPEN")}</div>
-                <div class="status ${varianceStatus.toLowerCase()}">${escapeHtml(varianceStatus)}</div>
-              </div>
-            </div>
-
-            <div class="info-grid">
-              <div class="info"><div class="label">Drawer Holder</div><div class="value">${escapeHtml(drawer.holder_name || "-")}</div></div>
-              <div class="info"><div class="label">Opened</div><div class="value">${escapeHtml(formatDateTime(drawer.opened_at))}</div></div>
-              <div class="info"><div class="label">Closed</div><div class="value">${escapeHtml(formatDateTime(customSummary?.closed_at || drawer.closed_at))}</div></div>
-              <div class="info"><div class="label">Received By</div><div class="value">${escapeHtml(receivedBy)}</div></div>
-            </div>
-
-            <div class="grid-2">
-              <div class="box">
-                <h3>Cash Reconciliation</h3>
-                ${line("Opening Float", openingFloat)}
-                ${line("Add: Cash Sales", cashSales)}
-                ${line("Less: Cash Expenses / Releases", -cashExpenses, false, true)}
-                ${manualRemittance > 0 ? line("Less: Manual Remittance", -manualRemittance, false, true) : ""}
-                ${line("Expected Cash", expectedCash, true)}
-                ${line("Actual Cash Counted", actualCash)}
-                ${line("Remitted", closingRemittance)}
-                ${line("Remaining Cash", remainingCash)}
-                ${line(varianceStatus, variance, true, variance < 0)}
-              </div>
-
-              <div>
-                <div class="box">
-                  <h3>Collection Summary</h3>
-                  ${line("Cash Sales", cashCollections)}
-                  ${line("GCash Sales", gcashCollections)}
-                  ${line("Bank Transfer", bankCollections)}
-                  ${line("Terminal / Card", terminalCollections)}
-                  ${line("Total Collections", totalCollections, true)}
-                </div>
-                <div class="box">
-                  <h3>Remittance Summary</h3>
-                  ${line("Remitted Amount", closingRemittance)}
-                  ${line("Received By", 0).replace(/<strong[^>]*>.*<\/strong>/, `<strong>${escapeHtml(receivedBy)}</strong>`)}
-                  ${line("Remaining Cash", remainingCash, true)}
-                </div>
-              </div>
-            </div>
-
-            <div class="grid-2">
-              <div class="box">
-                <h3>Sales Summary</h3>
-                ${line("Room Sales", roomSales)}
-                ${line("Restaurant Sales", restaurantSales)}
-                ${line("Apartment Collection", apartmentCollections)}
-                ${line("Other Sales", otherSales)}
-                ${line("Total Sales", totalSales, true)}
-              </div>
-
-              <div class="box">
-                <h3>Expense Summary</h3>
-                ${line("Manual Cash Expenses", manualCashExpenses)}
-                ${line("Expense Releases", expenseReleases)}
-                ${line("Cash Advances", cashAdvances)}
-                ${line("Owner Withdrawal", ownerWithdrawals)}
-                ${line("Bank Deposit", bankDeposits)}
-                ${line("Other Expenses", otherExpenses)}
-                ${line("Total Expenses", totalExpenses, true)}
-              </div>
-            </div>
-
-            <div class="note">
-              Cash drawer rule: only physical cash movements are included in Expected Cash. Full remittance is required. Variance is based on Expected Cash minus actual cash remitted. Bank, GCash, and Terminal collections are shown for reference only.
-            </div>
-
-            <div class="remarks">
-              <div class="remarks-title">Management Remarks</div>
-              ${escapeHtml(managementRemarks)}
-            </div>
-
-            <div class="signatures">
-              <div class="sig"><strong>${escapeHtml(preparedBy)}</strong>Prepared By / Cashier</div>
-              <div class="sig"><strong>${escapeHtml(receivedBy)}</strong>Received By</div>
-              <div class="sig"><strong>Management</strong>Checked / Approved By</div>
-            </div>
-
-            <div class="footer">
-              <span>OpsCore Executive Finance Report</span>
-              <span>Page 1 - Executive Summary</span>
-            </div>
-          </section>
-
-          <section class="page">
-            <div class="header">
-              <div>
-                <div class="brand">Vincent Resort Hotel</div>
-                <div class="sub">Cashier Shift Transaction Details</div>
-              </div>
-              <div>
-                <div class="report-title">TRANSACTION REPORT</div>
-                <div class="muted">Business Date: ${escapeHtml(businessDate)}</div>
-              </div>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th><th>Date</th><th>Type</th><th>Source</th><th>Payment</th><th>From</th><th>Received By</th><th>Encoded By</th><th>Amount</th><th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${transactionRows || `<tr><td colspan="10" style="text-align:center; padding: 24px;">No linked drawer movements found. This may be a legacy drawer record.</td></tr>`}
-              </tbody>
-            </table>
-            <div class="footer">
-              <span>OpsCore Executive Finance Report</span>
-              <span>Page 2 - Transaction Details</span>
-            </div>
-          </section>
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open("", "_blank", "width=900,height=1100");
-
-    if (!printWindow) {
-      alert("Popup blocked. Please allow popups for this site.");
-      return;
-    }
-
-    printWindow.document.write(html);
-    printWindow.document.close();
-  };
-
-  /// FUNCTIONS - OPEN DRAWER
-  const openDrawer = async () => {
-    if (isSaving) return;
-
-    if (activeDrawer) {
-      alert("There is already an open drawer.");
-      return;
-    }
-
-    if (!drawerHolder || openingFloat === "") {
-      alert("Please select drawer holder and opening float.");
-      return;
-    }
-
-    const openingFloatValue = parseAmountValue(openingFloat);
-
-    if (!Number.isFinite(openingFloatValue) || openingFloatValue <= 0) {
-      alert("Opening float must be greater than zero. Negative, zero, and invalid amounts are not allowed.");
-      return;
-    }
-
-    if (!authorizedDrawerHolders.includes(drawerHolder)) {
-      alert("This employee is not authorized in Drawer Holder Settings.");
-      return;
-    }
-
-    if (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName) {
-      alert(
-        "You can only open your own cash drawer. Ask Admin/Finance to open a drawer for another holder.",
-      );
-      return;
-    }
-
-    const companyId = await getCurrentCompanyId();
-
-    if (!companyId) {
-      alert("Unable to open drawer. No company_id found for current user.");
-      return;
-    }
-
-    setIsSaving(true);
-
-    const { data: drawerData, error: drawerError } = await supabase
-      .from("finance_cash_drawers")
-      .insert({
-        holder_name: drawerHolder,
-        opening_float: openingFloatValue,
-        status: "OPEN",
-        remarks: drawerRemarks.trim(),
-      })
-      .select()
-      .single();
-
-    if (drawerError) {
-      setIsSaving(false);
-      console.log("OPEN DRAWER ERROR:", drawerError.message);
-
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Cash Management",
-        action: "Open Drawer Failed",
-        description: `Failed to open drawer for ${drawerHolder}. Error: ${drawerError.message}`,
-        severity: "critical",
-        newValue: {
-          holder: drawerHolder,
-          openingFloat: openingFloatValue,
-          remarks: drawerRemarks.trim(),
-          error: drawerError.message,
-        },
-      });
-
-      alert("Failed to open drawer.");
-      return;
-    }
-
-    const { error: movementError } = await supabase
-      .from("finance_cash_movements")
-      .insert({
-        company_id: companyId,
-        business_date: today,
-        movement_type: "Opening Float",
-        source: "Petty Cash",
-        payment_type: "Cash",
-        amount: openingFloatValue,
-        from_person: "",
-        to_person: drawerHolder,
-        encoded_by: currentEmployeeName || drawerHolder,
-        remarks: drawerRemarks.trim() || "Opening drawer float",
-        cash_drawer_id: drawerData.id,
-      });
-
-    setIsSaving(false);
-
-    if (movementError) {
-      console.log("OPEN DRAWER MOVEMENT ERROR:", movementError.message);
-
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Cash Management",
-        action: "Open Drawer Movement Failed",
-        description: `Drawer opened for ${drawerHolder}, but opening float movement failed. Error: ${movementError.message}`,
-        severity: "critical",
-        recordId: drawerData.id,
-        newValue: {
-          drawer: drawerData,
-          movementError: movementError.message,
-        },
-      });
-
-      alert("Drawer opened, but opening float movement failed.");
-      return;
-    }
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Cash Management",
-      action: "Open Drawer",
-      description: `${drawerHolder} opened cash drawer with float ${formatMoney(openingFloatValue)}`,
-      severity: "warning",
-      recordId: drawerData.id,
-      newValue: {
-        drawerId: drawerData.id,
-        holder: drawerHolder,
-        openingFloat: openingFloatValue,
-        remarks: drawerRemarks.trim(),
-      },
-    });
-
-    resetDrawerForm();
-    setShowOpenDrawer(false);
-    setHolderFilter("AUTO");
-    await refreshCashManagement();
-  };
-
-  /// FUNCTIONS - CLOSE DRAWER
-  const closeDrawer = async () => {
-    if (isSaving) return;
-
-    if (!activeDrawer) {
-      alert("No active drawer to close.");
-      return;
-    }
-
-    const companyId = await getCurrentCompanyId();
-
-    if (!companyId) {
-      alert("Unable to close drawer. No company_id found for current user.");
-      return;
-    }
-
-    if (actualClosingCash === "") {
-      alert("Please enter actual closing cash.");
-      return;
-    }
-
-    const actualCashValue = parseAmountValue(actualClosingCash);
-    const remittanceValue =
-      closingRemittanceAmount === ""
-        ? 0
-        : parseAmountValue(closingRemittanceAmount);
-    const receiverName = closingRemittanceReceivedBy.trim();
-
-    if (!Number.isFinite(actualCashValue) || actualCashValue < 0) {
-      alert("Actual closing cash cannot be negative or invalid.");
-      return;
-    }
-
-    if (!Number.isFinite(remittanceValue) || remittanceValue < 0) {
-      alert("Remittance amount cannot be negative or invalid.");
-      return;
-    }
-
-    if (remittanceValue > 0 && !receiverName) {
-      alert("Please enter who received the remittance.");
-      return;
-    }
-
-    if (remittanceValue > actualCashValue) {
-      alert("Remittance cannot be greater than actual cash counted.");
-      return;
-    }
-
-    const drawerExpectedCash = activeDrawerCash;
-    // Full-remittance policy:
-    // The drawer is balanced only when the amount remitted equals the expected physical cash.
-    // Actual count is still recorded for audit, and any unremitted cash is shown as remaining.
-    const drawerVariance = remittanceValue - drawerExpectedCash;
-    const remainingCashAfterRemittance = actualCashValue - remittanceValue;
-    const closedAt = new Date().toISOString();
-
-    setIsSaving(true);
-
-    let remittanceMovementData: any = null;
-
-    if (remittanceValue > 0) {
-      const { data: remittanceData, error: remittanceError } = await supabase
-        .from("finance_cash_movements")
-        .insert({
-          company_id: companyId,
-          business_date: today,
-          movement_type: "Remittance",
-          source: "Drawer Closing Remittance",
-          payment_type: "Cash",
-          amount: remittanceValue,
-          from_person: activeDrawer.holder_name,
-          to_person: receiverName,
-          encoded_by: currentEmployeeName || activeDrawer.holder_name,
-          remarks:
-            closingRemittanceRemarks.trim() ||
-            `Auto remittance during drawer closing. Remaining cash after remittance: ${formatMoney(remainingCashAfterRemittance)}`,
-          reference_type: "drawer_closing_remittance",
-          reference_id: activeDrawer.id,
-          cash_drawer_id: activeDrawer.id,
-        })
-        .select()
-        .single();
-
-      if (remittanceError) {
-        setIsSaving(false);
-        console.log("CLOSING REMITTANCE ERROR:", remittanceError.message);
-
-        await createAuditLog({
-          userName: "OPSCORE USER",
-          module: "Cash Management",
-          action: "Closing Remittance Failed",
-          description: `Failed to save closing remittance for ${activeDrawer.holder_name}. Error: ${remittanceError.message}`,
-          severity: "critical",
-          recordId: activeDrawer.id,
-          oldValue: activeDrawer,
-          newValue: {
-            remittanceAmount: remittanceValue,
-            receivedBy: receiverName,
-            error: remittanceError.message,
-          },
-        });
-
-        alert("Failed to save drawer remittance. Drawer was not closed.");
-        return;
-      }
-
-      remittanceMovementData = remittanceData;
-    }
-
-    const closingRemarksText = [
-      closeRemarks.trim() || activeDrawer.remarks || "",
-      remittanceValue > 0
-        ? `Remitted ${formatMoney(remittanceValue)} to ${receiverName}. Remaining cash after remittance: ${formatMoney(remainingCashAfterRemittance)}.`
-        : "No remittance recorded during drawer closing.",
-      closingRemittanceRemarks.trim()
-        ? `Remittance remarks: ${closingRemittanceRemarks.trim()}`
-        : "",
+  const buildReceiptAuditText = () => {
+    if (movementType !== "Cash Out") return "";
+    if (receiptStatus === "WITH_RECEIPT") return "[Receipt: WITH_RECEIPT]";
+    return [
+      "[Receipt: WITHOUT_RECEIPT]",
+      `[No Receipt Reason: ${noReceiptReason || "Not Provided"}]`,
+      noReceiptExplanation.trim() ? `[No Receipt Explanation: ${noReceiptExplanation.trim()}]` : "",
     ]
       .filter(Boolean)
       .join(" ");
+  };
 
-    const { error } = await supabase
-      .from("finance_cash_drawers")
-      .update({
-        status: "CLOSED",
-        closed_at: closedAt,
-        expected_cash: drawerExpectedCash,
-        actual_cash: actualCashValue,
-        variance: drawerVariance,
-        remarks: closingRemarksText,
-      })
-      .eq("id", activeDrawer.id);
+  const saveMovement = async () => {
+    if (savingRef.current) return;
 
-    setIsSaving(false);
-
-    if (error) {
-      console.log("CLOSE DRAWER ERROR:", error.message);
-
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Cash Management",
-        action: "Close Drawer Failed",
-        description: `Failed to close drawer for ${activeDrawer.holder_name}. Error: ${error.message}`,
-        severity: "critical",
-        recordId: activeDrawer.id,
-        oldValue: activeDrawer,
-        newValue: {
-          expectedCash: drawerExpectedCash,
-          actualCash: actualCashValue,
-          variance: drawerVariance,
-          remittanceAmount: remittanceValue,
-          receivedBy: receiverName,
-          remainingCashAfterRemittance,
-          remittanceMovement: remittanceMovementData,
-          error: error.message,
-        },
-      });
-
-      alert(
-        "Remittance was saved, but drawer close failed. Check drawer status and audit log.",
-      );
+    if (!activeDrawer && paymentType === "Cash") {
+      alert("Open a cash drawer before recording physical cash movement.");
       return;
     }
 
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Cash Management",
-      action:
-        remittanceValue > 0 ? "Close Drawer With Remittance" : "Close Drawer",
-      description:
-        remittanceValue > 0
-          ? `${activeDrawer.holder_name} closed drawer and remitted ${formatMoney(remittanceValue)} to ${receiverName}. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`
-          : `${activeDrawer.holder_name} closed drawer. Expected ${formatMoney(drawerExpectedCash)}, actual ${formatMoney(actualCashValue)}, variance ${formatMoney(drawerVariance)}`,
-      severity: Math.abs(drawerVariance) >= 500 ? "critical" : "warning",
-      recordId: activeDrawer.id,
-      oldValue: activeDrawer,
-      newValue: {
-        status: "CLOSED",
-        closedAt,
-        expectedCash: drawerExpectedCash,
-        actualCash: actualCashValue,
-        variance: drawerVariance,
-        remittanceAmount: remittanceValue,
-        receivedBy: receiverName || null,
-        remainingCashAfterRemittance,
-        remittanceMovement: remittanceMovementData,
-        remarks: closingRemarksText,
-      },
-    });
-
-    printDrawerReport(activeDrawer, {
-      ...activeDrawer,
-      closed_at: closedAt,
-      status: "CLOSED",
-      expected_cash: drawerExpectedCash,
-      actual_cash: actualCashValue,
-      variance: drawerVariance,
-      remittance_amount: remittanceValue,
-      received_by: receiverName,
-      remaining_cash_after_remittance: remainingCashAfterRemittance,
-    });
-
-    resetDrawerForm();
-    setShowCloseDrawer(false);
-    await refreshCashManagement();
-  };
-
-  /// FUNCTIONS - DUPLICATE SAFETY
-  const hasDuplicateCashMovement = async ({
-    businessDate,
-    movementType,
-    source,
-    paymentType,
-    amountValue,
-    autoFrom,
-    autoTo,
-    movementRemarks,
-  }: {
-    businessDate: string;
-    movementType: string;
-    source: string;
-    paymentType: string;
-    amountValue: number;
-    autoFrom: string;
-    autoTo: string;
-    movementRemarks: string;
-  }) => {
-    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-
-    const { data, error } = await supabase
-      .from("finance_cash_movements")
-      .select("id, created_at")
-      .eq("business_date", businessDate)
-      .eq("movement_type", movementType)
-      .eq("source", source)
-      .eq("payment_type", paymentType)
-      .eq("amount", amountValue)
-      .eq("from_person", autoFrom)
-      .eq("to_person", autoTo)
-      .eq("remarks", movementRemarks)
-      .gte("created_at", oneMinuteAgo)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.log("DUPLICATE CASH MOVEMENT CHECK ERROR:", error.message);
-      throw error;
-    }
-
-    return Boolean(data);
-  };
-
-  const hasDuplicateCashApprovalRequest = async ({
-    requestType,
-    title,
-    requestedBy,
-  }: {
-    requestType: string;
-    title: string;
-    requestedBy: string;
-  }) => {
-    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-
-    const { data, error } = await supabase
-      .from("approval_requests")
-      .select("id, created_at")
-      .eq("request_type", requestType)
-      .eq("module", "Cash Management")
-      .eq("title", title)
-      .eq("requested_by", requestedBy)
-      .eq("status", "PENDING")
-      .gte("created_at", oneMinuteAgo)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.log("DUPLICATE CASH APPROVAL CHECK ERROR:", error.message);
-      throw error;
-    }
-
-    return Boolean(data);
-  };
-
-  /// FUNCTIONS - SAVE CASH MOVEMENT
-  const saveMovement = async () => {
-    if (savingRef.current || isSaving) return;
-    savingRef.current = true;
-
-    if (!businessDate || !movementType || !source || !paymentType || !amount) {
-      alert("Please complete date, type, source, payment type, and amount.");
-      savingRef.current = false;
+    if (!businessDate || !movementType || !source || !paymentType || amount === "") {
+      alert("Complete business date, movement type, source, payment type, and amount.");
       return;
     }
 
     const amountValue = parseAmountValue(amount);
-
     if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      alert("Amount must be greater than zero. Negative, zero, and invalid amounts are not allowed.");
-      savingRef.current = false;
+      alert("Amount must be greater than zero.");
       return;
     }
 
-    if (isBalanceGuardedMoneyOut()) {
-      const availableBalance = getAvailableBalanceByPaymentType(paymentType);
-
-      if (availableBalance <= 0) {
-        alert(`No available ${paymentType} balance.`);
-        savingRef.current = false;
-        return;
-      }
-
-      if (amountValue > availableBalance) {
-        alert(
-          `Insufficient ${paymentType} balance. Available: ${formatMoney(
-            availableBalance,
-          )}`,
-        );
-        savingRef.current = false;
-        return;
-      }
-    }
-
-    if (isCashExpenseCashOut && !activeDrawer) {
-      alert("Please open a drawer first before releasing a cash expense.");
-      savingRef.current = false;
-      return;
-    }
-
-    if (isCashAdvanceCashOut && paymentType === "Cash" && !activeDrawer) {
-      alert(
-        "Please open a drawer first before releasing a cash advance in cash.",
-      );
-      savingRef.current = false;
-      return;
-    }
-
-    if (isCashAdvanceCashOut && !cashAdvanceEmployeeId) {
-      alert("Please select employee for cash advance.");
-      savingRef.current = false;
-      return;
-    }
-
-    if (isCashAdvanceCashOut && !selectedCashAdvanceEmployee) {
-      alert("Selected employee is invalid. Please re-select employee.");
-      savingRef.current = false;
-      return;
-    }
-
-    const targetPayrollPeriod = isCashAdvanceCashOut
-      ? await fetchPayrollPeriodForDate(businessDate)
-      : null;
-
-    if (isExpenseRelease && !expenseCategory) {
-      alert("Please select expense category.");
-      savingRef.current = false;
-      return;
-    }
-
-    if (
-      isExpenseRelease &&
-      expenseSubcategoryOptions.length > 0 &&
-      !expenseSubcategory
-    ) {
-      alert("Please select expense subcategory.");
-      savingRef.current = false;
-      return;
-    }
-
-    if (isExpenseRelease && !expenseDepartment) {
-      alert("Please select expense department / area.");
-      savingRef.current = false;
+    if (movementType === "Cash Out" && paymentType === "Cash" && amountValue > cashOnHand) {
+      alert("Cash out cannot be greater than current cash on hand.");
       return;
     }
 
     if (isExpenseRelease && !expenseDescription.trim()) {
       alert("Please enter expense description.");
-      savingRef.current = false;
       return;
     }
 
-    // ENTERPRISE AUDIT RULE:
-    // Cash / expense releases must always identify the receiver.
-    // This prevents approved finance records with Employee / Receiver shown as "-".
-    if (isExpenseRelease && !expenseReleasedTo.trim()) {
-      alert("Please enter Released To / Receiver for this expense release.");
-      savingRef.current = false;
+    if (isCashAdvanceCashOut && !cashAdvanceEmployeeId) {
+      alert("Please select employee for cash advance.");
       return;
     }
 
-    if (movementType === "Cash Out" && receiptStatus === "WITHOUT_RECEIPT") {
-      if (!noReceiptReason) {
-        alert("Reason is required for transactions without a receipt.");
-        savingRef.current = false;
-        return;
-      }
-
-      if (noReceiptReason === "Other" && !noReceiptExplanation.trim()) {
-        alert("Explanation is required when no receipt reason is Other.");
-        savingRef.current = false;
-        return;
-      }
-    }
-
-    const autoFrom =
-      paymentType === "Cash"
-        ? activeDrawer?.holder_name || currentDrawerHolderName || ""
-        : paymentType;
-
-    const autoTo = isCashAdvanceCashOut
-      ? cashAdvanceEmployeeName
-      : isExpenseRelease
-        ? expenseReleasedTo.trim()
-        : paymentType === "Cash" && !toPerson.trim()
-          ? activeDrawer?.holder_name || ""
-          : toPerson.trim();
-
-    // Audit identity rule:
-    // - encoded_by / requested_by must be the logged-in user who created the transaction.
-    // - drawer holder remains separate through from_person / to_person / cash_drawer_id.
-    // This prevents admin-created transactions from being incorrectly attributed to the drawer holder.
-    const autoEncoded =
-      currentEmployeeName ||
-      currentDrawerHolderName ||
-      activeDrawer?.holder_name ||
-      "System";
-
-    const companyId = await getCurrentCompanyId();
-
-    if (!companyId) {
-      alert(
-        "Unable to save cash movement. No company_id found for current user.",
-      );
-      savingRef.current = false;
-      return;
-    }
-
-    if (
-      paymentType === "Cash" &&
-      (movementType === "Cash In" || movementType === "Opening Float") &&
-      !autoTo
-    ) {
-      alert("Please open a drawer or enter who received/holds the cash.");
-      savingRef.current = false;
-      return;
-    }
-
-    if (paymentType === "Cash" && movementType === "Cash Out" && !autoFrom) {
-      alert("Please open a drawer or enter who released the cash.");
-      savingRef.current = false;
-      return;
-    }
-
+    savingRef.current = true;
     setIsSaving(true);
 
-    const receiptAuditText = buildReceiptAuditText();
-
-    const baseMovementRemarks = isCashAdvanceCashOut
-      ? `Cash Advance - ${cashAdvanceEmployeeName}${
-          cashAdvancePurpose.trim() ? ` - ${cashAdvancePurpose.trim()}` : ""
-        }${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
-      : isExpenseRelease
-        ? `${expenseDescription.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`
-        : remarks.trim();
-
-    const movementRemarks = [baseMovementRemarks, receiptAuditText]
+    const companyId = await getCurrentCompanyId();
+    const autoEncoded = currentEmployeeName || "OPSCORE USER";
+    const autoFrom = movementType === "Cash Out" ? activeDrawer?.holder_name || autoEncoded : source;
+    const autoTo = movementType === "Cash In" ? activeDrawer?.holder_name || autoEncoded : expenseReleasedTo || cashAdvanceEmployeeName || "Requestor";
+    const movementRemarks = [
+      remarks.trim(),
+      buildReceiptAuditText(),
+      isExpenseRelease ? `[Released To: ${expenseReleasedTo || "Not Specified"}]` : "",
+      isCashAdvanceCashOut ? `[Employee: ${cashAdvanceEmployeeName}] [Purpose: ${cashAdvancePurpose || "Cash Advance"}]` : "",
+    ]
       .filter(Boolean)
       .join(" ");
-
-    if (isCashDrawerMoneyOut) {
-      const requestType = getCashApprovalRequestType();
-
-      const approvalPayload = {
-        company_id: companyId,
-        requested_by_employee_id: currentEmployeeId || null,
-        requested_by_system_user_id: currentSystemUserId || null,
-        requested_by_name: autoEncoded,
-        drawer_holder_name: activeDrawer?.holder_name || null,
-        business_date: businessDate,
-        movement_type: movementType,
-        source,
-        payment_type: paymentType,
-        amount: amountValue,
-        from_person: autoFrom,
-        to_person: autoTo,
-        encoded_by: autoEncoded,
-        remarks: movementRemarks,
-        receipt_status: movementType === "Cash Out" ? receiptStatus : null,
-        receipt_label: movementType === "Cash Out" ? receiptLabel : null,
-        no_receipt_reason:
-          movementType === "Cash Out" && receiptStatus === "WITHOUT_RECEIPT"
-            ? noReceiptReason
-            : null,
-        no_receipt_explanation:
-          movementType === "Cash Out" && receiptStatus === "WITHOUT_RECEIPT"
-            ? noReceiptExplanation.trim()
-            : null,
-        reference_type: shouldCreateExpenseFromCashOut ? "expense" : null,
-        cash_drawer_id: activeDrawer?.id || null,
-        should_create_expense: shouldCreateExpenseFromCashOut,
-        is_cash_expense_cash_out: isCashExpenseCashOut,
-        is_cash_advance_cash_out: isCashAdvanceCashOut,
-        expense_category: isCashAdvanceCashOut
-          ? "Cash Advance"
-          : expenseCategory,
-        expense_subcategory: isCashAdvanceCashOut
-          ? "Cash Advance Release"
-          : expenseSubcategory || null,
-        expense_department: isCashAdvanceCashOut
-          ? "Payroll"
-          : expenseDepartment,
-        expense_description: isCashAdvanceCashOut
-          ? `Cash Advance - ${cashAdvanceEmployeeName}`
-          : expenseDescription.trim(),
-        expense_released_to: expenseReleasedTo.trim(),
-        cash_advance_employee_id: isCashAdvanceCashOut
-          ? cashAdvanceEmployeeId
-          : null,
-        cash_advance_employee_name: isCashAdvanceCashOut
-          ? cashAdvanceEmployeeName
-          : null,
-        cash_advance_purpose: cashAdvancePurpose.trim(),
-        payroll_period_id: isCashAdvanceCashOut
-          ? targetPayrollPeriod?.id || null
-          : null,
-        payroll_period_label: isCashAdvanceCashOut
-          ? targetPayrollPeriod
-            ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
-            : "Unassigned Payroll Period"
-          : null,
-      };
-
-      const approvalTitle = `${source} - ${formatMoney(amountValue)}`;
-
-      try {
-        const duplicateApprovalExists = await hasDuplicateCashApprovalRequest({
-          requestType,
-          title: approvalTitle,
-          requestedBy: autoEncoded,
-        });
-
-        if (duplicateApprovalExists) {
-          setIsSaving(false);
-          savingRef.current = false;
-          alert(
-            "Possible duplicate approval request detected. This request was not submitted again.",
-          );
-          return;
-        }
-      } catch {
-        setIsSaving(false);
-        savingRef.current = false;
-        alert("Duplicate safety check failed. Request was not submitted.");
-        return;
-      }
-
-      const { error: approvalError } = await supabase
-        .from("approval_requests")
-        .insert({
-          company_id: companyId,
-          request_type: requestType,
-          module: "Cash Management",
-          reference_id: activeDrawer?.id || null,
-          title: approvalTitle,
-          description: `${movementType} request by ${autoEncoded}. From: ${autoFrom || "-"}. To: ${autoTo || "-"}. ${movementRemarks || ""}`,
-          requested_by: autoEncoded,
-          status: "PENDING",
-          request_payload: approvalPayload,
-        });
-
-      setIsSaving(false);
-      savingRef.current = false;
-
-      if (approvalError) {
-        console.log(
-          "CREATE CASH DRAWER APPROVAL ERROR:",
-          approvalError.message,
-        );
-        alert(
-          `Failed to send cash movement to Approval Center. ${approvalError.message}`,
-        );
-        savingRef.current = false;
-        return;
-      }
-
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Cash Management",
-        action: "Submit Cash Control Approval Request",
-        description: `${requestType} submitted for approval - ${formatMoney(amountValue)}`,
-        severity: "warning",
-        newValue: approvalPayload,
-      });
-
-      resetForm();
-      await refreshCashManagement();
-      alert(
-        "Cash movement sent to Manager Approval Center. No drawer deduction was made yet.",
-      );
-      savingRef.current = false;
-      return;
-    }
-
-    try {
-      const duplicateMovementExists = await hasDuplicateCashMovement({
-        businessDate,
-        movementType,
-        source,
-        paymentType,
-        amountValue,
-        autoFrom,
-        autoTo,
-        movementRemarks,
-      });
-
-      if (duplicateMovementExists) {
-        setIsSaving(false);
-        savingRef.current = false;
-        alert(
-          "Possible duplicate cash movement detected. This transaction was not saved again.",
-        );
-        return;
-      }
-    } catch {
-      setIsSaving(false);
-      savingRef.current = false;
-      alert("Duplicate safety check failed. Transaction was not saved.");
-      return;
-    }
 
     const { data: movementData, error: movementError } = await supabase
       .from("finance_cash_movements")
       .insert({
-        company_id: companyId,
+        company_id: companyId || null,
         business_date: businessDate,
         movement_type: movementType,
         source,
@@ -2577,82 +619,43 @@ export default function CashManagementPage() {
         reference_type: shouldCreateExpenseFromCashOut ? "expense" : null,
         reference_id: null,
         cash_drawer_id: activeDrawer?.id || null,
+        liquidation_status: shouldCreateExpenseFromCashOut ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
+        net_expense_amount: shouldCreateExpenseFromCashOut ? amountValue : 0,
       })
       .select()
       .single();
 
     if (movementError) {
-      setIsSaving(false);
-      savingRef.current = false;
       console.log("SAVE CASH MOVEMENT ERROR:", movementError.message);
-
-      await createAuditLog({
-        userName: "OPSCORE USER",
-        module: "Cash Management",
-        action: "Cash Movement Failed",
-        description: `Failed to save ${movementType} ${source} - ${formatMoney(amountValue)}. Error: ${movementError.message}`,
-        severity: "critical",
-        newValue: {
-          businessDate,
-          movementType,
-          source,
-          paymentType,
-          amount: amountValue,
-          fromPerson: autoFrom,
-          toPerson: autoTo,
-          encodedBy: autoEncoded,
-          remarks: movementRemarks,
-          error: movementError.message,
-        },
-      });
-
-      alert("Failed to save cash movement.");
+      alert(`Failed to save cash movement. ${movementError.message}`);
+      setIsSaving(false);
       savingRef.current = false;
       return;
     }
 
-    let createdExpenseData: any = null;
-    let createdBalanceData: any = null;
-    let balanceCreationFailed = false;
+    let linkedExpense = null;
 
     if (shouldCreateExpenseFromCashOut) {
       const { data: expenseData, error: expenseError } = await supabase
         .from("expenses")
         .insert({
-          company_id: companyId,
+          company_id: companyId || null,
           expense_date: businessDate,
-          category: isCashAdvanceCashOut ? "Cash Advance" : expenseCategory,
-          subcategory: isCashAdvanceCashOut
-            ? "Cash Advance Release"
-            : expenseSubcategory || null,
-          department: isCashAdvanceCashOut ? "Payroll" : expenseDepartment,
-          description: isCashAdvanceCashOut
-            ? `Cash Advance - ${cashAdvanceEmployeeName}`
-            : expenseDescription.trim(),
+          category: isCashAdvanceCashOut ? "Cash Advance" : expenseCategory || "Other",
+          subcategory: isCashAdvanceCashOut ? "Cash Advance Release" : expenseSubcategory || null,
+          department: isCashAdvanceCashOut ? "Payroll" : expenseDepartment || "Operations",
+          description: isCashAdvanceCashOut ? `Cash Advance - ${cashAdvanceEmployeeName}` : expenseDescription.trim(),
           amount: amountValue,
+          released_amount: amountValue,
+          actual_spent_amount: 0,
+          returned_cash_amount: 0,
+          net_expense_amount: amountValue,
+          liquidation_status: "FOR_LIQUIDATION",
           payment_method: paymentType,
           employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
-          employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : null,
-          deduct_to_payroll: isCashAdvanceCashOut,
-          payroll_period_id: isCashAdvanceCashOut
-            ? targetPayrollPeriod?.id || null
-            : null,
-          remarks: isCashAdvanceCashOut
-            ? `Source: ${paymentType === "Cash" ? "Cash Control" : paymentType}. Auto linked by selected date to: ${
-                targetPayrollPeriod
-                  ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
-                  : "Unassigned Payroll Period"
-              }. ${cashAdvancePurpose.trim()}${remarks.trim() ? ` - ${remarks.trim()}` : ""}`.trim()
-            : `${remarks.trim()}${
-                expenseReleasedTo.trim()
-                  ? ` Released to: ${expenseReleasedTo.trim()}`
-                  : ""
-              }`.trim(),
-          source: isCashAdvanceCashOut
-            ? paymentType === "Cash"
-              ? "Cash Control - Cash Advance"
-              : `${paymentType} - Cash Advance`
-            : "Cash Control",
+          employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : expenseReleasedTo || null,
+          remarks: movementRemarks,
+          source: isCashAdvanceCashOut ? "Cash Control - Cash Advance" : "Cash Control",
           posted_to_cash_movements: true,
           cash_movement_id: movementData.id,
           cash_posted_date: new Date().toISOString(),
@@ -2661,1519 +664,1350 @@ export default function CashManagementPage() {
         .single();
 
       if (expenseError) {
-        setIsSaving(false);
-        savingRef.current = false;
         console.log("AUTO CREATE EXPENSE ERROR:", expenseError.message);
-
-        await createAuditLog({
-          userName: "OPSCORE USER",
-          module: "Cash Management",
-          action: "Cash Movement Expense Link Failed",
-          description: `Cash movement saved but expense entry failed for ${source} - ${formatMoney(amountValue)}. Error: ${expenseError.message}`,
-          severity: "critical",
-          recordId: movementData.id,
-          newValue: {
-            movement: movementData,
-            error: expenseError.message,
-          },
-        });
-
-        alert(
-          "Cash movement was saved, but expense entry failed. Check expenses table columns.",
-        );
-        await getCashMovements();
-        savingRef.current = false;
-        return;
-      }
-
-      createdExpenseData = expenseData;
-
-      await supabase
-        .from("finance_cash_movements")
-        .update({ reference_id: expenseData.id })
-        .eq("id", movementData.id);
-
-      if (isCashAdvanceCashOut) {
-        const cutoffLabel = targetPayrollPeriod
-          ? `${targetPayrollPeriod.period_name || "Payroll Period"} (${targetPayrollPeriod.start_date} to ${targetPayrollPeriod.end_date})`
-          : "Unassigned Payroll Period";
-
-        const cashDrawerReference = [
-          `Source: ${paymentType === "Cash" ? "Cash Control" : paymentType}`,
-          `Cutoff: ${cutoffLabel}`,
-          `Expense ID: ${expenseData.id}`,
-          `Cash Movement ID: ${movementData.id}`,
-          cashAdvancePurpose.trim()
-            ? `Purpose: ${cashAdvancePurpose.trim()}`
-            : "",
-          remarks.trim() ? `Remarks: ${remarks.trim()}` : "",
-        ]
-          .filter(Boolean)
-          .join(". ");
-
-        const { data: balanceData, error: balanceError } = await supabase
-          .from("employee_balances")
-          .insert({
-            company_id: companyId,
-            employee_id: cashAdvanceEmployeeId,
-            employee_name: cashAdvanceEmployeeName,
-            balance_type: "Cash Advance",
-            original_amount: amountValue,
-            remaining_balance: amountValue,
-            status: "Active",
-            source_module: "Cash Control",
-            source_id: isUuid(movementData.id) ? movementData.id : null,
-            period_id: targetPayrollPeriod?.id || null,
-            remarks: cashDrawerReference,
-          })
-          .select()
-          .single();
-
-        if (balanceError) {
-          balanceCreationFailed = true;
-          console.log(
-            "AUTO CREATE CASH ADVANCE BALANCE ERROR:",
-            balanceError.message,
-          );
-
-          await createAuditLog({
-            userName: "OPSCORE USER",
-            module: "Cash Management",
-            action: "Cash Advance Balance Failed",
-            description: `Cash advance saved to cash movement and expenses, but employee balance failed for ${cashAdvanceEmployeeName} - ${formatMoney(amountValue)}. Error: ${balanceError.message}`,
-            severity: "critical",
-            recordId: movementData.id,
-            newValue: {
-              movement: movementData,
-              expense: expenseData,
-              employee: cashAdvanceEmployeeName,
-              amount: amountValue,
-              payrollPeriod: targetPayrollPeriod,
-              error: balanceError.message,
-            },
-          });
-
-          alert(
-            "Cash advance saved to cash movement and expenses, but employee balance failed.",
-          );
-        } else {
-          createdBalanceData = balanceData;
-
-          await supabase
-            .from("expenses")
-            .update({ employee_balance_id: balanceData.id })
-            .eq("id", expenseData.id);
-
-          if (targetPayrollPeriod?.id) {
-            await supabase
-              .from("payroll_periods")
-              .update({ needs_regeneration: true })
-              .eq("id", targetPayrollPeriod.id);
-          }
-        }
+        alert("Cash movement saved, but linked expense failed. Check expenses columns.");
+      } else {
+        linkedExpense = expenseData;
+        await supabase.from("finance_cash_movements").update({ reference_id: expenseData.id }).eq("id", movementData.id);
       }
     }
 
     await createAuditLog({
-      userName: "OPSCORE USER",
+      userName: autoEncoded,
       module: "Cash Management",
-      action: isCashAdvanceCashOut
-        ? "Cash Advance Released"
-        : isExpenseRelease
-          ? "Expense Released"
-          : "Cash Movement Created",
-      description: isCashAdvanceCashOut
-        ? `${cashAdvanceEmployeeName} cash advance released from drawer - ${formatMoney(amountValue)}`
-        : isExpenseRelease
-          ? `Expense released via ${paymentType}: ${expenseDescription.trim()} - ${formatMoney(amountValue)}`
-          : `${movementType} ${source} recorded - ${formatMoney(amountValue)}`,
-      severity:
-        isCashAdvanceCashOut ||
-        isExpenseRelease ||
-        movementType === "Cash Out" ||
-        movementType === "Adjustment"
-          ? "warning"
-          : "info",
+      action: shouldCreateExpenseFromCashOut ? "Cash Release Created" : "Cash Movement Created",
+      description: `${movementType} ${source} recorded - ${formatMoney(amountValue)}`,
+      severity: movementType === "Cash Out" ? "warning" : "info",
       recordId: movementData.id,
-      newValue: {
-        movement: movementData,
-        expense: createdExpenseData,
-        employeeBalance: createdBalanceData,
-        balanceCreationFailed,
-        businessDate,
-        movementType,
-        source,
-        paymentType,
-        amount: amountValue,
-        fromPerson: autoFrom,
-        toPerson: autoTo,
-        encodedBy: autoEncoded,
-        remarks: movementRemarks,
-        payrollPeriod: targetPayrollPeriod,
-      },
+      newValue: { movement: movementData, expense: linkedExpense },
     });
 
     setIsSaving(false);
     savingRef.current = false;
     resetForm();
-    await getCashMovements();
-    await getDrawers();
-
-    if (isCashAdvanceCashOut) {
-      alert(
-        `Cash advance saved via ${paymentType} to Cash Movements, Expenses, and Payroll Balances.`,
-      );
-      savingRef.current = false;
-      return;
-    }
-
-    if (isExpenseRelease) {
-      alert("Cash expense saved to Cash Control and Expenses.");
-      savingRef.current = false;
-      return;
-    }
-
-    alert("Cash movement saved.");
-    savingRef.current = false;
+    await refreshCashManagement();
+    alert(shouldCreateExpenseFromCashOut ? "Cash release saved. Liquidation warning is now active." : "Cash movement saved.");
   };
 
-  /// FUNCTIONS - VOID MOVEMENT
-  const voidMovement = async (id: string) => {
-    const { data: movement, error: movementFetchError } = await supabase
-      .from("finance_cash_movements")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (movementFetchError) {
-      console.log(
-        "FETCH CASH MOVEMENT BEFORE VOID ERROR:",
-        movementFetchError.message,
-      );
-
-      await createAuditLog({
-        userName: currentEmployeeName || "OPSCORE USER",
-        module: "Cash Management",
-        action: "Void Cash Movement Failed",
-        description: `Failed to fetch cash movement before void. Error: ${movementFetchError.message}`,
-        severity: "critical",
-        recordId: id,
-        newValue: {
-          error: movementFetchError.message,
-        },
-      });
-
-      alert("Failed to check cash movement before void.");
+  const openDrawer = async () => {
+    if (activeDrawer) {
+      alert("There is already an open drawer.");
       return;
     }
-
-    if (!movement) {
-      alert("Cash movement not found.");
-      await getCashMovements();
+    if (!drawerHolder || openingFloat === "") {
+      alert("Select drawer holder and opening float.");
       return;
     }
-
-    if (isVoidedMovement(movement)) {
-      alert("This cash movement is already voided.");
-      await getCashMovements();
+    const openingFloatValue = parseAmountValue(openingFloat);
+    if (!Number.isFinite(openingFloatValue) || openingFloatValue <= 0) {
+      alert("Opening float must be greater than zero.");
       return;
     }
-
-    if (
-      movement.reference_type === "drawer_closing_remittance" ||
-      movement.source === "Drawer Closing Remittance"
-    ) {
-      alert(
-        "Drawer closing remittance is locked. Reopen or correct the drawer instead of voiding this record.",
-      );
-      return;
-    }
-
-    const { data: linkedExpenseByReference } = movement.reference_id
-      ? await supabase
-          .from("expenses")
-          .select("*")
-          .eq("id", movement.reference_id)
-          .maybeSingle()
-      : { data: null };
-
-    const { data: linkedExpenseByMovement } = !linkedExpenseByReference
-      ? await supabase
-          .from("expenses")
-          .select("*")
-          .eq("cash_movement_id", id)
-          .maybeSingle()
-      : { data: null };
-
-    const linkedExpense = linkedExpenseByReference || linkedExpenseByMovement;
-
-    const reason = prompt(
-      linkedExpense
-        ? `Void this cash movement and mark its linked expense as voided?\n\nPlease enter the void reason:`
-        : "Void this cash movement?\n\nPlease enter the void reason:",
-    );
-
-    const voidReason = String(reason || "").trim();
-
-    if (!voidReason) {
-      alert("Void reason is required. No changes were made.");
-      return;
-    }
-
-    const confirmVoid = confirm(
-      linkedExpense
-        ? `Confirm void?\n\nThis will keep the records for audit trail and exclude the cash movement from cash totals.\n\nLinked expense will also be marked VOIDED.`
-        : `Confirm void?\n\nThis will keep the record for audit trail and exclude it from cash totals.`,
-    );
-
-    if (!confirmVoid) return;
 
     setIsSaving(true);
+    const companyId = await getCurrentCompanyId();
+    const { data: drawerData, error: drawerError } = await supabase
+      .from("finance_cash_drawers")
+      .insert({ holder_name: drawerHolder, opening_float: openingFloatValue, status: "OPEN", remarks: drawerRemarks.trim() })
+      .select()
+      .single();
 
-    const voidedAt = new Date().toISOString();
-    const voidedBy =
-      currentEmployeeName || currentDrawerHolderName || "OPSCORE USER";
-    const originalRemarks = String(movement.remarks || "").trim();
-    const movementRemarks = [
-      originalRemarks,
-      `[VOIDED by ${voidedBy} at ${formatDateTime(voidedAt)}] Reason: ${voidReason}`,
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    const { error: movementVoidError } = await supabase
-      .from("finance_cash_movements")
-      .update({
-        status: "VOIDED",
-        void_reason: voidReason,
-        voided_by: voidedBy,
-        voided_at: voidedAt,
-        remarks: movementRemarks,
-      })
-      .eq("id", id);
-
-    if (movementVoidError) {
+    if (drawerError) {
       setIsSaving(false);
-      console.log("VOID CASH MOVEMENT ERROR:", movementVoidError.message);
-
-      await createAuditLog({
-        userName: voidedBy,
-        module: "Cash Management",
-        action: "Void Cash Movement Failed",
-        description: `Failed to void cash movement ${formatMoney(movement.amount)}. Error: ${movementVoidError.message}`,
-        severity: "critical",
-        recordId: movement.id,
-        oldValue: movement,
-        newValue: {
-          voidReason,
-          error: movementVoidError.message,
-        },
-      });
-
-      alert(
-        "Failed to void cash movement. Check if void columns exist in finance_cash_movements.",
-      );
+      alert(`Failed to open drawer. ${drawerError.message}`);
       return;
     }
 
-    let linkedExpenseVoided = false;
-    let linkedBalanceVoided = false;
-    let fallbackBalancesVoided = false;
-    const linkedPeriodId =
-      linkedExpense?.payroll_period_id || linkedExpense?.period_id || null;
+    await supabase.from("finance_cash_movements").insert({
+      company_id: companyId || null,
+      business_date: today,
+      movement_type: "Opening Float",
+      source: "Petty Cash",
+      payment_type: "Cash",
+      amount: openingFloatValue,
+      from_person: "",
+      to_person: drawerHolder,
+      encoded_by: currentEmployeeName || drawerHolder,
+      remarks: drawerRemarks.trim() || "Opening drawer float",
+      cash_drawer_id: drawerData.id,
+      liquidation_status: "NOT_REQUIRED",
+    });
 
-    if (linkedExpense) {
-      const expenseRemarks = [
-        String(linkedExpense.remarks || "").trim(),
-        `[VOIDED from Cash Management by ${voidedBy} at ${formatDateTime(voidedAt)}] Reason: ${voidReason}`,
-      ]
-        .filter(Boolean)
-        .join(" ");
+    setIsSaving(false);
+    setShowOpenDrawer(false);
+    setDrawerHolder("");
+    setOpeningFloat("");
+    setDrawerRemarks("");
+    await refreshCashManagement();
+  };
 
-      const { error: expenseVoidError } = await supabase
-        .from("expenses")
-        .update({
-          status: "VOIDED",
-          void_reason: voidReason,
-          voided_by: voidedBy,
-          voided_at: voidedAt,
-          remarks: expenseRemarks,
-        })
-        .eq("id", linkedExpense.id);
-
-      if (expenseVoidError) {
-        console.log("VOID LINKED EXPENSE ERROR:", expenseVoidError.message);
-
-        await createAuditLog({
-          userName: voidedBy,
-          module: "Cash Management",
-          action: "Void Linked Expense Failed",
-          description: `Cash movement was voided, but linked expense failed to void. Error: ${expenseVoidError.message}`,
-          severity: "critical",
-          recordId: movement.id,
-          oldValue: {
-            movement,
-            linkedExpense,
-          },
-          newValue: {
-            voidReason,
-            error: expenseVoidError.message,
-          },
-        });
-
-        alert(
-          "Cash movement was voided, but linked expense failed to void. Check expense columns.",
-        );
-      } else {
-        linkedExpenseVoided = true;
-      }
-
-      if (linkedExpense.employee_balance_id) {
-        const { error: balanceVoidError } = await supabase
-          .from("employee_balances")
-          .update({
-            status: "VOIDED",
-            void_reason: voidReason,
-            voided_by: voidedBy,
-            voided_at: voidedAt,
-          })
-          .eq("id", linkedExpense.employee_balance_id);
-
-        if (balanceVoidError) {
-          console.log(
-            "VOID LINKED EMPLOYEE BALANCE ERROR:",
-            balanceVoidError.message,
-          );
-
-          await createAuditLog({
-            userName: voidedBy,
-            module: "Cash Management",
-            action: "Void Linked Employee Balance Failed",
-            description: `Cash movement was voided, but linked employee balance failed to void. Error: ${balanceVoidError.message}`,
-            severity: "critical",
-            recordId: movement.id,
-            oldValue: {
-              movement,
-              linkedExpense,
-            },
-            newValue: {
-              voidReason,
-              error: balanceVoidError.message,
-            },
-          });
-        } else {
-          linkedBalanceVoided = true;
-        }
-      }
-
-      // Safety fallback for older rows where employee_balance_id was not saved on expenses.
-      const { error: fallbackBalanceError } = await supabase
-        .from("employee_balances")
-        .update({
-          status: "VOIDED",
-          void_reason: voidReason,
-          voided_by: voidedBy,
-          voided_at: voidedAt,
-        })
-        .eq("source_module", "Cash Control")
-        .eq("source_id", id);
-
-      if (!fallbackBalanceError) {
-        fallbackBalancesVoided = true;
-      }
+  const closeDrawer = async () => {
+    if (!activeDrawer) {
+      alert("No active drawer to close.");
+      return;
+    }
+    const actualCashValue = parseAmountValue(actualClosingCash);
+    const remittanceValue = closingRemittanceAmount === "" ? 0 : parseAmountValue(closingRemittanceAmount);
+    if (!Number.isFinite(actualCashValue) || actualCashValue < 0 || !Number.isFinite(remittanceValue) || remittanceValue < 0) {
+      alert("Invalid closing cash/remittance amount.");
+      return;
+    }
+    if (remittanceValue > 0 && !closingRemittanceReceivedBy.trim()) {
+      alert("Enter who received the remittance.");
+      return;
+    }
+    if (remittanceValue > actualCashValue) {
+      alert("Remittance cannot be greater than actual cash counted.");
+      return;
     }
 
-    if (linkedPeriodId) {
+    setIsSaving(true);
+    const companyId = await getCurrentCompanyId();
+
+    if (remittanceValue > 0) {
+      await supabase.from("finance_cash_movements").insert({
+        company_id: companyId || null,
+        business_date: today,
+        movement_type: "Remittance",
+        source: "Drawer Closing Remittance",
+        payment_type: "Cash",
+        amount: remittanceValue,
+        from_person: activeDrawer.holder_name,
+        to_person: closingRemittanceReceivedBy.trim(),
+        encoded_by: currentEmployeeName || activeDrawer.holder_name,
+        remarks: closingRemittanceRemarks.trim() || "Closing remittance",
+        reference_type: "drawer_closing_remittance",
+        reference_id: activeDrawer.id,
+        cash_drawer_id: activeDrawer.id,
+        liquidation_status: "NOT_REQUIRED",
+      });
+    }
+
+    await supabase
+      .from("finance_cash_drawers")
+      .update({
+        status: "CLOSED",
+        actual_cash: actualCashValue,
+        closed_at: new Date().toISOString(),
+        closing_remittance_amount: remittanceValue,
+        closing_remittance_received_by: closingRemittanceReceivedBy.trim(),
+        variance: remittanceValue - cashOnHand,
+        remarks: closingRemittanceRemarks.trim(),
+      })
+      .eq("id", activeDrawer.id);
+
+    setIsSaving(false);
+    setShowCloseDrawer(false);
+    setActualClosingCash("");
+    setClosingRemittanceAmount("");
+    setClosingRemittanceReceivedBy("");
+    setClosingRemittanceRemarks("");
+    await refreshCashManagement();
+  };
+
+  const voidMovement = async (movement: any) => {
+    const reason = prompt("Void this movement? Enter reason:");
+    const voidReason = String(reason || "").trim();
+    if (!voidReason) return;
+
+    await supabase
+      .from("finance_cash_movements")
+      .update({ status: "VOIDED", void_reason: voidReason, voided_at: new Date().toISOString() })
+      .eq("id", movement.id);
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Cash Management",
+      action: "Void Cash Movement",
+      description: `${movement.source} voided. Reason: ${voidReason}`,
+      severity: "critical",
+      recordId: movement.id,
+      oldValue: movement,
+    });
+
+    await refreshCashManagement();
+  };
+
+  const openLiquidation = (movement: any) => {
+    setSelectedLiquidationMovement(movement);
+    const releasedAmount = Math.abs(Number(movement.amount || 0));
+    setLiquidationActualSpent(String(releasedAmount));
+    setLiquidationCashReturned("0");
+    setLiquidationReceiptStatus("WITH_RECEIPT");
+    setLiquidationReceiptCount("1");
+    setLiquidationNoReceiptReason("");
+    setLiquidationNoReceiptExplanation("");
+    setLiquidationRemarks("");
+    setShowLiquidationModal(true);
+  };
+
+  const handleLiquidationActualSpentChange = (value: string) => {
+    setLiquidationActualSpent(value);
+
+    if (!selectedLiquidationMovement) return;
+
+    const releasedAmount = Math.abs(Number(selectedLiquidationMovement.amount || 0));
+    const actualSpent = Number(value || 0);
+
+    if (Number.isFinite(actualSpent)) {
+      setLiquidationCashReturned(String(Math.max(releasedAmount - actualSpent, 0)));
+    }
+  };
+
+  const buildLiquidationAuditText = () => {
+    const receiptText =
+      liquidationReceiptStatus === "WITH_RECEIPT"
+        ? `[Liquidation Receipt: WITH_RECEIPT] [Receipt Count: ${liquidationReceiptCount || "0"}]`
+        : [
+            "[Liquidation Receipt: WITHOUT_RECEIPT]",
+            `[Receipt Count: ${liquidationReceiptCount || "0"}]`,
+            `[No Receipt Reason: ${liquidationNoReceiptReason || "Not Provided"}]`,
+            liquidationNoReceiptExplanation.trim()
+              ? `[No Receipt Explanation: ${liquidationNoReceiptExplanation.trim()}]`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+    return [liquidationRemarks.trim(), receiptText].filter(Boolean).join(" ");
+  };
+
+  const submitLiquidation = async () => {
+    if (!selectedLiquidationMovement) return;
+
+    const releasedAmount = Math.abs(Number(selectedLiquidationMovement.amount || 0));
+    const actualSpent = parseAmountValue(liquidationActualSpent);
+    const cashReturned = parseAmountValue(liquidationCashReturned || 0);
+    const receiptCount = Number(liquidationReceiptCount || 0);
+    const finalLiquidationRemarks = buildLiquidationAuditText();
+
+    if (!Number.isFinite(actualSpent) || actualSpent < 0 || !Number.isFinite(cashReturned) || cashReturned < 0) {
+      alert("Actual spent and cash returned must be valid non-negative amounts.");
+      return;
+    }
+
+    if (!Number.isFinite(receiptCount) || receiptCount < 0) {
+      alert("Receipt count must be zero or greater.");
+      return;
+    }
+
+    if (liquidationReceiptStatus === "WITHOUT_RECEIPT" && !liquidationNoReceiptReason.trim()) {
+      alert("Please select no-receipt reason or switch receipt status to With Receipt.");
+      return;
+    }
+
+    if (Math.abs(actualSpent + cashReturned - releasedAmount) > 0.009) {
+      alert("Liquidation must balance: Actual Spent + Cash Returned must equal Released Amount.");
+      return;
+    }
+
+    setIsSaving(true);
+    const companyId = await getCurrentCompanyId();
+    const liquidatedAt = new Date().toISOString();
+    const liquidatedBy = currentEmployeeName || "OPSCORE USER";
+
+    const { error: movementUpdateError } = await supabase
+      .from("finance_cash_movements")
+      .update({
+        liquidation_status: "LIQUIDATED",
+        actual_spent_amount: actualSpent,
+        returned_cash_amount: cashReturned,
+        net_expense_amount: actualSpent,
+        liquidated_at: liquidatedAt,
+        liquidated_by: liquidatedBy,
+        liquidation_remarks: finalLiquidationRemarks,
+        receipt_count: receiptCount,
+      })
+      .eq("id", selectedLiquidationMovement.id);
+
+    if (movementUpdateError) {
+      setIsSaving(false);
+      alert(`Failed to liquidate movement. ${movementUpdateError.message}`);
+      return;
+    }
+
+    const linkedExpenseId = selectedLiquidationMovement.reference_id;
+    if (linkedExpenseId) {
       await supabase
-        .from("payroll_periods")
-        .update({ needs_regeneration: true })
-        .eq("id", linkedPeriodId);
+        .from("expenses")
+        .update({
+          actual_spent_amount: actualSpent,
+          returned_cash_amount: cashReturned,
+          net_expense_amount: actualSpent,
+          liquidation_status: "LIQUIDATED",
+          liquidated_at: liquidatedAt,
+          liquidated_by: liquidatedBy,
+          liquidation_remarks: finalLiquidationRemarks,
+          receipt_count: receiptCount,
+        })
+        .eq("id", linkedExpenseId);
+    } else {
+      await supabase
+        .from("expenses")
+        .update({
+          actual_spent_amount: actualSpent,
+          returned_cash_amount: cashReturned,
+          net_expense_amount: actualSpent,
+          liquidation_status: "LIQUIDATED",
+          liquidated_at: liquidatedAt,
+          liquidated_by: liquidatedBy,
+          liquidation_remarks: finalLiquidationRemarks,
+          receipt_count: receiptCount,
+        })
+        .eq("cash_movement_id", selectedLiquidationMovement.id);
+    }
+
+    if (cashReturned > 0) {
+      const duplicateReturn = movements.some(
+        (item) =>
+          !isVoidedMovement(item) &&
+          item.reference_type === "expense_liquidation_return" &&
+          String(item.reference_id || "") === String(selectedLiquidationMovement.id || ""),
+      );
+
+      if (!duplicateReturn) {
+        await supabase.from("finance_cash_movements").insert({
+          company_id: companyId || null,
+          business_date: today,
+          movement_type: "Cash In",
+          source: "Expense Return",
+          payment_type: selectedLiquidationMovement.payment_type || "Cash",
+          amount: cashReturned,
+          from_person: selectedLiquidationMovement.to_person || "Requestor",
+          to_person: activeDrawer?.holder_name || selectedLiquidationMovement.from_person || liquidatedBy,
+          encoded_by: liquidatedBy,
+          remarks: `Auto cash return from liquidation of ${selectedLiquidationMovement.source}. ${finalLiquidationRemarks}`.trim(),
+          reference_type: "expense_liquidation_return",
+          reference_id: selectedLiquidationMovement.id,
+          cash_drawer_id: activeDrawer?.id || selectedLiquidationMovement.cash_drawer_id || null,
+          liquidation_status: "NOT_REQUIRED",
+        });
+      }
     }
 
     await createAuditLog({
-      userName: voidedBy,
+      userName: liquidatedBy,
       module: "Cash Management",
-      action: "Void Cash Movement",
-      description: linkedExpense
-        ? `Voided cash movement and linked expense: ${movement.source} - ${formatMoney(movement.amount)}. Reason: ${voidReason}`
-        : `Voided cash movement: ${movement.source} - ${formatMoney(movement.amount)}. Reason: ${voidReason}`,
-      severity: "critical",
-      recordId: movement.id,
-      oldValue: {
-        movement,
-        linkedExpense,
-      },
+      action: "Cash Release Liquidated",
+      description: `${selectedLiquidationMovement.source} liquidated. Released ${formatMoney(releasedAmount)}, spent ${formatMoney(actualSpent)}, returned ${formatMoney(cashReturned)}.`,
+      severity: cashReturned > 0 ? "warning" : "info",
+      recordId: selectedLiquidationMovement.id,
+      oldValue: selectedLiquidationMovement,
       newValue: {
-        status: "VOIDED",
-        voidReason,
-        voidedBy,
-        voidedAt,
-        linkedExpenseVoided,
-        linkedBalanceVoided,
-        fallbackBalancesVoided,
+        actualSpent,
+        cashReturned,
+        receiptStatus: liquidationReceiptStatus,
+        receiptCount,
+        liquidationRemarks: finalLiquidationRemarks,
       },
     });
 
     setIsSaving(false);
-    await getCashMovements();
-    await getDrawers();
-    await getPayrollPeriods();
-
-    alert(
-      linkedExpense
-        ? "Cash movement was voided. Linked expense/balance were marked voided when available."
-        : "Cash movement was voided.",
-    );
+    setShowLiquidationModal(false);
+    setSelectedLiquidationMovement(null);
+    await refreshCashManagement();
+    alert("Liquidation saved. Returned cash was posted to Cash In if applicable.");
   };
 
-  /// EFFECTS
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const saveCashSource = async () => {
+    const cleanName = sourceName.trim();
 
-    const loadCurrentSession = async () => {
-      const storedCurrentUser = localStorage.getItem("opscore_current_user");
-      const parsedCurrentUser = storedCurrentUser
-        ? JSON.parse(storedCurrentUser)
-        : null;
-
-      const systemUserId =
-        localStorage.getItem("opscore_current_system_user_id") ||
-        parsedCurrentUser?.system_user_id ||
-        parsedCurrentUser?.id ||
-        "";
-
-      const employeeId =
-        localStorage.getItem("opscore_current_employee_id") ||
-        parsedCurrentUser?.employee_id ||
-        "";
-
-      const companyId =
-        localStorage.getItem("opscore_current_company_id") ||
-        parsedCurrentUser?.company_id ||
-        "";
-
-      const fallbackName =
-        localStorage.getItem("opscore_current_employee_name") ||
-        parsedCurrentUser?.name ||
-        parsedCurrentUser?.username ||
-        "OPSCORE USER";
-
-      setCurrentSystemUserId(systemUserId);
-      setCurrentEmployeeId(employeeId);
-      setCurrentEmployeeName(fallbackName);
-      setCurrentCompanyId(companyId);
-
-      if (!systemUserId) return;
-
-      const { data: companyUser, error: companyUserError } = await supabase
-        .from("company_users")
-        .select("id, company_id, role_id, is_active")
-        .eq("user_id", systemUserId)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (companyUserError) {
-        console.log("CASH MANAGEMENT SESSION COMPANY USER ERROR:", companyUserError.message);
-      }
-
-      const activeCompanyId = String(companyUser?.company_id || companyId || "").trim();
-      const activeRoleId = String(companyUser?.role_id || localStorage.getItem("opscore_current_role_id") || "").trim();
-
-      if (activeCompanyId) {
-        setCurrentCompanyId(activeCompanyId);
-        localStorage.setItem("opscore_current_company_id", activeCompanyId);
-      }
-
-      if (activeRoleId) {
-        localStorage.setItem("opscore_current_role_id", activeRoleId);
-
-        const { data: roleData, error: roleError } = await supabase
-          .from("system_roles")
-          .select("role_name")
-          .eq("id", activeRoleId)
-          .maybeSingle();
-
-        if (roleError) {
-          console.log("CASH MANAGEMENT SESSION ROLE ERROR:", roleError.message);
-        }
-
-        const roleName = String(roleData?.role_name || "").trim();
-
-        if (roleName) {
-          setCurrentRoleName(roleName);
-          localStorage.setItem("opscore_current_role_name", roleName);
-        }
-      }
-    };
-
-    loadCurrentSession();
-  }, []);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("opscore_authorized_drawer_holders");
-      const parsed = stored ? JSON.parse(stored) : [];
-
-      setAuthorizedDrawerHolders(Array.isArray(parsed) ? parsed : []);
-    } catch (error) {
-      console.log("DRAWER HOLDER SETTINGS LOAD ERROR:", error);
-      setAuthorizedDrawerHolders([]);
-    } finally {
-      setDrawerHolderSettingsLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!drawerHolderSettingsLoaded) return;
-
-    localStorage.setItem(
-      "opscore_authorized_drawer_holders",
-      JSON.stringify(authorizedDrawerHolders),
-    );
-  }, [authorizedDrawerHolders, drawerHolderSettingsLoaded]);
-
-  useEffect(() => {
-    if (drawerHolder && !authorizedDrawerHolders.includes(drawerHolder)) {
-      setDrawerHolder("");
-    }
-  }, [authorizedDrawerHolders, drawerHolder]);
-
-  useEffect(() => {
-    if (!showOpenDrawer) return;
-    if (canManageDrawerForOthers) return;
-    if (!currentDrawerHolderName) return;
-    if (!authorizedDrawerHolders.includes(currentDrawerHolderName)) return;
-
-    setDrawerHolder(currentDrawerHolderName);
-  }, [
-    showOpenDrawer,
-    canManageDrawerForOthers,
-    currentDrawerHolderName,
-    authorizedDrawerHolders,
-  ]);
-
-  useEffect(() => {
-    if (canManageDrawerForOthers) return;
-    if (!drawerHolder || !currentDrawerHolderName) return;
-
-    if (drawerHolder !== currentDrawerHolderName) {
-      setDrawerHolder(currentDrawerHolderName);
-    }
-  }, [canManageDrawerForOthers, drawerHolder, currentDrawerHolderName]);
-
-  useEffect(() => {
-    const currentDate = getToday();
-
-    setBusinessDate(currentDate);
-    setDateFilter(currentDate);
-    setHistoryDateFilter(currentDate);
-
-    getCashMovements();
-    getDrawers();
-    getEmployees();
-    getPayrollPeriods();
-    getExpenseCategories();
-    getCashSources();
-    getApprovalRequests();
-  }, []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("cash-management-live-refresh")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "finance_cash_movements" },
-        () => refreshCashManagement(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "finance_cash_drawers" },
-        () => refreshCashManagement(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "approval_requests" },
-        () => refreshCashManagement(),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      refreshCashManagement();
-    }, 3000);
-
-    const handleVisibilityRefresh = () => {
-      if (document.visibilityState === "visible") {
-        refreshCashManagement();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityRefresh);
-
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (availableSourceOptions.length === 0) {
-      if (source) setSource("");
+    if (!cleanName) {
+      alert("Enter source name.");
       return;
     }
 
-    if (!availableSourceOptions.includes(source)) {
-      setSource(availableSourceOptions[0]);
-    }
-  }, [availableSourceOptions, source]);
+    const payload = {
+      name: cleanName,
+      movement_type: sourceMovementType,
+      category: sourceCategory.trim() || "Revenue",
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
 
-  /// UI
-  const inputClass =
-    "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100";
-  const selectClass = inputClass;
-  const labelClass =
-    "text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500";
+    const existingSource = cashSources.find(
+      (item) =>
+        String(item.name || item.source_name || "")
+          .trim()
+          .toLowerCase() === cleanName.toLowerCase(),
+    );
 
-  const opscoreAlertCount = cashWatchAlerts.length;
-  const opscoreHasCritical = cashHealthScore < 70;
-  const opscoreHasWarning = cashHealthScore < 85 || opscoreAlertCount > 0;
+    const { error } = existingSource?.id
+      ? await supabase
+          .from("finance_cash_sources")
+          .update(payload)
+          .eq("id", existingSource.id)
+      : await supabase.from("finance_cash_sources").insert(payload);
 
-  const signedAmount = (item: any) => {
-    const value = Math.abs(Number(item.amount || 0));
-
-    if (
-      item.movement_type === "Cash Out" ||
-      item.movement_type === "Remittance" ||
-      item.source === "Expense Release" ||
-      item.source === "Cash Advance" ||
-      item.source === "Owner Withdrawal" ||
-      item.source === "Bank Deposit" ||
-      (item.movement_type === "Adjustment" && Number(item.amount || 0) < 0)
-    ) {
-      return -value;
+    if (error) {
+      alert(`Failed to save source. ${error.message}`);
+      return;
     }
 
-    return value;
+    setSourceName("");
+    setSourceMovementType("Cash In");
+    setSourceCategory("Revenue");
+    await getCashSources();
+  };
+
+  const toggleSourceActive = async (item: any) => {
+    await supabase.from("finance_cash_sources").update({ is_active: item.is_active === false }).eq("id", item.id);
+    await getCashSources();
+  };
+
+  const expenseCategoryOptions =
+    expenseCategories.length > 0
+      ? expenseCategories.map((item) => item.name || item.category_name || item.label).filter(Boolean)
+      : fallbackExpenseCategories;
+
+  const selectedExpenseCategoryRecord = expenseCategories.find(
+    (item) => String(item.name || item.category_name || item.label || "") === String(expenseCategory || ""),
+  );
+
+  const expenseSubcategoryOptions =
+    expenseSubcategories
+      .filter((item) => {
+        if (!expenseCategory) return false;
+        if (item.category_id && selectedExpenseCategoryRecord?.id) return String(item.category_id) === String(selectedExpenseCategoryRecord.id);
+        return String(item.category || "") === String(expenseCategory || "");
+      })
+      .map((item) => item.name || item.subcategory_name || item.label)
+      .filter(Boolean).length > 0
+      ? expenseSubcategories
+          .filter((item) => {
+            if (!expenseCategory) return false;
+            if (item.category_id && selectedExpenseCategoryRecord?.id) return String(item.category_id) === String(selectedExpenseCategoryRecord.id);
+            return String(item.category || "") === String(expenseCategory || "");
+          })
+          .map((item) => item.name || item.subcategory_name || item.label)
+          .filter(Boolean)
+      : fallbackSubcategories[expenseCategory] || [];
+
+
+
+  const getDrawerMovements = (drawer: any) => {
+    return movements
+      .filter(
+        (item) =>
+          String(item.cash_drawer_id || "") === String(drawer?.id || "") &&
+          !isVoidedMovement(item),
+      )
+      .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
+  };
+
+  const getDrawerCashSummary = (drawer: any) => {
+    const rows = getDrawerMovements(drawer);
+    const cashRows = rows.filter((item) => String(item.payment_type || "Cash") === "Cash");
+
+    const openingFloatTotal = cashRows
+      .filter((item) => item.movement_type === "Opening Float")
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const cashSalesTotal = cashRows
+      .filter((item) => item.movement_type === "Cash In" && String(item.source || "") !== "Expense Return")
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const cashReturnTotal = cashRows
+      .filter((item) => item.movement_type === "Cash In" && String(item.source || "") === "Expense Return")
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const cashExpenseTotal = cashRows
+      .filter((item) => item.movement_type === "Cash Out")
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const remittanceTotalValue = cashRows
+      .filter((item) => item.movement_type === "Remittance")
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const actualCash = Number(drawer?.actual_cash || 0);
+    const expectedCashBeforeRemittance = openingFloatTotal + cashSalesTotal + cashReturnTotal - cashExpenseTotal;
+    const remainingCash = Math.max(actualCash - remittanceTotalValue, 0);
+    const variance = actualCash - expectedCashBeforeRemittance;
+
+    const salesBySource = (sourceName: string) =>
+      rows
+        .filter(
+          (item) =>
+            item.movement_type === "Cash In" &&
+            String(item.source || "").toLowerCase().includes(sourceName.toLowerCase()),
+        )
+        .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const collectionsByPayment = (paymentName: string) =>
+      rows
+        .filter(
+          (item) =>
+            item.movement_type === "Cash In" &&
+            String(item.source || "") !== "Expense Return" &&
+            String(item.payment_type || "Cash") === paymentName,
+        )
+        .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const expenseBySource = (sourceName: string) =>
+      rows
+        .filter(
+          (item) =>
+            item.movement_type === "Cash Out" &&
+            String(item.source || "").toLowerCase().includes(sourceName.toLowerCase()),
+        )
+        .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const roomSales = salesBySource("Room");
+    const restaurantSales = salesBySource("Restaurant");
+    const apartmentCollection = salesBySource("Apartment");
+    const otherSales = rows
+      .filter(
+        (item) =>
+          item.movement_type === "Cash In" &&
+          String(item.source || "") !== "Expense Return" &&
+          !String(item.source || "").toLowerCase().includes("room") &&
+          !String(item.source || "").toLowerCase().includes("restaurant") &&
+          !String(item.source || "").toLowerCase().includes("apartment"),
+      )
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const expenseRelease = expenseBySource("Expense Release");
+    const cashAdvance = expenseBySource("Cash Advance");
+    const ownerWithdrawal = expenseBySource("Owner Withdrawal");
+    const bankDeposit = expenseBySource("Bank Deposit");
+    const otherExpenses = rows
+      .filter(
+        (item) =>
+          item.movement_type === "Cash Out" &&
+          !String(item.source || "").toLowerCase().includes("expense release") &&
+          !String(item.source || "").toLowerCase().includes("cash advance") &&
+          !String(item.source || "").toLowerCase().includes("owner withdrawal") &&
+          !String(item.source || "").toLowerCase().includes("bank deposit"),
+      )
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    return {
+      rows,
+      openingFloatTotal,
+      cashSalesTotal,
+      cashReturnTotal,
+      cashExpenseTotal,
+      expectedCashBeforeRemittance,
+      actualCash,
+      remittanceTotalValue,
+      remainingCash,
+      variance,
+      cashCollections: collectionsByPayment("Cash"),
+      gcashCollections: collectionsByPayment("GCash"),
+      bankCollections: collectionsByPayment("Bank"),
+      terminalCollections: collectionsByPayment("Terminal"),
+      roomSales,
+      restaurantSales,
+      apartmentCollection,
+      otherSales,
+      expenseRelease,
+      cashAdvance,
+      ownerWithdrawal,
+      bankDeposit,
+      otherExpenses,
+    };
+  };
+
+  const printDrawerReport = (drawer: any) => {
+    const summary = getDrawerCashSummary(drawer);
+    const reportStatus = String(drawer?.status || "").toUpperCase() || "OPEN";
+    const isBalanced = Math.abs(Number(summary.variance || 0)) < 0.01;
+    const generatedAt = new Date().toLocaleString("en-PH", { hour12: false });
+    const openedAt = drawer?.opened_at ? new Date(drawer.opened_at).toLocaleString("en-PH", { hour12: false }) : "-";
+    const closedAt = drawer?.closed_at ? new Date(drawer.closed_at).toLocaleString("en-PH", { hour12: false }) : "-";
+    const businessDateValue = drawer?.business_date || drawer?.created_at?.slice?.(0, 10) || today;
+    const receivedBy = drawer?.closing_remittance_received_by || drawer?.received_by || "-";
+    const managementRemarks = drawer?.remarks || drawer?.closing_remarks || "-";
+    const totalCollections = summary.cashCollections + summary.gcashCollections + summary.bankCollections + summary.terminalCollections;
+    const totalSales = summary.roomSales + summary.restaurantSales + summary.apartmentCollection + summary.otherSales;
+    const totalExpenses = summary.expenseRelease + summary.cashAdvance + summary.ownerWithdrawal + summary.bankDeposit + summary.otherExpenses;
+
+    const rowsHtml = summary.rows
+      .map(
+        (item, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${item.business_date || "-"}</td>
+            <td>${item.movement_type || "-"}</td>
+            <td>${item.source || "-"}</td>
+            <td>${item.payment_type || "Cash"}</td>
+            <td>${item.from_person || "-"}</td>
+            <td>${item.to_person || "-"}</td>
+            <td>${item.encoded_by || "-"}</td>
+            <td class="money">${formatMoney(item.amount)}</td>
+            <td>${item.remarks || "-"}</td>
+          </tr>`,
+      )
+      .join("");
+
+    const reportHtml = `
+      <!doctype html>
+      <html>
+        <head>
+          <title>Daily Cash Control Report</title>
+          <style>
+            @page { size: A4; margin: 9mm; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; background: #ffffff; }
+            body {
+              font-family: Arial, Helvetica, sans-serif;
+              color: #111827;
+              font-size: 10px;
+              line-height: 1.2;
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
+            }
+            .page {
+              width: 100%;
+              min-height: 270mm;
+              page-break-after: always;
+              break-after: page;
+              overflow: hidden;
+            }
+            .page:last-child { page-break-after: auto; break-after: auto; }
+            .top {
+              display: grid;
+              grid-template-columns: 1fr 1.35fr;
+              gap: 22px;
+              align-items: start;
+              border-bottom: 4px solid #111827;
+              padding-bottom: 9px;
+            }
+            .brand { font-size: 27px; line-height: 0.95; font-weight: 900; letter-spacing: -0.8px; }
+            .sub { margin-top: 7px; font-size: 8.5px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
+            .generated { margin-top: 6px; font-size: 9px; color: #475569; }
+            h1 { margin: 0; font-size: 26px; line-height: 0.94; font-weight: 900; letter-spacing: 0.7px; text-transform: uppercase; }
+            .meta { margin-top: 6px; font-size: 10px; color: #475569; font-weight: 700; line-height: 1.35; }
+            .balanced { margin-top: 3px; font-size: 11px; color: ${isBalanced ? "#047857" : "#b91c1c"}; font-weight: 900; }
+            .info-grid { margin-top: 13px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+            .info { border-left: 5px solid #d4af37; background: #f8fafc; padding: 8px 10px; min-height: 48px; overflow: hidden; }
+            .label { font-size: 7.5px; font-weight: 900; letter-spacing: 2.4px; color: #64748b; text-transform: uppercase; white-space: nowrap; }
+            .value { margin-top: 5px; font-size: 11.5px; line-height: 1.15; font-weight: 900; color: #0f172a; word-break: break-word; }
+            .grid { margin-top: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 11px; align-items: start; }
+            .box { border: 1px solid #cbd5e1; padding: 9px 10px; min-height: 108px; overflow: hidden; }
+            .box h2 { margin: 0 0 6px; padding-bottom: 5px; border-bottom: 3px solid #111827; font-size: 11px; line-height: 1; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; white-space: nowrap; }
+            .line { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid #cbd5e1; padding: 3.8px 0; font-size: 10.2px; line-height: 1.15; }
+            .line span { min-width: 0; }
+            .line strong { font-weight: 900; white-space: nowrap; }
+            .negative { color: #b91c1c; }
+            .total { border-top: 2px solid #111827; font-weight: 900; }
+            .note { margin-top: 10px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; padding: 7px 9px; font-size: 8.8px; line-height: 1.35; }
+            .remarks { margin-top: 9px; border: 1px solid #e2e8f0; background: #f8fafc; padding: 8px 10px; min-height: 38px; font-size: 9.5px; line-height: 1.25; }
+            .remarks h3 { margin: 0 0 6px; font-size: 8.5px; line-height: 1; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
+            .signatures { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: center; }
+            .sig { border-top: 2px solid #111827; padding-top: 5px; font-size: 9px; line-height: 1.1; }
+            .sig strong { display: block; font-size: 10px; line-height: 1.1; font-weight: 900; }
+            .footer { margin-top: 24px; display: flex; justify-content: space-between; font-size: 8.5px; color: #64748b; }
+            .page2 .top { grid-template-columns: 1fr 1.15fr; }
+            .page2 .brand { font-size: 25px; line-height: 1; white-space: nowrap; }
+            .page2 h1 { font-size: 29px; line-height: 0.92; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 13px; font-size: 7.2px; line-height: 1.12; }
+            th { text-align: left; color: #94a3b8; font-size: 6.5px; line-height: 1; letter-spacing: 1.5px; text-transform: uppercase; padding: 5px 3px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom; }
+            td { vertical-align: top; padding: 5px 3px; border-bottom: 1px solid #e2e8f0; font-weight: 700; word-break: break-word; overflow-wrap: anywhere; }
+            td.money { text-align: right; font-weight: 900; white-space: nowrap; word-break: normal; }
+            .w-num { width: 3.5%; } .w-date { width: 8%; } .w-type { width: 8%; } .w-source { width: 11%; } .w-payment { width: 8%; } .w-person { width: 10%; } .w-amount { width: 9%; } .w-remarks { width: 23.5%; }
+            @media print { .no-print { display: none; } body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>
+          <section class="page">
+            <div class="top">
+              <div>
+                <div class="brand">Vincent Resort<br/>Hotel</div>
+                <div class="sub">OPERATIONS FINANCE CONTROL</div>
+                <div class="generated">Generated: ${generatedAt}</div>
+              </div>
+              <div>
+                <h1>DAILY CASH DRAWER REPORT</h1>
+                <div class="meta">Business Date: ${businessDateValue}<br/>Report Status: ${reportStatus}</div>
+                <div class="balanced">${isBalanced ? "BALANCED" : "VARIANCE"}</div>
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <div class="info"><div class="label">Drawer Holder</div><div class="value">${drawer?.holder_name || "-"}</div></div>
+              <div class="info"><div class="label">Opened</div><div class="value">${openedAt}</div></div>
+              <div class="info"><div class="label">Closed</div><div class="value">${closedAt}</div></div>
+              <div class="info"><div class="label">Received By</div><div class="value">${receivedBy}</div></div>
+            </div>
+
+            <div class="grid">
+              <div class="box">
+                <h2>CASH RECONCILIATION</h2>
+                <div class="line"><span>Opening Float</span><strong>${formatMoney(summary.openingFloatTotal)}</strong></div>
+                <div class="line"><span>Add: Cash Sales</span><strong>${formatMoney(summary.cashSalesTotal)}</strong></div>
+                <div class="line"><span>Add: Expense Returns</span><strong>${formatMoney(summary.cashReturnTotal)}</strong></div>
+                <div class="line"><span>Less: Cash Expenses / Releases</span><strong class="negative">(${formatMoney(summary.cashExpenseTotal)})</strong></div>
+                <div class="line total"><span>Expected Cash</span><strong>${formatMoney(summary.expectedCashBeforeRemittance)}</strong></div>
+                <div class="line"><span>Actual Cash Counted</span><strong>${formatMoney(summary.actualCash)}</strong></div>
+                <div class="line"><span>Remitted</span><strong>${formatMoney(summary.remittanceTotalValue)}</strong></div>
+                <div class="line"><span>Remaining Cash</span><strong>${formatMoney(summary.remainingCash)}</strong></div>
+                <div class="line total"><span>${isBalanced ? "BALANCED" : "VARIANCE"}</span><strong>${formatMoney(summary.variance)}</strong></div>
+              </div>
+
+              <div>
+                <div class="box">
+                  <h2>COLLECTION SUMMARY</h2>
+                  <div class="line"><span>Cash Sales</span><strong>${formatMoney(summary.cashCollections)}</strong></div>
+                  <div class="line"><span>GCash Sales</span><strong>${formatMoney(summary.gcashCollections)}</strong></div>
+                  <div class="line"><span>Bank Transfer</span><strong>${formatMoney(summary.bankCollections)}</strong></div>
+                  <div class="line"><span>Terminal / Card</span><strong>${formatMoney(summary.terminalCollections)}</strong></div>
+                  <div class="line total"><span>Total Collections</span><strong>${formatMoney(totalCollections)}</strong></div>
+                </div>
+                <div class="box" style="margin-top:14px; min-height:105px;">
+                  <h2>REMITTANCE SUMMARY</h2>
+                  <div class="line"><span>Remitted Amount</span><strong>${formatMoney(summary.remittanceTotalValue)}</strong></div>
+                  <div class="line"><span>Received By</span><strong>${receivedBy}</strong></div>
+                  <div class="line total"><span>Remaining Cash</span><strong>${formatMoney(summary.remainingCash)}</strong></div>
+                </div>
+              </div>
+
+              <div class="box">
+                <h2>SALES SUMMARY</h2>
+                <div class="line"><span>Room Sales</span><strong>${formatMoney(summary.roomSales)}</strong></div>
+                <div class="line"><span>Restaurant Sales</span><strong>${formatMoney(summary.restaurantSales)}</strong></div>
+                <div class="line"><span>Apartment Collection</span><strong>${formatMoney(summary.apartmentCollection)}</strong></div>
+                <div class="line"><span>Other Sales</span><strong>${formatMoney(summary.otherSales)}</strong></div>
+                <div class="line total"><span>Total Sales</span><strong>${formatMoney(totalSales)}</strong></div>
+              </div>
+
+              <div class="box">
+                <h2>EXPENSE SUMMARY</h2>
+                <div class="line"><span>Manual Cash Expenses</span><strong>${formatMoney(summary.otherExpenses)}</strong></div>
+                <div class="line"><span>Expense Releases</span><strong>${formatMoney(summary.expenseRelease)}</strong></div>
+                <div class="line"><span>Cash Advances</span><strong>${formatMoney(summary.cashAdvance)}</strong></div>
+                <div class="line"><span>Owner Withdrawal</span><strong>${formatMoney(summary.ownerWithdrawal)}</strong></div>
+                <div class="line"><span>Bank Deposit</span><strong>${formatMoney(summary.bankDeposit)}</strong></div>
+                <div class="line"><span>Other Expenses</span><strong>${formatMoney(summary.otherExpenses)}</strong></div>
+                <div class="line total"><span>Total Expenses</span><strong>${formatMoney(totalExpenses)}</strong></div>
+              </div>
+            </div>
+
+            <div class="note">Cash drawer rule: only physical cash movements are included in Expected Cash. Full remittance is required. Variance is based on Expected Cash minus actual cash counted. Bank, GCash, and Terminal collections are shown for reference only.</div>
+            <div class="remarks"><h3>MANAGEMENT REMARKS</h3><div>${managementRemarks}</div></div>
+            <div class="signatures">
+              <div class="sig"><strong>${drawer?.holder_name || "Cashier"}</strong>Prepared By / Cashier</div>
+              <div class="sig"><strong>${receivedBy}</strong>Received By</div>
+              <div class="sig"><strong>Management</strong>Checked / Approved By</div>
+            </div>
+            <div class="footer"><span>OpsCore Executive Finance Report</span><span>Page 1 - Executive Summary</span></div>
+          </section>
+
+          <section class="page page2">
+            <div class="top">
+              <div>
+                <div class="brand" style="font-size:28px;">Vincent Resort Hotel</div>
+                <div class="sub">CASHIER SHIFT TRANSACTION DETAILS</div>
+              </div>
+              <div>
+                <h1>TRANSACTION REPORT</h1>
+                <div class="meta">Business Date: ${businessDateValue}</div>
+              </div>
+            </div>
+            <table>
+              <colgroup>
+                <col class="w-num" />
+                <col class="w-date" />
+                <col class="w-type" />
+                <col class="w-source" />
+                <col class="w-payment" />
+                <col class="w-person" />
+                <col class="w-person" />
+                <col class="w-person" />
+                <col class="w-amount" />
+                <col class="w-remarks" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>#</th><th>Date</th><th>Type</th><th>Source</th><th>Payment</th><th>From</th><th>Received By</th><th>Encoded By</th><th>Amount</th><th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml || `<tr><td colspan="10">No transactions found.</td></tr>`}</tbody>
+            </table>
+            <div class="footer"><span>OpsCore Executive Finance Report</span><span>Page 2 - Transaction Details</span></div>
+          </section>
+          <script>window.onload = function(){ window.print(); };</script>
+        </body>
+      </html>`;
+
+    const printWindow = window.open("", "_blank", "width=1100,height=900");
+    if (!printWindow) {
+      alert("Allow pop-ups to reprint drawer report.");
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(reportHtml);
+    printWindow.document.close();
   };
 
   return (
     <PageGuard moduleKey="cash_management">
-      <div className="flex min-h-screen bg-slate-50 text-slate-900">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
         <Sidebar />
+        <TopNavbar breadcrumb="FINANCE / CASH MANAGEMENT" />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden bg-slate-50">
-          <TopNavbar breadcrumb="FINANCE / CASH MANAGEMENT" />
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">FINANCE</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Cash Management</h1>
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                Manage drawers, cash movements, expense releases, liquidation returns, and dynamic cash sources.
+              </p>
+            </div>
 
-          <datalist id="employee-name-list">
-            {allEmployeeNames.map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
-
-          <div className="px-4 pb-8 pt-20 sm:px-6 lg:px-7">
-            {/* PAGE HEADER */}
-            <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-                  Finance
-                </p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                  Cash Management
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
-                  Manage cash drawers, remittances, cash releases, and fund balances.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
-                <div
-                  className={`mr-1 rounded-2xl border px-4 py-2 ${
-                    activeDrawer
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-slate-200 bg-white text-slate-600"
-                  }`}
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em]">
-                    {activeDrawer ? "Drawer Open" : "Drawer Closed"}
-                  </p>
-                  <p className="mt-0.5 text-sm font-black text-slate-950">
-                    {activeDrawer?.holder_name || "No active holder"}
-                  </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {activeDrawer && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em]">Drawer Open</p>
+                  <p className="text-sm font-black">{activeDrawer.holder_name}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowOpenDrawer(true)}
-                  disabled={Boolean(activeDrawer)}
-                  className="h-11 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  Open Drawer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCloseDrawer(true)}
-                  disabled={!activeDrawer}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Close Drawer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowDrawerHolderSettings(true)}
-                  aria-label="Drawer settings"
-                  title="Drawer settings"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-                >
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-.4-1.1 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.1-.4 1.65 1.65 0 0 0 .6-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 .4 1.1 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.3.2.6.4 1 .6.3.1.7.1 1.1.1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.1.4c-.2.2-.4.5-.6.9Z" />
-                  </svg>
-                </button>
-              </div>
-            </section>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowOpenDrawer(true)}
+                disabled={Boolean(activeDrawer)}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Open Drawer
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCloseDrawer(true)}
+                disabled={!activeDrawer}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Close Drawer
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSourceSettings(true)}
+                className="h-10 w-10 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                title="Cash Source Settings"
+              >
+                <Settings className="mx-auto" size={18} />
+              </button>
+            </div>
+          </section>
 
-            {/* KPI CARDS */}
-            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-              <EnterpriseMetric
-                label="Cash On Hand"
-                value={formatMoney(cashOnHand)}
-                caption={activeDrawer ? "Active physical cash balance" : "No active drawer"}
-              />
-              <EnterpriseMetric
-                label="Online Banking"
-                value={formatMoney(onlineBankingTotal)}
-                caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`}
-              />
-              <EnterpriseMetric
-                label="Pending Approvals"
-                value={pendingCashApprovalCount}
-                caption="Money-out requests"
-                tone={pendingCashApprovalCount > 0 ? "warning" : "default"}
-              />
-              <EnterpriseMetric
-                label="Receipt Compliance"
-                value={`${receiptComplianceRate}%`}
-                caption={`${withReceiptCount} with · ${withoutReceiptCount} without`}
-                tone={receiptComplianceTone}
-              />
-              <EnterpriseMetric
-                label="Today's Movements"
-                value={todaysMovementCount}
-                caption="Active cash ledger records"
-              />
-            </section>
+          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <KpiCard label="Cash on Hand" value={formatMoney(cashOnHand)} caption="Active physical cash balance" />
+            <KpiCard label="Online Banking" value={formatMoney(onlineBankingTotal)} caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`} />
+            <KpiCard label="Pending Approvals" value={pendingCashApprovalCount} caption="Money-out requests" />
+            <KpiCard label="For Liquidation" value={formatMoney(pendingLiquidationAmount)} caption={`${pendingLiquidations.length} cash release(s)`} tone={pendingLiquidations.length > 0 ? "warning" : "success"} />
+            <KpiCard label="Today's Movements" value={todaysMovementCount} caption="Active cash ledger records" />
+          </section>
 
-            {/* FORM + DRAWER SUMMARY */}
-            <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
-                <div className="mb-5 flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          {pendingLiquidations.length > 0 && (
+            <section className="mb-5 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5" size={20} />
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                      Entry Form
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em]">Liquidation Warning</p>
+                    <p className="mt-1 text-sm font-bold">
+                      {pendingLiquidations.length} released cash item(s) still need actual spend and returned cash. Liquidate when the requestor comes back.
                     </p>
-                    <h2 className="mt-1 text-xl font-black text-slate-950">
-                      Record Cash Movement
-                    </h2>
                   </div>
-                  <p className="max-w-xl text-sm font-medium text-slate-500">
-                    Money-in records immediately. Money-out requests are routed to the Approval Center when required.
+                </div>
+                <p className="text-sm font-black">Open amount: {formatMoney(pendingLiquidationAmount)}</p>
+              </div>
+            </section>
+          )}
+
+          <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 p-6">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Entry Form</p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">Record Cash Movement</h2>
+                  </div>
+                  <p className="max-w-xl text-xs font-bold leading-5 text-slate-500">
+                    Money-in records immediately. Money-out creates a liquidation warning until actual spend and returned cash are encoded.
                   </p>
                 </div>
+              </div>
 
-                <div className="space-y-6">
-                  <section>
-                    <p className={labelClass}>Primary Information</p>
-                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <label className="space-y-2">
-                        <span className={labelClass}>Business Date</span>
-                        <input type="date" value={businessDate} onChange={(e) => setBusinessDate(e.target.value)} className={inputClass} />
-                      </label>
-                      <label className="space-y-2">
-                        <span className={labelClass}>Movement Type</span>
-                        <select value={movementType} onChange={(e) => setMovementType(e.target.value)} className={selectClass}>
-                          {movementTypes.map((type) => <option key={type}>{type}</option>)}
-                        </select>
-                      </label>
-                      <label className="space-y-2">
-                        <span className={labelClass}>Source</span>
-                        <select value={source} onChange={(e) => setSource(e.target.value)} className={selectClass}>
-                          {availableSourceOptions.map((item) => <option key={item}>{item}</option>)}
-                        </select>
-                      </label>
-                    </div>
-                  </section>
+              <div className="p-6">
+                <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Primary Information</p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <Field label="Business Date">
+                    <input type="date" value={businessDate} onChange={(event) => setBusinessDate(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" />
+                  </Field>
+                  <Field label="Movement Type">
+                    <select value={movementType} onChange={(event) => setMovementType(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                      {movementTypes.map((item) => <option key={item}>{item}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Source">
+                    <select value={source} onChange={(event) => setSource(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                      {availableSourceOptions.map((item) => <option key={item}>{item}</option>)}
+                    </select>
+                    <p className="mt-1 text-[11px] font-bold text-slate-500">Manage sources from the gear settings.</p>
+                  </Field>
+                </div>
 
-                  <section>
-                    <p className={labelClass}>Financial Information</p>
-                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <label className="space-y-2">
-                        <span className={labelClass}>Payment Type</span>
-                        <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={selectClass}>
-                          {paymentTypes.map((type) => (
-                            <option key={type} value={type} disabled={isPaymentTypeDisabled(type)}>
-                              {getPaymentTypeLabel(type)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="space-y-2">
-                        <span className={labelClass}>Amount</span>
-                        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className={inputClass} />
-                      </label>
-                    </div>
-                  </section>
+                <p className="mb-4 mt-6 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Financial Information</p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field label="Payment Type">
+                    <select value={paymentType} onChange={(event) => setPaymentType(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                      {paymentTypes.map((item) => <option key={item}>{item}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Amount">
+                    <input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" />
+                  </Field>
+                </div>
 
-                  {movementType === "Cash Out" && (
-                    <section className="rounded-3xl border border-slate-200 bg-white p-4">
-                      <div className="flex flex-col gap-1">
-                        <p className={labelClass}>Receipt Compliance</p>
-                        <p className="text-xs font-semibold text-slate-500">
-                          Track whether the released cash has supporting receipt documentation.
-                        </p>
+                {isExpenseRelease && (
+                  <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Expense Release Details</p>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <Field label="Category">
+                        <select value={expenseCategory} onChange={(event) => setExpenseCategory(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                          <option value="">Select category</option>
+                          {expenseCategoryOptions.map((item) => <option key={item}>{item}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Subcategory">
+                        <select value={expenseSubcategory} onChange={(event) => setExpenseSubcategory(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                          <option value="">Select subcategory</option>
+                          {expenseSubcategoryOptions.map((item) => <option key={item}>{item}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Department">
+                        <select value={expenseDepartment} onChange={(event) => setExpenseDepartment(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                          <option value="">Select department</option>
+                          {expenseDepartments.map((item) => <option key={item}>{item}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Released To">
+                        <input value={expenseReleasedTo} onChange={(event) => setExpenseReleasedTo(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Requestor name" />
+                      </Field>
+                      <div className="md:col-span-2">
+                        <Field label="Description">
+                          <input value={expenseDescription} onChange={(event) => setExpenseDescription(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Purpose of release" />
+                        </Field>
                       </div>
+                    </div>
+                  </div>
+                )}
 
-                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReceiptStatus("WITH_RECEIPT");
-                            setNoReceiptReason("");
-                            setNoReceiptExplanation("");
-                          }}
-                          className={`rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
-                            receiptStatus === "WITH_RECEIPT"
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-800 ring-4 ring-emerald-100"
-                              : "border-slate-200 bg-slate-50 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50"
-                          }`}
-                        >
-                          <span className="block text-sm font-black">With Receipt</span>
-                          <span className="mt-1 block text-xs font-semibold">Receipt/proof is available.</span>
-                        </button>
+                {isCashAdvanceCashOut && (
+                  <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Cash Advance Details</p>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Field label="Employee">
+                        <select value={cashAdvanceEmployeeId} onChange={(event) => setCashAdvanceEmployeeId(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                          <option value="">Select employee</option>
+                          {validEmployees.map((employee) => <option key={employee.id} value={employee.id}>{getEmployeeFullName(employee)}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Purpose">
+                        <input value={cashAdvancePurpose} onChange={(event) => setCashAdvancePurpose(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" />
+                      </Field>
+                    </div>
+                  </div>
+                )}
 
-                        <button
-                          type="button"
-                          onClick={() => setReceiptStatus("WITHOUT_RECEIPT")}
-                          className={`rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
-                            receiptStatus === "WITHOUT_RECEIPT"
-                              ? "border-red-300 bg-red-50 text-red-800 ring-4 ring-red-100"
-                              : "border-slate-200 bg-slate-50 text-slate-600 hover:border-red-200 hover:bg-red-50"
-                          }`}
-                        >
-                          <span className="block text-sm font-black">Without Receipt</span>
-                          <span className="mt-1 block text-xs font-semibold">Reason is required.</span>
-                        </button>
-                      </div>
-
+                {movementType === "Cash Out" && (
+                  <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Receipt Tag</p>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <Field label="Receipt Status">
+                        <select value={receiptStatus} onChange={(event) => setReceiptStatus(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
+                          <option value="WITH_RECEIPT">With Receipt</option>
+                          <option value="WITHOUT_RECEIPT">Without Receipt</option>
+                        </select>
+                      </Field>
                       {receiptStatus === "WITHOUT_RECEIPT" && (
-                        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <label className="space-y-2">
-                            <span className={labelClass}>No Receipt Reason *</span>
-                            <select
-                              value={noReceiptReason}
-                              onChange={(e) => setNoReceiptReason(e.target.value)}
-                              className={selectClass}
-                            >
+                        <>
+                          <Field label="Reason">
+                            <select value={noReceiptReason} onChange={(event) => setNoReceiptReason(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800">
                               <option value="">Select reason</option>
-                              {noReceiptReasons.map((item) => (
-                                <option key={item} value={item}>{item}</option>
-                              ))}
+                              {noReceiptReasons.map((item) => <option key={item}>{item}</option>)}
                             </select>
-                          </label>
-
-                          {noReceiptReason === "Other" && (
-                            <label className="space-y-2">
-                              <span className={labelClass}>Explanation *</span>
-                              <input
-                                value={noReceiptExplanation}
-                                onChange={(e) => setNoReceiptExplanation(e.target.value)}
-                                placeholder="Explain why no receipt was provided"
-                                className={inputClass}
-                              />
-                            </label>
-                          )}
-                        </div>
+                          </Field>
+                          <Field label="Explanation">
+                            <input value={noReceiptExplanation} onChange={(event) => setNoReceiptExplanation(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" />
+                          </Field>
+                        </>
                       )}
-                    </section>
-                  )}
-
-                  {isCashAdvanceCashOut && (
-                    <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className={labelClass}>Cash Advance Details</p>
-                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                          <span className={labelClass}>Employee</span>
-                          <select value={cashAdvanceEmployeeId} onChange={(e) => setCashAdvanceEmployeeId(e.target.value)} className={selectClass}>
-                            <option value="">Select employee</option>
-                            {cashAdvanceEmployeeOptions.map((employee) => (
-                              <option key={getEmployeePayrollId(employee)} value={getEmployeePayrollId(employee)}>
-                                {getEmployeeFullName(employee)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="space-y-2">
-                          <span className={labelClass}>Purpose</span>
-                          <input value={cashAdvancePurpose} onChange={(e) => setCashAdvancePurpose(e.target.value)} placeholder="Cash advance purpose" className={inputClass} />
-                        </label>
-                      </div>
-                    </section>
-                  )}
-
-                  {isExpenseRelease && (
-                    <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className={labelClass}>Expense Release Details</p>
-                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                          <span className={labelClass}>Category</span>
-                          <select value={expenseCategory} onChange={(e) => { setExpenseCategory(e.target.value); setExpenseSubcategory(""); }} className={selectClass}>
-                            <option value="">Select category</option>
-                            {expenseCategoryOptions.map((item) => <option key={item}>{item}</option>)}
-                          </select>
-                        </label>
-                        <label className="space-y-2">
-                          <span className={labelClass}>Subcategory</span>
-                          <select value={expenseSubcategory} onChange={(e) => setExpenseSubcategory(e.target.value)} className={selectClass}>
-                            <option value="">Select subcategory</option>
-                            {expenseSubcategoryOptions.map((item) => <option key={item}>{item}</option>)}
-                          </select>
-                        </label>
-                        <label className="space-y-2">
-                          <span className={labelClass}>Department / Area</span>
-                          <select value={expenseDepartment} onChange={(e) => setExpenseDepartment(e.target.value)} className={selectClass}>
-                            <option value="">Select department</option>
-                            {expenseDepartments.map((item) => <option key={item}>{item}</option>)}
-                          </select>
-                        </label>
-                        <label className="space-y-2">
-                          <span className={labelClass}>Released To / Receiver</span>
-                          <input value={expenseReleasedTo} onChange={(e) => setExpenseReleasedTo(e.target.value)} list="employee-name-list" placeholder="Receiver name" className={inputClass} />
-                        </label>
-                      </div>
-                      <label className="mt-4 block space-y-2">
-                        <span className={labelClass}>Expense Description</span>
-                        <textarea value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} rows={3} placeholder="Description / reason" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-                      </label>
-                    </section>
-                  )}
-
-                  <section>
-                    <p className={labelClass}>Remarks</p>
-                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
-                      <span className="font-black text-slate-900">Auto audit:</span>{" "}
-                      From is set to {paymentType === "Cash" ? activeDrawer?.holder_name || currentDrawerHolderName || "active drawer holder" : paymentType}.
-                      Encoded by is set to {currentEmployeeName || currentDrawerHolderName || "logged-in user"}.
-                      {movementType === "Cash Out" ? ` Receipt status is ${receiptLabel}.` : ""}
                     </div>
-
-                    <label className="mt-4 block space-y-2">
-                      <span className={labelClass}>Notes / Reference</span>
-                      <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={3} placeholder="Reference, notes, or supporting details" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-                    </label>
-                  </section>
-
-                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
-                    <button type="button" onClick={resetForm} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">
-                      Reset
-                    </button>
-                    <button type="button" onClick={saveMovement} disabled={isSaving} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50">
-                      {isSaving ? "Saving..." : isCashDrawerMoneyOut ? "Send for Approval" : "Save Movement"}
-                    </button>
                   </div>
+                )}
+
+                <div className="mt-6">
+                  <Field label="Notes / Reference">
+                    <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800" placeholder="Reference, notes, or supporting details" />
+                  </Field>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+                  <button type="button" onClick={resetForm} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Reset</button>
+                  <button type="button" onClick={saveMovement} disabled={isSaving} className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-60">
+                    <Save size={16} /> Save Movement
+                  </button>
                 </div>
               </div>
+            </div>
 
-              <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
-                <div className="border-b border-slate-200 pb-4">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Drawer Summary
-                  </p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
-                    {activeDrawer ? activeDrawer.holder_name : "No Active Drawer"}
-                  </h2>
-                  <p className="mt-2 text-sm font-medium text-slate-500">
-                    Cash-only drawer monitoring. Digital channels remain in Online Banking.
-                  </p>
-                </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Drawer Summary</p>
+              <h2 className="mt-2 text-xl font-black text-slate-950">{activeDrawer?.holder_name || "No Open Drawer"}</h2>
+              <p className="mt-2 text-sm font-medium text-slate-500">Cash-only drawer monitoring. Digital channels remain in Online Banking.</p>
+              <div className="mt-5 divide-y divide-slate-100">
+                <SummaryLine label="Cash on Hand" value={formatMoney(cashOnHand)} />
+                <SummaryLine label="Opening Float" value={formatMoney(openingFloatTotal)} />
+                <SummaryLine label="Cash In" value={formatMoney(cashInMovementTotal)} />
+                <SummaryLine label="Cash Out" value={formatMoney(cashOutTotal)} />
+                <SummaryLine label="Remittance" value={formatMoney(remittanceTotal)} />
+                <SummaryLine label="For Liquidation" value={formatMoney(pendingLiquidationAmount)} warning={pendingLiquidations.length > 0} />
+              </div>
+            </div>
+          </section>
 
-                <div className="mt-5 divide-y divide-slate-200">
-                  <InfoRow label="Cash On Hand" value={formatMoney(activeDrawerCash)} strong />
-                  <InfoRow label="Opening Float" value={formatMoney(activeDrawer?.opening_float || 0)} />
-                  <InfoRow label="Cash In" value={formatMoney(cashInTotal)} />
-                  <InfoRow label="Cash Out" value={formatMoney(cashOutTotal)} />
-                  <InfoRow label="Remittance" value={formatMoney(remittanceTotal)} />
-                  <InfoRow label="Holder" value={activeDrawer?.holder_name || "-"} />
-                </div>
-              </aside>
-            </section>
-
-            {/* FILTERS */}
-            <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Ledger Filters
-                  </p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
-                    Cash Movement Log
-                  </h2>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Ledger Filters</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">Cash Movement Log</h2>
                 </div>
-                <p className="text-sm font-medium text-slate-500">
-                  {filteredMovements.length} record(s) shown
-                </p>
+                <p className="text-sm font-bold text-slate-500">{filteredMovements.length} record(s) shown · {ledgerDateScope === "CURRENT_DRAWER" ? activeDrawer?.holder_name || "No open drawer" : ledgerDateScope === "ALL" ? "All drawers" : ledgerDateScope === "TODAY" ? "Today" : dateFilter}</p>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <label className="space-y-2">
-                  <span className={labelClass}>Date Scope</span>
-                  <select value={ledgerDateScope} onChange={(e) => setLedgerDateScope(e.target.value)} className={selectClass}>
-                    <option value="TODAY">Today</option>
-                    <option value="DATE">Selected Date</option>
-                    <option value="ALL">All Dates</option>
-                  </select>
-                </label>
-                <label className="space-y-2">
-                  <span className={labelClass}>Date</span>
-                  <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} disabled={ledgerDateScope !== "DATE"} className={inputClass} />
-                </label>
-                <label className="space-y-2">
-                  <span className={labelClass}>Type</span>
-                  <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectClass}>
-                    <option value="ALL">All Types</option>
-                    {movementTypes.map((item) => <option key={item}>{item}</option>)}
-                  </select>
-                </label>
-                <label className="space-y-2">
-                  <span className={labelClass}>Payment</span>
-                  <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className={selectClass}>
-                    <option value="ALL">All Payments</option>
-                    {paymentTypes.map((item) => <option key={item}>{item}</option>)}
-                  </select>
-                </label>
-                <label className="space-y-2">
-                  <span className={labelClass}>Search</span>
-                  <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search ledger" className={inputClass} />
-                </label>
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
+                <Field label="View Scope"><select value={ledgerDateScope} onChange={(e) => setLedgerDateScope(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="CURRENT_DRAWER">Current Drawer</option><option value="TODAY">Today</option><option value="CUSTOM">Custom Date</option><option value="ALL">All</option></select></Field>
+                <Field label="Date"><input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
+                <Field label="Type"><select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="ALL">All Types</option><option>Opening Float</option><option>Cash In</option><option>Cash Out</option><option>Remittance</option></select></Field>
+                <Field label="Payment"><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="ALL">All Payments</option>{paymentTypes.map((item) => <option key={item}>{item}</option>)}</select></Field>
+                <Field label="Search"><input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Search ledger" /></Field>
               </div>
-            </section>
+            </div>
 
-            {/* CASH MOVEMENT TABLE */}
-            <section className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
-              <div className="border-b border-slate-200 p-6">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                  Table / Log
-                </p>
-                <h2 className="mt-1 text-xl font-black text-slate-950">
-                  Cash Movements
-                </h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      {["Date", "Transaction", "Amount", "Holder", "Status", "Action"].map((head) => (
-                        <th key={head} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                          {head}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {filteredMovements.map((item) => {
-                      const voided = isVoidedMovement(item);
-                      const holderName = item.from_person || item.to_person || item.encoded_by || "-";
-
+            <div className="overflow-auto">
+              <table className="min-w-[1180px] w-full">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Type</th>
+                    <th className="px-6 py-4">Source</th>
+                    <th className="px-6 py-4">Payment</th>
+                    <th className="px-6 py-4 text-right">Amount</th>
+                    <th className="px-6 py-4">From / To</th>
+                    <th className="px-6 py-4">Liquidation</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {filteredMovements.length === 0 ? (
+                    <tr><td colSpan={8} className="px-6 py-14 text-center text-slate-500">No records found.</td></tr>
+                  ) : (
+                    filteredMovements.map((item) => {
+                      const liquidated = String(item.liquidation_status || "").toUpperCase() === "LIQUIDATED";
+                      const eligible = isLiquidationEligible(item);
                       return (
-                        <tr key={item.id} className={`transition-all duration-200 hover:bg-slate-50 ${voided ? "bg-slate-50 opacity-70" : ""}`}>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-700">
-                            {item.business_date || "-"}
+                        <tr key={item.id} className="transition-all duration-200 hover:bg-slate-50">
+                          <td className="px-6 py-4">{item.business_date || "-"}</td>
+                          <td className="px-6 py-4"><Badge tone={item.movement_type === "Cash In" ? "success" : item.movement_type === "Cash Out" ? "critical" : "info"}>{item.movement_type}</Badge></td>
+                          <td className="px-6 py-4"><p className="font-black text-slate-950">{item.source}</p><p className="mt-1 text-xs text-slate-500">{item.remarks || "-"}</p></td>
+                          <td className="px-6 py-4">{item.payment_type || "Cash"}</td>
+                          <td className="px-6 py-4 text-right font-black text-slate-950">{formatMoney(item.amount)}</td>
+                          <td className="px-6 py-4"><p>{item.from_person || "-"}</p><p className="text-xs text-slate-500">to {item.to_person || "-"}</p></td>
+                          <td className="px-6 py-4">
+                            {liquidated ? (
+                              <Badge tone="success">Liquidated</Badge>
+                            ) : eligible ? (
+                              <Badge tone="warning">For Liquidation</Badge>
+                            ) : (
+                              <Badge tone="neutral">Not Required</Badge>
+                            )}
+                            {liquidated && (
+                              <p className="mt-1 text-xs text-slate-500">Spent {formatMoney(item.actual_spent_amount)} · Returned {formatMoney(item.returned_cash_amount)}</p>
+                            )}
                           </td>
-                          <td className="px-4 py-4">
-                            <div className="flex flex-col gap-1">
-                              <span className={`w-fit rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getMovementStyle(item.movement_type)}`}>
-                                {item.movement_type || "-"}
-                              </span>
-                              <p className="text-sm font-black text-slate-950">
-                                {item.source || "-"}
-                              </p>
-                              <p className="text-xs font-semibold text-slate-500">
-                                {item.payment_type || "Cash"}
-                                {item.remarks ? ` · ${item.remarks}` : ""}
-                              </p>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              {eligible && (
+                                <button type="button" onClick={() => openLiquidation(item)} className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-700 active:scale-[0.98]">
+                                  Liquidate
+                                </button>
+                              )}
+                              {!isVoidedMovement(item) && (
+                                <button type="button" onClick={() => voidMovement(item)} className="h-10 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 hover:bg-red-100">
+                                  Void
+                                </button>
+                              )}
                             </div>
                           </td>
-                          <td className={`whitespace-nowrap px-4 py-4 text-sm font-black ${signedAmount(item) < 0 ? "text-red-700" : "text-slate-950"}`}>
-                            {formatMoney(signedAmount(item))}
-                          </td>
-                          <td className="px-4 py-4 text-sm font-semibold text-slate-700">
-                            {holderName}
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${voided ? "bg-red-50 text-red-700 ring-1 ring-red-200" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"}`}>
-                              {voided ? "VOIDED" : "ACTIVE"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <button type="button" onClick={() => voidMovement(item.id)} disabled={voided || isSaving} className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40">
-                              Void
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="mt-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Drawer Audit Trail</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">Drawer Session History</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">Reprint closed drawer reports using the same Daily Cash Drawer Report format.</p>
+                </div>
+                <p className="text-sm font-bold text-slate-500">{drawers.length} drawer session(s)</p>
+              </div>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="min-w-[1180px] w-full">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4">Holder</th>
+                    <th className="px-6 py-4">Opened</th>
+                    <th className="px-6 py-4">Closed</th>
+                    <th className="px-6 py-4 text-right">Opening Float</th>
+                    <th className="px-6 py-4 text-right">Cash In</th>
+                    <th className="px-6 py-4 text-right">Cash Out</th>
+                    <th className="px-6 py-4 text-right">Remittance</th>
+                    <th className="px-6 py-4 text-right">Actual Cash</th>
+                    <th className="px-6 py-4 text-right">Variance</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {drawers.length === 0 ? (
+                    <tr><td colSpan={11} className="px-6 py-14 text-center text-slate-500">No drawer sessions found.</td></tr>
+                  ) : (
+                    drawers.map((drawer) => {
+                      const drawerSummary = getDrawerCashSummary(drawer);
+                      const status = String(drawer.status || "OPEN").toUpperCase();
+                      const isOpenSession = status === "OPEN";
+                      const balanced = Math.abs(Number(drawerSummary.variance || 0)) < 0.01;
+                      return (
+                        <tr key={drawer.id} className="transition-all duration-200 hover:bg-slate-50">
+                          <td className="px-6 py-4"><p className="font-black text-slate-950">{drawer.holder_name || "-"}</p><p className="mt-1 text-xs text-slate-500">{drawer.remarks || "-"}</p></td>
+                          <td className="px-6 py-4">{drawer.opened_at ? new Date(drawer.opened_at).toLocaleString("en-PH", { hour12: false }) : "-"}</td>
+                          <td className="px-6 py-4">{drawer.closed_at ? new Date(drawer.closed_at).toLocaleString("en-PH", { hour12: false }) : "-"}</td>
+                          <td className="px-6 py-4 text-right font-black text-slate-950">{formatMoney(drawerSummary.openingFloatTotal || drawer.opening_float)}</td>
+                          <td className="px-6 py-4 text-right font-black text-slate-950">{formatMoney(drawerSummary.cashSalesTotal + drawerSummary.cashReturnTotal)}</td>
+                          <td className="px-6 py-4 text-right font-black text-red-700">{formatMoney(drawerSummary.cashExpenseTotal)}</td>
+                          <td className="px-6 py-4 text-right font-black text-slate-950">{formatMoney(drawerSummary.remittanceTotalValue)}</td>
+                          <td className="px-6 py-4 text-right font-black text-slate-950">{isOpenSession ? "Pending Close" : formatMoney(drawerSummary.actualCash)}</td>
+                          <td className={`px-6 py-4 text-right font-black ${isOpenSession ? "text-slate-500" : balanced ? "text-emerald-700" : "text-red-700"}`}>{isOpenSession ? "Pending Close" : formatMoney(drawerSummary.variance)}</td>
+                          <td className="px-6 py-4"><Badge tone={isOpenSession ? "success" : balanced ? "info" : "warning"}>{status || "OPEN"}</Badge></td>
+                          <td className="px-6 py-4 text-right">
+                            <button type="button" onClick={() => printDrawerReport(drawer)} disabled={isOpenSession} className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
+                              {isOpenSession ? "Close First" : "Reprint"}
                             </button>
                           </td>
                         </tr>
                       );
-                    })}
-                    {filteredMovements.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center">
-                          <p className="text-sm font-black text-slate-950">No records found</p>
-                          <p className="mt-1 text-sm font-medium text-slate-500">Adjust filters or record a new cash movement.</p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* DRAWER HISTORY + APPROVAL HISTORY */}
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
-                <div className="border-b border-slate-200 p-6">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Drawer History</p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">Cash Drawer Sessions</h2>
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <select value={historyDateScope} onChange={(e) => setHistoryDateScope(e.target.value)} className={selectClass}>
-                      <option value="ALL">All Dates</option>
-                      <option value="TODAY">Today</option>
-                      <option value="DATE">Selected Date</option>
-                    </select>
-                    <input type="date" value={historyDateFilter} onChange={(e) => setHistoryDateFilter(e.target.value)} disabled={historyDateScope !== "DATE"} className={inputClass} />
-                    <select value={historyStatusFilter} onChange={(e) => setHistoryStatusFilter(e.target.value)} className={selectClass}>
-                      <option value="ALL">All Status</option>
-                      <option value="OPEN">Open</option>
-                      <option value="CLOSED">Closed</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        {['Holder','Opened','Expected','Actual','Variance','Status','Report'].map((head) => (
-                          <th key={head} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{head}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredDrawers.map((drawer) => {
-                        const summary = getDrawerCashSummary(drawer);
-                        return (
-                          <tr key={drawer.id} className="transition-all duration-200 hover:bg-slate-50">
-                            <td className="px-4 py-3 text-sm font-semibold text-slate-800">{drawer.holder_name || "-"}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-700">{formatDateTime(drawer.opened_at || drawer.created_at)}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(summary.expectedBeforeClosingRemittance)}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(summary.actualCash)}</td>
-                            <td className={`whitespace-nowrap px-4 py-3 text-sm font-black ${Number(summary.variance || 0) < 0 ? "text-red-700" : "text-slate-950"}`}>{formatMoney(summary.variance)}</td>
-                            <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${String(drawer.status || "").toUpperCase() === "OPEN" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-slate-100 text-slate-700 ring-1 ring-slate-200"}`}>{drawer.status || "-"}</span></td>
-                            <td className="px-4 py-3"><button type="button" onClick={() => printDrawerReport(drawer)} className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Print</button></td>
-                          </tr>
-                        );
-                      })}
-                      {filteredDrawers.length === 0 && (
-                        <tr><td colSpan={7} className="px-4 py-10 text-center"><p className="text-sm font-black text-slate-950">No records found</p><p className="mt-1 text-sm font-medium text-slate-500">No drawer sessions match the current filters.</p></td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
-                <div className="border-b border-slate-200 p-6">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Approval History</p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">Cash Approval Requests</h2>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        {['Request','Requested By','Amount','Date','Status','Actions'].map((head) => (
-                          <th key={head} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{head}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {cashApprovalRequests.slice(0, 12).map((request) => {
-                        const requestStatus = String(request.status || "PENDING").toUpperCase();
-                        return (
-                          <tr key={request.id} className="transition-all duration-200 hover:bg-slate-50">
-                            <td className="max-w-[260px] truncate px-4 py-3 text-sm font-semibold text-slate-800">{request.title || request.request_type || "Cash Request"}</td>
-                            <td className="px-4 py-3 text-sm font-semibold text-slate-700">{request.requested_by || "-"}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-sm font-black text-slate-950">{formatMoney(getApprovalAmount(request))}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-700">{formatDateTime(request.created_at)}</td>
-                            <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getApprovalStatusStyle(request.status)}`}>{requestStatus}</span></td>
-                            <td className="px-4 py-3">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedApprovalRequest(request)}
-                                className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-                              >
-                                View
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {cashApprovalRequests.length === 0 && (
-                        <tr><td colSpan={6} className="px-4 py-10 text-center"><p className="text-sm font-black text-slate-950">No records found</p><p className="mt-1 text-sm font-medium text-slate-500">No cash approval requests yet.</p></td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-
-            {/* MODALS */}
-            {selectedApprovalRequest && (() => {
-              const payload = getApprovalPayload(selectedApprovalRequest);
-              const rejectionReason = getApprovalRejectionReason(selectedApprovalRequest);
-              const requestStatus = String(selectedApprovalRequest.status || "PENDING").toUpperCase();
-
-              return (
-                <Modal title="Cash Approval Request Details" onClose={() => setSelectedApprovalRequest(null)}>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Request</p>
-                      <p className="mt-1 text-sm font-black text-slate-950">{selectedApprovalRequest.title || selectedApprovalRequest.request_type || "Cash Request"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Status</p>
-                      <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${getApprovalStatusStyle(selectedApprovalRequest.status)}`}>
-                        {requestStatus}
-                      </span>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Requested By</p>
-                      <p className="mt-1 text-sm font-black text-slate-950">{selectedApprovalRequest.requested_by || payload.encoded_by || "-"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Amount</p>
-                      <p className="mt-1 text-sm font-black text-slate-950">{formatMoney(getApprovalAmount(selectedApprovalRequest))}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Date</p>
-                      <p className="mt-1 text-sm font-black text-slate-950">{formatDateTime(selectedApprovalRequest.created_at)}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Payment Type</p>
-                      <p className="mt-1 text-sm font-black text-slate-950">{payload.payment_type || "-"}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Description / Remarks</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-700">
-                      {selectedApprovalRequest.description || payload.remarks || payload.expense_description || "-"}
-                    </p>
-                  </div>
-
-                  {requestStatus === "REJECTED" && (
-                    <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">Rejected Reason</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm font-black text-red-800">
-                        {rejectionReason || "No rejection reason was encoded."}
-                      </p>
-                    </div>
+                    })
                   )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedApprovalRequest(null)}
-                    className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-black text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
-                  >
-                    Close
-                  </button>
-                </Modal>
-              );
-            })()}
-
-            {showDrawerHolderSettings && (
-              <Modal title="Drawer Holder Settings" onClose={() => setShowDrawerHolderSettings(false)}>
-                <p className="text-sm font-medium text-slate-500">
-                  Authorize employees who can open and hold cash drawers.
-                </p>
-                <input value={drawerHolderSearch} onChange={(e) => setDrawerHolderSearch(e.target.value)} placeholder="Search employee" className={inputClass} />
-                <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                  {filteredDrawerHolderSettingEmployees.map((employee) => {
-                    const name = getEmployeeFullName(employee);
-                    const checked = authorizedDrawerHolders.includes(name);
-                    return (
-                      <button key={getEmployeePayrollId(employee)} type="button" onClick={() => toggleAuthorizedDrawerHolder(name)} className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 hover:border-slate-300 hover:shadow-md active:scale-[0.98] ${checked ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-black text-slate-950">{name}</p>
-                            <p className="mt-1 text-xs font-medium text-slate-500">{employee.employee_no || "-"} · {employee.department || "-"} · {employee.position || "-"}</p>
-                          </div>
-                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${checked ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Allowed" : "Not Allowed"}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </Modal>
-            )}
-
-            {showOpenDrawer && (
-              <Modal title="Open Drawer" onClose={() => setShowOpenDrawer(false)}>
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Drawer Holder</span>
-                  <select value={drawerHolder} onChange={(e) => setDrawerHolder(e.target.value)} className={selectClass}>
-                    <option value="">Select authorized holder</option>
-                    {allowedOpenDrawerHolderOptions.map((employee) => {
-                      const name = getEmployeeFullName(employee);
-                      return <option key={getEmployeePayrollId(employee)} value={name}>{name}</option>;
-                    })}
-                  </select>
-                </label>
-                {allowedOpenDrawerHolderOptions.length === 0 && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-700">
-                    No authorized drawer holder available. Update Drawer Settings first.
-                  </div>
-                )}
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Opening Float</span>
-                  <input type="number" value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0.00" className={inputClass} />
-                </label>
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Remarks</span>
-                  <textarea value={drawerRemarks} onChange={(e) => setDrawerRemarks(e.target.value)} rows={3} placeholder="Opening remarks" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-                </label>
-                <button onClick={openDrawer} disabled={isSaving || allowedOpenDrawerHolderOptions.length === 0 || !drawerHolder || (!canManageDrawerForOthers && drawerHolder !== currentDrawerHolderName)} className="h-11 w-full rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-300">
-                  {isSaving ? "Opening..." : "Open Drawer"}
-                </button>
-              </Modal>
-            )}
-
-            {showCloseDrawer && activeDrawer && (
-              <Modal title="Close Drawer" onClose={() => setShowCloseDrawer(false)}>
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                  <p className={labelClass}>Expected Drawer Cash</p>
-                  <h3 className="mt-2 text-3xl font-black text-slate-950">{formatMoney(activeDrawerCash)}</h3>
-                </div>
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Actual Cash Counted</span>
-                  <input type="number" value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} placeholder="0.00" className={inputClass} />
-                </label>
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Remittance Amount</span>
-                  <input type="number" value={closingRemittanceAmount} onChange={(e) => setClosingRemittanceAmount(e.target.value)} placeholder="0.00" className={inputClass} />
-                </label>
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Received By</span>
-                  <input value={closingRemittanceReceivedBy} onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)} list="employee-name-list" placeholder="Receiver name" className={inputClass} />
-                </label>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <p className={labelClass}>Remaining Cash</p>
-                    <p className="mt-2 text-lg font-black text-slate-950">{formatMoney(Number(actualClosingCash || 0) - Number(closingRemittanceAmount || 0))}</p>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <p className={labelClass}>Variance</p>
-                    <p className="mt-2 text-lg font-black text-slate-950">{formatMoney(Number(closingRemittanceAmount || 0) - activeDrawerCash)}</p>
-                  </div>
-                </div>
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Remittance Remarks</span>
-                  <textarea value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} rows={2} placeholder="Reference / notes" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-                </label>
-                <label className="space-y-2 block">
-                  <span className={labelClass}>Closing Remarks</span>
-                  <textarea value={closeRemarks} onChange={(e) => setCloseRemarks(e.target.value)} rows={3} placeholder="Closing remarks / variance explanation" className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-                </label>
-                <button onClick={closeDrawer} disabled={isSaving} className="h-11 w-full rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50">
-                  {isSaving ? "Closing..." : "Save Remittance & Close Drawer"}
-                </button>
-              </Modal>
-            )}
-          </div>
         </main>
+
+        <OpscoreAssistant reminders={assistantReminders} />
+
+        {showLiquidationModal && selectedLiquidationMovement && (
+          <Modal title="Liquidate Cash Release" onClose={() => setShowLiquidationModal(false)}>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-800">
+              Released amount must equal Actual Spent + Cash Returned. Returned cash will auto-post as Cash In / Expense Return.
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <SummaryBox label="Released Amount" value={formatMoney(selectedLiquidationMovement.amount)} />
+              <SummaryBox label="Source" value={selectedLiquidationMovement.source} />
+              <Field label="Actual Spent">
+                <input
+                  value={liquidationActualSpent}
+                  onChange={(e) => handleLiquidationActualSpentChange(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950"
+                />
+              </Field>
+              <Field label="Cash Returned / Sukli">
+                <input
+                  value={liquidationCashReturned}
+                  onChange={(e) => setLiquidationCashReturned(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950"
+                />
+                <p className="mt-1 text-[11px] font-bold text-slate-500">Auto-computed from released amount minus actual spent. You may adjust only if cash count differs.</p>
+              </Field>
+              <Field label="Receipt Status">
+                <select
+                  value={liquidationReceiptStatus}
+                  onChange={(e) => setLiquidationReceiptStatus(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+                >
+                  <option value="WITH_RECEIPT">With Receipt</option>
+                  <option value="WITHOUT_RECEIPT">Without Receipt</option>
+                </select>
+              </Field>
+              <Field label="Receipt Count">
+                <input
+                  value={liquidationReceiptCount}
+                  onChange={(e) => setLiquidationReceiptCount(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+                />
+              </Field>
+              {liquidationReceiptStatus === "WITHOUT_RECEIPT" && (
+                <>
+                  <Field label="No Receipt Reason">
+                    <select
+                      value={liquidationNoReceiptReason}
+                      onChange={(e) => setLiquidationNoReceiptReason(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+                    >
+                      <option value="">Select reason</option>
+                      {noReceiptReasons.map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="No Receipt Explanation">
+                    <input
+                      value={liquidationNoReceiptExplanation}
+                      onChange={(e) => setLiquidationNoReceiptExplanation(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+                    />
+                  </Field>
+                </>
+              )}
+              <div className="md:col-span-2">
+                <Field label="Liquidation Remarks">
+                  <textarea
+                    value={liquidationRemarks}
+                    onChange={(e) => setLiquidationRemarks(e.target.value)}
+                    className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800"
+                    placeholder="What was purchased, who returned the cash, and other notes"
+                  />
+                </Field>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+              <button onClick={() => setShowLiquidationModal(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+              <button onClick={submitLiquidation} disabled={isSaving} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">Save Liquidation</button>
+            </div>
+          </Modal>
+        )}
+
+        {showSourceSettings && (
+          <Modal title="Cash Source Settings" onClose={() => setShowSourceSettings(false)} wide>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <Field label="Source Name"><input value={sourceName} onChange={(e) => setSourceName(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Laundry Sales" /></Field>
+              <Field label="Movement Type"><select value={sourceMovementType} onChange={(e) => setSourceMovementType(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option>Cash In</option><option>Cash Out</option></select></Field>
+              <Field label="Category"><input value={sourceCategory} onChange={(e) => setSourceCategory(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
+              <div className="flex items-end"><button onClick={saveCashSource} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800"><Plus size={16} /> Save Source</button></div>
+            </div>
+
+            <div className="mt-6 overflow-auto rounded-3xl border border-slate-200">
+              <table className="w-full min-w-[720px]">
+                <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <tr><th className="px-5 py-4">Source</th><th className="px-5 py-4">Movement</th><th className="px-5 py-4">Category</th><th className="px-5 py-4">Status</th><th className="px-5 py-4 text-right">Action</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                  {(cashSources.length > 0 ? cashSources : fallbackCashSources).map((item, index) => (
+                    <tr key={item.id || `${item.name}-${index}`}>
+                      <td className="px-5 py-4 font-black text-slate-950">{item.name || item.source_name}</td>
+                      <td className="px-5 py-4">{item.movement_type || "Cash In"}</td>
+                      <td className="px-5 py-4">{item.category || "Revenue"}</td>
+                      <td className="px-5 py-4"><Badge tone={item.is_active === false ? "neutral" : "success"}>{item.is_active === false ? "Inactive" : "Active"}</Badge></td>
+                      <td className="px-5 py-4 text-right">{item.id ? <button onClick={() => toggleSourceActive(item)} className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Toggle</button> : <span className="text-xs text-slate-400">Fallback</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Modal>
+        )}
+
+        {showOpenDrawer && (
+          <Modal title="Open Cash Drawer" onClose={() => setShowOpenDrawer(false)}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Drawer Holder"><select value={drawerHolder} onChange={(e) => setDrawerHolder(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="">Select holder</option>{drawerHolderOptions.map((name) => <option key={name}>{name}</option>)}</select></Field>
+              <Field label="Opening Float"><input value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
+              <div className="md:col-span-2"><Field label="Remarks"><textarea value={drawerRemarks} onChange={(e) => setDrawerRemarks(e.target.value)} className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800" /></Field></div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button onClick={() => setShowOpenDrawer(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700">Cancel</button><button onClick={openDrawer} className="h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-700">Open Drawer</button></div>
+          </Modal>
+        )}
+
+        {showCloseDrawer && activeDrawer && (
+          <Modal title="Close Cash Drawer" onClose={() => setShowCloseDrawer(false)}>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">Expected physical cash before remittance: {formatMoney(cashOnHand)}</div>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Actual Closing Cash"><input value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
+              <Field label="Remittance Amount"><input value={closingRemittanceAmount} onChange={(e) => setClosingRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
+              <Field label="Received By"><input value={closingRemittanceReceivedBy} onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
+              <Field label="Remarks"><input value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
+            </div>
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button onClick={() => setShowCloseDrawer(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700">Cancel</button><button onClick={closeDrawer} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800">Close Drawer</button></div>
+          </Modal>
+        )}
       </div>
     </PageGuard>
   );
 }
 
-function EnterpriseMetric({ label, value, caption, tone = "default" }: any) {
-  const toneMap: Record<string, string> = {
-    default: "border-slate-200 bg-white text-slate-950",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-950",
-    warning: "border-amber-200 bg-amber-50 text-amber-950",
-    danger: "border-red-200 bg-red-50 text-red-950",
-    muted: "border-slate-200 bg-slate-50 text-slate-700",
-  };
-
+function Field({ label, children }: { label: string; children: any }) {
   return (
-    <div
-      className={`rounded-3xl border px-4 py-4 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md ${toneMap[tone] || toneMap.default}`}
-    >
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <h2 className="mt-2 truncate text-3xl font-black tracking-tight">
-        {value}
-      </h2>
-      {caption && (
-        <p className="mt-1 truncate text-xs font-medium text-slate-500">
-          {caption}
-        </p>
-      )}
+    <label className="block">
+      <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <div className="mt-1">{children}</div>
+    </label>
+  );
+}
+
+function KpiCard({ label, value, caption, tone = "neutral" }: { label: string; value: any; caption: string; tone?: Tone }) {
+  const toneClasses = tone === "warning" ? "border-amber-200 bg-amber-50" : tone === "success" ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white";
+  return (
+    <div className={`rounded-3xl border p-5 shadow-sm ${toneClasses}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-slate-500">{caption}</p>
     </div>
   );
 }
 
-function InfoRow({ label, value, strong = false }: any) {
+function SummaryLine({ label, value, warning = false }: { label: string; value: any; warning?: boolean }) {
   return (
-    <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-3 py-3 text-sm">
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p
-        className={`truncate text-right ${
-          strong ? "text-lg font-black text-slate-950" : "font-semibold text-slate-800"
-        }`}
-      >
-        {value}
-      </p>
+    <div className="flex items-center justify-between gap-3 py-4">
+      <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <strong className={warning ? "text-amber-700" : "text-slate-950"}>{value}</strong>
     </div>
   );
 }
 
-function Modal({ title, children, onClose }: any) {
+function SummaryBox({ label, value }: { label: string; value: any }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
-        <div className="mb-5 flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
-          <h2 className="text-xl font-black text-slate-950">
-            {title}
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-          >
-            Close
-          </button>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-lg font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function Badge({ tone = "neutral", children }: { tone?: Tone; children: any }) {
+  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${statusClass(tone)}`}>{children}</span>;
+}
+
+function Modal({ title, children, onClose, wide = false }: { title: string; children: any; onClose: () => void; wide?: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+      <div className={`max-h-[90vh] overflow-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl ${wide ? "w-full max-w-5xl" : "w-full max-w-2xl"}`}>
+        <div className="mb-5 flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <h2 className="text-xl font-black text-slate-950">{title}</h2>
+          <button onClick={onClose} className="h-11 w-11 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><X className="mx-auto" size={18} /></button>
         </div>
-
-        <div className="space-y-4 text-slate-900">{children}</div>
+        {children}
       </div>
     </div>
   );
