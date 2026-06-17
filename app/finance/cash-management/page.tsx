@@ -149,6 +149,7 @@ export default function CashManagementPage() {
   const [drawerRemarks, setDrawerRemarks] = useState("");
   const [actualClosingCash, setActualClosingCash] = useState("");
   const [closingRemittanceAmount, setClosingRemittanceAmount] = useState("");
+  const [closingGcashRemittanceAmount, setClosingGcashRemittanceAmount] = useState("");
   const [closingRemittanceReceivedBy, setClosingRemittanceReceivedBy] = useState("");
   const [closingRemittanceRemarks, setClosingRemittanceRemarks] = useState("");
 
@@ -872,44 +873,67 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       alert("No active drawer to close.");
       return;
     }
+
     const actualCashValue = parseAmountValue(actualClosingCash);
-    const remittanceValue = closingRemittanceAmount === "" ? 0 : parseAmountValue(closingRemittanceAmount);
-    if (!Number.isFinite(actualCashValue) || actualCashValue < 0 || !Number.isFinite(remittanceValue) || remittanceValue < 0) {
-      alert("Invalid closing cash/remittance amount.");
+    const cashRemittanceValue = closingRemittanceAmount === "" ? 0 : parseAmountValue(closingRemittanceAmount);
+    const gcashRemittanceValue = closingGcashRemittanceAmount === "" ? 0 : parseAmountValue(closingGcashRemittanceAmount);
+    const hasAnyRemittance = cashRemittanceValue > 0 || gcashRemittanceValue > 0;
+
+    if (
+      !Number.isFinite(actualCashValue) ||
+      actualCashValue < 0 ||
+      !Number.isFinite(cashRemittanceValue) ||
+      cashRemittanceValue < 0 ||
+      !Number.isFinite(gcashRemittanceValue) ||
+      gcashRemittanceValue < 0
+    ) {
+      alert("Invalid closing cash / remittance amount.");
       return;
     }
-    if (remittanceValue > 0 && !closingRemittanceReceivedBy.trim()) {
+
+    if (hasAnyRemittance && !closingRemittanceReceivedBy.trim()) {
       alert("Enter who received the remittance.");
       return;
     }
-    if (remittanceValue > actualCashValue) {
-      alert("Remittance cannot be greater than actual cash counted.");
+
+    if (cashRemittanceValue > actualCashValue) {
+      alert("Cash remittance cannot be greater than actual cash counted.");
+      return;
+    }
+
+    if (gcashRemittanceValue > gcashTotal) {
+      alert("GCash remittance cannot be greater than current drawer GCash balance.");
       return;
     }
 
     setIsSaving(true);
     const companyId = await getCurrentCompanyId();
     const actor = getActor();
+    const postedRemittances: any[] = [];
 
-    if (remittanceValue > 0) {
+    const postRemittance = async (paymentMethod: "Cash" | "GCash", value: number) => {
+      if (value <= 0) return null;
+
       const remittancePayload = {
         company_id: companyId || null,
         business_date: today,
         movement_type: "Remittance",
         source: "Drawer Closing Remittance",
-        payment_type: "Cash",
-        amount: remittanceValue,
+        payment_type: paymentMethod,
+        amount: value,
         from_person: activeDrawer.holder_name,
         to_person: closingRemittanceReceivedBy.trim(),
         encoded_by: actor.userName || activeDrawer.holder_name,
-        remarks: closingRemittanceRemarks.trim() || "Closing remittance",
+        remarks:
+          closingRemittanceRemarks.trim() ||
+          `${paymentMethod} closing remittance from ${activeDrawer.holder_name}`,
         status: "ACTIVE",
-        reference_type: "drawer_closing_remittance",
+        reference_type: paymentMethod === "GCash" ? "drawer_closing_gcash_remittance" : "drawer_closing_remittance",
         reference_id: activeDrawer.id,
         origin_type: "cash_drawer",
         origin_id: activeDrawer.id,
         created_by_module: "Cash Management",
-        source_action: "CLOSE_DRAWER_REMITTANCE",
+        source_action: paymentMethod === "GCash" ? "CLOSE_DRAWER_GCASH_REMITTANCE" : "CLOSE_DRAWER_CASH_REMITTANCE",
         created_by_user_id: actor.userId,
         created_by_user_name: actor.userName,
         cash_drawer_id: activeDrawer.id,
@@ -918,17 +942,30 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
       const isDuplicate = await checkDuplicateMovement(remittancePayload);
       if (isDuplicate) {
-        alert("Possible duplicate remittance detected. Close drawer was stopped.");
-        setIsSaving(false);
-        return;
+        throw new Error(`Possible duplicate ${paymentMethod} remittance detected. Close drawer was stopped.`);
       }
 
-      const { error: remittanceError } = await supabase.from("finance_cash_movements").insert(remittancePayload);
-      if (remittanceError) {
-        setIsSaving(false);
-        alert(`Failed to post remittance. ${remittanceError.message}`);
-        return;
+      const { data, error } = await supabase
+        .from("finance_cash_movements")
+        .insert(remittancePayload)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to post ${paymentMethod} remittance. ${error.message}`);
       }
+
+      postedRemittances.push(data || remittancePayload);
+      return data;
+    };
+
+    try {
+      await postRemittance("Cash", cashRemittanceValue);
+      await postRemittance("GCash", gcashRemittanceValue);
+    } catch (error: any) {
+      setIsSaving(false);
+      alert(error?.message || "Failed to post remittance.");
+      return;
     }
 
     const { error: drawerCloseError } = await supabase
@@ -937,9 +974,9 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         status: "CLOSED",
         actual_cash: actualCashValue,
         closed_at: new Date().toISOString(),
-        closing_remittance_amount: remittanceValue,
+        closing_remittance_amount: cashRemittanceValue,
         closing_remittance_received_by: closingRemittanceReceivedBy.trim(),
-        variance: remittanceValue - cashOnHand,
+        variance: actualCashValue - cashOnHand,
         remarks: closingRemittanceRemarks.trim(),
       })
       .eq("id", activeDrawer.id);
@@ -954,17 +991,24 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       userName: actor.userName,
       module: "Cash Management",
       action: "Close Drawer",
-      description: `${activeDrawer.holder_name} drawer closed. Actual cash ${formatMoney(actualCashValue)}, remitted ${formatMoney(remittanceValue)}.`,
-      severity: Math.abs(remittanceValue - cashOnHand) > 0.01 ? "warning" : "info",
+      description: `${activeDrawer.holder_name} drawer closed. Actual cash ${formatMoney(actualCashValue)}, cash remitted ${formatMoney(cashRemittanceValue)}, GCash remitted ${formatMoney(gcashRemittanceValue)}.`,
+      severity: Math.abs(actualCashValue - cashOnHand) > 0.01 ? "warning" : "info",
       recordId: activeDrawer.id,
       oldValue: activeDrawer,
-      newValue: { actualCashValue, remittanceValue, receivedBy: closingRemittanceReceivedBy.trim() },
+      newValue: {
+        actualCashValue,
+        cashRemittanceValue,
+        gcashRemittanceValue,
+        receivedBy: closingRemittanceReceivedBy.trim(),
+        postedRemittances,
+      },
     });
 
     setIsSaving(false);
     setShowCloseDrawer(false);
     setActualClosingCash("");
     setClosingRemittanceAmount("");
+    setClosingGcashRemittanceAmount("");
     setClosingRemittanceReceivedBy("");
     setClosingRemittanceRemarks("");
     await refreshCashManagement();
@@ -2139,12 +2183,20 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
         {showCloseDrawer && activeDrawer && (
           <Modal title="Close Cash Drawer" onClose={() => setShowCloseDrawer(false)}>
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">Expected physical cash before remittance: {formatMoney(cashOnHand)}</div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+                Expected physical cash before remittance: {formatMoney(cashOnHand)}
+              </div>
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+                Current drawer GCash before remittance: {formatMoney(gcashTotal)}
+              </div>
+            </div>
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="Actual Closing Cash"><input value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
-              <Field label="Remittance Amount"><input value={closingRemittanceAmount} onChange={(e) => setClosingRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
+              <Field label="Cash Remittance"><input value={closingRemittanceAmount} onChange={(e) => setClosingRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
+              <Field label="GCash Remittance"><input value={closingGcashRemittanceAmount} onChange={(e) => setClosingGcashRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
               <Field label="Received By"><input value={closingRemittanceReceivedBy} onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
-              <Field label="Remarks"><input value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
+              <div className="md:col-span-2"><Field label="Remarks"><input value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field></div>
             </div>
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button onClick={() => setShowCloseDrawer(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700">Cancel</button><button onClick={closeDrawer} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800">Close Drawer</button></div>
           </Modal>
