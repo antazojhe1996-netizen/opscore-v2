@@ -201,6 +201,99 @@ const getRecordStatusLabel = (record: any) =>
     return "PENDING_APPROVAL";
   };
 
+  const createOvertimeApprovalRequests = async (targetRecords: any[]) => {
+    if (!selectedPeriodId || targetRecords.length === 0) return;
+
+    const otRecords = targetRecords.filter((record) => {
+      const detectedMinutes = Number(
+        record.detected_ot_minutes ?? record.ot_minutes ?? 0
+      );
+      const approvedMinutes = Number(record.approved_ot_minutes || 0);
+
+      return detectedMinutes > 0 && approvedMinutes < detectedMinutes;
+    });
+
+    if (otRecords.length === 0) return;
+
+    const rowsToInsert: any[] = [];
+    const currentCompanyId = getCurrentCompanyId();
+
+    for (const record of otRecords) {
+      const detectedMinutes = Number(
+        record.detected_ot_minutes ?? record.ot_minutes ?? 0
+      );
+      const approvedMinutes = Number(record.approved_ot_minutes || 0);
+      const referenceId = `${selectedPeriodId}:${record.employee_id}:OVERTIME_APPROVAL`;
+
+      const { data: existing, error: existingError } = await supabase
+        .from("approval_requests")
+        .select("id, status")
+        .eq("request_type", "OVERTIME_APPROVAL")
+        .eq("reference_id", referenceId)
+        .in("status", ["PENDING", "APPROVED"])
+        .maybeSingle();
+
+      if (existingError) {
+        console.log("CHECK EXISTING OT APPROVAL ERROR:", existingError.message);
+        continue;
+      }
+
+      if (existing) continue;
+
+      rowsToInsert.push({
+        company_id: record.company_id || currentCompanyId,
+        request_type: "OVERTIME_APPROVAL",
+        module: "Payroll",
+        reference_id: referenceId,
+        title: `Overtime Approval - ${record.employee_name}`,
+        description: `${record.employee_name} has ${detectedMinutes} detected OT minute(s) for ${selectedPeriod?.period_name || "Payroll Period"}.`,
+        requested_by: "Payroll Register",
+        status: "PENDING",
+        request_payload: {
+          approver_role: "MANAGER",
+          period_id: selectedPeriodId,
+          period_name: selectedPeriod?.period_name || "Payroll Period",
+          start_date: selectedPeriod?.start_date,
+          end_date: selectedPeriod?.end_date,
+          employee_id: record.employee_id,
+          employee_name: record.employee_name,
+          payroll_record_id: record.id,
+          detected_ot_minutes: detectedMinutes,
+          approved_ot_minutes: approvedMinutes,
+          requested_ot_minutes: detectedMinutes,
+        },
+      });
+    }
+
+    if (rowsToInsert.length === 0) return;
+
+    const { error } = await supabase
+      .from("approval_requests")
+      .insert(rowsToInsert);
+
+    if (error) {
+      console.log("CREATE OT APPROVAL REQUEST ERROR:", error.message);
+      alert(
+        `OT detected, but failed to create OT approval request.\n\n${error.message}`
+      );
+      return;
+    }
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Payroll",
+      action: "Create OT Approval Requests",
+      description: `${rowsToInsert.length} overtime approval request(s) created for ${selectedPeriod?.period_name || selectedPeriodId}.`,
+      severity: "warning",
+      recordId: selectedPeriodId,
+      newValue: {
+        periodId: selectedPeriodId,
+        requestCount: rowsToInsert.length,
+        requests: rowsToInsert,
+      },
+    });
+  };
+
   const getOtStatusStyle = (status: any) => {
     const normalized = String(status || "").toUpperCase();
 
@@ -1308,7 +1401,10 @@ ${error.message}`);
     );
 
     if (generated.length > 0) {
-      const { error } = await supabase.from("payroll_records").insert(generated);
+      const { data: insertedRecords, error } = await supabase
+        .from("payroll_records")
+        .insert(generated)
+        .select("*");
 
       if (error) {
         setIsSaving(false);
@@ -1316,6 +1412,8 @@ ${error.message}`);
         alert(`Failed to generate payroll.\n\n${error.message}`);
         return;
       }
+
+      await createOvertimeApprovalRequests(insertedRecords || []);
     }
 
     setIsSaving(false);
