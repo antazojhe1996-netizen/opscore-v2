@@ -158,7 +158,7 @@ export default function CashManagementPage() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
-  const [, setCurrentEmployeeId] = useState("");
+  const [currentEmployeeId, setCurrentEmployeeId] = useState("");
   const [currentCompanyId, setCurrentCompanyId] = useState("");
 
   const movementTypes = ["Cash In", "Cash Out"];
@@ -324,16 +324,27 @@ export default function CashManagementPage() {
     return value;
   };
 
-  const gcashTotal = movements
-    .filter((item) => !isVoidedMovement(item) && String(item.payment_type || "Cash") === "GCash")
+  const currentDrawerNonCashMovements = useMemo(() => {
+    if (!activeDrawer) return [];
+
+    return movements.filter(
+      (item) =>
+        String(item.cash_drawer_id || "") === String(activeDrawer.id || "") &&
+        !isVoidedMovement(item) &&
+        ["GCash", "Bank", "Terminal"].includes(String(item.payment_type || "Cash")),
+    );
+  }, [movements, activeDrawer?.id]);
+
+  const gcashTotal = currentDrawerNonCashMovements
+    .filter((item) => String(item.payment_type || "Cash") === "GCash")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
-  const bankTotal = movements
-    .filter((item) => !isVoidedMovement(item) && String(item.payment_type || "Cash") === "Bank")
+  const bankTotal = currentDrawerNonCashMovements
+    .filter((item) => String(item.payment_type || "Cash") === "Bank")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
-  const terminalTotal = movements
-    .filter((item) => !isVoidedMovement(item) && String(item.payment_type || "Cash") === "Terminal")
+  const terminalTotal = currentDrawerNonCashMovements
+    .filter((item) => String(item.payment_type || "Cash") === "Terminal")
     .reduce((sum, item) => sum + getNonCashSignedAmount(item), 0);
 
   const onlineBankingTotal = gcashTotal + bankTotal + terminalTotal;
@@ -460,6 +471,13 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
   const fetchTable = async (table: string, setter: (rows: any[]) => void, order = "created_at") => {
     let query = supabase.from(table).select("*");
+
+    // Cashier-facing Cash Management must only load ACTIVE ledger rows.
+    // VOIDED / CANCELLED rows stay in the database for audit/admin only.
+    if (table === "finance_cash_movements") {
+      query = query.eq("status", "ACTIVE");
+    }
+
     if (order) query = query.order(order, { ascending: false });
     const { data, error } = await query;
     if (error) {
@@ -553,6 +571,42 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       .join(" ");
   };
 
+  const getActor = () => ({
+    userId: currentEmployeeId || null,
+    userName: currentEmployeeName || "OPSCORE USER",
+  });
+
+  const buildMovementOriginId = () => crypto.randomUUID();
+
+  const checkDuplicateMovement = async (payload: any) => {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const baseRemarks = String(payload.remarks || "").trim();
+
+    let query = supabase
+      .from("finance_cash_movements")
+      .select("id, created_at")
+      .eq("status", "ACTIVE")
+      .eq("business_date", payload.business_date)
+      .eq("movement_type", payload.movement_type)
+      .eq("source", payload.source)
+      .eq("payment_type", payload.payment_type || "Cash")
+      .eq("amount", payload.amount)
+      .gte("created_at", tenMinutesAgo)
+      .limit(1);
+
+    if (payload.cash_drawer_id) query = query.eq("cash_drawer_id", payload.cash_drawer_id);
+    if (baseRemarks) query = query.ilike("remarks", baseRemarks);
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.log("DUPLICATE MOVEMENT CHECK ERROR:", error.message);
+      return false;
+    }
+
+    return Boolean(data?.length);
+  };
+
   const saveMovement = async () => {
     if (savingRef.current) return;
 
@@ -591,9 +645,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     setIsSaving(true);
 
     const companyId = await getCurrentCompanyId();
-    const autoEncoded = currentEmployeeName || "OPSCORE USER";
+    const actor = getActor();
+    const autoEncoded = actor.userName;
     const autoFrom = movementType === "Cash Out" ? activeDrawer?.holder_name || autoEncoded : source;
     const autoTo = movementType === "Cash In" ? activeDrawer?.holder_name || autoEncoded : expenseReleasedTo || cashAdvanceEmployeeName || "Requestor";
+    const manualOriginId = buildMovementOriginId();
     const movementRemarks = [
       remarks.trim(),
       buildReceiptAuditText(),
@@ -603,25 +659,50 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       .filter(Boolean)
       .join(" ");
 
+    const movementPayload = {
+      company_id: companyId || null,
+      business_date: businessDate,
+      movement_type: movementType,
+      source,
+      payment_type: paymentType,
+      amount: amountValue,
+      from_person: autoFrom,
+      to_person: autoTo,
+      encoded_by: autoEncoded,
+      remarks: movementRemarks,
+      status: "ACTIVE",
+      reference_type: shouldCreateExpenseFromCashOut ? "expense" : "manual_cash_movement",
+      reference_id: null,
+      origin_type: shouldCreateExpenseFromCashOut
+        ? isCashAdvanceCashOut
+          ? "manual_cash_advance_release"
+          : "manual_expense_release"
+        : "manual_cash_movement",
+      origin_id: manualOriginId,
+      created_by_module: "Cash Management",
+      source_action: shouldCreateExpenseFromCashOut
+        ? isCashAdvanceCashOut
+          ? "MANUAL_CASH_ADVANCE_RELEASE"
+          : "MANUAL_EXPENSE_RELEASE"
+        : `MANUAL_${movementType.toUpperCase().replaceAll(" ", "_")}`,
+      created_by_user_id: actor.userId,
+      created_by_user_name: actor.userName,
+      cash_drawer_id: activeDrawer?.id || null,
+      liquidation_status: shouldCreateExpenseFromCashOut ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
+      net_expense_amount: shouldCreateExpenseFromCashOut ? amountValue : 0,
+    };
+
+    const isDuplicate = await checkDuplicateMovement(movementPayload);
+    if (isDuplicate) {
+      alert("Possible duplicate detected. This movement was not saved again.");
+      setIsSaving(false);
+      savingRef.current = false;
+      return;
+    }
+
     const { data: movementData, error: movementError } = await supabase
       .from("finance_cash_movements")
-      .insert({
-        company_id: companyId || null,
-        business_date: businessDate,
-        movement_type: movementType,
-        source,
-        payment_type: paymentType,
-        amount: amountValue,
-        from_person: autoFrom,
-        to_person: autoTo,
-        encoded_by: autoEncoded,
-        remarks: movementRemarks,
-        reference_type: shouldCreateExpenseFromCashOut ? "expense" : null,
-        reference_id: null,
-        cash_drawer_id: activeDrawer?.id || null,
-        liquidation_status: shouldCreateExpenseFromCashOut ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
-        net_expense_amount: shouldCreateExpenseFromCashOut ? amountValue : 0,
-      })
+      .insert(movementPayload)
       .select()
       .single();
 
@@ -668,7 +749,15 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         alert("Cash movement saved, but linked expense failed. Check expenses columns.");
       } else {
         linkedExpense = expenseData;
-        await supabase.from("finance_cash_movements").update({ reference_id: expenseData.id }).eq("id", movementData.id);
+        await supabase
+          .from("finance_cash_movements")
+          .update({
+            reference_id: expenseData.id,
+            origin_id: expenseData.id,
+            origin_type: isCashAdvanceCashOut ? "cash_advance_expense" : "expense_release",
+            source_action: isCashAdvanceCashOut ? "CREATE_CASH_ADVANCE_EXPENSE_AND_MOVEMENT" : "CREATE_EXPENSE_AND_MOVEMENT",
+          })
+          .eq("id", movementData.id);
       }
     }
 
@@ -706,9 +795,17 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
     setIsSaving(true);
     const companyId = await getCurrentCompanyId();
+    const actor = getActor();
+
     const { data: drawerData, error: drawerError } = await supabase
       .from("finance_cash_drawers")
-      .insert({ holder_name: drawerHolder, opening_float: openingFloatValue, status: "OPEN", remarks: drawerRemarks.trim() })
+      .insert({
+        company_id: companyId || null,
+        holder_name: drawerHolder,
+        opening_float: openingFloatValue,
+        status: "OPEN",
+        remarks: drawerRemarks.trim(),
+      })
       .select()
       .single();
 
@@ -718,19 +815,48 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
 
-    await supabase.from("finance_cash_movements").insert({
+    const openingPayload = {
       company_id: companyId || null,
       business_date: today,
       movement_type: "Opening Float",
       source: "Petty Cash",
       payment_type: "Cash",
       amount: openingFloatValue,
-      from_person: "",
+      from_person: "Petty Cash",
       to_person: drawerHolder,
-      encoded_by: currentEmployeeName || drawerHolder,
+      encoded_by: actor.userName || drawerHolder,
       remarks: drawerRemarks.trim() || "Opening drawer float",
+      status: "ACTIVE",
+      reference_type: "cash_drawer_opening",
+      reference_id: drawerData.id,
+      origin_type: "cash_drawer",
+      origin_id: drawerData.id,
+      created_by_module: "Cash Management",
+      source_action: "OPEN_DRAWER",
+      created_by_user_id: actor.userId,
+      created_by_user_name: actor.userName,
       cash_drawer_id: drawerData.id,
       liquidation_status: "NOT_REQUIRED",
+    };
+
+    const isDuplicate = await checkDuplicateMovement(openingPayload);
+    if (!isDuplicate) {
+      const { error: openingMovementError } = await supabase.from("finance_cash_movements").insert(openingPayload);
+      if (openingMovementError) {
+        setIsSaving(false);
+        alert(`Drawer opened, but opening float movement failed. ${openingMovementError.message}`);
+        return;
+      }
+    }
+
+    await createAuditLog({
+      userName: actor.userName,
+      module: "Cash Management",
+      action: "Open Drawer",
+      description: `${drawerHolder} drawer opened with ${formatMoney(openingFloatValue)} float.`,
+      severity: "info",
+      recordId: drawerData.id,
+      newValue: { drawer: drawerData, openingFloat: openingPayload },
     });
 
     setIsSaving(false);
@@ -763,9 +889,10 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
     setIsSaving(true);
     const companyId = await getCurrentCompanyId();
+    const actor = getActor();
 
     if (remittanceValue > 0) {
-      await supabase.from("finance_cash_movements").insert({
+      const remittancePayload = {
         company_id: companyId || null,
         business_date: today,
         movement_type: "Remittance",
@@ -774,16 +901,37 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         amount: remittanceValue,
         from_person: activeDrawer.holder_name,
         to_person: closingRemittanceReceivedBy.trim(),
-        encoded_by: currentEmployeeName || activeDrawer.holder_name,
+        encoded_by: actor.userName || activeDrawer.holder_name,
         remarks: closingRemittanceRemarks.trim() || "Closing remittance",
+        status: "ACTIVE",
         reference_type: "drawer_closing_remittance",
         reference_id: activeDrawer.id,
+        origin_type: "cash_drawer",
+        origin_id: activeDrawer.id,
+        created_by_module: "Cash Management",
+        source_action: "CLOSE_DRAWER_REMITTANCE",
+        created_by_user_id: actor.userId,
+        created_by_user_name: actor.userName,
         cash_drawer_id: activeDrawer.id,
         liquidation_status: "NOT_REQUIRED",
-      });
+      };
+
+      const isDuplicate = await checkDuplicateMovement(remittancePayload);
+      if (isDuplicate) {
+        alert("Possible duplicate remittance detected. Close drawer was stopped.");
+        setIsSaving(false);
+        return;
+      }
+
+      const { error: remittanceError } = await supabase.from("finance_cash_movements").insert(remittancePayload);
+      if (remittanceError) {
+        setIsSaving(false);
+        alert(`Failed to post remittance. ${remittanceError.message}`);
+        return;
+      }
     }
 
-    await supabase
+    const { error: drawerCloseError } = await supabase
       .from("finance_cash_drawers")
       .update({
         status: "CLOSED",
@@ -795,6 +943,23 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         remarks: closingRemittanceRemarks.trim(),
       })
       .eq("id", activeDrawer.id);
+
+    if (drawerCloseError) {
+      setIsSaving(false);
+      alert(`Failed to close drawer. ${drawerCloseError.message}`);
+      return;
+    }
+
+    await createAuditLog({
+      userName: actor.userName,
+      module: "Cash Management",
+      action: "Close Drawer",
+      description: `${activeDrawer.holder_name} drawer closed. Actual cash ${formatMoney(actualCashValue)}, remitted ${formatMoney(remittanceValue)}.`,
+      severity: Math.abs(remittanceValue - cashOnHand) > 0.01 ? "warning" : "info",
+      recordId: activeDrawer.id,
+      oldValue: activeDrawer,
+      newValue: { actualCashValue, remittanceValue, receivedBy: closingRemittanceReceivedBy.trim() },
+    });
 
     setIsSaving(false);
     setShowCloseDrawer(false);
@@ -810,19 +975,32 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const voidReason = String(reason || "").trim();
     if (!voidReason) return;
 
-    await supabase
+    const actor = getActor();
+    const { error: voidError } = await supabase
       .from("finance_cash_movements")
-      .update({ status: "VOIDED", void_reason: voidReason, voided_at: new Date().toISOString() })
-      .eq("id", movement.id);
+      .update({
+        status: "VOIDED",
+        void_reason: voidReason,
+        voided_at: new Date().toISOString(),
+        voided_by: actor.userName,
+      })
+      .eq("id", movement.id)
+      .eq("status", "ACTIVE");
+
+    if (voidError) {
+      alert(`Failed to void cash movement. ${voidError.message}`);
+      return;
+    }
 
     await createAuditLog({
-      userName: currentEmployeeName || "OPSCORE USER",
+      userName: actor.userName,
       module: "Cash Management",
       action: "Void Cash Movement",
       description: `${movement.source} voided. Reason: ${voidReason}`,
       severity: "critical",
       recordId: movement.id,
       oldValue: movement,
+      newValue: { status: "VOIDED", voidReason, voidedBy: actor.userName },
     });
 
     await refreshCashManagement();
@@ -903,8 +1081,9 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
     setIsSaving(true);
     const companyId = await getCurrentCompanyId();
+    const actor = getActor();
     const liquidatedAt = new Date().toISOString();
-    const liquidatedBy = currentEmployeeName || "OPSCORE USER";
+    const liquidatedBy = actor.userName;
 
     const { error: movementUpdateError } = await supabase
       .from("finance_cash_movements")
@@ -918,7 +1097,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         liquidation_remarks: finalLiquidationRemarks,
         receipt_count: receiptCount,
       })
-      .eq("id", selectedLiquidationMovement.id);
+      .eq("id", selectedLiquidationMovement.id)
+      .eq("status", "ACTIVE");
 
     if (movementUpdateError) {
       setIsSaving(false);
@@ -958,6 +1138,30 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     }
 
     if (cashReturned > 0) {
+      const returnPayload = {
+        company_id: companyId || null,
+        business_date: today,
+        movement_type: "Cash In",
+        source: "Expense Return",
+        payment_type: selectedLiquidationMovement.payment_type || "Cash",
+        amount: cashReturned,
+        from_person: selectedLiquidationMovement.to_person || "Requestor",
+        to_person: activeDrawer?.holder_name || selectedLiquidationMovement.from_person || liquidatedBy,
+        encoded_by: liquidatedBy,
+        remarks: `Auto cash return from liquidation of ${selectedLiquidationMovement.source}. ${finalLiquidationRemarks}`.trim(),
+        status: "ACTIVE",
+        reference_type: "expense_liquidation_return",
+        reference_id: selectedLiquidationMovement.id,
+        origin_type: "expense_liquidation_return",
+        origin_id: selectedLiquidationMovement.id,
+        created_by_module: "Cash Management",
+        source_action: "SAVE_LIQUIDATION_RETURN",
+        created_by_user_id: actor.userId,
+        created_by_user_name: actor.userName,
+        cash_drawer_id: activeDrawer?.id || selectedLiquidationMovement.cash_drawer_id || null,
+        liquidation_status: "NOT_REQUIRED",
+      };
+
       const duplicateReturn = movements.some(
         (item) =>
           !isVoidedMovement(item) &&
@@ -965,23 +1169,15 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           String(item.reference_id || "") === String(selectedLiquidationMovement.id || ""),
       );
 
-      if (!duplicateReturn) {
-        await supabase.from("finance_cash_movements").insert({
-          company_id: companyId || null,
-          business_date: today,
-          movement_type: "Cash In",
-          source: "Expense Return",
-          payment_type: selectedLiquidationMovement.payment_type || "Cash",
-          amount: cashReturned,
-          from_person: selectedLiquidationMovement.to_person || "Requestor",
-          to_person: activeDrawer?.holder_name || selectedLiquidationMovement.from_person || liquidatedBy,
-          encoded_by: liquidatedBy,
-          remarks: `Auto cash return from liquidation of ${selectedLiquidationMovement.source}. ${finalLiquidationRemarks}`.trim(),
-          reference_type: "expense_liquidation_return",
-          reference_id: selectedLiquidationMovement.id,
-          cash_drawer_id: activeDrawer?.id || selectedLiquidationMovement.cash_drawer_id || null,
-          liquidation_status: "NOT_REQUIRED",
-        });
+      const isDuplicate = duplicateReturn || (await checkDuplicateMovement(returnPayload));
+
+      if (!isDuplicate) {
+        const { error: returnInsertError } = await supabase.from("finance_cash_movements").insert(returnPayload);
+        if (returnInsertError) {
+          setIsSaving(false);
+          alert(`Liquidation saved, but returned cash posting failed. ${returnInsertError.message}`);
+          return;
+        }
       }
     }
 
@@ -999,6 +1195,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         receiptStatus: liquidationReceiptStatus,
         receiptCount,
         liquidationRemarks: finalLiquidationRemarks,
+        liquidatedBy,
       },
     });
 
@@ -1492,7 +1689,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
           <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
             <KpiCard label="Cash on Hand" value={formatMoney(cashOnHand)} caption="Active physical cash balance" />
-            <KpiCard label="Online Banking" value={formatMoney(onlineBankingTotal)} caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`} />
+            <KpiCard label="Current Drawer Online" value={formatMoney(onlineBankingTotal)} caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`} />
             <KpiCard label="Pending Approvals" value={pendingCashApprovalCount} caption="Money-out requests" />
             <KpiCard label="For Liquidation" value={formatMoney(pendingLiquidationAmount)} caption={`${pendingLiquidations.length} cash release(s)`} tone={pendingLiquidations.length > 0 ? "warning" : "success"} />
             <KpiCard label="Today's Movements" value={todaysMovementCount} caption="Active cash ledger records" />
@@ -1656,7 +1853,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Drawer Summary</p>
               <h2 className="mt-2 text-xl font-black text-slate-950">{activeDrawer?.holder_name || "No Open Drawer"}</h2>
-              <p className="mt-2 text-sm font-medium text-slate-500">Cash-only drawer monitoring. Digital channels remain in Online Banking.</p>
+              <p className="mt-2 text-sm font-medium text-slate-500">Cash-only drawer monitoring. Digital channels are computed per current drawer in this workbench.</p>
               <div className="mt-5 divide-y divide-slate-100">
                 <SummaryLine label="Cash on Hand" value={formatMoney(cashOnHand)} />
                 <SummaryLine label="Opening Float" value={formatMoney(openingFloatTotal)} />

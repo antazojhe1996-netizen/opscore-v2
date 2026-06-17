@@ -57,6 +57,26 @@ type BiometricMapping = {
   created_at?: string;
 };
 
+type ScheduleOverride = {
+  id?: string | number;
+  employee_id: string;
+  schedule_date: string;
+  original_shift?: string | null;
+  override_start?: string | null;
+  override_end?: string | null;
+  reason?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  created_at?: string | null;
+};
+
+type EffectiveSchedule = {
+  shiftName: string;
+  scheduledIn: string | null;
+  scheduledOut: string | null;
+  source: "Attendance Override" | "Schedule Override" | "Scheduling" | "None";
+  override?: ScheduleOverride | null;
+};
 
 type ImportPreviewRow = {
   employee_name: string;
@@ -118,6 +138,7 @@ export default function AttendancePage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [biometricMappings, setBiometricMappings] = useState<BiometricMapping[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
   const [shiftTemplates, setShiftTemplates] = useState<any[]>([]);
   const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -388,6 +409,83 @@ export default function AttendancePage() {
   const getShiftTemplate = (shiftName?: string | null) =>
     shiftTemplates.find((shift) => shift.shift_name === shiftName);
 
+  const isTimeRangeShift = (value?: string | null) =>
+    /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(
+      String(value || "").trim(),
+    );
+
+  const parseTimeRangeShift = (value?: string | null) => {
+    const clean = String(value || "").trim();
+    const match = clean.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
+
+    if (!match) {
+      return { start: null as string | null, end: null as string | null };
+    }
+
+    return {
+      start: match[1].padStart(5, "0"),
+      end: match[2].padStart(5, "0"),
+    };
+  };
+
+  const formatTimeRange = (start?: string | null, end?: string | null) =>
+    `${String(start || "").slice(0, 5)} - ${String(end || "").slice(0, 5)}`;
+
+  const getScheduleOverride = (employeeId: string, date: string) =>
+    scheduleOverrides.find(
+      (item) =>
+        String(item.employee_id) === String(employeeId) &&
+        String(item.schedule_date).slice(0, 10) === String(date).slice(0, 10),
+    ) || null;
+
+  const getEffectiveSchedule = (
+    employee: Employee,
+    date: string,
+    entry?: AttendanceEntry,
+  ): EffectiveSchedule => {
+    if (entry?.scheduled_shift) {
+      return {
+        shiftName: entry.scheduled_shift,
+        scheduledIn: entry.scheduled_in || null,
+        scheduledOut: entry.scheduled_out || null,
+        source: "Attendance Override",
+      };
+    }
+
+    const override = getScheduleOverride(employee.id, date);
+
+    if (override?.override_start && override?.override_end) {
+      return {
+        shiftName: formatTimeRange(override.override_start, override.override_end),
+        scheduledIn: String(override.override_start).slice(0, 5),
+        scheduledOut: String(override.override_end).slice(0, 5),
+        source: "Schedule Override",
+        override,
+      };
+    }
+
+    const schedule = getSchedule(employee.id, date);
+
+    if (schedule?.shift) {
+      const shift = getShiftTemplate(schedule.shift);
+      const parsedRange = parseTimeRangeShift(schedule.shift);
+
+      return {
+        shiftName: schedule.shift,
+        scheduledIn: shift?.start_time || parsedRange.start || null,
+        scheduledOut: shift?.end_time || parsedRange.end || null,
+        source: "Scheduling",
+      };
+    }
+
+    return {
+      shiftName: "OFF",
+      scheduledIn: null,
+      scheduledOut: null,
+      source: "None",
+    };
+  };
+
   const normalizeColor = (color?: string | null) => {
     const cleanColor = String(color || "")
       .toLowerCase()
@@ -462,6 +560,10 @@ export default function AttendancePage() {
       return "border-rose-500/40 bg-rose-500/15 text-rose-300";
     }
 
+    if (isTimeRangeShift(shiftName)) {
+      return "border-blue-500/40 bg-blue-500/15 text-blue-300";
+    }
+
     const shift = getShiftTemplate(shiftName);
     return getColorClasses(shift?.color);
   };
@@ -481,6 +583,7 @@ export default function AttendancePage() {
     if (shiftName === "OFF") return "OFF";
     if (shiftName === "RD") return "RD";
     if (shiftName === "Leave" || shiftName === "LEAVE") return "LEAVE";
+    if (isTimeRangeShift(shiftName)) return String(shiftName).trim();
 
     const shift = getShiftTemplate(shiftName);
     const start = shift?.start_time ? String(shift.start_time).slice(0, 5) : "";
@@ -703,13 +806,11 @@ export default function AttendancePage() {
     date: string,
     entry?: AttendanceEntry,
   ) => {
-    const schedule = getSchedule(employee.id, date);
-    const hasScheduleOverride = !!entry?.scheduled_shift;
-    const shiftName = entry?.scheduled_shift || schedule?.shift || "OFF";
-    const shift = getShiftTemplate(shiftName);
-
-    const scheduledIn = entry?.scheduled_in || shift?.start_time || null;
-    const scheduledOut = entry?.scheduled_out || shift?.end_time || null;
+    const effectiveSchedule = getEffectiveSchedule(employee, date, entry);
+    const shiftName = effectiveSchedule.shiftName || "OFF";
+    const scheduledIn = effectiveSchedule.scheduledIn || null;
+    const scheduledOut = effectiveSchedule.scheduledOut || null;
+    const hasSchedule = effectiveSchedule.source !== "None";
 
     const timeIn = entry?.time_in || "";
     const timeOut = entry?.time_out || "";
@@ -730,7 +831,7 @@ export default function AttendancePage() {
       };
     }
 
-    if (!schedule && !hasScheduleOverride) {
+    if (!hasSchedule) {
       return {
         scheduled_shift: "OFF",
         scheduled_in: null,
@@ -878,6 +979,22 @@ export default function AttendancePage() {
       .lte("day", endDate);
 
     setSchedules(data || []);
+  };
+
+  const getScheduleOverrides = async () => {
+    const { data, error } = await supabase
+      .from("schedule_overrides")
+      .select("*")
+      .gte("schedule_date", startDate)
+      .lte("schedule_date", endDate);
+
+    if (error) {
+      console.log("GET SCHEDULE OVERRIDES ERROR:", error.message);
+      setScheduleOverrides([]);
+      return;
+    }
+
+    setScheduleOverrides(data || []);
   };
 
   const getShiftTemplates = async () => {
@@ -1534,6 +1651,7 @@ export default function AttendancePage() {
   useEffect(() => {
     Promise.all([
       getSchedules(),
+      getScheduleOverrides(),
       getApprovedLeaves(),
       getAttendanceEntries(),
       getLockedPayrollPeriods(),
@@ -1610,6 +1728,7 @@ export default function AttendancePage() {
     reviewEmployees,
     entries,
     schedules,
+    scheduleOverrides,
     shiftTemplates,
     approvedLeaves,
     settings,
@@ -2387,6 +2506,13 @@ export default function AttendancePage() {
                               <option value="OFF">OFF</option>
                               <option value="RD">RD</option>
                               <option value="Leave">LEAVE</option>
+                              {row.scheduled_shift &&
+                                !["OFF", "RD", "Leave", "LEAVE"].includes(String(row.scheduled_shift)) &&
+                                !shiftTemplates.some((shift) => shift.shift_name === row.scheduled_shift) && (
+                                  <option value={row.scheduled_shift}>
+                                    {getShiftTimeLabel(row.scheduled_shift)} • From Scheduling
+                                  </option>
+                                )}
                               {shiftTemplates.map((shift) => (
                                 <option key={shift.id || shift.shift_name} value={shift.shift_name}>
                                   {shift.shift_name} • {getShiftTimeLabel(shift.shift_name)}

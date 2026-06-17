@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import type React from "react";
@@ -36,6 +38,19 @@ type Schedule = {
   shift: string;
 };
 
+type ScheduleOverride = {
+  id: string | number;
+  employee_id: string;
+  schedule_date: string;
+  original_shift: string | null;
+  override_start: string;
+  override_end: string;
+  reason: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  created_at?: string | null;
+};
+
 type ShiftTemplate = {
   id: string | number;
   shift_name: string;
@@ -62,6 +77,7 @@ export default function SchedulingPage() {
   /// STATES
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
   const [shifts, setShifts] = useState<ShiftTemplate[]>([]);
   const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState("ALL");
@@ -78,6 +94,15 @@ export default function SchedulingPage() {
   const [scheduleImportPreview, setScheduleImportPreview] = useState<ScheduleImportPreviewRow[]>([]);
   const [scheduleImportStatus, setScheduleImportStatus] = useState("");
   const [importingSchedule, setImportingSchedule] = useState(false);
+
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideEmployeeId, setOverrideEmployeeId] = useState("");
+  const [overrideDay, setOverrideDay] = useState("");
+  const [overrideOriginalShift, setOverrideOriginalShift] = useState("");
+  const [overrideStart, setOverrideStart] = useState("");
+  const [overrideEnd, setOverrideEnd] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [savingOverride, setSavingOverride] = useState(false);
 
   const todayColumnRef = useRef<HTMLDivElement | null>(null);
   const scheduleFileRef = useRef<HTMLInputElement | null>(null);
@@ -117,6 +142,26 @@ export default function SchedulingPage() {
 
     return String(value || "OFF").trim();
   };
+
+  const isTimeRangeShift = (value: string) =>
+    /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(String(value || "").trim());
+
+  const parseTimeRangeShift = (value: string) => {
+    const clean = String(value || "").trim();
+    const match = clean.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
+
+    if (!match) {
+      return { start: "", end: "" };
+    }
+
+    return {
+      start: match[1].padStart(5, "0"),
+      end: match[2].padStart(5, "0"),
+    };
+  };
+
+  const formatOverrideShift = (start: string, end: string) =>
+    `${String(start || "").slice(0, 5)} - ${String(end || "").slice(0, 5)}`;
 
   const parseExcelDate = (value: any) => {
     if (!value) return "";
@@ -275,6 +320,20 @@ export default function SchedulingPage() {
     }
 
     setSchedules(data || []);
+  };
+
+  const getScheduleOverrides = async () => {
+    const { data, error } = await supabase
+      .from("schedule_overrides")
+      .select("*");
+
+    if (error) {
+      console.log("SCHEDULE OVERRIDE ERROR:", error.message);
+      setScheduleOverrides([]);
+      return;
+    }
+
+    setScheduleOverrides(data || []);
   };
 
   const getApprovedLeaves = async () => {
@@ -502,21 +561,42 @@ export default function SchedulingPage() {
     setPublishedSchedule(null);
   };
 
+  const getRuleHeadcount = (rules: Record<string, unknown> | null | undefined) => {
+    if (!rules) return 0;
+
+    if (selectedDepartment !== "ALL") {
+      return Number(rules[selectedDepartment] || 0);
+    }
+
+    const visibleDepartments = Array.from(
+      new Set(
+        filteredEmployees
+          .map((employee) => String(employee.department || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    return visibleDepartments.reduce(
+      (sum, department) => sum + Number(rules[department] || 0),
+      0
+    );
+  };
+
   const getRequiredHC = (dayKey: string) => {
-    if (!hcRules || selectedDepartment === "ALL") return 0;
+    if (!hcRules) return 0;
 
     const occupancyRule = hcRules.occupancyRules?.find((rule: any) => {
       return roomsSold >= Number(rule.min || 0) && roomsSold <= Number(rule.max || 999999);
     });
 
-    const baseHC = Number(occupancyRule?.rules?.[selectedDepartment] || 0);
+    const baseHC = getRuleHeadcount(occupancyRule?.rules);
 
     const dayName = new Date(dayKey).toLocaleDateString("en-US", {
       weekday: "long",
     });
 
     const peakRule = hcRules.peakRules?.find((rule: any) => rule.day === dayName);
-    const peakHC = Number(peakRule?.rules?.[selectedDepartment] || 0);
+    const peakHC = getRuleHeadcount(peakRule?.rules);
 
     const eventToday = eventAddons.find(
       (event) => String(event.event_date) === String(dayKey)
@@ -528,7 +608,7 @@ export default function SchedulingPage() {
       return eventPax >= Number(rule.min || 0) && eventPax <= Number(rule.max || 999999);
     });
 
-    const eventHC = Number(eventRule?.rules?.[selectedDepartment] || 0);
+    const eventHC = getRuleHeadcount(eventRule?.rules);
 
     return baseHC + peakHC + eventHC;
   };
@@ -581,6 +661,23 @@ export default function SchedulingPage() {
     );
 
     return found?.shift || UNSCHEDULED_SHIFT;
+  };
+
+  const getScheduleOverride = (employeeId: string, day: string) =>
+    scheduleOverrides.find(
+      (item) =>
+        String(item.employee_id) === String(employeeId) &&
+        String(item.schedule_date).slice(0, 10) === String(day).slice(0, 10)
+    ) || null;
+
+  const getEffectiveShift = (employeeId: string, day: string) => {
+    const override = getScheduleOverride(employeeId, day);
+
+    if (override?.override_start && override?.override_end) {
+      return formatOverrideShift(override.override_start, override.override_end);
+    }
+
+    return getShift(employeeId, day);
   };
 
   const isUnscheduledShift = (shiftName: string) => shiftName === UNSCHEDULED_SHIFT;
@@ -764,6 +861,165 @@ export default function SchedulingPage() {
     setTimeout(() => setSaveStatus("idle"), 1300);
   };
 
+  const openOverrideModal = (employeeId: string, day: string) => {
+    if (publishedSchedule) {
+      alert("This schedule is already published. Unpublish first before overriding.");
+      return;
+    }
+
+    const baseShift = getShift(employeeId, day);
+    const existingOverride = getScheduleOverride(employeeId, day);
+    const parsedBase = isTimeRangeShift(baseShift)
+      ? parseTimeRangeShift(baseShift)
+      : { start: "", end: "" };
+
+    setOverrideEmployeeId(employeeId);
+    setOverrideDay(day);
+    setOverrideOriginalShift(baseShift === UNSCHEDULED_SHIFT ? "OFF" : baseShift);
+    setOverrideStart(existingOverride?.override_start?.slice(0, 5) || parsedBase.start || "");
+    setOverrideEnd(existingOverride?.override_end?.slice(0, 5) || parsedBase.end || "");
+    setOverrideReason(existingOverride?.reason || "");
+    setOverrideModalOpen(true);
+  };
+
+  const closeOverrideModal = () => {
+    setOverrideModalOpen(false);
+    setOverrideEmployeeId("");
+    setOverrideDay("");
+    setOverrideOriginalShift("");
+    setOverrideStart("");
+    setOverrideEnd("");
+    setOverrideReason("");
+  };
+
+  const saveScheduleOverride = async () => {
+    if (publishedSchedule) {
+      alert("This schedule is already published. Unpublish first before overriding.");
+      return;
+    }
+
+    if (!overrideEmployeeId || !overrideDay) {
+      alert("Missing employee or schedule date.");
+      return;
+    }
+
+    if (!overrideStart || !overrideEnd) {
+      alert("Override start and end time are required.");
+      return;
+    }
+
+    if (!overrideReason.trim()) {
+      alert("Override reason is required for audit trail.");
+      return;
+    }
+
+    const employee = employees.find((emp) => String(emp.id) === String(overrideEmployeeId));
+
+    if (employee && isEmployeeOnLeave(employee, overrideDay)) {
+      alert("This employee has an approved leave on this date.");
+      return;
+    }
+
+    setSavingOverride(true);
+    setSaveStatus("saving");
+
+    const currentUser = await getCurrentUser();
+    const existingOverride = getScheduleOverride(overrideEmployeeId, overrideDay);
+    const payload = {
+      employee_id: overrideEmployeeId,
+      schedule_date: overrideDay,
+      original_shift: overrideOriginalShift || getShift(overrideEmployeeId, overrideDay),
+      override_start: overrideStart,
+      override_end: overrideEnd,
+      reason: overrideReason.trim(),
+      approved_by: currentUser.name,
+      approved_at: new Date().toISOString(),
+    };
+
+    const { data, error } = existingOverride
+      ? await supabase
+          .from("schedule_overrides")
+          .update(payload)
+          .eq("id", existingOverride.id)
+          .select()
+          .single()
+      : await supabase
+          .from("schedule_overrides")
+          .insert({ ...payload, created_at: new Date().toISOString() })
+          .select()
+          .single();
+
+    setSavingOverride(false);
+
+    if (error) {
+      console.log("SAVE SCHEDULE OVERRIDE ERROR:", error.message);
+      alert(error.message);
+      setSaveStatus("idle");
+      return;
+    }
+
+    setScheduleOverrides((prev) => {
+      if (existingOverride) {
+        return prev.map((item) => (String(item.id) === String(existingOverride.id) ? data : item));
+      }
+
+      return [...prev, data];
+    });
+
+    await createAuditLog(
+      existingOverride ? "UPDATE_SCHEDULE_OVERRIDE" : "CREATE_SCHEDULE_OVERRIDE",
+      `${existingOverride ? "Updated" : "Created"} schedule override for ${getEmployeeDisplayName(overrideEmployeeId)} on ${overrideDay}`,
+      "warning",
+      existingOverride || null,
+      data,
+      data?.id || null
+    );
+
+    closeOverrideModal();
+    setSaveStatus("saved");
+    setTimeout(() => setSaveStatus("idle"), 1300);
+  };
+
+  const clearScheduleOverride = async (employeeId: string, day: string) => {
+    if (publishedSchedule) {
+      alert("This schedule is already published. Unpublish first before clearing override.");
+      return;
+    }
+
+    const existingOverride = getScheduleOverride(employeeId, day);
+
+    if (!existingOverride?.id) {
+      return;
+    }
+
+    const confirmed = confirm("Remove this schedule override and use the original assigned shift?");
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("schedule_overrides")
+      .delete()
+      .eq("id", existingOverride.id);
+
+    if (error) {
+      console.log("CLEAR SCHEDULE OVERRIDE ERROR:", error.message);
+      alert(error.message);
+      return;
+    }
+
+    setScheduleOverrides((prev) =>
+      prev.filter((item) => String(item.id) !== String(existingOverride.id))
+    );
+
+    await createAuditLog(
+      "CLEAR_SCHEDULE_OVERRIDE",
+      `Cleared schedule override for ${getEmployeeDisplayName(employeeId)} on ${day}`,
+      "warning",
+      existingOverride,
+      null,
+      existingOverride.id
+    );
+  };
+
   const previewScheduleImport = async (file: File) => {
     if (publishedSchedule) {
       alert("This schedule is already published. Unpublish first before importing.");
@@ -810,6 +1066,7 @@ export default function SchedulingPage() {
           shift !== UNSCHEDULED_SHIFT &&
           (shift === "OFF" ||
             shift === "RD" ||
+            isTimeRangeShift(shift) ||
             shifts.some((item) => item.shift_name === shift));
 
         const blockedByLeave =
@@ -1186,6 +1443,10 @@ export default function SchedulingPage() {
       return "border-red-200 bg-red-50 text-red-700";
     }
 
+    if (isTimeRangeShift(shiftName)) {
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    }
+
     const shiftTemplate = getShiftTemplateByName(shiftName);
     const colorKey = normalizeColor(shiftTemplate?.color || "");
 
@@ -1197,6 +1458,7 @@ export default function SchedulingPage() {
 
     if (shiftName === "OFF") return "OFF";
     if (shiftName === "RD") return "RD";
+    if (isTimeRangeShift(shiftName)) return shiftName;
 
     if (!shift?.start_time || !shift?.end_time) {
       return shiftName;
@@ -1207,12 +1469,17 @@ export default function SchedulingPage() {
 
   /// EFFECTS
   useEffect(() => {
-    getEmployees();
-    getSchedules();
-    getApprovedLeaves();
-    getShiftTemplates();
-    loadHCRules();
-    getEventAddons();
+    const timer = window.setTimeout(() => {
+      void getEmployees();
+      void getSchedules();
+      void getScheduleOverrides();
+      void getApprovedLeaves();
+      void getShiftTemplates();
+      void loadHCRules();
+      void getEventAddons();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -1233,7 +1500,28 @@ export default function SchedulingPage() {
   }, []);
 
   useEffect(() => {
-    getPublishedSchedule();
+    const channel = supabase
+      .channel("scheduling-overrides-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "schedule_overrides" },
+        () => {
+          getScheduleOverrides();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void getPublishedSchedule();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [selectedDepartment, viewMode, currentDate, visibleDays.length]);
 
   useEffect(() => {
@@ -1249,35 +1537,33 @@ export default function SchedulingPage() {
   }, [viewMode, currentDate]);
 
   /// CALCULATIONS
-  const departments = useMemo(() => {
-    const list = employees
-      .map((employee) => employee.department?.trim())
-      .filter((department): department is string => Boolean(department));
+  const departments = Array.from(
+    new Set(
+      employees
+        .map((employee) => employee.department?.trim())
+        .filter((department): department is string => Boolean(department))
+    )
+  ).sort();
 
-    return Array.from(new Set(list)).sort();
-  }, [employees]);
+  const filteredEmployees = employees.filter((employee) => {
+    const fullName = `${employee.first_name} ${employee.last_name}`.toLowerCase();
 
-  const filteredEmployees = useMemo(() => {
-    return employees.filter((employee) => {
-      const fullName = `${employee.first_name} ${employee.last_name}`.toLowerCase();
+    const matchesDepartment =
+      selectedDepartment === "ALL" ||
+      employee.department?.trim().toLowerCase() === selectedDepartment.trim().toLowerCase();
 
-      const matchesDepartment =
-        selectedDepartment === "ALL" ||
-        employee.department?.trim().toLowerCase() === selectedDepartment.trim().toLowerCase();
+    const matchesSearch =
+      fullName.includes(searchTerm.toLowerCase()) ||
+      String(employee.employee_no || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(employee.position || "").toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesSearch =
-        fullName.includes(searchTerm.toLowerCase()) ||
-        String(employee.employee_no || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(employee.position || "").toLowerCase().includes(searchTerm.toLowerCase());
-
-      return matchesDepartment && matchesSearch;
-    });
-  }, [employees, selectedDepartment, searchTerm]);
+    return matchesDepartment && matchesSearch;
+  });
 
   const currentHC = visibleDays.map((day) =>
     filteredEmployees.filter(
       (employee) =>
-        isWorkingShift(getShift(employee.id, day.key)) &&
+        isWorkingShift(getEffectiveShift(employee.id, day.key)) &&
         !isEmployeeOnLeave(employee, day.key)
     ).length
   );
@@ -1286,13 +1572,11 @@ export default function SchedulingPage() {
   const coverageGap = currentHC.map((count, index) => count - requiredHC[index]);
 
   const recommendationText = coverageGap.map((gap) => {
-    if (selectedDepartment === "ALL") return "Select dept";
     if (gap < 0) return `Add ${Math.abs(gap)} staff`;
     if (gap > 0) return `Reduce ${gap} staff`;
     return "Good";
   });
 
-  const totalScheduledCells = visibleDays.length * filteredEmployees.length;
   const workingCells = currentHC.reduce((sum, count) => sum + count, 0);
 
   const leaveCells = visibleDays.reduce((sum, day) => {
@@ -1304,7 +1588,7 @@ export default function SchedulingPage() {
       sum +
       filteredEmployees.filter(
         (employee) =>
-          isRestDayShift(getShift(employee.id, day.key)) &&
+          isRestDayShift(getEffectiveShift(employee.id, day.key)) &&
           !isEmployeeOnLeave(employee, day.key)
       ).length
     );
@@ -1315,19 +1599,18 @@ export default function SchedulingPage() {
       sum +
       filteredEmployees.filter(
         (employee) =>
-          isUnscheduledShift(getShift(employee.id, day.key)) &&
+          isUnscheduledShift(getEffectiveShift(employee.id, day.key)) &&
           !isEmployeeOnLeave(employee, day.key)
       ).length
     );
   }, 0);
 
-  const offCells = unscheduledCells;
 
   const unscheduledRows = filteredEmployees.flatMap((employee) =>
     visibleDays
       .filter(
         (day) =>
-          isUnscheduledShift(getShift(employee.id, day.key)) &&
+          isUnscheduledShift(getEffectiveShift(employee.id, day.key)) &&
           !isEmployeeOnLeave(employee, day.key)
       )
       .map((day) => ({
@@ -1352,10 +1635,6 @@ export default function SchedulingPage() {
       ? `260px repeat(${visibleDays.length}, minmax(135px, 1fr))`
      : `220px repeat(${visibleDays.length}, 96px)`;
 
-  const tableWidthClass =
-  viewMode === "weekly"
-    ? "w-full min-w-[1180px]"
-    : "w-max";
 
   const opscoreReminders = [
     ...(publishedSchedule
@@ -1772,6 +2051,8 @@ export default function SchedulingPage() {
 
                     {visibleDays.map((day) => {
                       const currentShift = getShift(employee.id, day.key);
+                      const override = getScheduleOverride(employee.id, day.key);
+                      const effectiveShift = getEffectiveShift(employee.id, day.key);
                       const selectShiftValue =
                         currentShift === UNSCHEDULED_SHIFT ? "OFF" : currentShift;
                       const onLeave = isEmployeeOnLeave(employee, day.key);
@@ -1810,6 +2091,13 @@ export default function SchedulingPage() {
                                   </option>
                                 ))}
 
+                                {isTimeRangeShift(selectShiftValue) &&
+                                  !shifts.some((shift) => shift.shift_name === selectShiftValue) && (
+                                    <option value={selectShiftValue} className="bg-white text-slate-900">
+                                      {selectShiftValue}
+                                    </option>
+                                  )}
+
                                 {!shifts.some((shift) => shift.shift_name === "OFF") && (
                                   <option value="OFF">OFF</option>
                                 )}
@@ -1818,6 +2106,35 @@ export default function SchedulingPage() {
                                   <option value="RD">RD</option>
                                 )}
                               </select>
+
+                              <button
+                                type="button"
+                                disabled={!!publishedSchedule}
+                                onClick={() => openOverrideModal(employee.id, day.key)}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-black text-slate-600 transition-all duration-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Override
+                              </button>
+
+                              {override && (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center">
+                                  <p className="text-[10px] font-black text-amber-700">
+                                    {effectiveShift} • Override
+                                  </p>
+                                  <p className="mt-0.5 truncate text-[9px] font-semibold text-amber-700" title={override.reason}>
+                                    {override.reason}
+                                  </p>
+                                  {!publishedSchedule && (
+                                    <button
+                                      type="button"
+                                      onClick={() => clearScheduleOverride(employee.id, day.key)}
+                                      className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-red-700 hover:underline"
+                                    >
+                                      Clear
+                                    </button>
+                                  )}
+                                </div>
+                              )}
 
                               {currentShift === UNSCHEDULED_SHIFT && (
                                 <p className="text-center text-[10px] font-bold text-red-700">
@@ -1861,11 +2178,7 @@ export default function SchedulingPage() {
                 <SummaryRow
                   label="Coverage Gap"
                   values={coverageGap.map((gap) =>
-                    selectedDepartment === "ALL"
-                      ? "-"
-                      : gap > 0
-                      ? `+${gap}`
-                      : String(gap)
+                    gap > 0 ? `+${gap}` : String(gap)
                   )}
                   tableGridColumns={tableGridColumns}
                   color="text-slate-200"
@@ -1929,6 +2242,119 @@ export default function SchedulingPage() {
             </div>
           </section>
         )}
+
+
+        {overrideModalOpen && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
+            <section className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+                    Schedule Override
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-slate-950">
+                    Override Shift
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Original shift is preserved. Payroll should use this approved override when present.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeOverrideModal}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Employee
+                  </p>
+                  <p className="mt-1 font-black text-slate-950">
+                    {getEmployeeDisplayName(overrideEmployeeId)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Date
+                  </p>
+                  <p className="mt-1 font-black text-slate-950">{overrideDay || "-"}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Original Assigned Shift
+                  </p>
+                  <p className="mt-1 font-black text-slate-950">
+                    {overrideOriginalShift || "No schedule row"}
+                  </p>
+                </div>
+
+                <label className="block">
+                  <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Override Start
+                  </span>
+                  <input
+                    type="time"
+                    value={overrideStart}
+                    onChange={(event) => setOverrideStart(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Override End
+                  </span>
+                  <input
+                    type="time"
+                    value={overrideEnd}
+                    onChange={(event) => setOverrideEnd(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </label>
+
+                <label className="block sm:col-span-2">
+                  <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Reason / Approval Note
+                  </span>
+                  <textarea
+                    value={overrideReason}
+                    onChange={(event) => setOverrideReason(event.target.value)}
+                    rows={3}
+                    placeholder="Example: Approved late start by manager."
+                    className="mt-2 min-h-[96px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeOverrideModal}
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={saveScheduleOverride}
+                  disabled={savingOverride}
+                  className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingOverride ? "Saving..." : "Save Override"}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
       </main>
       <OpscoreAssistant reminders={opscoreReminders} />
     </div>
@@ -1987,7 +2413,7 @@ function KpiCard({
   );
 }
 
-function SummaryRow({ label, values, tableGridColumns, color }: any) {
+function SummaryRow({ label, values, tableGridColumns }: any) {
   return (
     <div
       className="grid border-t border-slate-100 bg-slate-50 text-sm font-black"
