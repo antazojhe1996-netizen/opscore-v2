@@ -139,7 +139,6 @@ const backupItems: BackupItem[] = [
 
   { title: "Audit Logs", description: "Export unified audit trail.", table: "audit_logs", fileName: "audit_logs_backup", group: "Audit" },
   { title: "Activity Logs", description: "Export activity log history.", table: "activity_logs", fileName: "activity_logs_backup", group: "Audit" },
-  { title: "Audit Log Entries", description: "Export detailed audit entries.", table: "audit_log_entries", fileName: "audit_log_entries_backup", group: "Audit" },
   { title: "Legacy Payroll Snapshots", description: "Export legacy payroll snapshot table before archive/drop decision.", table: "payroll_snapshots_old_wrong", fileName: "payroll_snapshots_old_wrong_backup", group: "Audit" },
 ];
 
@@ -171,6 +170,7 @@ const objectToCsv = (rows: BackupRowData[]) => {
   if (rows.length === 0) return "";
 
   const headerSet = new Set<string>();
+
   rows.forEach((row) => {
     Object.keys(row).forEach((key) => headerSet.add(key));
   });
@@ -280,7 +280,10 @@ const buildManifest = ({
     exportedAt: new Date().toISOString(),
     environment: "Production / UAT Reset Preparation",
     tableCount: tableNames.length,
-    totalRows: tableNames.reduce((sum, tableName) => sum + (tables[tableName]?.length || 0), 0),
+    totalRows: tableNames.reduce(
+      (sum, tableName) => sum + (tables[tableName]?.length || 0),
+      0
+    ),
     healthSnapshot: health || null,
     tables: tableNames.map((tableName) => ({
       tableName,
@@ -288,6 +291,9 @@ const buildManifest = ({
     })),
   };
 };
+
+const formatFailedTables = (failedTables: FailedTable[]) =>
+  failedTables.map((item) => `• ${item.table}: ${item.error}`).join("\n");
 
 const exportTable = async (tableName: string, fileName: string) => {
   const { rows, error } = await fetchAllRows(tableName);
@@ -356,6 +362,8 @@ const exportItemsAsJson = async ({
   }
 
   if (failedTables.length > 0) {
+    console.error("OPSCORE BACKUP FAILED TABLES:", failedTables);
+
     await createAuditLog({
       action: "EXPORT_BACKUP_FAILED",
       description: `Failed to export ${exportName}.`,
@@ -363,11 +371,20 @@ const exportItemsAsJson = async ({
       newValue: { exportName, failedTables },
     });
 
-    alert(`${exportName} failed. Some tables could not export.`);
+    alert(
+      `${exportName} failed.\n\nFailed tables:\n\n${formatFailedTables(
+        failedTables
+      )}\n\nNo reset allowed until all backup errors are fixed.`
+    );
+
     return;
   }
 
-  const manifest = buildManifest({ backupType: exportName, tables: backupPayload, health });
+  const manifest = buildManifest({
+    backupType: exportName,
+    tables: backupPayload,
+    health,
+  });
 
   downloadTextFile(
     JSON.stringify({ manifest, tables: backupPayload }, null, 2),
@@ -461,10 +478,10 @@ export default function BackupPage() {
     });
   }, []);
 
-useEffect(() => {
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  void loadHealth();
-}, [loadHealth]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadHealth();
+  }, [loadHealth]);
 
   const exportFullBackup = async () => {
     const confirmExport = confirm(

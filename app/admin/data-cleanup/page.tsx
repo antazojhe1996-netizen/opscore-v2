@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import type { ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   Database,
+  FileArchive,
   RefreshCcw,
   ShieldAlert,
   Trash2,
-  UserCheck,
 } from "lucide-react";
 
-const Sidebar = dynamic(() => import("@/components/Sidebar"), {
-  ssr: false,
-});
+const Sidebar = dynamic(() => import("@/components/Sidebar"), { ssr: false });
 
 type CleanupRow = {
   key: string;
@@ -26,26 +25,56 @@ type CleanupRow = {
   error: string | null;
 };
 
+type ScanResponse = {
+  confirmation_phrase: string;
+  backup_confirmation_phrase: string;
+  total_resettable_rows: number;
+  tables: CleanupRow[];
+  protected_tables: string[];
+  safety_rules: string[];
+};
+
 const CONFIRM_TEXT = "PRODUCTION GO-LIVE RESET";
+const BACKUP_CONFIRM_TEXT = "BACKUP FILES VERIFIED";
 
 export default function DataCleanupPage() {
   const [rows, setRows] = useState<CleanupRow[]>([]);
-  const [confirmation, setConfirmation] = useState("");
-  const [keepCurrentSuperAdmin, setKeepCurrentSuperAdmin] = useState(true);
+  const [protectedTables, setProtectedTables] = useState<string[]>([]);
+  const [safetyRules, setSafetyRules] = useState<string[]>([]);
 
-  const [currentEmployeeId, setCurrentEmployeeId] = useState("");
-  const [currentSystemUserId, setCurrentSystemUserId] = useState("");
-  const [currentCompanyUserId, setCurrentCompanyUserId] = useState("");
-  const [currentUserName, setCurrentUserName] = useState("Current Super Admin");
+  const [backupVerified, setBackupVerified] = useState(false);
+  const [backupConfirmation, setBackupConfirmation] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+
+  const [masterBackupName, setMasterBackupName] = useState("");
+  const [settingsBackupName, setSettingsBackupName] = useState("");
+  const [saasBackupName, setSaasBackupName] = useState("");
+  const [fullBackupName, setFullBackupName] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const backupFileNames = useMemo(
+    () =>
+      [masterBackupName, settingsBackupName, saasBackupName, fullBackupName]
+        .map((value) => value.trim())
+        .filter(Boolean),
+    [masterBackupName, settingsBackupName, saasBackupName, fullBackupName]
+  );
+
+  const backupReady =
+    backupVerified &&
+    backupConfirmation === BACKUP_CONFIRM_TEXT &&
+    backupFileNames.length >= 4;
+
+  const resetReady =
+    backupReady && confirmation === CONFIRM_TEXT && rows.length > 0 && !loading;
+
   const totalRows = useMemo(
     () => rows.reduce((sum, row) => sum + Number(row.count || 0), 0),
-    [rows],
+    [rows]
   );
 
   const groupedRows = useMemo(() => {
@@ -56,77 +85,42 @@ export default function DataCleanupPage() {
     }, {});
   }, [rows]);
 
-  const protectionReady =
-    !keepCurrentSuperAdmin ||
-    Boolean(currentSystemUserId && currentCompanyUserId);
-
-  const scanDatabase = async () => {
+  const scanDatabase = useCallback(async () => {
     setLoading(true);
     setMessage("");
     setErrorMessage("");
 
-    const response = await fetch("/api/admin/data-cleanup");
-    const result = await response.json();
+    try {
+      const response = await fetch("/api/admin/data-cleanup");
+      const result = (await response.json()) as Partial<ScanResponse> & {
+        error?: string;
+      };
 
-    setLoading(false);
+      if (!response.ok) {
+        setErrorMessage(result.error || "Unable to scan database.");
+        return;
+      }
 
-    if (!response.ok) {
-      setErrorMessage(result.error || "Unable to scan database.");
+      setRows(result.tables || []);
+      setProtectedTables(result.protected_tables || []);
+      setSafetyRules(result.safety_rules || []);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to scan database."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const deleteData = async () => {
+    if (!backupReady) {
+      setErrorMessage("Backup verification is required before reset.");
       return;
     }
 
-    setRows(result.tables || []);
-  };
-
-  const loadCurrentSession = () => {
-    const employeeSessionKey = "opscore_current_employee";
-    const employeeIdKey = "opscore_current_employee_id";
-    const systemUserIdKey = "opscore_current_system_user_id";
-    const currentUserKey = "opscore_current_user";
-
-    const employeeId = localStorage.getItem(employeeIdKey) || "";
-    const systemUserId = localStorage.getItem(systemUserIdKey) || "";
-
-    let companyUserId = "";
-    let displayName = "Current Super Admin";
-
-    const savedUser = localStorage.getItem(currentUserKey);
-    const savedEmployee = localStorage.getItem(employeeSessionKey);
-
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        companyUserId = parsed?.company_user_id || "";
-        displayName = parsed?.name || parsed?.username || displayName;
-      } catch {
-        // ignore invalid local session
-      }
-    }
-
-    if (!companyUserId && savedEmployee) {
-      try {
-        const parsed = JSON.parse(savedEmployee);
-        companyUserId = parsed?.company_user_id || "";
-        displayName =
-          `${parsed?.first_name || ""} ${parsed?.last_name || ""}`.trim() ||
-          parsed?.username ||
-          displayName;
-      } catch {
-        // ignore invalid local session
-      }
-    }
-
-    setCurrentEmployeeId(employeeId);
-    setCurrentSystemUserId(systemUserId);
-    setCurrentCompanyUserId(companyUserId);
-    setCurrentUserName(displayName);
-  };
-
-  const deleteData = async () => {
-    if (keepCurrentSuperAdmin && !protectionReady) {
-      setErrorMessage(
-        "Production access protection is enabled, but your system user or company access ID is missing. Logout and login again, then retry.",
-      );
+    if (confirmation !== CONFIRM_TEXT) {
+      setErrorMessage(`Type exactly: ${CONFIRM_TEXT}`);
       return;
     }
 
@@ -134,42 +128,41 @@ export default function DataCleanupPage() {
     setMessage("");
     setErrorMessage("");
 
-    const response = await fetch("/api/admin/data-cleanup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        confirmation,
-        keep_current_super_admin: keepCurrentSuperAdmin,
-        protected_employee_id: currentEmployeeId || null,
-        protected_system_user_id: currentSystemUserId,
-        protected_company_user_id: currentCompanyUserId,
-      }),
-    });
+    try {
+      const response = await fetch("/api/admin/data-cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmation,
+          backup_verified: backupVerified,
+          backup_confirmation: backupConfirmation,
+          backup_file_names: backupFileNames,
+        }),
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    setDeleting(false);
+      if (!response.ok) {
+        setErrorMessage(result.error || "Production reset failed.");
+        return;
+      }
 
-    if (!response.ok) {
-      setErrorMessage(result.error || "Production reset failed.");
-      return;
+      setMessage(result.message || "Production reset completed.");
+      setConfirmation("");
+      await scanDatabase();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Production reset failed."
+      );
+    } finally {
+      setDeleting(false);
     }
-
-    setMessage(
-      result.message ||
-        "Production go-live reset completed. Master data and user access were protected.",
-    );
-
-    setConfirmation("");
-    scanDatabase();
   };
 
   useEffect(() => {
-    loadCurrentSession();
-    scanDatabase();
-  }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  void scanDatabase();
+}, [scanDatabase]);
 
   return (
     <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -179,15 +172,15 @@ export default function DataCleanupPage() {
         <section className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-              SYSTEM / PRODUCTION LAUNCH
+              System Safety / Production Reset
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-              Production Launch Center
+              Production Reset Center
             </h1>
             <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
-              Preview and reset pilot testing transactions before official
-              production launch. Employees, system users, company users, roles,
-              permissions, and settings remain protected.
+              Preview and reset UAT transaction data only. Master data, users,
+              roles, permissions, settings, audit logs, POS menu setup, and
+              apartment units are protected.
             </p>
           </div>
 
@@ -206,44 +199,39 @@ export default function DataCleanupPage() {
             icon={<Database size={20} />}
             label="Resettable Rows"
             value={String(totalRows)}
-            helper="Pilot transaction rows detected."
+            helper="UAT transaction rows detected."
+          />
+          <SummaryCard
+            icon={<FileArchive size={20} />}
+            label="Backup"
+            value={backupReady ? "Verified" : "Required"}
+            helper="Four backup files must be verified."
           />
           <SummaryCard
             icon={<CheckCircle2 size={20} />}
-            label="Master Data"
-            value="Protected"
-            helper="Employees and access records are not reset."
-          />
-          <SummaryCard
-            icon={<UserCheck size={20} />}
-            label="Access Protection"
-            value={keepCurrentSuperAdmin ? "On" : "Off"}
-            helper={
-              protectionReady
-                ? "Current production access is protected."
-                : "System access IDs incomplete."
-            }
+            label="Protected Tables"
+            value={String(protectedTables.length)}
+            helper="Master/config tables protected."
           />
           <SummaryCard
             icon={<ShieldAlert size={20} />}
-            label="Confirmation"
-            value={confirmation === CONFIRM_TEXT ? "Ready" : "Locked"}
-            helper="Type the exact phrase before reset is enabled."
+            label="Reset Status"
+            value={resetReady ? "Ready" : "Locked"}
+            helper="Requires backup and confirmation phrase."
           />
         </section>
 
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
           <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-5">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                 Reset Preview
               </p>
               <h2 className="mt-1 text-xl font-black text-slate-950">
-                Pilot transactions that will be reset
+                UAT transactions that will be reset
               </h2>
               <p className="mt-1 text-sm font-medium text-slate-500">
-                These rows come from testing activity. Master records remain
-                intact.
+                Review these tables before running reset.
               </p>
             </div>
 
@@ -268,11 +256,11 @@ export default function DataCleanupPage() {
                           <p className="text-xs font-semibold text-slate-500">
                             {row.table}
                           </p>
-                          {row.error && (
+                          {row.error ? (
                             <p className="mt-1 text-xs font-bold text-red-600">
                               {row.error}
                             </p>
-                          )}
+                          ) : null}
                         </div>
 
                         <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
@@ -284,7 +272,7 @@ export default function DataCleanupPage() {
                 </div>
               ))}
 
-              {rows.length === 0 && (
+              {rows.length === 0 ? (
                 <div className="py-14 text-center">
                   <p className="text-sm font-black text-slate-700">
                     No scan result yet.
@@ -293,7 +281,7 @@ export default function DataCleanupPage() {
                     Click Scan Database to preview reset impact.
                   </p>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -306,108 +294,175 @@ export default function DataCleanupPage() {
 
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">
-                    Go-Live Control
+                    Locked Control
                   </p>
                   <h2 className="text-xl font-black text-red-950">
-                    Production Go-Live Reset
+                    Production Reset
                   </h2>
                 </div>
               </div>
             </div>
 
             <div className="space-y-4 p-6">
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={keepCurrentSuperAdmin}
-                    onChange={(event) =>
-                      setKeepCurrentSuperAdmin(event.target.checked)
-                    }
-                    className="mt-1 h-4 w-4 rounded border-emerald-300"
-                  />
-                  <span>
-                    <span className="block text-sm font-black text-emerald-800">
-                      Protect Production Access
-                    </span>
-                    <span className="mt-1 block text-xs font-bold leading-5 text-emerald-700">
-                      Protects the active system user and company access record.
-                      Employee link is optional.
-                    </span>
-                  </span>
-                </label>
-
-                <div className="mt-3 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-bold leading-5 text-emerald-800">
-                  Protected: {currentUserName}
-                  <br />
-                  System User: {currentSystemUserId || "Missing"}
-                  <br />
-                  Company User: {currentCompanyUserId || "Missing"}
-                  <br />
-                  Employee: {currentEmployeeId || "Not Required"}
-                </div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-black text-amber-900">
+                  Backup Verification Required
+                </p>
+                <p className="mt-2 text-xs font-bold leading-5 text-amber-800">
+                  Reset is disabled until all required backups are exported and
+                  verified.
+                </p>
               </div>
+
+              <BackupInput
+                label="Master Data Backup File"
+                value={masterBackupName}
+                onChange={setMasterBackupName}
+                placeholder="opscore_master_data_backup_YYYY-MM-DD.json"
+              />
+              <BackupInput
+                label="Settings Backup File"
+                value={settingsBackupName}
+                onChange={setSettingsBackupName}
+                placeholder="opscore_settings_backup_YYYY-MM-DD.json"
+              />
+              <BackupInput
+                label="SaaS Foundation Backup File"
+                value={saasBackupName}
+                onChange={setSaasBackupName}
+                placeholder="opscore_saas_foundation_backup_YYYY-MM-DD.json"
+              />
+              <BackupInput
+                label="Full OPSCORE Backup File"
+                value={fullBackupName}
+                onChange={setFullBackupName}
+                placeholder="opscore_full_backup_YYYY-MM-DD.json"
+              />
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <input
+                  type="checkbox"
+                  checked={backupVerified}
+                  onChange={(event) => setBackupVerified(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-emerald-300"
+                />
+                <span>
+                  <span className="block text-sm font-black text-emerald-800">
+                    I verified the backup files
+                  </span>
+                  <span className="mt-1 block text-xs font-bold leading-5 text-emerald-700">
+                    I confirm the files downloaded successfully and are stored
+                    locally before reset.
+                  </span>
+                </span>
+              </label>
+
+              <PhraseInput
+                label="Backup Confirmation"
+                value={backupConfirmation}
+                onChange={setBackupConfirmation}
+                placeholder={BACKUP_CONFIRM_TEXT}
+              />
+
+              <PhraseInput
+                label="Reset Confirmation"
+                value={confirmation}
+                onChange={setConfirmation}
+                placeholder={CONFIRM_TEXT}
+              />
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <p className="text-sm font-black text-slate-950">
-                  Protected master data
+                  Safety Rules
                 </p>
-                <p className="mt-2 text-xs font-bold leading-5 text-slate-600">
-                  Employees, system users, company users, roles, permissions,
-                  departments, positions, leave settings, payroll settings, and
-                  finance settings remain protected.
-                </p>
+                <div className="mt-2 space-y-1">
+                  {safetyRules.map((rule) => (
+                    <p
+                      key={rule}
+                      className="text-xs font-bold leading-5 text-slate-600"
+                    >
+                      • {rule}
+                    </p>
+                  ))}
+                </div>
               </div>
 
-              <p className="text-sm font-bold leading-6 text-red-800">
-                This will permanently reset previewed pilot transaction rows.
-                This is intended after stress testing and before official
-                production usage.
-              </p>
-
-              <div>
-                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">
-                  Type Confirmation
-                </label>
-
-                <input
-                  value={confirmation}
-                  onChange={(event) => setConfirmation(event.target.value)}
-                  placeholder={CONFIRM_TEXT}
-                  className="h-11 w-full rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
-                />
-              </div>
-
-              {errorMessage && (
+              {errorMessage ? (
                 <div className="rounded-2xl border border-red-200 bg-white p-4 text-sm font-bold text-red-700">
                   {errorMessage}
                 </div>
-              )}
+              ) : null}
 
-              {message && (
+              {message ? (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
                   {message}
                 </div>
-              )}
+              ) : null}
 
               <button
                 onClick={deleteData}
-                disabled={
-                  deleting ||
-                  loading ||
-                  confirmation !== CONFIRM_TEXT ||
-                  totalRows === 0 ||
-                  !protectionReady
-                }
+                disabled={deleting || loading || !resetReady}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={17} />
-                {deleting ? "Resetting..." : "Run Go-Live Reset"}
+                {deleting ? "Resetting..." : "Run Production Reset"}
               </button>
             </div>
           </aside>
         </section>
       </main>
+    </div>
+  );
+}
+
+function BackupInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">
+        {label}
+      </label>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500 focus:ring-4 focus:ring-slate-500/10"
+      />
+    </div>
+  );
+}
+
+function PhraseInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-red-700">
+        {label}
+      </label>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-11 w-full rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+      />
     </div>
   );
 }
@@ -418,7 +473,7 @@ function SummaryCard({
   value,
   helper,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   helper: string;
