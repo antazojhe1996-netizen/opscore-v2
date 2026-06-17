@@ -151,6 +151,9 @@ export default function CashManagementPage() {
   const [closingRemittanceAmount, setClosingRemittanceAmount] = useState("");
   const [closingGcashRemittanceAmount, setClosingGcashRemittanceAmount] = useState("");
   const [closingRemittanceReceivedBy, setClosingRemittanceReceivedBy] = useState("");
+  const [closingCashTurnoverAmount, setClosingCashTurnoverAmount] = useState("");
+  const [closingGcashTurnoverAmount, setClosingGcashTurnoverAmount] = useState("");
+  const [closingTurnoverTo, setClosingTurnoverTo] = useState("");
   const [closingRemittanceRemarks, setClosingRemittanceRemarks] = useState("");
 
   const [sourceName, setSourceName] = useState("");
@@ -317,11 +320,21 @@ export default function CashManagementPage() {
     .filter((item) => item.movement_type === "Remittance")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const cashOnHand = cashInTotal - cashOutTotal - remittanceTotal;
+  const turnoverTotal = cashOnlyMovements
+    .filter((item) => item.movement_type === "Turnover")
+    .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+  const cashOnHand = cashInTotal - cashOutTotal - remittanceTotal - turnoverTotal;
 
   const getNonCashSignedAmount = (item: any) => {
     const value = Math.abs(Number(item.amount || 0));
-    if (item.movement_type === "Cash Out" || item.movement_type === "Remittance") return -value;
+    if (
+      item.movement_type === "Cash Out" ||
+      item.movement_type === "Remittance" ||
+      item.movement_type === "Turnover"
+    ) {
+      return -value;
+    }
     return value;
   };
 
@@ -789,8 +802,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
     const openingFloatValue = parseAmountValue(openingFloat);
-    if (!Number.isFinite(openingFloatValue) || openingFloatValue <= 0) {
-      alert("Opening float must be greater than zero.");
+    if (!Number.isFinite(openingFloatValue) || openingFloatValue < 0) {
+      alert("Opening float cannot be negative.");
       return;
     }
 
@@ -877,7 +890,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const actualCashValue = parseAmountValue(actualClosingCash);
     const cashRemittanceValue = closingRemittanceAmount === "" ? 0 : parseAmountValue(closingRemittanceAmount);
     const gcashRemittanceValue = closingGcashRemittanceAmount === "" ? 0 : parseAmountValue(closingGcashRemittanceAmount);
-    const hasAnyRemittance = cashRemittanceValue > 0 || gcashRemittanceValue > 0;
+    const cashTurnoverValue = closingCashTurnoverAmount === "" ? 0 : parseAmountValue(closingCashTurnoverAmount);
+    const gcashTurnoverValue = closingGcashTurnoverAmount === "" ? 0 : parseAmountValue(closingGcashTurnoverAmount);
+
+    const hasRemittance = cashRemittanceValue > 0 || gcashRemittanceValue > 0;
+    const hasTurnover = cashTurnoverValue > 0 || gcashTurnoverValue > 0;
 
     if (
       !Number.isFinite(actualCashValue) ||
@@ -885,133 +902,306 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       !Number.isFinite(cashRemittanceValue) ||
       cashRemittanceValue < 0 ||
       !Number.isFinite(gcashRemittanceValue) ||
-      gcashRemittanceValue < 0
+      gcashRemittanceValue < 0 ||
+      !Number.isFinite(cashTurnoverValue) ||
+      cashTurnoverValue < 0 ||
+      !Number.isFinite(gcashTurnoverValue) ||
+      gcashTurnoverValue < 0
     ) {
-      alert("Invalid closing cash / remittance amount.");
+      alert("Invalid closing, remittance, or turnover amount.");
       return;
     }
 
-    if (hasAnyRemittance && !closingRemittanceReceivedBy.trim()) {
+    if (hasRemittance && !closingRemittanceReceivedBy.trim()) {
       alert("Enter who received the remittance.");
       return;
     }
 
-    if (cashRemittanceValue > actualCashValue) {
-      alert("Cash remittance cannot be greater than actual cash counted.");
+    if (hasTurnover && !closingTurnoverTo.trim()) {
+      alert("Enter who received the turnover.");
       return;
     }
 
-    if (gcashRemittanceValue > gcashTotal) {
-      alert("GCash remittance cannot be greater than current drawer GCash balance.");
+    if (cashRemittanceValue + cashTurnoverValue > actualCashValue) {
+      alert("Cash remittance plus cash turnover cannot be greater than actual cash counted.");
+      return;
+    }
+
+    if (gcashRemittanceValue + gcashTurnoverValue > gcashTotal) {
+      alert("GCash remittance plus GCash turnover cannot be greater than current drawer GCash balance.");
       return;
     }
 
     setIsSaving(true);
     const companyId = await getCurrentCompanyId();
     const actor = getActor();
-    const postedRemittances: any[] = [];
+    const nowIso = new Date().toISOString();
+    const turnoverOriginId = hasTurnover ? buildMovementOriginId() : "";
+    const remittanceOriginId = hasRemittance ? buildMovementOriginId() : "";
+    const postedMovements: any[] = [];
 
-    const postRemittance = async (paymentMethod: "Cash" | "GCash", value: number) => {
-      if (value <= 0) return null;
-
-      const remittancePayload = {
-        company_id: companyId || null,
-        business_date: today,
-        movement_type: "Remittance",
-        source: "Drawer Closing Remittance",
-        payment_type: paymentMethod,
-        amount: value,
-        from_person: activeDrawer.holder_name,
-        to_person: closingRemittanceReceivedBy.trim(),
-        encoded_by: actor.userName || activeDrawer.holder_name,
-        remarks:
-          closingRemittanceRemarks.trim() ||
-          `${paymentMethod} closing remittance from ${activeDrawer.holder_name}`,
-        status: "ACTIVE",
-        reference_type: paymentMethod === "GCash" ? "drawer_closing_gcash_remittance" : "drawer_closing_remittance",
-        reference_id: activeDrawer.id,
-        origin_type: "cash_drawer",
-        origin_id: activeDrawer.id,
-        created_by_module: "Cash Management",
-        source_action: paymentMethod === "GCash" ? "CLOSE_DRAWER_GCASH_REMITTANCE" : "CLOSE_DRAWER_CASH_REMITTANCE",
-        created_by_user_id: actor.userId,
-        created_by_user_name: actor.userName,
-        cash_drawer_id: activeDrawer.id,
-        liquidation_status: "NOT_REQUIRED",
-      };
-
-      const isDuplicate = await checkDuplicateMovement(remittancePayload);
+    const insertMovement = async (payload: any) => {
+      const isDuplicate = await checkDuplicateMovement(payload);
       if (isDuplicate) {
-        throw new Error(`Possible duplicate ${paymentMethod} remittance detected. Close drawer was stopped.`);
+        throw new Error(`Possible duplicate ${payload.payment_type} ${payload.source} movement detected. Close drawer was stopped.`);
       }
 
       const { data, error } = await supabase
         .from("finance_cash_movements")
-        .insert(remittancePayload)
+        .insert(payload)
         .select()
         .single();
 
       if (error) {
-        throw new Error(`Failed to post ${paymentMethod} remittance. ${error.message}`);
+        throw new Error(`Failed to post ${payload.payment_type} ${payload.source}. ${error.message}`);
       }
 
-      postedRemittances.push(data || remittancePayload);
+      postedMovements.push(data || payload);
       return data;
     };
 
-    try {
-      await postRemittance("Cash", cashRemittanceValue);
-      await postRemittance("GCash", gcashRemittanceValue);
-    } catch (error: any) {
-      setIsSaving(false);
-      alert(error?.message || "Failed to post remittance.");
-      return;
-    }
-
-    const { error: drawerCloseError } = await supabase
-      .from("finance_cash_drawers")
-      .update({
-        status: "CLOSED",
-        actual_cash: actualCashValue,
-        closed_at: new Date().toISOString(),
-        closing_remittance_amount: cashRemittanceValue,
-        closing_remittance_received_by: closingRemittanceReceivedBy.trim(),
-        variance: actualCashValue - cashOnHand,
-        remarks: closingRemittanceRemarks.trim(),
-      })
-      .eq("id", activeDrawer.id);
-
-    if (drawerCloseError) {
-      setIsSaving(false);
-      alert(`Failed to close drawer. ${drawerCloseError.message}`);
-      return;
-    }
-
-    await createAuditLog({
-      userName: actor.userName,
-      module: "Cash Management",
-      action: "Close Drawer",
-      description: `${activeDrawer.holder_name} drawer closed. Actual cash ${formatMoney(actualCashValue)}, cash remitted ${formatMoney(cashRemittanceValue)}, GCash remitted ${formatMoney(gcashRemittanceValue)}.`,
-      severity: Math.abs(actualCashValue - cashOnHand) > 0.01 ? "warning" : "info",
-      recordId: activeDrawer.id,
-      oldValue: activeDrawer,
-      newValue: {
-        actualCashValue,
-        cashRemittanceValue,
-        gcashRemittanceValue,
-        receivedBy: closingRemittanceReceivedBy.trim(),
-        postedRemittances,
-      },
+    const buildBasePayload = ({
+      paymentType,
+      value,
+      fromPerson,
+      toPerson,
+      sourceName,
+      referenceType,
+      originId,
+      sourceAction,
+      drawerId,
+      remarksText,
+    }: {
+      paymentType: "Cash" | "GCash";
+      value: number;
+      fromPerson: string;
+      toPerson: string;
+      sourceName: string;
+      referenceType: string;
+      originId: string;
+      sourceAction: string;
+      drawerId: string;
+      remarksText: string;
+    }) => ({
+      company_id: companyId || null,
+      business_date: today,
+      movement_type:
+        sourceName === "Drawer Turnover Received"
+          ? "Cash In"
+          : sourceName === "Drawer Turnover"
+            ? "Turnover"
+            : "Remittance",
+      source: sourceName === "Drawer Turnover Received" ? "Drawer Turnover" : sourceName,
+      payment_type: paymentType,
+      amount: value,
+      from_person: fromPerson,
+      to_person: toPerson,
+      encoded_by: actor.userName || activeDrawer.holder_name,
+      remarks: remarksText,
+      status: "ACTIVE",
+      reference_type: referenceType,
+      reference_id: originId,
+      origin_type: referenceType,
+      origin_id: originId,
+      created_by_module: "Cash Management",
+      source_action: sourceAction,
+      created_by_user_id: actor.userId,
+      created_by_user_name: actor.userName,
+      cash_drawer_id: drawerId,
+      liquidation_status: "NOT_REQUIRED",
     });
 
-    setIsSaving(false);
-    setShowCloseDrawer(false);
-    setActualClosingCash("");
-    setClosingRemittanceAmount("");
-    setClosingGcashRemittanceAmount("");
-    setClosingRemittanceReceivedBy("");
-    setClosingRemittanceRemarks("");
-    await refreshCashManagement();
+    try {
+      if (cashRemittanceValue > 0) {
+        await insertMovement(
+          buildBasePayload({
+            paymentType: "Cash",
+            value: cashRemittanceValue,
+            fromPerson: activeDrawer.holder_name,
+            toPerson: closingRemittanceReceivedBy.trim(),
+            sourceName: "Drawer Closing Remittance",
+            referenceType: "drawer_remittance",
+            originId: remittanceOriginId,
+            sourceAction: "CLOSE_DRAWER_CASH_REMITTANCE",
+            drawerId: activeDrawer.id,
+            remarksText: closingRemittanceRemarks.trim() || `Cash remittance from ${activeDrawer.holder_name} to ${closingRemittanceReceivedBy.trim()}.`,
+          }),
+        );
+      }
+
+      if (gcashRemittanceValue > 0) {
+        await insertMovement(
+          buildBasePayload({
+            paymentType: "GCash",
+            value: gcashRemittanceValue,
+            fromPerson: activeDrawer.holder_name,
+            toPerson: closingRemittanceReceivedBy.trim(),
+            sourceName: "Drawer Closing Remittance",
+            referenceType: "drawer_remittance",
+            originId: remittanceOriginId,
+            sourceAction: "CLOSE_DRAWER_GCASH_REMITTANCE",
+            drawerId: activeDrawer.id,
+            remarksText: closingRemittanceRemarks.trim() || `GCash remittance from ${activeDrawer.holder_name} to ${closingRemittanceReceivedBy.trim()}.`,
+          }),
+        );
+      }
+
+      let turnoverDrawer: any = null;
+      if (hasTurnover) {
+        const { data: existingTurnoverDrawer, error: existingDrawerError } = await supabase
+          .from("finance_cash_drawers")
+          .select("*")
+          .eq("status", "OPEN")
+          .eq("holder_name", closingTurnoverTo.trim())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingDrawerError) {
+          throw new Error(`Failed to check turnover receiver drawer. ${existingDrawerError.message}`);
+        }
+
+        if (existingTurnoverDrawer?.id) {
+          turnoverDrawer = existingTurnoverDrawer;
+        } else {
+          const { data: newTurnoverDrawer, error: newDrawerError } = await supabase
+            .from("finance_cash_drawers")
+            .insert({
+              company_id: companyId || null,
+              holder_name: closingTurnoverTo.trim(),
+              opening_float: 0,
+              status: "OPEN",
+              remarks: `Auto-opened from turnover by ${activeDrawer.holder_name}.`,
+            })
+            .select()
+            .single();
+
+          if (newDrawerError) {
+            throw new Error(`Failed to open turnover receiver drawer. ${newDrawerError.message}`);
+          }
+
+          turnoverDrawer = newTurnoverDrawer;
+        }
+
+        if (cashTurnoverValue > 0) {
+          await insertMovement(
+            buildBasePayload({
+              paymentType: "Cash",
+              value: cashTurnoverValue,
+              fromPerson: activeDrawer.holder_name,
+              toPerson: closingTurnoverTo.trim(),
+              sourceName: "Drawer Turnover",
+              referenceType: "drawer_turnover",
+              originId: turnoverOriginId,
+              sourceAction: "CLOSE_DRAWER_CASH_TURNOVER_OUT",
+              drawerId: activeDrawer.id,
+              remarksText: closingRemittanceRemarks.trim() || `Cash turnover from ${activeDrawer.holder_name} to ${closingTurnoverTo.trim()}.`,
+            }),
+          );
+
+          await insertMovement(
+            buildBasePayload({
+              paymentType: "Cash",
+              value: cashTurnoverValue,
+              fromPerson: activeDrawer.holder_name,
+              toPerson: closingTurnoverTo.trim(),
+              sourceName: "Drawer Turnover Received",
+              referenceType: "drawer_turnover",
+              originId: turnoverOriginId,
+              sourceAction: "RECEIVE_CASH_TURNOVER",
+              drawerId: turnoverDrawer.id,
+              remarksText: closingRemittanceRemarks.trim() || `Cash turnover received from ${activeDrawer.holder_name}.`,
+            }),
+          );
+        }
+
+        if (gcashTurnoverValue > 0) {
+          await insertMovement(
+            buildBasePayload({
+              paymentType: "GCash",
+              value: gcashTurnoverValue,
+              fromPerson: activeDrawer.holder_name,
+              toPerson: closingTurnoverTo.trim(),
+              sourceName: "Drawer Turnover",
+              referenceType: "drawer_turnover",
+              originId: turnoverOriginId,
+              sourceAction: "CLOSE_DRAWER_GCASH_TURNOVER_OUT",
+              drawerId: activeDrawer.id,
+              remarksText: closingRemittanceRemarks.trim() || `GCash turnover from ${activeDrawer.holder_name} to ${closingTurnoverTo.trim()}.`,
+            }),
+          );
+
+          await insertMovement(
+            buildBasePayload({
+              paymentType: "GCash",
+              value: gcashTurnoverValue,
+              fromPerson: activeDrawer.holder_name,
+              toPerson: closingTurnoverTo.trim(),
+              sourceName: "Drawer Turnover Received",
+              referenceType: "drawer_turnover",
+              originId: turnoverOriginId,
+              sourceAction: "RECEIVE_GCASH_TURNOVER",
+              drawerId: turnoverDrawer.id,
+              remarksText: closingRemittanceRemarks.trim() || `GCash turnover received from ${activeDrawer.holder_name}.`,
+            }),
+          );
+        }
+      }
+
+      const { error: drawerCloseError } = await supabase
+        .from("finance_cash_drawers")
+        .update({
+          status: "CLOSED",
+          actual_cash: actualCashValue,
+          closed_at: nowIso,
+          closing_remittance_amount: cashRemittanceValue,
+          closing_gcash_remittance_amount: gcashRemittanceValue,
+          closing_remittance_received_by: closingRemittanceReceivedBy.trim(),
+          closing_remittance_remarks: closingRemittanceRemarks.trim(),
+          variance: actualCashValue - cashOnHand,
+          remarks: closingRemittanceRemarks.trim(),
+        })
+        .eq("id", activeDrawer.id);
+
+      if (drawerCloseError) {
+        throw new Error(`Failed to close drawer. ${drawerCloseError.message}`);
+      }
+
+      await createAuditLog({
+        userName: actor.userName,
+        module: "Cash Management",
+        action: "Close Drawer",
+        description: `${activeDrawer.holder_name} drawer closed. Remit cash ${formatMoney(cashRemittanceValue)}, remit GCash ${formatMoney(gcashRemittanceValue)}, turnover cash ${formatMoney(cashTurnoverValue)}, turnover GCash ${formatMoney(gcashTurnoverValue)}.`,
+        severity: Math.abs(actualCashValue - cashOnHand) > 0.01 ? "warning" : "info",
+        recordId: activeDrawer.id,
+        oldValue: activeDrawer,
+        newValue: {
+          actualCashValue,
+          cashRemittanceValue,
+          gcashRemittanceValue,
+          cashTurnoverValue,
+          gcashTurnoverValue,
+          remittedTo: closingRemittanceReceivedBy.trim(),
+          turnoverTo: closingTurnoverTo.trim(),
+          postedMovements,
+        },
+      });
+
+      setIsSaving(false);
+      setShowCloseDrawer(false);
+      setActualClosingCash("");
+      setClosingRemittanceAmount("");
+      setClosingGcashRemittanceAmount("");
+      setClosingRemittanceReceivedBy("");
+      setClosingCashTurnoverAmount("");
+      setClosingGcashTurnoverAmount("");
+      setClosingTurnoverTo("");
+      setClosingRemittanceRemarks("");
+      await refreshCashManagement();
+    } catch (error: any) {
+      setIsSaving(false);
+      alert(error?.message || "Failed to close drawer.");
+    }
   };
 
   const voidMovement = async (movement: any) => {
@@ -1344,8 +1534,27 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       .filter((item) => item.movement_type === "Opening Float")
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
+    const cashTurnoverReceivedTotal = cashRows
+      .filter((item) => {
+        const sourceText = String(item.source || "").toLowerCase();
+        const actionText = String(item.source_action || "").toUpperCase();
+        const isDrawerTurnover = sourceText.includes("drawer turnover");
+
+        return (
+          item.movement_type === "Cash In" &&
+          isDrawerTurnover &&
+          (actionText.startsWith("RECEIVE_") || actionText === "")
+        );
+      })
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
     const cashSalesTotal = cashRows
-      .filter((item) => item.movement_type === "Cash In" && String(item.source || "") !== "Expense Return")
+      .filter(
+        (item) =>
+          item.movement_type === "Cash In" &&
+          String(item.source || "") !== "Expense Return" &&
+          !String(item.source || "").toLowerCase().includes("drawer turnover"),
+      )
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
     const cashReturnTotal = cashRows
@@ -1360,10 +1569,25 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       .filter((item) => item.movement_type === "Remittance")
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
+    const turnoverTotalValue = cashRows
+      .filter((item) => {
+        const sourceText = String(item.source || "").toLowerCase();
+        const actionText = String(item.source_action || "").toUpperCase();
+
+        return (
+          item.movement_type === "Turnover" &&
+          sourceText.includes("drawer turnover") &&
+          (actionText.includes("TURNOVER_OUT") || actionText === "")
+        );
+      })
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
     const actualCash = Number(drawer?.actual_cash || 0);
-    const expectedCashBeforeRemittance = openingFloatTotal + cashSalesTotal + cashReturnTotal - cashExpenseTotal;
-    const remainingCash = Math.max(actualCash - remittanceTotalValue, 0);
-    const variance = actualCash - expectedCashBeforeRemittance;
+    const expectedCashBeforeClose =
+      openingFloatTotal + cashSalesTotal + cashReturnTotal + cashTurnoverReceivedTotal - cashExpenseTotal;
+    const totalCashOutflowAtClose = remittanceTotalValue + turnoverTotalValue;
+    const remainingCash = Math.max(actualCash - totalCashOutflowAtClose, 0);
+    const variance = actualCash - expectedCashBeforeClose;
 
     const salesBySource = (sourceName: string) =>
       rows
@@ -1380,6 +1604,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           (item) =>
             item.movement_type === "Cash In" &&
             String(item.source || "") !== "Expense Return" &&
+            !String(item.source || "").toLowerCase().includes("drawer turnover") &&
             String(item.payment_type || "Cash") === paymentName,
         )
         .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
@@ -1401,6 +1626,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         (item) =>
           item.movement_type === "Cash In" &&
           String(item.source || "") !== "Expense Return" &&
+          !String(item.source || "").toLowerCase().includes("drawer turnover") &&
           !String(item.source || "").toLowerCase().includes("room") &&
           !String(item.source || "").toLowerCase().includes("restaurant") &&
           !String(item.source || "").toLowerCase().includes("apartment"),
@@ -1426,9 +1652,12 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       rows,
       openingFloatTotal,
       cashSalesTotal,
+      cashTurnoverReceivedTotal,
       cashReturnTotal,
       cashExpenseTotal,
-      expectedCashBeforeRemittance,
+      expectedCashBeforeRemittance: expectedCashBeforeClose,
+      turnoverTotalValue,
+      totalCashOutflowAtClose,
       actualCash,
       remittanceTotalValue,
       remainingCash,
@@ -1457,7 +1686,20 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const openedAt = drawer?.opened_at ? new Date(drawer.opened_at).toLocaleString("en-PH", { hour12: false }) : "-";
     const closedAt = drawer?.closed_at ? new Date(drawer.closed_at).toLocaleString("en-PH", { hour12: false }) : "-";
     const businessDateValue = drawer?.business_date || drawer?.created_at?.slice?.(0, 10) || today;
-    const receivedBy = drawer?.closing_remittance_received_by || drawer?.received_by || "-";
+    const remittanceReceiver = String(drawer?.closing_remittance_received_by || "").trim();
+    const turnoverReceiver =
+      summary.rows.find((item) => {
+        const sourceText = String(item.source || "").toLowerCase();
+        const actionText = String(item.source_action || "").toUpperCase();
+
+        return (
+          String(item.movement_type || "") === "Turnover" &&
+          sourceText.includes("drawer turnover") &&
+          (actionText.includes("TURNOVER_OUT") || actionText === "") &&
+          String(item.to_person || "").trim()
+        );
+      })?.to_person || "";
+    const receivedBy = remittanceReceiver || String(turnoverReceiver || drawer?.received_by || "").trim() || "-";
     const managementRemarks = drawer?.remarks || drawer?.closing_remarks || "-";
     const totalCollections = summary.cashCollections + summary.gcashCollections + summary.bankCollections + summary.terminalCollections;
     const totalSales = summary.roomSales + summary.restaurantSales + summary.apartmentCollection + summary.otherSales;
@@ -1577,12 +1819,14 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
                 <h2>CASH RECONCILIATION</h2>
                 <div class="line"><span>Opening Float</span><strong>${formatMoney(summary.openingFloatTotal)}</strong></div>
                 <div class="line"><span>Add: Cash Sales</span><strong>${formatMoney(summary.cashSalesTotal)}</strong></div>
+                <div class="line"><span>Add: Cash Turnover Received</span><strong>${formatMoney(summary.cashTurnoverReceivedTotal)}</strong></div>
                 <div class="line"><span>Add: Expense Returns</span><strong>${formatMoney(summary.cashReturnTotal)}</strong></div>
                 <div class="line"><span>Less: Cash Expenses / Releases</span><strong class="negative">(${formatMoney(summary.cashExpenseTotal)})</strong></div>
-                <div class="line total"><span>Expected Cash</span><strong>${formatMoney(summary.expectedCashBeforeRemittance)}</strong></div>
+                <div class="line total"><span>Expected Cash Before Close</span><strong>${formatMoney(summary.expectedCashBeforeRemittance)}</strong></div>
                 <div class="line"><span>Actual Cash Counted</span><strong>${formatMoney(summary.actualCash)}</strong></div>
-                <div class="line"><span>Remitted</span><strong>${formatMoney(summary.remittanceTotalValue)}</strong></div>
-                <div class="line"><span>Remaining Cash</span><strong>${formatMoney(summary.remainingCash)}</strong></div>
+                <div class="line"><span>Cash Turnover Out</span><strong>${formatMoney(summary.turnoverTotalValue)}</strong></div>
+                <div class="line"><span>Cash Remitted</span><strong>${formatMoney(summary.remittanceTotalValue)}</strong></div>
+                <div class="line"><span>Remaining Cash After Close</span><strong>${formatMoney(summary.remainingCash)}</strong></div>
                 <div class="line total"><span>${isBalanced ? "BALANCED" : "VARIANCE"}</span><strong>${formatMoney(summary.variance)}</strong></div>
               </div>
 
@@ -1596,10 +1840,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
                   <div class="line total"><span>Total Collections</span><strong>${formatMoney(totalCollections)}</strong></div>
                 </div>
                 <div class="box" style="margin-top:14px; min-height:105px;">
-                  <h2>REMITTANCE SUMMARY</h2>
-                  <div class="line"><span>Remitted Amount</span><strong>${formatMoney(summary.remittanceTotalValue)}</strong></div>
+                  <h2>REMITTANCE / TURNOVER SUMMARY</h2>
+                  <div class="line"><span>Cash Remitted</span><strong>${formatMoney(summary.remittanceTotalValue)}</strong></div>
+                  <div class="line"><span>Cash Turnover Out</span><strong>${formatMoney(summary.turnoverTotalValue)}</strong></div>
                   <div class="line"><span>Received By</span><strong>${receivedBy}</strong></div>
-                  <div class="line total"><span>Remaining Cash</span><strong>${formatMoney(summary.remainingCash)}</strong></div>
+                  <div class="line total"><span>Remaining Cash After Close</span><strong>${formatMoney(summary.remainingCash)}</strong></div>
                 </div>
               </div>
 
@@ -1624,7 +1869,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               </div>
             </div>
 
-            <div class="note">Cash drawer rule: only physical cash movements are included in Expected Cash. Full remittance is required. Variance is based on Expected Cash minus actual cash counted. Bank, GCash, and Terminal collections are shown for reference only.</div>
+            <div class="note">Cash drawer rule: Expected Cash includes opening float, cash sales, cash turnover received, and expense returns less cash expenses. Remaining Cash After Close deducts cash turnover and cash remittance from actual cash counted. Bank, GCash, and Terminal collections are shown for reference only.</div>
             <div class="remarks"><h3>MANAGEMENT REMARKS</h3><div>${managementRemarks}</div></div>
             <div class="signatures">
               <div class="sig"><strong>${drawer?.holder_name || "Cashier"}</strong>Prepared By / Cashier</div>
@@ -1904,6 +2149,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
                 <SummaryLine label="Cash In" value={formatMoney(cashInMovementTotal)} />
                 <SummaryLine label="Cash Out" value={formatMoney(cashOutTotal)} />
                 <SummaryLine label="Remittance" value={formatMoney(remittanceTotal)} />
+                <SummaryLine label="Turnover" value={formatMoney(turnoverTotal)} />
                 <SummaryLine label="For Liquidation" value={formatMoney(pendingLiquidationAmount)} warning={pendingLiquidations.length > 0} />
               </div>
             </div>
@@ -1921,7 +2167,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
                 <Field label="View Scope"><select value={ledgerDateScope} onChange={(e) => setLedgerDateScope(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="CURRENT_DRAWER">Current Drawer</option><option value="TODAY">Today</option><option value="CUSTOM">Custom Date</option><option value="ALL">All</option></select></Field>
                 <Field label="Date"><input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
-                <Field label="Type"><select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="ALL">All Types</option><option>Opening Float</option><option>Cash In</option><option>Cash Out</option><option>Remittance</option></select></Field>
+                <Field label="Type"><select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="ALL">All Types</option><option>Opening Float</option><option>Cash In</option><option>Cash Out</option><option>Remittance</option><option>Turnover</option></select></Field>
                 <Field label="Payment"><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="ALL">All Payments</option>{paymentTypes.map((item) => <option key={item}>{item}</option>)}</select></Field>
                 <Field label="Search"><input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Search ledger" /></Field>
               </div>
@@ -2185,20 +2431,64 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           <Modal title="Close Cash Drawer" onClose={() => setShowCloseDrawer(false)}>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
-                Expected physical cash before remittance: {formatMoney(cashOnHand)}
+                Expected physical cash before close: {formatMoney(cashOnHand)}
               </div>
               <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
-                Current drawer GCash before remittance: {formatMoney(gcashTotal)}
+                Current drawer GCash before close: {formatMoney(gcashTotal)}
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Actual Closing Cash"><input value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
-              <Field label="Cash Remittance"><input value={closingRemittanceAmount} onChange={(e) => setClosingRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
-              <Field label="GCash Remittance"><input value={closingGcashRemittanceAmount} onChange={(e) => setClosingGcashRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
-              <Field label="Received By"><input value={closingRemittanceReceivedBy} onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field>
-              <div className="md:col-span-2"><Field label="Remarks"><input value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" /></Field></div>
+
+            <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Cash Count</p>
+              <Field label="Actual Closing Cash">
+                <input value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+              </Field>
             </div>
-            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button onClick={() => setShowCloseDrawer(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700">Cancel</button><button onClick={closeDrawer} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800">Close Drawer</button></div>
+
+            <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-4">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Remit to Management / Vault</p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Field label="Cash Remit">
+                  <input value={closingRemittanceAmount} onChange={(e) => setClosingRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+                </Field>
+                <Field label="GCash Remit">
+                  <input value={closingGcashRemittanceAmount} onChange={(e) => setClosingGcashRemittanceAmount(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+                </Field>
+                <Field label="Remitted To">
+                  <input value={closingRemittanceReceivedBy} onChange={(e) => setClosingRemittanceReceivedBy(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Management / Vault" />
+                </Field>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Turnover to Next Drawer Holder</p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Field label="Cash Turnover">
+                  <input value={closingCashTurnoverAmount} onChange={(e) => setClosingCashTurnoverAmount(e.target.value)} className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+                </Field>
+                <Field label="GCash Turnover">
+                  <input value={closingGcashTurnoverAmount} onChange={(e) => setClosingGcashTurnoverAmount(e.target.value)} className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+                </Field>
+                <Field label="Turnover To">
+                  <select value={closingTurnoverTo} onChange={(e) => setClosingTurnoverTo(e.target.value)} className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm font-semibold text-slate-800">
+                    <option value="">Select receiver</option>
+                    {drawerHolderOptions.map((name) => <option key={name}>{name}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <p className="mt-3 text-xs font-bold text-emerald-700">Turnover automatically creates OUT rows from the closing drawer and IN rows for the receiver drawer using the same origin ID.</p>
+            </div>
+
+            <div className="mt-4">
+              <Field label="Close Remarks">
+                <input value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Notes, reference, or shift handover details" />
+              </Field>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+              <button onClick={() => setShowCloseDrawer(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700">Cancel</button>
+              <button onClick={closeDrawer} disabled={isSaving} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">Close Drawer</button>
+            </div>
           </Modal>
         )}
       </div>
