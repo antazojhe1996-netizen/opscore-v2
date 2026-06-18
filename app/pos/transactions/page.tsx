@@ -27,6 +27,7 @@ type PosOrder = {
   session_id: string | null;
   cashier_id: string | null;
   table_no: string | null;
+  order_tag: string | null;
   order_type: string | null;
   order_number: string | null;
   receipt_no: string | null;
@@ -202,6 +203,7 @@ export default function POSTransactionsPage() {
           session_id,
           cashier_id,
           table_no,
+          order_tag,
           order_type,
           order_number,
           receipt_no,
@@ -336,7 +338,7 @@ export default function POSTransactionsPage() {
   };
 
   const getOrderReference = (order: PosOrder) =>
-    order.order_number || order.receipt_no || order.id.slice(0, 8);
+    order.order_tag || order.order_number || order.receipt_no || order.id.slice(0, 8);
 
   const getOrderItemCount = (orderId: string) =>
     orderItems
@@ -350,6 +352,61 @@ export default function POSTransactionsPage() {
         request.request_type === requestType &&
         ["PENDING", "APPROVED"].includes(String(request.status || "").toUpperCase()),
     ) || null;
+
+  const getApprovalRequestsForOrder = (orderId: string) =>
+    approvalRequests.filter((request) => request.reference_id === orderId);
+
+  const getKitchenActivityForOrder = (orderId: string) =>
+    orderItems
+      .filter((item) => item.order_id === orderId && item.production_status)
+      .map((item) => ({
+        id: item.id,
+        label: item.production_status || "-",
+        helper: `${item.qty}x ${item.item_name}`,
+        meta: item.production_area || "NO STATION",
+      }));
+
+  const getDerivedTimeline = (order: PosOrder, items: PosOrderItem[]) => {
+    const events = [
+      {
+        label: "Order Created",
+        value: formatDateTime(order.created_at),
+        helper: `Cashier: ${getCashierName(order.cashier_id)}`,
+      },
+      {
+        label: "Order Status",
+        value: order.status || "-",
+        helper: `Payment: ${order.payment_status || "-"} • Production: ${order.production_status || "-"}`,
+      },
+    ];
+
+    const productionStatuses = Array.from(
+      new Set(
+        items
+          .map((item) => item.production_status)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+
+    productionStatuses.forEach((status) => {
+      const count = items.filter((item) => item.production_status === status).length;
+      events.push({
+        label: `Production ${status}`,
+        value: `${count} line item(s)`,
+        helper: "Derived from POS order items",
+      });
+    });
+
+    getApprovalRequestsForOrder(order.id).forEach((request) => {
+      events.push({
+        label: String(request.request_type || "Approval"),
+        value: String(request.status || "-"),
+        helper: formatDateTime(request.created_at),
+      });
+    });
+
+    return events;
+  };
 
   const getOperationalStatus = (order: PosOrder) => {
     const voidRequest = getApprovalForOrder(order.id, "POS_VOID");
@@ -424,6 +481,7 @@ export default function POSTransactionsPage() {
       const matchesSearch =
         !term ||
         getOrderReference(order).toLowerCase().includes(term) ||
+        String(order.order_tag || "").toLowerCase().includes(term) ||
         String(order.receipt_no || "").toLowerCase().includes(term) ||
         String(order.table_no || "").toLowerCase().includes(term) ||
         String(order.order_type || "").toLowerCase().includes(term) ||
@@ -472,6 +530,7 @@ export default function POSTransactionsPage() {
   const exportCsv = () => {
     const headers = [
       "Date",
+      "Order Tag",
       "Order No",
       "Receipt No",
       "Cashier",
@@ -491,6 +550,7 @@ export default function POSTransactionsPage() {
 
     const rows = filteredOrders.map((order) => [
       formatDateTime(order.created_at),
+      order.order_tag || "",
       order.order_number || "",
       order.receipt_no || "",
       getCashierName(order.cashier_id),
@@ -594,6 +654,7 @@ export default function POSTransactionsPage() {
       session_id: actionOrder.session_id,
       cashier_id: actionOrder.cashier_id,
       cashier_name: cashierName,
+      order_tag: actionOrder.order_tag,
       order_number: actionOrder.order_number,
       receipt_no: actionOrder.receipt_no,
       order_type: actionOrder.order_type,
@@ -635,8 +696,8 @@ export default function POSTransactionsPage() {
   };
 
   return (
-    <PageGuard moduleKey="pos_transactions">
-      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
+<PageGuard moduleKey="pos_terminal">
+        <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
         <Sidebar />
 
         <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB]">
@@ -650,12 +711,11 @@ export default function POSTransactionsPage() {
                 </p>
 
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                  Transactions
+                  Transactions Audit Center
                 </h1>
 
                 <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
-                  View POS orders, payment methods, cashier activity, order
-                  totals, production status, and transaction details.
+                  View POS orders, cashier activity, payments, production status, item details, approval requests, and derived audit trail.
                 </p>
               </div>
 
@@ -852,7 +912,7 @@ export default function POSTransactionsPage() {
                               {getOrderReference(order)}
                             </p>
                             <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                              Receipt: {order.receipt_no || "-"}
+                              Order No: {order.order_number || "-"} • Receipt: {order.receipt_no || "-"}
                             </p>
                           </td>
 
@@ -1072,6 +1132,10 @@ export default function POSTransactionsPage() {
                           value={getCashierName(selectedOrder.cashier_id)}
                         />
                         <InfoCard
+                          label="Order Tag"
+                          value={selectedOrder.order_tag || "-"}
+                        />
+                        <InfoCard
                           label="Order Type"
                           value={selectedOrder.order_type || "-"}
                         />
@@ -1090,6 +1154,14 @@ export default function POSTransactionsPage() {
                         <InfoCard
                           label="Payment Status"
                           value={selectedOrder.payment_status || "-"}
+                        />
+                        <InfoCard
+                          label="Session"
+                          value={selectedOrder.session_id?.slice(0, 8) || "-"}
+                        />
+                        <InfoCard
+                          label="Production Status"
+                          value={selectedOrder.production_status || "-"}
                         />
                         <InfoCard
                           label="Approval Status"
@@ -1131,6 +1203,68 @@ export default function POSTransactionsPage() {
                               </div>
                             ))
                           )}
+                        </div>
+                      </section>
+
+                      <section className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                        <div className="border-b border-slate-100 px-6 py-5">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                            Kitchen / Production Activity
+                          </p>
+                        </div>
+
+                        <div className="divide-y divide-slate-100">
+                          {getKitchenActivityForOrder(selectedOrder.id).length === 0 ? (
+                            <div className="p-6 text-center text-sm font-semibold text-slate-500">
+                              No production activity found.
+                            </div>
+                          ) : (
+                            getKitchenActivityForOrder(selectedOrder.id).map((activity) => (
+                              <div
+                                key={activity.id}
+                                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-5"
+                              >
+                                <div>
+                                  <p className="font-black uppercase text-slate-950">
+                                    {activity.label}
+                                  </p>
+                                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                                    {activity.helper}
+                                  </p>
+                                </div>
+
+                                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black uppercase text-slate-600">
+                                  {activity.meta}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </section>
+
+                      <section className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                        <div className="border-b border-slate-100 px-6 py-5">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                            Audit Timeline
+                          </p>
+                        </div>
+
+                        <div className="divide-y divide-slate-100">
+                          {getDerivedTimeline(selectedOrder, selectedOrderItems).map((event, index) => (
+                            <div
+                              key={`${event.label}-${index}`}
+                              className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 p-5"
+                            >
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-black text-slate-600">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <p className="font-black text-slate-950">{event.label}</p>
+                                <p className="mt-1 text-sm font-bold text-slate-700">{event.value}</p>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">{event.helper}</p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </section>
 

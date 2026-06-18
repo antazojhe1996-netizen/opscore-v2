@@ -8,10 +8,12 @@ import {
   AlertTriangle,
   ArrowRight,
   Banknote,
+  CheckCircle2,
   Clock3,
   Loader2,
   RefreshCw,
   Search,
+  Send,
   ShoppingBag,
   X,
 } from "lucide-react";
@@ -19,6 +21,7 @@ import {
 type OrderItemRow = {
   id: string;
   order_id: string;
+  production_status?: string | null;
 };
 
 type ParkedOrderRow = {
@@ -37,8 +40,11 @@ type ParkedOrder = {
   tag: string;
   total: number;
   itemCount: number;
+  sentItemCount: number;
+  pendingItemCount: number;
   paymentStatus: string;
   productionStatus: string;
+  displayProductionStatus: string;
   createdAtLabel: string;
   minutesAgo: number;
 };
@@ -69,15 +75,23 @@ const getMinutesAgo = (value: string) => {
 const getStatusClass = (status: string) => {
   const normalized = status.toUpperCase();
 
-  if (normalized === "READY") {
+  if (normalized.includes("READY") || normalized.includes("COMPLETED")) {
     return "border-emerald-400/25 bg-emerald-500/10 text-emerald-300";
   }
 
-  if (normalized === "PREPARING") {
+  if (
+    normalized.includes("SENT") ||
+    normalized.includes("PRINTED") ||
+    normalized.includes("IN_PROGRESS")
+  ) {
     return "border-sky-400/25 bg-sky-500/10 text-sky-300";
   }
 
-  if (normalized === "PENDING") {
+  if (normalized.includes("PREPARING")) {
+    return "border-violet-400/25 bg-violet-500/10 text-violet-300";
+  }
+
+  if (normalized.includes("PENDING")) {
     return "border-amber-400/25 bg-amber-500/10 text-amber-300";
   }
 
@@ -88,6 +102,24 @@ const getAgeClass = (minutes: number) => {
   if (minutes >= 45) return "text-red-300";
   if (minutes >= 25) return "text-amber-300";
   return "text-emerald-300";
+};
+
+const normalizeProductionStatus = (
+  orderStatus: string,
+  sentItemCount: number,
+  pendingItemCount: number,
+) => {
+  const normalized = orderStatus.toUpperCase();
+
+  if (pendingItemCount > 0 && sentItemCount > 0) return "PARTIAL SENT";
+  if (sentItemCount > 0) return "SENT TO STATION";
+  if (normalized === "SENT") return "SENT TO STATION";
+  if (normalized === "PRINTED") return "PRINTED";
+  if (normalized === "IN_PROGRESS") return "IN PROGRESS";
+  if (normalized === "COMPLETED") return "COMPLETED";
+  if (normalized === "READY") return "READY";
+
+  return orderStatus || "PENDING";
 };
 
 export default function POSParkedOrdersPage() {
@@ -119,6 +151,17 @@ export default function POSParkedOrdersPage() {
           loadParkedOrders(false);
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pos_order_items",
+        },
+        () => {
+          loadParkedOrders(false);
+        },
+      )
       .subscribe();
 
     return () => {
@@ -143,7 +186,8 @@ export default function POSParkedOrdersPage() {
         created_at,
         pos_order_items (
           id,
-          order_id
+          order_id,
+          production_status
         )
       `,
       )
@@ -165,14 +209,33 @@ export default function POSParkedOrdersPage() {
 
     const mappedOrders = ((data || []) as ParkedOrderRow[]).map((order) => {
       const minutesAgo = getMinutesAgo(order.created_at);
+      const items = order.pos_order_items || [];
+      const sentItemCount = items.filter((item) => {
+        const status = String(item.production_status || "").toUpperCase();
+        return ["SENT", "PRINTED", "IN_PROGRESS", "READY", "COMPLETED"].includes(
+          status,
+        );
+      }).length;
+      const pendingItemCount = items.filter((item) => {
+        const status = String(item.production_status || "").toUpperCase();
+        return status === "PENDING";
+      }).length;
+      const productionStatus = order.production_status || "PENDING";
 
       return {
         id: order.id,
         tag: order.order_tag || `ORDER ${order.id.slice(0, 8)}`,
         total: Number(order.total_amount || 0),
-        itemCount: order.pos_order_items?.length || 0,
+        itemCount: items.length,
+        sentItemCount,
+        pendingItemCount,
         paymentStatus: order.payment_status || "UNPAID",
-        productionStatus: order.production_status || "PENDING",
+        productionStatus,
+        displayProductionStatus: normalizeProductionStatus(
+          productionStatus,
+          sentItemCount,
+          pendingItemCount,
+        ),
         createdAtLabel: formatTime(order.created_at),
         minutesAgo,
       };
@@ -190,9 +253,14 @@ export default function POSParkedOrdersPage() {
   }, [orders, search]);
 
   const delayedOrders = orders.filter((order) => order.minutesAgo >= 30).length;
-  const readyOrders = orders.filter(
-    (order) => order.productionStatus.toUpperCase() === "READY",
-  ).length;
+  const readyOrders = orders.filter((order) =>
+  ["READY", "COMPLETED"].some((status) =>
+    String(order.displayProductionStatus || order.productionStatus || "")
+      .toUpperCase()
+      .includes(status),
+  ),
+).length;
+  const sentOrders = orders.filter((order) => order.sentItemCount > 0).length;
   const totalValue = orders.reduce((sum, order) => sum + order.total, 0);
 
   const openOrder = (order: ParkedOrder) => {
@@ -208,8 +276,8 @@ export default function POSParkedOrdersPage() {
   };
 
   return (
-<PageGuard moduleKey="pos_terminal">
-        <div className="h-screen overflow-hidden bg-[#05080d] text-white">
+    <PageGuard moduleKey="pos_terminal">
+      <div className="h-screen overflow-hidden bg-[#05080d] text-white">
         <main className="flex h-full flex-col p-2">
           <section className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#070b10] px-4 py-3 shadow-xl shadow-black/40">
             <div className="flex min-w-0 items-center gap-3">
@@ -230,6 +298,9 @@ export default function POSParkedOrdersPage() {
             <div className="hidden items-center gap-2 md:flex">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-black text-slate-300">
                 Parked {orders.length}
+              </span>
+              <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-black text-sky-200">
+                Sent {sentOrders}
               </span>
               <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-200">
                 Ready {readyOrders}
@@ -312,17 +383,21 @@ export default function POSParkedOrdersPage() {
                     No Parked Orders
                   </p>
                   <p className="mt-2 text-sm font-semibold text-slate-500">
-                    Held orders will appear here after cashier parks an order.
+                    Held orders will appear here after cashier parks or sends an
+                    open order to a production station.
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
                 {filteredOrders.map((order) => {
                   const isDelayed = order.minutesAgo >= 30;
                   const isReady =
-                    order.productionStatus.toUpperCase() === "READY" ||
-                    order.productionStatus.toUpperCase() === "COMPLETED";
+                    order.displayProductionStatus.toUpperCase().includes("READY") ||
+                    order.displayProductionStatus
+                      .toUpperCase()
+                      .includes("COMPLETED");
+                  const isSent = order.sentItemCount > 0;
 
                   return (
                     <article
@@ -333,24 +408,26 @@ export default function POSParkedOrdersPage() {
                           ? "border-red-400/30"
                           : isReady
                             ? "border-emerald-400/25"
-                            : "border-white/10",
+                            : isSent
+                              ? "border-sky-400/25"
+                              : "border-white/10",
                       ].join(" ")}
                     >
-                      <div className="border-b border-white/10 bg-black/20 px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
+                      <div className="border-b border-white/10 bg-black/20 px-3 py-2.5">
+                        <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate text-2xl font-black uppercase tracking-tight">
+                            <p className="truncate text-xl font-black uppercase tracking-tight">
                               {order.tag}
                             </p>
 
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
-                                <Clock3 size={11} />
+                              <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                                <Clock3 size={10} />
                                 {order.createdAtLabel}
                               </span>
 
                               <span
-                                className={`rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase ring-1 ring-white/10 ${getAgeClass(
+                                className={`rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase ring-1 ring-white/10 ${getAgeClass(
                                   order.minutesAgo,
                                 )}`}
                               >
@@ -359,65 +436,82 @@ export default function POSParkedOrdersPage() {
                             </div>
                           </div>
 
-                          {isDelayed && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-1 text-[10px] font-black uppercase text-red-300 ring-1 ring-red-400/25">
-                              <AlertTriangle size={11} />
+                          {isDelayed ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-1 text-[9px] font-black uppercase text-red-300 ring-1 ring-red-400/25">
+                              <AlertTriangle size={10} />
                               Delay
                             </span>
-                          )}
+                          ) : isSent ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-1 text-[9px] font-black uppercase text-sky-300 ring-1 ring-sky-400/25">
+                              <Send size={10} />
+                              Sent
+                            </span>
+                          ) : isReady ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black uppercase text-emerald-300 ring-1 ring-emerald-400/25">
+                              <CheckCircle2 size={10} />
+                              Ready
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 
-                      <div className="p-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                      <div className="p-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
                               Total
                             </p>
-                            <p className="mt-1 text-2xl font-black text-amber-300">
+                            <p className="mt-0.5 truncate text-xl font-black text-amber-300">
                               {peso(order.total)}
                             </p>
                           </div>
 
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-right">
-                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                          <div className="rounded-xl border border-white/10 bg-black/20 p-2.5 text-right">
+                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
                               Items
                             </p>
-                            <p className="mt-1 text-2xl font-black text-white">
+                            <p className="mt-0.5 text-xl font-black text-white">
                               {order.itemCount}
                             </p>
                           </div>
                         </div>
 
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-xs font-black uppercase text-amber-300">
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-300">
                             {order.paymentStatus}
                           </span>
 
                           <span
-                            className={`rounded-full border px-3 py-1 text-xs font-black uppercase ${getStatusClass(
-                              order.productionStatus,
+                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase ${getStatusClass(
+                              order.displayProductionStatus,
                             )}`}
                           >
-                            {order.productionStatus}
+                            {order.displayProductionStatus}
                           </span>
+
+                          {order.sentItemCount > 0 &&
+                            order.sentItemCount < order.itemCount && (
+                              <span className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-black uppercase text-sky-300">
+                                {order.sentItemCount}/{order.itemCount} sent
+                              </span>
+                            )}
                         </div>
 
-                        <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="mt-3 grid grid-cols-2 gap-2">
                           <button
                             onClick={() => openOrder(order)}
-                            className="flex h-13 min-h-[52px] items-center justify-center gap-2 rounded-xl bg-white text-sm font-black uppercase text-black transition hover:bg-amber-100 active:scale-[0.98]"
+                            className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-white text-xs font-black uppercase text-black transition hover:bg-amber-100 active:scale-[0.98]"
                           >
                             Recall
-                            <ArrowRight size={15} />
+                            <ArrowRight size={13} />
                           </button>
 
                           <button
                             onClick={() => payOrder(order)}
-                            className="flex h-13 min-h-[52px] items-center justify-center gap-2 rounded-xl bg-amber-400 text-sm font-black uppercase text-black transition hover:bg-amber-300 active:scale-[0.98]"
+                            className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-amber-400 text-xs font-black uppercase text-black transition hover:bg-amber-300 active:scale-[0.98]"
                           >
                             Pay
-                            <Banknote size={15} />
+                            <Banknote size={13} />
                           </button>
                         </div>
                       </div>

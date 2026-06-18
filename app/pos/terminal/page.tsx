@@ -110,6 +110,7 @@ type CartItem = {
   qty: number;
   production_area: string | null;
   requires_production: boolean;
+  sentQty?: number;
 };
 
 type Employee = {
@@ -143,6 +144,26 @@ type VoidCandidateOrder = {
   payment_status: string | null;
   status: string | null;
   created_at: string | null;
+};
+
+type PosTransactionOrder = VoidCandidateOrder & {
+  table_no?: string | null;
+  subtotal?: number | null;
+  service_charge?: number | null;
+  amount_paid?: number | null;
+  change_amount?: number | null;
+  payment_reference?: string | null;
+};
+
+type PosTransactionItem = {
+  id?: string | null;
+  menu_item_id?: string | null;
+  item_name: string | null;
+  qty: number | null;
+  price: number | null;
+  total: number | null;
+  production_area?: string | null;
+  production_status?: string | null;
 };
 
 const peso = (value: number) =>
@@ -223,6 +244,7 @@ export default function POSTerminalPage() {
   const [paymentReference, setPaymentReference] = useState("");
   const [showOrderTagModal, setShowOrderTagModal] = useState(false);
   const [orderTag, setOrderTag] = useState("");
+  const [orderNotes, setOrderNotes] = useState("");
   const [parkActionType, setParkActionType] = useState<"KITCHEN" | "PARK">("PARK");
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -235,6 +257,16 @@ export default function POSTerminalPage() {
   const [voidCandidates, setVoidCandidates] = useState<VoidCandidateOrder[]>([]);
   const [selectedVoidOrder, setSelectedVoidOrder] =
     useState<VoidCandidateOrder | null>(null);
+
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
+  const [transactionLoading, setTransactionLoading] = useState(false);
+  const [transactionMessage, setTransactionMessage] = useState("");
+  const [transactions, setTransactions] = useState<PosTransactionOrder[]>([]);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<PosTransactionOrder | null>(null);
+  const [selectedTransactionItems, setSelectedTransactionItems] = useState<
+    PosTransactionItem[]
+  >([]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderLoading, setOrderLoading] = useState(false);
@@ -253,6 +285,15 @@ export default function POSTerminalPage() {
     if (typeof window !== "undefined") {
       window.location.href = `${window.location.origin}/pos/parked-orders`;
     }
+  };
+
+  const queueParkedOrdersRedirect = () => {
+    // Give the browser print dialog enough time to open before navigating away.
+    // Without this delay, SEND TO STATION can save successfully then redirect
+    // straight to Parked Orders before the kitchen slip print popup appears.
+    window.setTimeout(() => {
+      goToParkedOrders();
+    }, 2500);
   };
 
   useEffect(() => {
@@ -704,15 +745,39 @@ export default function POSTerminalPage() {
       return;
     }
 
-    const loadedItems: CartItem[] = (itemData || []).map((item: any) => ({
-      id: item.menu_item_id,
-      item_code: null,
-      name: item.item_name,
-      price: Number(item.price || 0),
-      qty: Number(item.qty || 0),
-      production_area: item.production_area || null,
-      requires_production: item.production_status !== "COMPLETED",
-    }));
+    const loadedItemsMap = new Map<string, CartItem>();
+
+    (itemData || []).forEach((item: any) => {
+      const key = String(item.menu_item_id || item.item_name);
+      const qty = Number(item.qty || 0);
+      const isProductionItem = item.production_status !== "COMPLETED";
+      const isAlreadySent =
+        item.production_status === "SENT" ||
+        item.production_status === "PRINTED" ||
+        item.production_status === "IN_PROGRESS";
+      const existing = loadedItemsMap.get(key);
+
+      if (existing) {
+        existing.qty += qty;
+        existing.sentQty = Number(existing.sentQty || 0) + (isAlreadySent ? qty : 0);
+        existing.requires_production =
+          existing.requires_production || isProductionItem || isAlreadySent;
+        return;
+      }
+
+      loadedItemsMap.set(key, {
+        id: item.menu_item_id,
+        item_code: null,
+        name: item.item_name,
+        price: Number(item.price || 0),
+        qty,
+        production_area: item.production_area || null,
+        requires_production: isProductionItem || isAlreadySent,
+        sentQty: isAlreadySent ? qty : 0,
+      });
+    });
+
+    const loadedItems: CartItem[] = Array.from(loadedItemsMap.values());
 
     setCart(loadedItems);
     setLoadedParkedOrderId(orderId);
@@ -764,6 +829,7 @@ export default function POSTerminalPage() {
             ? getProductionCode(product)
             : null,
           requires_production: getRequiresProduction(product),
+          sentQty: 0,
         },
       ];
     });
@@ -781,7 +847,9 @@ export default function POSTerminalPage() {
     setCart((currentCart) =>
       currentCart
         .map((item) =>
-          item.id === itemId ? { ...item, qty: item.qty - 1 } : item,
+          item.id === itemId
+            ? { ...item, qty: Math.max(Number(item.sentQty || 0), item.qty - 1) }
+            : item,
         )
         .filter((item) => item.qty > 0),
     );
@@ -796,6 +864,7 @@ export default function POSTerminalPage() {
   const resetOrderTagState = () => {
     setShowOrderTagModal(false);
     setOrderTag("");
+    setOrderNotes("");
     setParkActionType("PARK");
   };
 
@@ -824,6 +893,25 @@ export default function POSTerminalPage() {
   ).length;
 
   const hasProductionItems = productionRequiredCount > 0;
+
+  const kitchenSendItems = cart
+    .map((item) => ({
+      ...item,
+      unsentQty: Math.max(0, Number(item.qty || 0) - Number(item.sentQty || 0)),
+    }))
+    .filter((item) => item.requires_production && item.unsentQty > 0);
+
+  const groupedKitchenSendItems = kitchenSendItems.reduce<
+    Record<string, Array<CartItem & { unsentQty: number }>>
+  >((acc, item) => {
+    const key = getStationLabelForSlip(item);
+    acc[key] = [...(acc[key] || []), item];
+    return acc;
+  }, {});
+
+  const isAdditionalKitchenSend = cart.some(
+    (item) => item.requires_production && Number(item.sentQty || 0) > 0,
+  );
 
   const amountPaidValue = Number(amountPaid || 0);
   const changeAmount =
@@ -854,13 +942,18 @@ export default function POSTerminalPage() {
       return;
     }
 
+    if (actionType === "KITCHEN" && kitchenSendItems.length === 0) {
+      setOrderMessage("No new production items to send.");
+      return;
+    }
+
     setParkActionType(actionType);
     setOrderTag(loadedParkedOrderTag || "");
     setShowOrderTagModal(true);
   };
 
 
-  const getStationLabelForSlip = (item: CartItem) => {
+  function getStationLabelForSlip(item: CartItem) {
     if (!item.requires_production) return "DIRECT / NO PRODUCTION";
 
     const productionCode = normalizeCode(item.production_area || "");
@@ -874,18 +967,32 @@ export default function POSTerminalPage() {
     if (station?.name) return station.name.toUpperCase();
 
     return productionCode || "PRODUCTION";
-  };
+  }
 
-  const printOrderSlip = (tag: string) => {
+  const printOrderSlip = (
+    tag: string,
+    slipItems: CartItem[] = cart,
+    slipNotes = orderNotes,
+    slipMode: "NEW" | "ADDITIONAL" = isAdditionalKitchenSend ? "ADDITIONAL" : "NEW",
+  ) => {
     if (typeof window === "undefined") return;
 
-    const groupedItems = cart.reduce<Record<string, CartItem[]>>((acc, item) => {
+    const escapeSlipText = (value: string | number | null | undefined) =>
+      String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    const groupedItems = slipItems.reduce<Record<string, CartItem[]>>((acc, item) => {
       const key = getStationLabelForSlip(item);
       acc[key] = [...(acc[key] || []), item];
       return acc;
     }, {});
 
-    const slipTime = new Date().toLocaleString("en-PH", {
+    const slipDate = new Date();
+    const slipTime = slipDate.toLocaleString("en-PH", {
       month: "short",
       day: "2-digit",
       year: "numeric",
@@ -893,9 +1000,18 @@ export default function POSTerminalPage() {
       minute: "2-digit",
     });
 
+    const slipClock = slipDate.toLocaleTimeString("en-PH", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const cleanTag = tag.trim().toUpperCase();
+    const slipTitle = slipMode === "ADDITIONAL" ? "ADDITIONAL ORDER" : "KITCHEN ORDER";
     const tableLabel = enableTableTracking
-      ? selectedTable?.table_name || "No Table"
+      ? selectedTable?.table_name || "NO TABLE"
       : "-";
+    const orderTypeLabel = selectedOrderType?.name || selectedOrderTypeCode || "-";
+    const cashierLabel = cashierName || "Cashier";
 
     const stationSections = Object.entries(groupedItems)
       .map(([stationName, stationItems]) => {
@@ -903,148 +1019,244 @@ export default function POSTerminalPage() {
           .map(
             (item) => `
               <div class="item-row">
-                <div class="qty">${item.qty}x</div>
-                <div class="name">${item.name}</div>
+                <span class="item-qty">${escapeSlipText(item.qty)}x</span>
+                <span class="item-name">${escapeSlipText(item.name)}</span>
               </div>
             `,
           )
           .join("");
 
         return `
-          <section class="station">
-            <h2>${stationName}</h2>
+          <section class="station-block">
+            <div class="section-title">${escapeSlipText(stationName)}</div>
             ${rows}
           </section>
         `;
       })
       .join("");
 
+    const notesSection = slipNotes.trim()
+      ? `
+        <div class="divider"></div>
+        <section class="notes-block">
+          <div class="section-title">NOTES</div>
+          <div class="notes-text">${escapeSlipText(slipNotes.trim())}</div>
+        </section>
+      `
+      : "";
+
     const slipHtml = `
       <!doctype html>
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>OPSCORE Order Slip</title>
+          <title>${escapeSlipText(slipTitle)} - ${escapeSlipText(cleanTag)}</title>
           <style>
-            @page { size: 80mm auto; margin: 4mm; }
-            * { box-sizing: border-box; }
-            body {
-              width: 72mm;
+            @page {
+              size: 80mm auto;
               margin: 0;
-              color: #000;
-              font-family: Arial, Helvetica, sans-serif;
-              font-size: 12px;
-              line-height: 1.25;
             }
-            .center { text-align: center; }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            html,
+            body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              color: #000000;
+              font-family: "Courier New", Courier, monospace;
+              text-transform: uppercase;
+            }
+
+            body {
+              width: 80mm;
+            }
+
+            .slip {
+              width: 72mm;
+              margin: 0 auto;
+              padding: 4mm 3mm 5mm;
+              color: #000000;
+              font-size: 11px;
+              line-height: 1.22;
+              font-weight: 700;
+            }
+
+            .center {
+              text-align: center;
+            }
+
             .brand {
               font-size: 13px;
               font-weight: 900;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
+              letter-spacing: 0.02em;
             }
+
             .title {
-              margin-top: 4px;
-              font-size: 19px;
+              margin-top: 2px;
+              font-size: 18px;
               font-weight: 900;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
+              line-height: 1.05;
             }
-            .divider {
-              margin: 8px 0;
-              border-top: 1px dashed #000;
-            }
-            .meta {
-              display: grid;
-              grid-template-columns: 28mm 1fr;
-              gap: 3px 6px;
-              font-size: 11px;
-            }
-            .meta-label {
+
+            .mode {
+              margin: 7px 0 6px;
+              padding: 5px 4px;
+              border: 2px solid #000000;
+              text-align: center;
+              font-size: 16px;
               font-weight: 900;
-              text-transform: uppercase;
+              letter-spacing: 0.04em;
             }
-            .meta-value {
-              font-weight: 700;
-              text-align: right;
-              text-transform: uppercase;
-            }
+
             .tag {
-              margin: 8px 0;
-              padding: 7px 6px;
-              border: 2px solid #000;
+              margin-top: 6px;
               text-align: center;
-              font-size: 22px;
+              font-size: 24px;
               font-weight: 900;
-              letter-spacing: 0.05em;
-              text-transform: uppercase;
+              line-height: 1;
+              word-break: break-word;
             }
-            .station {
-              margin-top: 8px;
+
+            .divider {
+              margin: 7px 0;
+              border-top: 1px dashed #000000;
             }
-            .station h2 {
-              margin: 0 0 4px;
-              padding: 4px 0;
-              border-top: 1px solid #000;
-              border-bottom: 1px solid #000;
-              font-size: 14px;
+
+            .heavy-divider {
+              margin: 7px 0;
+              border-top: 2px solid #000000;
+            }
+
+            .meta-grid {
+              display: grid;
+              grid-template-columns: 23mm 1fr;
+              column-gap: 3mm;
+              row-gap: 2px;
+            }
+
+            .meta-label {
+              font-size: 10px;
               font-weight: 900;
+            }
+
+            .meta-value {
+              text-align: right;
+              font-size: 10px;
+              font-weight: 900;
+              overflow-wrap: anywhere;
+            }
+
+            .section-title {
+              margin: 0 0 5px;
+              padding: 3px 0;
+              border-top: 1px solid #000000;
+              border-bottom: 1px solid #000000;
               text-align: center;
-              text-transform: uppercase;
+              font-size: 13px;
+              font-weight: 900;
+              letter-spacing: 0.04em;
             }
+
             .item-row {
               display: grid;
-              grid-template-columns: 12mm 1fr;
-              gap: 4px;
-              padding: 5px 0;
-              border-bottom: 1px dashed #999;
+              grid-template-columns: 10mm 1fr;
+              gap: 2mm;
+              padding: 4px 0;
+              border-bottom: 1px dashed #999999;
             }
-            .qty {
-              font-size: 17px;
-              font-weight: 900;
-            }
-            .name {
+
+            .item-qty {
               font-size: 15px;
               font-weight: 900;
-              text-transform: uppercase;
             }
+
+            .item-name {
+              font-size: 14px;
+              font-weight: 900;
+              line-height: 1.12;
+              overflow-wrap: anywhere;
+            }
+
+            .notes-text {
+              padding: 3px 0 1px;
+              font-size: 14px;
+              font-weight: 900;
+              line-height: 1.18;
+              overflow-wrap: anywhere;
+              white-space: pre-wrap;
+            }
+
             .footer {
-              margin-top: 10px;
+              margin-top: 8px;
               text-align: center;
-              font-size: 10px;
-              font-weight: 700;
-              text-transform: uppercase;
+              font-size: 9px;
+              font-weight: 900;
+            }
+
+            .print-clock {
+              margin-top: 3px;
+              text-align: center;
+              font-size: 11px;
+              font-weight: 900;
+            }
+
+            @media screen {
+              body {
+                background: #f3f4f6;
+              }
+
+              .slip {
+                margin: 8px auto;
+                background: #ffffff;
+                border: 1px solid #d1d5db;
+                box-shadow: 0 6px 20px rgba(15, 23, 42, 0.15);
+              }
             }
           </style>
         </head>
         <body>
-          <div class="center">
-            <div class="brand">OPSCORE POS</div>
-            <div class="title">Order Slip</div>
-          </div>
+          <main class="slip">
+            <header class="center">
+              <div class="brand">VINCENT RESORT HOTEL</div>
+              <div class="title">${escapeSlipText(slipTitle)}</div>
+            </header>
 
-          <div class="divider"></div>
+            <div class="heavy-divider"></div>
 
-          <div class="tag">${tag}</div>
+            <div class="mode">${slipMode === "ADDITIONAL" ? "ADDITIONAL ITEMS" : "NEW ORDER"}</div>
+            <div class="tag">${escapeSlipText(cleanTag)}</div>
 
-          <div class="meta">
-            <div class="meta-label">Time</div>
-            <div class="meta-value">${slipTime}</div>
-            <div class="meta-label">Cashier</div>
-            <div class="meta-value">${cashierName || "Cashier"}</div>
-            <div class="meta-label">Type</div>
-            <div class="meta-value">${selectedOrderType?.name || selectedOrderTypeCode || "-"}</div>
-            <div class="meta-label">Table</div>
-            <div class="meta-value">${tableLabel}</div>
-          </div>
+            <div class="divider"></div>
 
-          <div class="divider"></div>
+            <section class="meta-grid">
+              <div class="meta-label">TIME</div>
+              <div class="meta-value">${escapeSlipText(slipTime)}</div>
 
-          ${stationSections}
+              <div class="meta-label">CASHIER</div>
+              <div class="meta-value">${escapeSlipText(cashierLabel)}</div>
 
-          <div class="divider"></div>
+              <div class="meta-label">TYPE</div>
+              <div class="meta-value">${escapeSlipText(orderTypeLabel)}</div>
 
-          <div class="footer">Printed from OPSCORE POS</div>
+              <div class="meta-label">TABLE</div>
+              <div class="meta-value">${escapeSlipText(tableLabel)}</div>
+            </section>
+
+            <div class="divider"></div>
+
+            ${stationSections}
+
+            ${notesSection}
+
+            <div class="heavy-divider"></div>
+
+            <div class="footer">PRINTED FROM OPSCORE POS</div>
+            <div class="print-clock">${escapeSlipText(slipClock)}</div>
+          </main>
 
           <script>
             window.onload = function () {
@@ -1080,8 +1292,57 @@ export default function POSTerminalPage() {
 
     setTimeout(() => {
       document.body.removeChild(iframe);
-    }, 1500);
+    }, 1800);
   };
+
+  const buildOrderItemsPayload = (orderId: string, markUnsentAsSent: boolean) => {
+    return cart.flatMap((item) => {
+      const sentQty = Math.min(Number(item.sentQty || 0), Number(item.qty || 0));
+      const unsentQty = Math.max(0, Number(item.qty || 0) - sentQty);
+      const basePayload = {
+        company_id: activeSession?.company_id || null,
+        order_id: orderId,
+        menu_item_id: item.id,
+        item_name: item.name,
+        price: item.price,
+        production_area: item.requires_production ? item.production_area : null,
+      };
+
+      const rows = [];
+
+      if (sentQty > 0) {
+        rows.push({
+          ...basePayload,
+          qty: sentQty,
+          total: item.price * sentQty,
+          production_status: item.requires_production ? "SENT" : "COMPLETED",
+        });
+      }
+
+      if (unsentQty > 0) {
+        rows.push({
+          ...basePayload,
+          qty: unsentQty,
+          total: item.price * unsentQty,
+          production_status:
+            enableProductionRouting && item.requires_production
+              ? markUnsentAsSent
+                ? "SENT"
+                : "PENDING"
+              : "COMPLETED",
+        });
+      }
+
+      return rows;
+    });
+  };
+
+  const getKitchenSlipItems = () =>
+    kitchenSendItems.map((item) => ({
+      ...item,
+      qty: item.unsentQty,
+      sentQty: 0,
+    }));
 
   const saveParkedOrder = async () => {
     setOrderMessage("");
@@ -1144,20 +1405,10 @@ export default function POSTerminalPage() {
         return;
       }
 
-      const refreshedItems = cart.map((item) => ({
-        company_id: activeSession.company_id,
-        order_id: loadedParkedOrderId,
-        menu_item_id: item.id,
-        item_name: item.name,
-        qty: item.qty,
-        price: item.price,
-        total: item.price * item.qty,
-        production_area: item.requires_production ? item.production_area : null,
-        production_status:
-          enableProductionRouting && item.requires_production
-            ? "PENDING"
-            : "COMPLETED",
-      }));
+      const refreshedItems = buildOrderItemsPayload(
+        loadedParkedOrderId,
+        parkActionType === "KITCHEN",
+      );
 
       const { error: insertItemsError } = await supabase
         .from("pos_order_items")
@@ -1169,14 +1420,23 @@ export default function POSTerminalPage() {
         return;
       }
 
-      printOrderSlip(cleanTag);
+      if (parkActionType === "KITCHEN") {
+        printOrderSlip(
+          cleanTag,
+          getKitchenSlipItems(),
+          orderNotes,
+          isAdditionalKitchenSend ? "ADDITIONAL" : "NEW",
+        );
+      } else {
+        printOrderSlip(cleanTag, cart, orderNotes, "NEW");
+      }
 
       setCart([]);
       resetOrderTagState();
       setLoadedParkedOrderId(null);
       setLoadedParkedOrderTag("");
       setOrderLoading(false);
-      goToParkedOrders();
+      queueParkedOrdersRedirect();
       return;
     }
 
@@ -1201,9 +1461,82 @@ export default function POSTerminalPage() {
       return;
     }
 
-    if ((duplicateOrders || []).length > 0) {
+    const duplicateOrderId = (duplicateOrders || [])[0]?.id || null;
+
+    if (duplicateOrderId && parkActionType !== "KITCHEN") {
       setOrderLoading(false);
-      setOrderMessage(`Order tag "${cleanTag}" is already queued.`);
+      setOrderMessage(`Order tag "${cleanTag}" is already queued. Use Recall to update it.`);
+      return;
+    }
+
+    if (duplicateOrderId && parkActionType === "KITCHEN") {
+      const { error: updateDuplicateError } = await supabase
+        .from("pos_orders")
+        .update({
+          order_tag: cleanTag,
+          session_id: activeSession.id,
+          cashier_id: activeSession.opened_by,
+          table_no: enableTableTracking
+            ? selectedTable?.table_name || null
+            : null,
+          order_type: selectedOrderType.code,
+          subtotal,
+          service_charge: serviceCharge,
+          total_amount: grandTotal,
+          payment_status: "UNPAID",
+          production_status:
+            enableProductionRouting && productionRequiredCount > 0
+              ? "PENDING"
+              : "COMPLETED",
+          status: "PARKED",
+        })
+        .eq("id", duplicateOrderId);
+
+      if (updateDuplicateError) {
+        setOrderLoading(false);
+        setOrderMessage(updateDuplicateError.message);
+        return;
+      }
+
+      const { error: deleteDuplicateItemsError } = await supabase
+        .from("pos_order_items")
+        .delete()
+        .eq("order_id", duplicateOrderId);
+
+      if (deleteDuplicateItemsError) {
+        setOrderLoading(false);
+        setOrderMessage(deleteDuplicateItemsError.message);
+        return;
+      }
+
+      const duplicateOrderItems = buildOrderItemsPayload(
+        duplicateOrderId,
+        true,
+      );
+
+      const { error: insertDuplicateItemsError } = await supabase
+        .from("pos_order_items")
+        .insert(duplicateOrderItems);
+
+      if (insertDuplicateItemsError) {
+        setOrderLoading(false);
+        setOrderMessage(insertDuplicateItemsError.message);
+        return;
+      }
+
+      printOrderSlip(
+        cleanTag,
+        getKitchenSlipItems(),
+        orderNotes,
+        isAdditionalKitchenSend ? "ADDITIONAL" : "NEW",
+      );
+
+      setCart([]);
+      resetOrderTagState();
+      setLoadedParkedOrderId(null);
+      setLoadedParkedOrderTag("");
+      setOrderLoading(false);
+      queueParkedOrdersRedirect();
       return;
     }
 
@@ -1239,20 +1572,10 @@ export default function POSTerminalPage() {
       return;
     }
 
-    const orderItems = cart.map((item) => ({
-      company_id: activeSession.company_id,
-      order_id: orderData.id,
-      menu_item_id: item.id,
-      item_name: item.name,
-      qty: item.qty,
-      price: item.price,
-      total: item.price * item.qty,
-      production_area: item.requires_production ? item.production_area : null,
-      production_status:
-        enableProductionRouting && item.requires_production
-          ? "PENDING"
-          : "COMPLETED",
-    }));
+    const orderItems = buildOrderItemsPayload(
+      orderData.id,
+      parkActionType === "KITCHEN",
+    );
 
     const { error: itemsError } = await supabase
       .from("pos_order_items")
@@ -1264,7 +1587,16 @@ export default function POSTerminalPage() {
       return;
     }
 
-    printOrderSlip(cleanTag);
+    if (parkActionType === "KITCHEN") {
+      printOrderSlip(
+        cleanTag,
+        getKitchenSlipItems(),
+        orderNotes,
+        isAdditionalKitchenSend ? "ADDITIONAL" : "NEW",
+      );
+    } else {
+      printOrderSlip(cleanTag, cart, orderNotes, "NEW");
+    }
 
     setCart([]);
     resetOrderTagState();
@@ -1272,7 +1604,7 @@ export default function POSTerminalPage() {
     setLoadedParkedOrderTag("");
 
     setOrderLoading(false);
-    goToParkedOrders();
+    queueParkedOrdersRedirect();
   };
 
   const resetVoidState = () => {
@@ -1283,6 +1615,283 @@ export default function POSTerminalPage() {
     setVoidCandidates([]);
     setSelectedVoidOrder(null);
     setVoidLoading(false);
+  };
+
+  const formatPosDateTime = (value: any) => {
+    if (!value) return "-";
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) return "-";
+
+    return parsed.toLocaleString("en-PH", {
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getTransactionReference = (order: Partial<PosTransactionOrder>) =>
+    order.receipt_no ||
+    order.order_number ||
+    order.order_tag ||
+    String(order.id || "").slice(0, 8).toUpperCase();
+
+  const loadTransactions = async () => {
+    if (!activeSession) {
+      setTransactionMessage("No active cashier session.");
+      return;
+    }
+
+    setTransactionLoading(true);
+    setTransactionMessage("");
+    setSelectedTransaction(null);
+    setSelectedTransactionItems([]);
+
+    let query = supabase
+      .from("pos_orders")
+      .select(
+        `
+        id,
+        company_id,
+        session_id,
+        cashier_id,
+        order_tag,
+        order_number,
+        receipt_no,
+        order_type,
+        table_no,
+        subtotal,
+        service_charge,
+        total_amount,
+        payment_method,
+        payment_method_name,
+        payment_reference,
+        amount_paid,
+        change_amount,
+        payment_status,
+        status,
+        created_at
+      `,
+      )
+      .eq("session_id", activeSession.id)
+      .order("created_at", { ascending: false })
+      .limit(60);
+
+    if (activeSession.company_id) {
+      query = query.eq("company_id", activeSession.company_id);
+    } else {
+      query = query.is("company_id", null);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      setTransactions([]);
+      setTransactionMessage(error.message);
+      setTransactionLoading(false);
+      return;
+    }
+
+    const rows = (data || []) as PosTransactionOrder[];
+    setTransactions(rows);
+    setTransactionMessage(rows.length === 0 ? "No transactions for this session yet." : "");
+    setTransactionLoading(false);
+  };
+
+  const openTransactionsModal = async () => {
+    setShowTransactionsModal(true);
+    await loadTransactions();
+  };
+
+  const closeTransactionsModal = () => {
+    setShowTransactionsModal(false);
+    setTransactionMessage("");
+    setTransactionLoading(false);
+    setSelectedTransaction(null);
+    setSelectedTransactionItems([]);
+  };
+
+  const loadTransactionDetails = async (order: PosTransactionOrder) => {
+    setSelectedTransaction(order);
+    setSelectedTransactionItems([]);
+    setTransactionMessage("");
+
+    const { data, error } = await supabase
+      .from("pos_order_items")
+      .select("id, menu_item_id, item_name, qty, price, total, production_area, production_status")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      setTransactionMessage(error.message);
+      return;
+    }
+
+    setSelectedTransactionItems((data || []) as PosTransactionItem[]);
+  };
+
+  const printTransactionReceipt = (
+    order: PosTransactionOrder,
+    items: PosTransactionItem[] = selectedTransactionItems,
+  ) => {
+    if (typeof window === "undefined") return;
+
+    const escapeText = (value: string | number | null | undefined) =>
+      String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    const reference = getTransactionReference(order);
+    const total = Number(order.total_amount || 0);
+    const paid = Number(order.amount_paid || 0);
+    const change = Number(order.change_amount || 0);
+
+    const rowsHtml = items
+      .map(
+        (item) => `
+          <div class="row">
+            <div>
+              <div class="name">${escapeText(item.item_name || "-")}</div>
+              <div class="sub">${escapeText(item.qty || 0)} x ${escapeText(peso(Number(item.price || 0)))}</div>
+            </div>
+            <div class="amount">${escapeText(peso(Number(item.total || 0)))}</div>
+          </div>
+        `,
+      )
+      .join("");
+
+    const receiptHtml = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>POS Receipt - ${escapeText(reference)}</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: "Courier New", monospace; }
+            body { width: 80mm; }
+            .receipt { width: 72mm; margin: 0 auto; padding: 5mm 3mm; font-size: 11px; font-weight: 700; }
+            .center { text-align: center; }
+            .brand { font-size: 13px; font-weight: 900; }
+            .title { margin-top: 2px; font-size: 15px; font-weight: 900; }
+            .divider { margin: 7px 0; border-top: 1px dashed #000; }
+            .meta { display: grid; grid-template-columns: 23mm 1fr; gap: 2px 3mm; }
+            .right { text-align: right; }
+            .row { display: grid; grid-template-columns: 1fr 23mm; gap: 2mm; padding: 4px 0; border-bottom: 1px dashed #aaa; }
+            .name { font-size: 12px; font-weight: 900; overflow-wrap: anywhere; }
+            .sub { margin-top: 1px; font-size: 10px; }
+            .amount { text-align: right; font-size: 12px; font-weight: 900; }
+            .total { display: flex; justify-content: space-between; margin-top: 4px; font-size: 13px; font-weight: 900; }
+            .footer { margin-top: 8px; text-align: center; font-size: 9px; }
+            @media screen { body { background: #f3f4f6; } .receipt { margin: 8px auto; border: 1px solid #ccc; } }
+          </style>
+        </head>
+        <body>
+          <main class="receipt">
+            <div class="center">
+              <div class="brand">VINCENT RESORT HOTEL</div>
+              <div class="title">POS RECEIPT</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <section class="meta">
+              <div>REF</div><div class="right">${escapeText(reference)}</div>
+              <div>TIME</div><div class="right">${escapeText(formatPosDateTime(order.created_at))}</div>
+              <div>CASHIER</div><div class="right">${escapeText(cashierName || "Cashier")}</div>
+              <div>TYPE</div><div class="right">${escapeText(order.order_type || "-")}</div>
+              <div>PAYMENT</div><div class="right">${escapeText(order.payment_method_name || order.payment_method || "-")}</div>
+            </section>
+
+            <div class="divider"></div>
+
+            ${rowsHtml || "<div class='center'>NO ITEMS FOUND</div>"}
+
+            <div class="divider"></div>
+
+            <div class="total"><span>SUBTOTAL</span><span>${escapeText(peso(Number(order.subtotal || 0)))}</span></div>
+            <div class="total"><span>SERVICE</span><span>${escapeText(peso(Number(order.service_charge || 0)))}</span></div>
+            <div class="total"><span>TOTAL</span><span>${escapeText(peso(total))}</span></div>
+            <div class="total"><span>PAID</span><span>${escapeText(peso(paid))}</span></div>
+            <div class="total"><span>CHANGE</span><span>${escapeText(peso(change))}</span></div>
+
+            <div class="divider"></div>
+            <div class="footer">PRINTED FROM OPSCORE POS</div>
+          </main>
+
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+
+    document.body.appendChild(iframe);
+
+    const iframeDocument =
+      iframe.contentDocument || iframe.contentWindow?.document;
+
+    if (!iframeDocument) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    iframeDocument.open();
+    iframeDocument.write(receiptHtml);
+    iframeDocument.close();
+
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1800);
+  };
+
+  const requestVoidFromTransaction = (order: PosTransactionOrder) => {
+    const status = String(order.status || "").toUpperCase();
+    const paymentStatus = String(order.payment_status || "").toUpperCase();
+
+    if (paymentStatus !== "PAID" || ["VOIDED", "CANCELLED", "REFUNDED"].includes(status)) {
+      setTransactionMessage("Only paid active transactions can request void.");
+      return;
+    }
+
+    setSelectedVoidOrder({
+      id: order.id,
+      company_id: order.company_id || null,
+      session_id: order.session_id || null,
+      cashier_id: order.cashier_id || null,
+      order_tag: order.order_tag || null,
+      order_number: order.order_number || null,
+      receipt_no: order.receipt_no || null,
+      order_type: order.order_type || null,
+      total_amount: order.total_amount || null,
+      payment_method: order.payment_method || null,
+      payment_method_name: order.payment_method_name || null,
+      payment_status: order.payment_status || null,
+      status: order.status || null,
+      created_at: order.created_at || null,
+    });
+    setVoidReason("");
+    setVoidMessage("");
+    setVoidCandidates([]);
+    setShowTransactionsModal(false);
+    setShowVoidModal(true);
   };
 
   const openVoidModal = async () => {
@@ -1946,7 +2555,7 @@ export default function POSTerminalPage() {
                 )}
               </div>
 
-              <div className="mt-1 grid grid-cols-5 gap-1.5">
+              <div className="mt-1 grid grid-cols-6 gap-1.5">
                 <button
                   onClick={quickCashPayment}
                   disabled={cart.length === 0 || orderLoading}
@@ -1980,6 +2589,15 @@ export default function POSTerminalPage() {
                 >
                   <Undo2 size={15} />
                   Recall
+                </button>
+
+                <button
+                  onClick={openTransactionsModal}
+                  disabled={orderLoading}
+                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-sky-400/35 bg-sky-500/10 text-[13px] font-black text-sky-200 transition hover:border-sky-300/60 hover:bg-sky-500/20 active:scale-[0.98] disabled:opacity-40"
+                >
+                  <ReceiptText size={15} />
+                  Transactions
                 </button>
 
                 <button
@@ -2147,6 +2765,258 @@ export default function POSTerminalPage() {
           </section>
         </main>
 
+        {showTransactionsModal && (
+          <div className="fixed inset-0 z-[10053] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="grid max-h-[88vh] w-full max-w-6xl grid-cols-[minmax(0,1fr)_380px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
+              <section className="flex min-h-0 flex-col border-r border-white/10 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-300">
+                      POS Transactions
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black text-white">
+                      Session Audit
+                    </h2>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+                      Review paid transactions before remittance. Open a row to view items,
+                      print receipt, or request void approval.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={closeTransactionsModal}
+                    disabled={transactionLoading}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                      Current Session
+                    </p>
+                    <p className="mt-1 text-sm font-black text-white">
+                      {cashierName} • {transactions.length} transaction(s)
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={loadTransactions}
+                    disabled={transactionLoading}
+                    className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase text-slate-200 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    <RefreshCw size={15} />
+                    Refresh
+                  </button>
+                </div>
+
+                {transactionMessage && (
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
+                    {transactionMessage}
+                  </div>
+                )}
+
+                <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  <div className="grid grid-cols-[1.2fr_0.9fr_0.8fr_0.8fr_0.7fr] gap-3 border-b border-white/10 bg-white/[0.04] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    <span>Reference</span>
+                    <span>Time</span>
+                    <span>Payment</span>
+                    <span className="text-right">Amount</span>
+                    <span>Status</span>
+                  </div>
+
+                  <div className="max-h-[58vh] overflow-y-auto divide-y divide-white/10">
+                    {transactionLoading ? (
+                      <div className="px-4 py-10 text-center text-sm font-bold text-slate-500">
+                        Loading transactions...
+                      </div>
+                    ) : transactions.length === 0 ? (
+                      <div className="px-4 py-10 text-center text-sm font-bold text-slate-500">
+                        No transactions found.
+                      </div>
+                    ) : (
+                      transactions.map((order) => {
+                        const selected = selectedTransaction?.id === order.id;
+                        const status = String(order.status || "").toUpperCase();
+                        const paymentStatus = String(order.payment_status || "").toUpperCase();
+
+                        return (
+                          <button
+                            key={order.id}
+                            onClick={() => loadTransactionDetails(order)}
+                            className={`grid w-full grid-cols-[1.2fr_0.9fr_0.8fr_0.8fr_0.7fr] gap-3 px-4 py-3 text-left transition hover:bg-white/[0.04] ${
+                              selected ? "bg-sky-500/10" : ""
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {getTransactionReference(order)}
+                              </p>
+                              <p className="mt-1 truncate text-[10px] font-bold uppercase text-slate-500">
+                                {order.order_type || "ORDER"} {order.table_no ? `• ${order.table_no}` : ""}
+                              </p>
+                            </div>
+
+                            <p className="text-xs font-bold text-slate-300">
+                              {formatPosDateTime(order.created_at)}
+                            </p>
+
+                            <p className="truncate text-xs font-black text-slate-300">
+                              {order.payment_method_name || order.payment_method || "-"}
+                            </p>
+
+                            <p className="text-right text-sm font-black text-[#f5c400]">
+                              {peso(Number(order.total_amount || 0))}
+                            </p>
+
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={`w-fit rounded-full px-2 py-1 text-[9px] font-black uppercase ring-1 ${
+                                  paymentStatus === "PAID"
+                                    ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/25"
+                                    : "bg-amber-500/10 text-amber-300 ring-amber-400/25"
+                                }`}
+                              >
+                                {order.payment_status || "-"}
+                              </span>
+                              <span
+                                className={`w-fit rounded-full px-2 py-1 text-[9px] font-black uppercase ring-1 ${
+                                  ["VOIDED", "CANCELLED", "REFUNDED"].includes(status)
+                                    ? "bg-red-500/10 text-red-300 ring-red-400/25"
+                                    : "bg-white/5 text-slate-400 ring-white/10"
+                                }`}
+                              >
+                                {order.status || "-"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="flex min-h-0 flex-col p-5">
+                <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    Transaction Detail
+                  </p>
+
+                  {selectedTransaction ? (
+                    <>
+                      <h3 className="mt-2 text-2xl font-black text-white">
+                        {getTransactionReference(selectedTransaction)}
+                      </h3>
+                      <p className="mt-1 text-sm font-bold text-slate-400">
+                        {formatPosDateTime(selectedTransaction.created_at)}
+                      </p>
+
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/10">
+                          <p className="text-[9px] font-black uppercase text-slate-500">
+                            Total
+                          </p>
+                          <p className="mt-1 text-lg font-black text-[#f5c400]">
+                            {peso(Number(selectedTransaction.total_amount || 0))}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/10">
+                          <p className="text-[9px] font-black uppercase text-slate-500">
+                            Payment
+                          </p>
+                          <p className="mt-1 truncate text-sm font-black text-white">
+                            {selectedTransaction.payment_method_name ||
+                              selectedTransaction.payment_method ||
+                              "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-sm font-semibold leading-6 text-slate-400">
+                      Select a transaction from the table to view full order details.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                      Items
+                    </p>
+                  </div>
+
+                  <div className="max-h-[40vh] overflow-y-auto divide-y divide-white/10">
+                    {!selectedTransaction ? (
+                      <div className="px-4 py-10 text-center text-sm font-bold text-slate-500">
+                        No transaction selected.
+                      </div>
+                    ) : selectedTransactionItems.length === 0 ? (
+                      <div className="px-4 py-10 text-center text-sm font-bold text-slate-500">
+                        No items loaded.
+                      </div>
+                    ) : (
+                      selectedTransactionItems.map((item, index) => (
+                        <div
+                          key={`${item.menu_item_id || item.item_name}-${index}`}
+                          className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">
+                              {item.item_name || "-"}
+                            </p>
+                            <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                              {item.qty || 0} x {peso(Number(item.price || 0))}
+                              {item.production_status ? ` • ${item.production_status}` : ""}
+                            </p>
+                          </div>
+
+                          <p className="text-sm font-black text-slate-200">
+                            {peso(Number(item.total || 0))}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {selectedTransaction && (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() =>
+                        printTransactionReceipt(
+                          selectedTransaction,
+                          selectedTransactionItems,
+                        )
+                      }
+                      className="h-12 rounded-xl border border-white/15 bg-white/5 text-xs font-black uppercase text-slate-100 transition hover:bg-white/10"
+                    >
+                      Print Receipt
+                    </button>
+
+                    <button
+                      onClick={() => requestVoidFromTransaction(selectedTransaction)}
+                      disabled={
+                        String(selectedTransaction.payment_status || "").toUpperCase() !== "PAID" ||
+                        ["VOIDED", "CANCELLED", "REFUNDED"].includes(
+                          String(selectedTransaction.status || "").toUpperCase(),
+                        )
+                      }
+                      className="h-12 rounded-xl border border-red-400/40 bg-red-500/10 text-xs font-black uppercase text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
+                    >
+                      Request Void
+                    </button>
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        )}
+
         {showVoidModal && (
           <div className="fixed inset-0 z-[10054] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
             <div className="grid max-h-[88vh] w-full max-w-4xl grid-cols-[minmax(0,1fr)_340px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
@@ -2303,78 +3173,179 @@ export default function POSTerminalPage() {
 
         {showOrderTagModal && (
           <div className="fixed inset-0 z-[10055] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-[#080d14] p-6 shadow-2xl shadow-black">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#f5c400]">
-                    {parkActionType === "KITCHEN"
-                      ? "Send Order"
-                      : "Park Order"}
-                  </p>
+            <div className="grid max-h-[90vh] w-full max-w-5xl grid-cols-[minmax(0,1fr)_360px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
+              <section className="flex min-h-0 flex-col border-r border-white/10 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#f5c400]">
+                      {parkActionType === "KITCHEN"
+                        ? isAdditionalKitchenSend
+                          ? "Additional Kitchen Send"
+                          : "Kitchen Send Confirmation"
+                        : "Park Order"}
+                    </p>
 
-                  <h2 className="mt-2 text-3xl font-black text-white">
+                    <h2 className="mt-2 text-3xl font-black text-white">
+                      {parkActionType === "KITCHEN"
+                        ? "Items to Send"
+                        : "Order Tag"}
+                    </h2>
+
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+                      {parkActionType === "KITCHEN"
+                        ? "Review grouped production items before sending. Only new unsent items will print and route."
+                        : "Enter a unique tag so cashier can find this order later."}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={resetOrderTagState}
+                    disabled={orderLoading}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {parkActionType === "KITCHEN" ? (
+                  <div className="mt-5 min-h-0 flex-1 overflow-y-auto rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
+                    {Object.entries(groupedKitchenSendItems).map(
+                      ([stationName, stationItems]) => (
+                        <div key={stationName} className="mb-4 last:mb-0">
+                          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                            <p className="text-[12px] font-black uppercase tracking-[0.18em] text-[#f5c400]">
+                              {stationName}
+                            </p>
+
+                            <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                              {stationItems.reduce(
+                                (sum, item) => sum + item.unsentQty,
+                                0,
+                              )} item(s)
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {stationItems.map((item) => (
+                              <div
+                                key={`${stationName}-${item.id}`}
+                                className="flex items-center justify-between rounded-xl bg-[#0b1017] px-3 py-3 ring-1 ring-white/10"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-black text-white">
+                                    ✓ {item.name}
+                                  </p>
+                                  {Number(item.sentQty || 0) > 0 && (
+                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                      Previous sent: {item.sentQty}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <p className="text-lg font-black text-white">
+                                  x{item.unsentQty}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
+                    <p className="text-sm font-semibold leading-6 text-slate-400">
+                      Example: Pool, Australian, Kubo, Blue Shirt.
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              <section className="flex min-h-0 flex-col p-5">
+                <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
                     Order Tag
-                  </h2>
+                  </label>
 
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
-                    Enter a unique tag so cashier can find this order later.
-                    Example: Pool, Australian, Kubo, Blue Shirt.
-                  </p>
+                  <input
+                    autoFocus
+                    value={orderTag}
+                    onChange={(event) => setOrderTag(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && orderTag.trim()) {
+                        saveParkedOrder();
+                      }
+                    }}
+                    placeholder="UNIQUE TAG: POOL / AUSTRALIAN / KUBO"
+                    className="mt-2 h-14 w-full rounded-xl border border-white/10 bg-[#05080d] px-4 text-xl font-black uppercase text-white outline-none placeholder:text-slate-700 focus:border-amber-300/50"
+                  />
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {["POOL", "KUBO", "BAR", "TAKEOUT", "GROUP", "VIP"].map(
+                      (tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => setOrderTag(tag)}
+                          className="h-10 rounded-xl bg-white/5 text-xs font-black uppercase text-slate-300 ring-1 ring-white/10 transition hover:bg-white/10"
+                        >
+                          {tag}
+                        </button>
+                      ),
+                    )}
+                  </div>
                 </div>
 
-                <button
-                  onClick={resetOrderTagState}
-                  disabled={orderLoading}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+                <div className="mt-4 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    Notes / Instructions
+                  </label>
 
-              <div className="mt-5 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                  Order Tag
-                </label>
+                  <textarea
+                    value={orderNotes}
+                    onChange={(event) => setOrderNotes(event.target.value)}
+                    placeholder="Less ice, no onion, serve later..."
+                    className="mt-2 min-h-[120px] w-full rounded-xl border border-white/10 bg-[#05080d] p-4 text-sm font-semibold text-white outline-none placeholder:text-slate-700 focus:border-amber-300/50"
+                  />
+                </div>
 
-                <input
-                  autoFocus
-                  value={orderTag}
-                  onChange={(event) => setOrderTag(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && orderTag.trim()) {
-                      saveParkedOrder();
+                {parkActionType === "KITCHEN" && (
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-300">
+                      Incremental Send Active
+                    </p>
+                    <p className="mt-2 text-xs font-semibold leading-5 text-amber-100/80">
+                      This sends only {kitchenSendItems.length} new line item(s).
+                      Previously sent quantities stay recorded and will not print again.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
+                  <button
+                    onClick={resetOrderTagState}
+                    disabled={orderLoading}
+                    className="h-14 rounded-xl border border-white/10 bg-white/5 text-base font-black uppercase tracking-wide text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={saveParkedOrder}
+                    disabled={
+                      !orderTag.trim() ||
+                      orderLoading ||
+                      (parkActionType === "KITCHEN" && kitchenSendItems.length === 0)
                     }
-                  }}
-                  placeholder="UNIQUE TAG: POOL / AUSTRALIAN / KUBO"
-                  className="mt-2 h-14 w-full rounded-xl border border-white/10 bg-[#05080d] px-4 text-xl font-black uppercase text-white outline-none placeholder:text-slate-700 focus:border-amber-300/50"
-                />
-
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {["POOL", "KUBO", "BAR", "TAKEOUT", "GROUP", "VIP"].map(
-                    (tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => setOrderTag(tag)}
-                        className="h-10 rounded-xl bg-white/5 text-xs font-black uppercase text-slate-300 ring-1 ring-white/10 transition hover:bg-white/10"
-                      >
-                        {tag}
-                      </button>
-                    ),
-                  )}
+                    className="h-14 rounded-xl bg-[#f5c400] text-base font-black uppercase tracking-wide text-black shadow-xl shadow-yellow-950/30 transition hover:bg-[#ffd21f] disabled:bg-[#f5c400]/40 disabled:text-black/50"
+                  >
+                    {orderLoading
+                      ? "Saving..."
+                      : parkActionType === "KITCHEN"
+                        ? "Send to Kitchen"
+                        : "Save Parked Order"}
+                  </button>
                 </div>
-              </div>
-
-              <button
-                onClick={saveParkedOrder}
-                disabled={!orderTag.trim() || orderLoading}
-                className="mt-5 h-14 w-full rounded-xl bg-[#f5c400] text-base font-black uppercase tracking-wide text-black shadow-xl shadow-yellow-950/30 transition hover:bg-[#ffd21f] disabled:bg-[#f5c400]/40 disabled:text-black/50"
-              >
-                {orderLoading
-                  ? "Saving..."
-                  : parkActionType === "KITCHEN"
-                    ? "Save + Print Order Slip"
-                    : "Save Parked Order"}
-              </button>
+              </section>
             </div>
           </div>
         )}

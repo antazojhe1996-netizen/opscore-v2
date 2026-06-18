@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import {
+  AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   ChefHat,
   Clock3,
   Flame,
   Loader2,
   RefreshCw,
+  Send,
   Utensils,
 } from "lucide-react";
 
@@ -24,10 +27,18 @@ type ProductionStation = {
   is_active: boolean;
 };
 
-type ProductionStatus = "PENDING" | "PREPARING" | "READY" | "COMPLETED";
+type ProductionStatus =
+  | "SENT"
+  | "PENDING"
+  | "PREPARING"
+  | "READY"
+  | "COMPLETED";
+
+type LaneKey = "NEW" | "PREPARING" | "READY";
 
 type QueueOrder = {
   id: string;
+  order_tag: string | null;
   table_no: string | null;
   order_type: string | null;
   total_amount: number | null;
@@ -53,35 +64,90 @@ type QueueItem = {
   order?: QueueOrder | null;
 };
 
-const ACTIVE_STATUSES: ProductionStatus[] = ["PENDING", "PREPARING", "READY"];
-const ALL_STATUSES: ProductionStatus[] = [
+type QueueGroup = {
+  orderId: string;
+  order: QueueOrder | null;
+  items: QueueItem[];
+  allOrderItems: QueueItem[];
+  lane: LaneKey;
+};
+
+type StationTab = {
+  key: string;
+  name: string;
+  printerName: string;
+  count: number;
+};
+
+const ACTIVE_STATUSES: ProductionStatus[] = [
+  "SENT",
   "PENDING",
   "PREPARING",
   "READY",
-  "COMPLETED",
 ];
 
-const statusLabel: Record<ProductionStatus, string> = {
-  PENDING: "New",
+const laneOrder: LaneKey[] = ["NEW", "PREPARING", "READY"];
+
+const laneLabel: Record<LaneKey, string> = {
+  NEW: "New",
   PREPARING: "Preparing",
   READY: "Ready",
-  COMPLETED: "Completed",
 };
 
-const statusSubtext: Record<ProductionStatus, string> = {
-  PENDING: "Start cooking",
+const laneSubtext: Record<LaneKey, string> = {
+  NEW: "Start production",
   PREPARING: "Mark ready",
   READY: "Complete handoff",
-  COMPLETED: "Done",
 };
 
 const normalizeCode = (value: string) =>
   value.trim().toUpperCase().replaceAll(" ", "_");
 
+const normalizeStatus = (value: string | null | undefined): ProductionStatus => {
+  const status = String(value || "SENT").toUpperCase();
+  if (status === "PREPARING") return "PREPARING";
+  if (status === "READY") return "READY";
+  if (status === "COMPLETED") return "COMPLETED";
+  if (status === "PENDING") return "PENDING";
+  return "SENT";
+};
+
+const getLaneFromStatus = (value: string | null | undefined): LaneKey | null => {
+  const status = normalizeStatus(value);
+  if (status === "SENT" || status === "PENDING") return "NEW";
+  if (status === "PREPARING") return "PREPARING";
+  if (status === "READY") return "READY";
+  return null;
+};
+
+const getNextStatus = (status: string | null | undefined): ProductionStatus | null => {
+  const normalized = normalizeStatus(status);
+  if (normalized === "SENT" || normalized === "PENDING") return "PREPARING";
+  if (normalized === "PREPARING") return "READY";
+  if (normalized === "READY") return "COMPLETED";
+  return null;
+};
+
+const getActionLabel = (lane: LaneKey) => {
+  if (lane === "NEW") return "Start Order";
+  if (lane === "PREPARING") return "Mark Ready";
+  return "Complete Order";
+};
+
+const getItemActionLabel = (status: string | null | undefined) => {
+  const normalized = normalizeStatus(status);
+  if (normalized === "SENT" || normalized === "PENDING") return "Start";
+  if (normalized === "PREPARING") return "Ready";
+  if (normalized === "READY") return "Complete";
+  return "Done";
+};
+
 const formatTime = (value: string | null) => {
   if (!value) return "--:--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--";
 
-  return new Date(value).toLocaleTimeString([], {
+  return date.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -89,12 +155,13 @@ const formatTime = (value: string | null) => {
 
 const getMinutesAgo = (value: string | null) => {
   if (!value) return 0;
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 0;
-
   return Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
 };
+
+const getStationKey = (station: ProductionStation) =>
+  station.id || normalizeCode(station.code || station.name);
 
 const getItemStationKey = (item: QueueItem) => {
   if (item.production_station_id) return item.production_station_id;
@@ -102,42 +169,70 @@ const getItemStationKey = (item: QueueItem) => {
   return "UNASSIGNED";
 };
 
-const getStationKey = (station: ProductionStation) =>
-  station.id || normalizeCode(station.code || station.name);
+const getDisplayStationName = (
+  item: QueueItem,
+  stations: ProductionStation[],
+) => {
+  const stationById = stations.find(
+    (station) => String(station.id) === String(item.production_station_id || ""),
+  );
 
-const getNextStatus = (status: string | null): ProductionStatus | null => {
-  if (status === "PENDING") return "PREPARING";
-  if (status === "PREPARING") return "READY";
-  if (status === "READY") return "COMPLETED";
-  return null;
+  if (stationById) return stationById.name.toUpperCase();
+
+  const stationByCode = stations.find(
+    (station) => normalizeCode(station.code) === normalizeCode(item.production_area || ""),
+  );
+
+  if (stationByCode) return stationByCode.name.toUpperCase();
+
+  return normalizeCode(item.production_area || "UNASSIGNED");
 };
 
-const getNextButtonLabel = (status: string | null) => {
-  if (status === "PENDING") return "Start";
-  if (status === "PREPARING") return "Ready";
-  if (status === "READY") return "Complete";
-  return "Done";
+const getOrderTitle = (group: QueueGroup) => {
+  const tag = group.order?.order_tag?.trim();
+  if (tag) return tag.toUpperCase();
+
+  const table = group.order?.table_no?.trim();
+  if (table) return table.toUpperCase();
+
+  const orderType = group.order?.order_type?.trim();
+  if (orderType) return orderType.toUpperCase();
+
+  return `ORDER ${group.orderId.slice(0, 6).toUpperCase()}`;
 };
 
-const getLaneClass = (status: ProductionStatus) => {
-  if (status === "PENDING") return "border-amber-400/25 bg-amber-500/10";
-  if (status === "PREPARING") return "border-sky-400/25 bg-sky-500/10";
-  if (status === "READY") return "border-emerald-400/25 bg-emerald-500/10";
-  return "border-white/10 bg-white/[0.03]";
+const getOrderSubLabel = (group: QueueGroup) => {
+  const table = group.order?.table_no?.trim();
+  const orderType = group.order?.order_type?.trim();
+
+  if (table && orderType) return `${table} • ${orderType}`.toUpperCase();
+  if (table) return table.toUpperCase();
+  if (orderType) return orderType.toUpperCase();
+  return "POS ORDER";
 };
 
-const getLaneTextClass = (status: ProductionStatus) => {
-  if (status === "PENDING") return "text-amber-300";
-  if (status === "PREPARING") return "text-sky-300";
-  if (status === "READY") return "text-emerald-300";
-  return "text-slate-300";
+const getLaneClass = (lane: LaneKey) => {
+  if (lane === "NEW") return "border-amber-400/25 bg-amber-500/10";
+  if (lane === "PREPARING") return "border-sky-400/25 bg-sky-500/10";
+  return "border-emerald-400/25 bg-emerald-500/10";
 };
 
-const getActionClass = (status: string | null) => {
-  if (status === "PENDING") return "bg-amber-400 text-black hover:bg-amber-300";
-  if (status === "PREPARING") return "bg-sky-400 text-black hover:bg-sky-300";
-  if (status === "READY") return "bg-emerald-400 text-black hover:bg-emerald-300";
-  return "bg-white text-black";
+const getLaneTextClass = (lane: LaneKey) => {
+  if (lane === "NEW") return "text-amber-300";
+  if (lane === "PREPARING") return "text-sky-300";
+  return "text-emerald-300";
+};
+
+const getActionClass = (lane: LaneKey) => {
+  if (lane === "NEW") return "bg-amber-400 text-black hover:bg-amber-300";
+  if (lane === "PREPARING") return "bg-sky-400 text-black hover:bg-sky-300";
+  return "bg-emerald-400 text-black hover:bg-emerald-300";
+};
+
+const getDelayLimit = (lane: LaneKey) => {
+  if (lane === "NEW") return 15;
+  if (lane === "PREPARING") return 25;
+  return 10;
 };
 
 export default function POSProductionQueuePage() {
@@ -160,13 +255,24 @@ export default function POSProductionQueuePage() {
     loadProductionQueue();
 
     const channel = supabase
-      .channel("pos-production-queue")
+      .channel("pos-production-queue-v2")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "pos_order_items",
+        },
+        () => {
+          loadProductionQueue(false);
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pos_orders",
         },
         () => {
           loadProductionQueue(false);
@@ -215,6 +321,7 @@ export default function POSProductionQueuePage() {
           created_at,
           order:pos_orders (
             id,
+            order_tag,
             table_no,
             order_type,
             total_amount,
@@ -225,7 +332,7 @@ export default function POSProductionQueuePage() {
           )
         `,
         )
-        .in("production_status", ALL_STATUSES)
+        .in("production_status", ACTIVE_STATUSES)
         .order("created_at", { ascending: true }),
     );
 
@@ -236,6 +343,8 @@ export default function POSProductionQueuePage() {
 
     if (stationResult.error || itemResult.error) {
       setMessage(stationResult.error?.message || itemResult.error?.message || "");
+      setStations([]);
+      setItems([]);
       setLoading(false);
       return;
     }
@@ -245,35 +354,56 @@ export default function POSProductionQueuePage() {
     setLoading(false);
   };
 
-  const stationTabs = useMemo(() => {
+  const stationTabs = useMemo<StationTab[]>(() => {
+    const getCountForKey = (key: string) => {
+      if (key === "ALL") return items.length;
+      return items.filter((item) => {
+        const itemStationKey = getItemStationKey(item);
+        const stationByCode = stations.find(
+          (station) =>
+            normalizeCode(station.code) ===
+            normalizeCode(item.production_area || ""),
+        );
+        const matchedStationKey = stationByCode
+          ? getStationKey(stationByCode)
+          : itemStationKey;
+
+        return key === itemStationKey || key === matchedStationKey;
+      }).length;
+    };
+
     return [
       {
         key: "ALL",
         name: "All",
-        printer_name: "All active stations",
+        printerName: "All active stations",
+        count: getCountForKey("ALL"),
       },
-      ...stations.map((station) => ({
-        key: getStationKey(station),
-        name: station.name,
-        printer_name: station.printer_name || "No printer",
-      })),
+      ...stations.map((station) => {
+        const key = getStationKey(station);
+        return {
+          key,
+          name: station.name,
+          printerName: station.printer_name || "No printer",
+          count: getCountForKey(key),
+        };
+      }),
       {
         key: "UNASSIGNED",
         name: "Unassigned",
-        printer_name: "Missing station",
+        printerName: "Missing station",
+        count: getCountForKey("UNASSIGNED"),
       },
     ];
-  }, [stations]);
+  }, [items, stations]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const itemStationKey = getItemStationKey(item);
-
       const stationByCode = stations.find(
         (station) =>
           normalizeCode(station.code) === normalizeCode(item.production_area || ""),
       );
-
       const matchedStationKey = stationByCode
         ? getStationKey(stationByCode)
         : itemStationKey;
@@ -286,51 +416,57 @@ export default function POSProductionQueuePage() {
     });
   }, [items, selectedStationKey, stations]);
 
-  const groupedByStatus = useMemo(() => {
-    const result: Record<
-      ProductionStatus,
-      { orderId: string; order: QueueOrder | null; items: QueueItem[] }[]
-    > = {
-      PENDING: [],
+  const allItemsByOrder = useMemo(() => {
+    const groups = new Map<string, QueueItem[]>();
+
+    items.forEach((item) => {
+      const current = groups.get(item.order_id) || [];
+      groups.set(item.order_id, [...current, item]);
+    });
+
+    return groups;
+  }, [items]);
+
+  const groupedByLane = useMemo(() => {
+    const result: Record<LaneKey, QueueGroup[]> = {
+      NEW: [],
       PREPARING: [],
       READY: [],
-      COMPLETED: [],
     };
 
-    ACTIVE_STATUSES.forEach((status) => {
-      const statusItems = filteredItems.filter(
-        (item) => item.production_status === status,
+    laneOrder.forEach((lane) => {
+      const laneItems = filteredItems.filter(
+        (item) => getLaneFromStatus(item.production_status) === lane,
       );
 
       const groups = new Map<string, QueueItem[]>();
 
-      statusItems.forEach((item) => {
+      laneItems.forEach((item) => {
         const current = groups.get(item.order_id) || [];
         groups.set(item.order_id, [...current, item]);
       });
 
-      result[status] = Array.from(groups.entries()).map(
-        ([orderId, orderItems]) => ({
-          orderId,
-          order: orderItems[0]?.order || null,
-          items: orderItems,
-        }),
-      );
+      result[lane] = Array.from(groups.entries()).map(([orderId, orderItems]) => ({
+        orderId,
+        order: orderItems[0]?.order || null,
+        items: orderItems,
+        allOrderItems: allItemsByOrder.get(orderId) || orderItems,
+        lane,
+      }));
     });
 
     return result;
-  }, [filteredItems]);
+  }, [filteredItems, allItemsByOrder]);
 
-  const statusCounts = useMemo(() => {
-    return ALL_STATUSES.reduce(
-      (acc, status) => {
-        acc[status] = filteredItems.filter(
-          (item) => item.production_status === status,
+  const laneCounts = useMemo(() => {
+    return laneOrder.reduce(
+      (acc, lane) => {
+        acc[lane] = filteredItems.filter(
+          (item) => getLaneFromStatus(item.production_status) === lane,
         ).length;
-
         return acc;
       },
-      {} as Record<ProductionStatus, number>,
+      {} as Record<LaneKey, number>,
     );
   }, [filteredItems]);
 
@@ -341,12 +477,11 @@ export default function POSProductionQueuePage() {
       .eq("order_id", orderId);
 
     const orderItems = (data || []) as { production_status: string | null }[];
-
     if (orderItems.length === 0) return;
 
-    const statuses = orderItems.map((item) => item.production_status);
+    const statuses = orderItems.map((item) => normalizeStatus(item.production_status));
 
-    let nextOrderStatus: ProductionStatus = "PENDING";
+    let nextOrderStatus: ProductionStatus = "SENT";
 
     if (statuses.every((status) => status === "COMPLETED")) {
       nextOrderStatus = "COMPLETED";
@@ -357,7 +492,7 @@ export default function POSProductionQueuePage() {
     } else if (statuses.some((status) => status === "PREPARING")) {
       nextOrderStatus = "PREPARING";
     } else {
-      nextOrderStatus = "PENDING";
+      nextOrderStatus = "SENT";
     }
 
     await supabase
@@ -368,7 +503,6 @@ export default function POSProductionQueuePage() {
 
   const moveItemStatus = async (item: QueueItem) => {
     const nextStatus = getNextStatus(item.production_status);
-
     if (!nextStatus) return;
 
     setActionLoadingId(item.id);
@@ -387,23 +521,18 @@ export default function POSProductionQueuePage() {
 
     await updateOrderProductionStatus(item.order_id);
     await loadProductionQueue(false);
-
     setActionLoadingId("");
   };
 
-  const moveWholeOrder = async (
-    orderId: string,
-    orderItems: QueueItem[],
-    status: ProductionStatus,
-  ) => {
-    const nextStatus = getNextStatus(status);
+  const moveWholeOrder = async (group: QueueGroup) => {
+    const itemIds = group.items.map((item) => item.id);
+    if (itemIds.length === 0) return;
 
+    const nextStatus = getNextStatus(group.items[0]?.production_status);
     if (!nextStatus) return;
 
-    setActionLoadingId(orderId);
+    setActionLoadingId(group.orderId);
     setMessage("");
-
-    const itemIds = orderItems.map((item) => item.id);
 
     const { error } = await supabase
       .from("pos_order_items")
@@ -416,14 +545,30 @@ export default function POSProductionQueuePage() {
       return;
     }
 
-    await updateOrderProductionStatus(orderId);
+    await updateOrderProductionStatus(group.orderId);
     await loadProductionQueue(false);
-
     setActionLoadingId("");
   };
 
+  const getAdditionalInfo = (group: QueueGroup) => {
+    if (group.lane !== "NEW") return null;
+
+    const previousItems = group.allOrderItems.filter(
+      (item) => getLaneFromStatus(item.production_status) !== "NEW",
+    );
+
+    if (previousItems.length === 0) return null;
+
+    const previousQty = previousItems.reduce(
+      (sum, item) => sum + Number(item.qty || 0),
+      0,
+    );
+
+    return `ADDITIONAL ITEMS • ${previousQty} PREVIOUSLY SENT`;
+  };
+
   return (
-    <PageGuard moduleKey="pos_production">
+    <PageGuard moduleKey="pos_terminal">
       <div className="h-screen overflow-hidden bg-[#05080d] text-white">
         <main className="flex h-full flex-col p-2">
           <section className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#070b10] px-4 py-3 shadow-xl shadow-black/40">
@@ -434,7 +579,7 @@ export default function POSProductionQueuePage() {
 
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">
-                  OPSCORE Kitchen Display
+                  OPSCORE Production Monitor
                 </p>
                 <h1 className="truncate text-2xl font-black leading-tight">
                   Production Queue
@@ -444,17 +589,25 @@ export default function POSProductionQueuePage() {
 
             <div className="hidden items-center gap-2 md:flex">
               <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-200">
-                New {statusCounts.PENDING || 0}
+                New {laneCounts.NEW || 0}
               </span>
               <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-black text-sky-200">
-                Preparing {statusCounts.PREPARING || 0}
+                Preparing {laneCounts.PREPARING || 0}
               </span>
               <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-200">
-                Ready {statusCounts.READY || 0}
+                Ready {laneCounts.READY || 0}
               </span>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => router.push("/pos/parked-orders")}
+                className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase text-white transition hover:bg-white/10 active:scale-[0.98]"
+              >
+                <ArrowLeft size={14} />
+                Recall
+              </button>
+
               <button
                 onClick={() => router.push("/pos/terminal")}
                 className="h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase text-white transition hover:bg-white/10 active:scale-[0.98]"
@@ -489,9 +642,20 @@ export default function POSProductionQueuePage() {
                     : "border-white/10 bg-[#0b1017] text-white hover:bg-white/5"
                 }`}
               >
-                <p className="truncate text-sm font-black uppercase">
-                  {station.name}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-black uppercase">
+                    {station.name}
+                  </p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                      selectedStationKey === station.key
+                        ? "bg-black/15 text-black"
+                        : "bg-white/5 text-slate-300 ring-1 ring-white/10"
+                    }`}
+                  >
+                    {station.count}
+                  </span>
+                </div>
                 <p
                   className={`mt-0.5 truncate text-[10px] font-bold uppercase ${
                     selectedStationKey === station.key
@@ -499,36 +663,36 @@ export default function POSProductionQueuePage() {
                       : "text-slate-500"
                   }`}
                 >
-                  {station.printer_name}
+                  {station.printerName}
                 </p>
               </button>
             ))}
           </section>
 
           <section className="grid min-h-0 flex-1 grid-cols-3 gap-2">
-            {ACTIVE_STATUSES.map((status) => (
+            {laneOrder.map((lane) => (
               <section
-                key={status}
+                key={lane}
                 className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border ${getLaneClass(
-                  status,
+                  lane,
                 )}`}
               >
                 <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
                   <div>
                     <p
                       className={`text-[11px] font-black uppercase tracking-[0.18em] ${getLaneTextClass(
-                        status,
+                        lane,
                       )}`}
                     >
-                      {statusLabel[status]}
+                      {laneLabel[lane]}
                     </p>
                     <p className="mt-0.5 text-xs font-bold text-slate-500">
-                      {statusSubtext[status]}
+                      {laneSubtext[lane]}
                     </p>
                   </div>
 
                   <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-black/30 px-3 text-lg font-black ring-1 ring-white/10">
-                    {statusCounts[status] || 0}
+                    {laneCounts[lane] || 0}
                   </span>
                 </div>
 
@@ -537,43 +701,54 @@ export default function POSProductionQueuePage() {
                     <div className="flex h-full items-center justify-center text-slate-500">
                       <Loader2 className="animate-spin" size={28} />
                     </div>
-                  ) : groupedByStatus[status].length === 0 ? (
+                  ) : groupedByLane[lane].length === 0 ? (
                     <div className="flex h-full min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 p-4 text-center">
                       <div>
                         <ChefHat size={30} className="mx-auto mb-2 text-slate-700" />
                         <p className="text-sm font-black uppercase text-slate-400">
-                          No {statusLabel[status]} Orders
+                          No {laneLabel[lane]} Orders
                         </p>
                       </div>
                     </div>
                   ) : (
-                    groupedByStatus[status].map((group) => {
+                    groupedByLane[lane].map((group) => {
                       const createdAt =
                         group.order?.created_at || group.items[0]?.created_at;
                       const mins = getMinutesAgo(createdAt || null);
-                      const isDelayed =
-                        status === "PENDING"
-                          ? mins >= 15
-                          : status === "PREPARING"
-                            ? mins >= 25
-                            : mins >= 10;
+                      const isDelayed = mins >= getDelayLimit(lane);
+                      const additionalInfo = getAdditionalInfo(group);
+                      const totalQty = group.items.reduce(
+                        (sum, item) => sum + Number(item.qty || 0),
+                        0,
+                      );
 
                       return (
                         <article
-                          key={group.orderId}
+                          key={`${lane}-${group.orderId}`}
                           className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1017] shadow-xl shadow-black/30"
                         >
                           <div className="border-b border-white/10 bg-black/20 px-3 py-2">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="truncate text-lg font-black uppercase tracking-tight">
-                                  {group.order?.table_no ||
-                                    group.order?.order_type ||
-                                    `Order ${group.orderId.slice(0, 6)}`}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-lg font-black uppercase tracking-tight">
+                                    {getOrderTitle(group)}
+                                  </p>
+                                  {additionalInfo && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[9px] font-black uppercase text-black">
+                                      <Send size={10} />
+                                      Additional
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="mt-0.5 truncate text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                                  {getOrderSubLabel(group)}
                                 </p>
 
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                  <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                                    <Clock3 size={10} />
                                     {formatTime(createdAt || null)}
                                   </span>
 
@@ -586,26 +761,33 @@ export default function POSProductionQueuePage() {
                                   >
                                     {mins}m
                                   </span>
+
+                                  <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                                    {totalQty} item(s)
+                                  </span>
                                 </div>
                               </div>
 
-                              <span
-                                className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase ring-1 ${
-                                  isDelayed
-                                    ? "bg-red-500/10 text-red-300 ring-red-400/25"
-                                    : "bg-emerald-500/10 text-emerald-300 ring-emerald-400/25"
-                                }`}
-                              >
-                                {isDelayed ? "Delay" : "OK"}
-                              </span>
+                              {isDelayed && (
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/10 px-2 py-1 text-[10px] font-black uppercase text-red-300 ring-1 ring-red-400/25">
+                                  <AlertTriangle size={11} />
+                                  Delay
+                                </span>
+                              )}
                             </div>
+
+                            {additionalInfo && (
+                              <div className="mt-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-amber-200">
+                                {additionalInfo}
+                              </div>
+                            )}
                           </div>
 
                           <div className="divide-y divide-white/10">
                             {group.items.map((item) => (
                               <div
                                 key={item.id}
-                                className="grid grid-cols-[minmax(0,1fr)_92px] items-center gap-2 px-3 py-2"
+                                className="grid grid-cols-[minmax(0,1fr)_78px] items-center gap-2 px-3 py-2"
                               >
                                 <div className="min-w-0">
                                   <p className="truncate text-[15px] font-black text-white">
@@ -618,7 +800,7 @@ export default function POSProductionQueuePage() {
                                     </span>
 
                                     <span className="truncate text-[10px] font-bold uppercase text-slate-500">
-                                      {item.production_area || "No station"}
+                                      {getDisplayStationName(item, stations)}
                                     </span>
                                   </div>
                                 </div>
@@ -626,45 +808,41 @@ export default function POSProductionQueuePage() {
                                 <button
                                   onClick={() => moveItemStatus(item)}
                                   disabled={actionLoadingId === item.id}
-                                  className={`flex h-10 items-center justify-center gap-1 rounded-xl text-[11px] font-black uppercase transition active:scale-[0.98] disabled:opacity-50 ${getActionClass(
-                                    item.production_status,
+                                  className={`flex h-9 items-center justify-center gap-1 rounded-xl text-[10px] font-black uppercase transition active:scale-[0.98] disabled:opacity-50 ${getActionClass(
+                                    lane,
                                   )}`}
                                 >
                                   {actionLoadingId === item.id ? (
-                                    <Loader2 size={14} className="animate-spin" />
-                                  ) : status === "PENDING" ? (
-                                    <Flame size={14} />
-                                  ) : status === "PREPARING" ? (
-                                    <Clock3 size={14} />
+                                    <Loader2 size={13} className="animate-spin" />
+                                  ) : lane === "NEW" ? (
+                                    <Flame size={13} />
+                                  ) : lane === "PREPARING" ? (
+                                    <Clock3 size={13} />
                                   ) : (
-                                    <CheckCircle2 size={14} />
+                                    <CheckCircle2 size={13} />
                                   )}
-                                  {getNextButtonLabel(item.production_status)}
+                                  {getItemActionLabel(item.production_status)}
                                 </button>
                               </div>
                             ))}
                           </div>
 
-                          {group.items.length > 1 && (
-                            <div className="border-t border-white/10 p-2">
-                              <button
-                                onClick={() =>
-                                  moveWholeOrder(group.orderId, group.items, status)
-                                }
-                                disabled={actionLoadingId === group.orderId}
-                                className={`flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-black uppercase transition active:scale-[0.98] disabled:opacity-50 ${getActionClass(
-                                  status,
-                                )}`}
-                              >
-                                {actionLoadingId === group.orderId ? (
-                                  <Loader2 size={15} className="animate-spin" />
-                                ) : (
-                                  <Utensils size={15} />
-                                )}
-                                Move Whole Order
-                              </button>
-                            </div>
-                          )}
+                          <div className="border-t border-white/10 p-2">
+                            <button
+                              onClick={() => moveWholeOrder(group)}
+                              disabled={actionLoadingId === group.orderId}
+                              className={`flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-black uppercase transition active:scale-[0.98] disabled:opacity-50 ${getActionClass(
+                                lane,
+                              )}`}
+                            >
+                              {actionLoadingId === group.orderId ? (
+                                <Loader2 size={15} className="animate-spin" />
+                              ) : (
+                                <Utensils size={15} />
+                              )}
+                              {getActionLabel(lane)}
+                            </button>
+                          </div>
                         </article>
                       );
                     })

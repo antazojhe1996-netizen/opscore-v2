@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Save,
   Settings,
+  GitBranch,
   Table2,
   Trash2,
   Utensils,
@@ -24,6 +25,7 @@ type SettingTab =
   | "order_types"
   | "payment_methods"
   | "production_stations"
+  | "category_routing"
   | "terminal_defaults";
 
 type PosTable = {
@@ -50,6 +52,17 @@ type PosSetting = {
   setting_value: string;
 };
 
+type PosCategory = {
+  id: string;
+  name: string;
+  category_code: string | null;
+  production_area: string | null;
+  production_station_id: string | null;
+  requires_production: boolean;
+  sort_order: number | null;
+  status: string | null;
+};
+
 const tabs: {
   key: SettingTab;
   label: string;
@@ -67,6 +80,11 @@ const tabs: {
     key: "production_stations",
     label: "Production Stations",
     icon: <Building2 size={16} />,
+  },
+  {
+    key: "category_routing",
+    label: "Category Routing",
+    icon: <GitBranch size={16} />,
   },
   {
     key: "terminal_defaults",
@@ -237,6 +255,7 @@ export default function POSSettingsPage() {
   const [orderTypes, setOrderTypes] = useState<PosOption[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PosOption[]>([]);
   const [productionStations, setProductionStations] = useState<PosOption[]>([]);
+  const [categories, setCategories] = useState<PosCategory[]>([]);
   const [settings, setSettings] = useState<PosSetting[]>([]);
 
   const [newTableName, setNewTableName] = useState("");
@@ -299,6 +318,15 @@ export default function POSSettingsPage() {
         .order("sort_order", { ascending: true }),
     );
 
+    const categoryQuery = applyCompanyFilter(
+      supabase
+        .from("pos_categories")
+        .select(
+          "id, name, category_code, production_area, production_station_id, requires_production, sort_order, status",
+        )
+        .order("sort_order", { ascending: true }),
+    );
+
     const settingsQuery = applyCompanyFilter(
       supabase
         .from("pos_settings")
@@ -311,12 +339,14 @@ export default function POSSettingsPage() {
       orderTypeResult,
       paymentResult,
       stationResult,
+      categoryResult,
       settingsResult,
     ] = await Promise.all([
       tableQuery,
       orderTypeQuery,
       paymentQuery,
       stationQuery,
+      categoryQuery,
       settingsQuery,
     ]);
 
@@ -325,6 +355,7 @@ export default function POSSettingsPage() {
       orderTypeResult.error ||
       paymentResult.error ||
       stationResult.error ||
+      categoryResult.error ||
       settingsResult.error;
 
     if (firstError) {
@@ -335,6 +366,7 @@ export default function POSSettingsPage() {
     setOrderTypes((orderTypeResult.data || []) as PosOption[]);
     setPaymentMethods((paymentResult.data || []) as PosOption[]);
     setProductionStations((stationResult.data || []) as PosOption[]);
+    setCategories((categoryResult.data || []) as PosCategory[]);
     setSettings((settingsResult.data || []) as PosSetting[]);
 
     setLoading(false);
@@ -462,6 +494,34 @@ export default function POSSettingsPage() {
     await loadSettings();
   };
 
+  const saveCategoryRouting = async (
+    categoryId: string,
+    requiresProduction: boolean,
+    productionStationId: string | null,
+  ) => {
+    setMessage("");
+
+    const selectedStation = productionStations.find(
+      (station) => station.id === productionStationId,
+    );
+
+    const { error } = await supabase
+      .from("pos_categories")
+      .update({
+        requires_production: requiresProduction,
+        production_station_id: requiresProduction ? productionStationId : null,
+        production_area: requiresProduction ? selectedStation?.code || null : null,
+      })
+      .eq("id", categoryId);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    await loadSettings();
+  };
+
   const getSettingValue = (key: string) =>
     settings.find((setting) => setting.setting_key === key)?.setting_value || "";
 
@@ -537,7 +597,7 @@ export default function POSSettingsPage() {
             </div>
           )}
 
-          <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -800,6 +860,14 @@ export default function POSSettingsPage() {
                   </SettingsTableSection>
                 )}
 
+                {activeTab === "category_routing" && (
+                  <CategoryRoutingSection
+                    categories={categories}
+                    productionStations={productionStations}
+                    onSave={saveCategoryRouting}
+                  />
+                )}
+
                 {activeTab === "terminal_defaults" && (
                   <div>
                     <h2 className="text-xl font-black">Terminal Defaults</h2>
@@ -848,6 +916,165 @@ export default function POSSettingsPage() {
         </main>
       </div>
     </PageGuard>
+  );
+}
+
+
+function CategoryRoutingSection({
+  categories,
+  productionStations,
+  onSave,
+}: {
+  categories: PosCategory[];
+  productionStations: PosOption[];
+  onSave: (
+    categoryId: string,
+    requiresProduction: boolean,
+    productionStationId: string | null,
+  ) => void;
+}) {
+  return (
+    <div>
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h2 className="text-xl font-black">Category Routing</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+            Assign each POS category to a production station. Categories marked
+            as routed will show Send Order / Send to Station in the terminal.
+            Categories not routed will remain park-only or direct-sale items.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-blue-400/15 bg-blue-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-blue-300">
+          Station Driven
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+        <div className="grid grid-cols-[minmax(0,1.4fr)_140px_minmax(180px,1fr)_120px] gap-3 border-b border-slate-800 bg-white/[0.03] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+          <div>Category</div>
+          <div>Routing</div>
+          <div>Station</div>
+          <div className="text-right">Status</div>
+        </div>
+
+        <div className="divide-y divide-slate-800">
+          {categories.length === 0 ? (
+            <div className="p-6 text-center text-sm font-bold text-slate-500">
+              No categories found. Add POS categories first before assigning
+              station routing.
+            </div>
+          ) : (
+            categories.map((category) => (
+              <CategoryRoutingRow
+                key={category.id}
+                category={category}
+                productionStations={productionStations}
+                onSave={onSave}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryRoutingRow({
+  category,
+  productionStations,
+  onSave,
+}: {
+  category: PosCategory;
+  productionStations: PosOption[];
+  onSave: (
+    categoryId: string,
+    requiresProduction: boolean,
+    productionStationId: string | null,
+  ) => void;
+}) {
+  const [requiresProduction, setRequiresProduction] = useState(
+    Boolean(category.requires_production),
+  );
+  const [productionStationId, setProductionStationId] = useState(
+    category.production_station_id || "",
+  );
+
+  useEffect(() => {
+    setRequiresProduction(Boolean(category.requires_production));
+    setProductionStationId(category.production_station_id || "");
+  }, [category.requires_production, category.production_station_id]);
+
+  const activeStations = productionStations.filter((station) => station.is_active);
+  const selectedStation = productionStations.find(
+    (station) => station.id === productionStationId,
+  );
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1.4fr)_140px_minmax(180px,1fr)_120px] items-center gap-3 px-4 py-3">
+      <div className="min-w-0">
+        <p className="truncate font-black text-white">{category.name}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          {category.category_code || "No code"}
+          {category.production_area ? ` • ${category.production_area}` : ""}
+        </p>
+      </div>
+
+      <button
+        onClick={() => {
+          const nextValue = !requiresProduction;
+          setRequiresProduction(nextValue);
+
+          if (!nextValue) {
+            setProductionStationId("");
+            onSave(category.id, false, null);
+          }
+        }}
+        className={`w-fit rounded-xl px-4 py-2 text-xs font-black ${
+          requiresProduction
+            ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/25"
+            : "bg-slate-800 text-slate-300 ring-1 ring-white/10"
+        }`}
+      >
+        {requiresProduction ? "ROUTED" : "NO ROUTE"}
+      </button>
+
+      <select
+        value={productionStationId}
+        disabled={!requiresProduction}
+        onChange={(event) => {
+          const nextStationId = event.target.value;
+          setProductionStationId(nextStationId);
+          onSave(category.id, true, nextStationId || null);
+        }}
+        className="min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-blue-300 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <option value="">No station selected</option>
+        {activeStations.map((station) => (
+          <option key={station.id} value={station.id}>
+            {station.name}
+          </option>
+        ))}
+      </select>
+
+      <div className="text-right">
+        <p
+          className={`text-xs font-black uppercase tracking-wide ${
+            requiresProduction && selectedStation
+              ? "text-blue-300"
+              : requiresProduction
+                ? "text-amber-300"
+                : "text-slate-500"
+          }`}
+        >
+          {requiresProduction && selectedStation
+            ? selectedStation.code
+            : requiresProduction
+              ? "Needs Station"
+              : "Direct"}
+        </p>
+      </div>
+    </div>
   );
 }
 
