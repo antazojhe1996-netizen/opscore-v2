@@ -130,6 +130,27 @@ export default function ApprovalCenterPage() {
     return request.request_payload;
   };
 
+
+  const uuidPattern =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
+
+  const extractFirstUuid = (value: any) => {
+    const textValue = String(value || "").trim();
+    if (!textValue) return "";
+
+    const match = textValue.match(uuidPattern);
+    return match?.[0] || "";
+  };
+
+  const getFirstAvailableUuid = (...values: any[]) => {
+    for (const value of values) {
+      const uuid = extractFirstUuid(value);
+      if (uuid) return uuid;
+    }
+
+    return "";
+  };
+
   const loadOvertimePreviewForRequest = async (request: any | null) => {
     if (!request || request.request_type !== "OVERTIME_APPROVAL") {
       setOvertimePreview(null);
@@ -1625,12 +1646,15 @@ export default function ApprovalCenterPage() {
     }
 
     const payload = getPayload(request) || {};
-    const attendanceEntryId = String(
-      payload.attendance_entry_id ||
-        payload.attendanceEntryId ||
-        request.reference_id ||
-        "",
-    ).trim();
+    const attendanceEntryId = getFirstAvailableUuid(
+      payload.attendance_entry_id,
+      payload.attendanceEntryId,
+      payload.attendance_id,
+      payload.attendanceId,
+      payload.entry_id,
+      payload.entryId,
+      request.reference_id,
+    );
 
     const detectedMinutes = Number(
       payload.detected_ot_minutes ||
@@ -1648,7 +1672,7 @@ export default function ApprovalCenterPage() {
     );
 
     if (!attendanceEntryId) {
-      alert("Overtime approval failed. Missing attendance entry ID.");
+      alert("Overtime approval failed. Missing valid attendance entry UUID.");
       return false;
     }
 
@@ -1662,7 +1686,7 @@ export default function ApprovalCenterPage() {
       .update({
         approved_ot_minutes: approvedMinutes,
         ot_approval_status: "APPROVED",
-        ot_approval_request_id: request.id,
+        ot_approval_request_id: getFirstAvailableUuid(request.id),
         ot_approved_by: currentEmployeeName || "Manager Approval Center",
         ot_approved_at: new Date().toISOString(),
         ot_rejected_by: null,
@@ -1705,15 +1729,18 @@ export default function ApprovalCenterPage() {
     }
 
     const payload = getPayload(request) || {};
-    const attendanceEntryId = String(
-      payload.attendance_entry_id ||
-        payload.attendanceEntryId ||
-        request.reference_id ||
-        "",
-    ).trim();
+    const attendanceEntryId = getFirstAvailableUuid(
+      payload.attendance_entry_id,
+      payload.attendanceEntryId,
+      payload.attendance_id,
+      payload.attendanceId,
+      payload.entry_id,
+      payload.entryId,
+      request.reference_id,
+    );
 
     if (!attendanceEntryId) {
-      alert("Overtime rejection failed. Missing attendance entry ID.");
+      alert("Overtime rejection failed. Missing valid attendance entry UUID.");
       return false;
     }
 
@@ -1722,7 +1749,7 @@ export default function ApprovalCenterPage() {
       .update({
         approved_ot_minutes: 0,
         ot_approval_status: "REJECTED",
-        ot_approval_request_id: request.id,
+        ot_approval_request_id: getFirstAvailableUuid(request.id),
         ot_rejected_by: currentEmployeeName || "Manager Approval Center",
         ot_rejected_at: new Date().toISOString(),
         ot_rejection_reason: reason,
@@ -1992,7 +2019,14 @@ export default function ApprovalCenterPage() {
   const approveRequest = async (request: any) => {
     if (!request?.id || isProcessing) return;
 
-    const processingKey = String(request.id);
+    const approvalRequestId = getFirstAvailableUuid(request.id);
+
+    if (!approvalRequestId) {
+      alert("Approval failed. Invalid approval request ID.");
+      return;
+    }
+
+    const processingKey = approvalRequestId;
 
     if (processingRequestRef.current === processingKey) return;
 
@@ -2009,7 +2043,7 @@ export default function ApprovalCenterPage() {
     const { data: freshRequest, error: freshRequestError } = await supabase
       .from("approval_requests")
       .select("id, status, approved_at, approved_by, rejected_at, rejected_by")
-      .eq("id", request.id)
+      .eq("id", approvalRequestId)
       .maybeSingle();
 
     if (freshRequestError) {
@@ -2161,7 +2195,7 @@ export default function ApprovalCenterPage() {
         approved_by: currentEmployeeName || "Manager Approval Center",
         approved_at: new Date().toISOString(),
       })
-      .eq("id", request.id);
+      .eq("id", approvalRequestId);
 
     setIsProcessing(false);
     processingRequestRef.current = null;
@@ -2178,6 +2212,13 @@ export default function ApprovalCenterPage() {
 
   const rejectRequest = async (request: any, reason: string) => {
     if (!request?.id || isProcessing) return;
+
+    const approvalRequestId = getFirstAvailableUuid(request.id);
+
+    if (!approvalRequestId) {
+      alert("Rejection failed. Invalid approval request ID.");
+      return;
+    }
 
     const finalReason = reason.trim();
 
@@ -2303,7 +2344,7 @@ export default function ApprovalCenterPage() {
         rejected_at: new Date().toISOString(),
         rejection_reason: finalReason,
       })
-      .eq("id", request.id);
+      .eq("id", approvalRequestId);
 
     setIsProcessing(false);
 
