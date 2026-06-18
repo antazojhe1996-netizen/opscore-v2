@@ -13,6 +13,7 @@ import {
   CreditCard,
   Minus,
   Plus,
+  Printer,
   ReceiptText,
   RefreshCw,
   Search,
@@ -127,6 +128,23 @@ type PosSession = {
   opened_at: string;
 };
 
+type VoidCandidateOrder = {
+  id: string;
+  company_id: string | null;
+  session_id: string | null;
+  cashier_id: string | null;
+  order_tag: string | null;
+  order_number: string | null;
+  receipt_no: string | null;
+  order_type: string | null;
+  total_amount: number | null;
+  payment_method: string | null;
+  payment_method_name: string | null;
+  payment_status: string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
 const peso = (value: number) =>
   `₱${Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -208,6 +226,15 @@ export default function POSTerminalPage() {
   const [parkActionType, setParkActionType] = useState<"KITCHEN" | "PARK">("PARK");
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidSearch, setVoidSearch] = useState("");
+  const [voidReason, setVoidReason] = useState("");
+  const [voidMessage, setVoidMessage] = useState("");
+  const [voidLoading, setVoidLoading] = useState(false);
+  const [voidCandidates, setVoidCandidates] = useState<VoidCandidateOrder[]>([]);
+  const [selectedVoidOrder, setSelectedVoidOrder] =
+    useState<VoidCandidateOrder | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderLoading, setOrderLoading] = useState(false);
@@ -832,6 +859,230 @@ export default function POSTerminalPage() {
     setShowOrderTagModal(true);
   };
 
+
+  const getStationLabelForSlip = (item: CartItem) => {
+    if (!item.requires_production) return "DIRECT / NO PRODUCTION";
+
+    const productionCode = normalizeCode(item.production_area || "");
+
+    const station = productionStations.find(
+      (stationItem) =>
+        normalizeCode(stationItem.code || "") === productionCode ||
+        String(stationItem.id || "") === String(item.production_area || ""),
+    );
+
+    if (station?.name) return station.name.toUpperCase();
+
+    return productionCode || "PRODUCTION";
+  };
+
+  const printOrderSlip = (tag: string) => {
+    if (typeof window === "undefined") return;
+
+    const groupedItems = cart.reduce<Record<string, CartItem[]>>((acc, item) => {
+      const key = getStationLabelForSlip(item);
+      acc[key] = [...(acc[key] || []), item];
+      return acc;
+    }, {});
+
+    const slipTime = new Date().toLocaleString("en-PH", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const tableLabel = enableTableTracking
+      ? selectedTable?.table_name || "No Table"
+      : "-";
+
+    const stationSections = Object.entries(groupedItems)
+      .map(([stationName, stationItems]) => {
+        const rows = stationItems
+          .map(
+            (item) => `
+              <div class="item-row">
+                <div class="qty">${item.qty}x</div>
+                <div class="name">${item.name}</div>
+              </div>
+            `,
+          )
+          .join("");
+
+        return `
+          <section class="station">
+            <h2>${stationName}</h2>
+            ${rows}
+          </section>
+        `;
+      })
+      .join("");
+
+    const slipHtml = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>OPSCORE Order Slip</title>
+          <style>
+            @page { size: 80mm auto; margin: 4mm; }
+            * { box-sizing: border-box; }
+            body {
+              width: 72mm;
+              margin: 0;
+              color: #000;
+              font-family: Arial, Helvetica, sans-serif;
+              font-size: 12px;
+              line-height: 1.25;
+            }
+            .center { text-align: center; }
+            .brand {
+              font-size: 13px;
+              font-weight: 900;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+            }
+            .title {
+              margin-top: 4px;
+              font-size: 19px;
+              font-weight: 900;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+            }
+            .divider {
+              margin: 8px 0;
+              border-top: 1px dashed #000;
+            }
+            .meta {
+              display: grid;
+              grid-template-columns: 28mm 1fr;
+              gap: 3px 6px;
+              font-size: 11px;
+            }
+            .meta-label {
+              font-weight: 900;
+              text-transform: uppercase;
+            }
+            .meta-value {
+              font-weight: 700;
+              text-align: right;
+              text-transform: uppercase;
+            }
+            .tag {
+              margin: 8px 0;
+              padding: 7px 6px;
+              border: 2px solid #000;
+              text-align: center;
+              font-size: 22px;
+              font-weight: 900;
+              letter-spacing: 0.05em;
+              text-transform: uppercase;
+            }
+            .station {
+              margin-top: 8px;
+            }
+            .station h2 {
+              margin: 0 0 4px;
+              padding: 4px 0;
+              border-top: 1px solid #000;
+              border-bottom: 1px solid #000;
+              font-size: 14px;
+              font-weight: 900;
+              text-align: center;
+              text-transform: uppercase;
+            }
+            .item-row {
+              display: grid;
+              grid-template-columns: 12mm 1fr;
+              gap: 4px;
+              padding: 5px 0;
+              border-bottom: 1px dashed #999;
+            }
+            .qty {
+              font-size: 17px;
+              font-weight: 900;
+            }
+            .name {
+              font-size: 15px;
+              font-weight: 900;
+              text-transform: uppercase;
+            }
+            .footer {
+              margin-top: 10px;
+              text-align: center;
+              font-size: 10px;
+              font-weight: 700;
+              text-transform: uppercase;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="center">
+            <div class="brand">OPSCORE POS</div>
+            <div class="title">Order Slip</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="tag">${tag}</div>
+
+          <div class="meta">
+            <div class="meta-label">Time</div>
+            <div class="meta-value">${slipTime}</div>
+            <div class="meta-label">Cashier</div>
+            <div class="meta-value">${cashierName || "Cashier"}</div>
+            <div class="meta-label">Type</div>
+            <div class="meta-value">${selectedOrderType?.name || selectedOrderTypeCode || "-"}</div>
+            <div class="meta-label">Table</div>
+            <div class="meta-value">${tableLabel}</div>
+          </div>
+
+          <div class="divider"></div>
+
+          ${stationSections}
+
+          <div class="divider"></div>
+
+          <div class="footer">Printed from OPSCORE POS</div>
+
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+
+    document.body.appendChild(iframe);
+
+    const iframeDocument =
+      iframe.contentDocument || iframe.contentWindow?.document;
+
+    if (!iframeDocument) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    iframeDocument.open();
+    iframeDocument.write(slipHtml);
+    iframeDocument.close();
+
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1500);
+  };
+
   const saveParkedOrder = async () => {
     setOrderMessage("");
 
@@ -917,6 +1168,8 @@ export default function POSTerminalPage() {
         setOrderMessage(insertItemsError.message);
         return;
       }
+
+      printOrderSlip(cleanTag);
 
       setCart([]);
       resetOrderTagState();
@@ -1011,6 +1264,8 @@ export default function POSTerminalPage() {
       return;
     }
 
+    printOrderSlip(cleanTag);
+
     setCart([]);
     resetOrderTagState();
     setLoadedParkedOrderId(null);
@@ -1018,6 +1273,231 @@ export default function POSTerminalPage() {
 
     setOrderLoading(false);
     goToParkedOrders();
+  };
+
+  const resetVoidState = () => {
+    setShowVoidModal(false);
+    setVoidSearch("");
+    setVoidReason("");
+    setVoidMessage("");
+    setVoidCandidates([]);
+    setSelectedVoidOrder(null);
+    setVoidLoading(false);
+  };
+
+  const openVoidModal = async () => {
+    setOrderMessage("");
+    setVoidMessage("");
+    setVoidSearch("");
+    setVoidReason("");
+    setSelectedVoidOrder(null);
+    setVoidCandidates([]);
+
+    if (!enableVoidApproval) {
+      setOrderMessage("Void approval is disabled in POS settings.");
+      return;
+    }
+
+    if (!activeSession) {
+      setOrderMessage("No active cashier session.");
+      return;
+    }
+
+    setShowVoidModal(true);
+  };
+
+  const searchVoidOrders = async () => {
+    const term = voidSearch.trim();
+
+    if (!activeSession) {
+      setVoidMessage("No active cashier session.");
+      return;
+    }
+
+    if (!term) {
+      setVoidMessage("Enter receipt number, order number, or order tag.");
+      return;
+    }
+
+    setVoidLoading(true);
+    setVoidMessage("");
+    setSelectedVoidOrder(null);
+
+    let query = supabase
+      .from("pos_orders")
+      .select(
+        `
+        id,
+        company_id,
+        session_id,
+        cashier_id,
+        order_tag,
+        order_number,
+        receipt_no,
+        order_type,
+        total_amount,
+        payment_method,
+        payment_method_name,
+        payment_status,
+        status,
+        created_at
+      `,
+      )
+      .eq("payment_status", "PAID")
+      .not("status", "in", '(VOIDED,CANCELLED,REFUNDED)')
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (activeSession.company_id) {
+      query = query.eq("company_id", activeSession.company_id);
+    } else {
+      query = query.is("company_id", null);
+    }
+
+    query = query.or(
+      `receipt_no.ilike.%${term}%,order_number.ilike.%${term}%,order_tag.ilike.%${term}%`,
+    );
+
+    const { data, error } = await query;
+
+    if (error) {
+      setVoidCandidates([]);
+      setVoidMessage(error.message);
+      setVoidLoading(false);
+      return;
+    }
+
+    const rows = (data || []) as VoidCandidateOrder[];
+
+    setVoidCandidates(rows);
+    setVoidMessage(rows.length === 0 ? "No paid matching transaction found." : "");
+    setVoidLoading(false);
+  };
+
+  const requestVoidApproval = async () => {
+    if (!selectedVoidOrder) {
+      setVoidMessage("Select a transaction to void.");
+      return;
+    }
+
+    const reason = voidReason.trim();
+
+    if (!reason) {
+      setVoidMessage("Enter void reason.");
+      return;
+    }
+
+    if (!activeSession) {
+      setVoidMessage("No active cashier session.");
+      return;
+    }
+
+    setVoidLoading(true);
+    setVoidMessage("");
+
+    const { data: existingRequest, error: existingError } = await supabase
+      .from("approval_requests")
+      .select("id,status")
+      .eq("request_type", "POS_VOID")
+      .eq("reference_id", selectedVoidOrder.id)
+      .in("status", ["PENDING", "APPROVED"])
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) {
+      setVoidMessage(existingError.message);
+      setVoidLoading(false);
+      return;
+    }
+
+    if (existingRequest) {
+      setVoidMessage(
+        `Void request already exists with status ${existingRequest.status}.`,
+      );
+      setVoidLoading(false);
+      return;
+    }
+
+    const reference =
+      selectedVoidOrder.receipt_no ||
+      selectedVoidOrder.order_number ||
+      selectedVoidOrder.order_tag ||
+      selectedVoidOrder.id.slice(0, 8);
+
+    const { error } = await supabase.from("approval_requests").insert({
+      company_id: activeSession.company_id,
+      request_type: "POS_VOID",
+      module: "POS",
+      reference_id: selectedVoidOrder.id,
+      title: `POS Void Request - ${reference}`,
+      description: `Void request for ${reference}. Reason: ${reason}`,
+      requested_by: cashierName || "POS Cashier",
+      status: "PENDING",
+      request_payload: {
+        order_id: selectedVoidOrder.id,
+        order_tag: selectedVoidOrder.order_tag,
+        order_number: selectedVoidOrder.order_number,
+        receipt_no: selectedVoidOrder.receipt_no,
+        session_id: selectedVoidOrder.session_id,
+        cashier_id: selectedVoidOrder.cashier_id || activeSession.opened_by,
+        cashier_name: cashierName || "POS Cashier",
+        order_type: selectedVoidOrder.order_type,
+        payment_method:
+          selectedVoidOrder.payment_method_name || selectedVoidOrder.payment_method,
+        total_amount: Number(selectedVoidOrder.total_amount || 0),
+        reason,
+        requested_at: new Date().toISOString(),
+      },
+    });
+
+    if (error) {
+      setVoidMessage(error.message);
+      setVoidLoading(false);
+      return;
+    }
+
+    setVoidLoading(false);
+    setOrderMessage(`Void request submitted for ${reference}.`);
+    resetVoidState();
+  };
+
+  const quickCashPayment = () => {
+    setOrderMessage("");
+
+    if (!activeSession) {
+      setOrderMessage("No active cashier session.");
+      return;
+    }
+
+    if (cart.length === 0) {
+      setOrderMessage("Cart is empty.");
+      return;
+    }
+
+    if (!selectedOrderType) {
+      setOrderMessage("Select order type.");
+      return;
+    }
+
+    if (enableTableTracking && requireTableForDineIn && !selectedTable) {
+      setOrderMessage("Select table before payment.");
+      return;
+    }
+
+    const cashMethod =
+      paymentMethods.find((method) =>
+        normalizeCode(`${method.code} ${method.name}`).includes("CASH"),
+      ) || paymentMethods[0];
+
+    if (!cashMethod) {
+      setOrderMessage("No payment method configured.");
+      return;
+    }
+
+    setSelectedPaymentMethodCode(cashMethod.code);
+    setAmountPaid(String(Number(grandTotal || 0).toFixed(2)));
+    setPaymentReference("");
+    setShowPaymentModal(true);
   };
 
   const openPaymentModal = () => {
@@ -1467,9 +1947,13 @@ export default function POSTerminalPage() {
               </div>
 
               <div className="mt-1 grid grid-cols-5 gap-1.5">
-                <button className="flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-400/45 bg-emerald-500/20 text-[13px] font-black text-white shadow-lg shadow-emerald-950/30 transition active:scale-[0.98]">
+                <button
+                  onClick={quickCashPayment}
+                  disabled={cart.length === 0 || orderLoading}
+                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-400/45 bg-emerald-500/20 text-[13px] font-black text-white shadow-lg shadow-emerald-950/30 transition active:scale-[0.98] disabled:opacity-40"
+                >
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-base text-white ring-1 ring-white/15">
-                    N
+                    ₱
                   </span>
                   Quick Cash
                 </button>
@@ -1499,7 +1983,8 @@ export default function POSTerminalPage() {
                 </button>
 
                 <button
-                  disabled={!enableVoidApproval}
+                  onClick={openVoidModal}
+                  disabled={!enableVoidApproval || orderLoading}
                   className="flex h-10 items-center justify-center gap-2 rounded-xl border border-red-500/50 bg-red-500/10 text-[13px] font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-40"
                 >
                   <Trash2 size={15} />
@@ -1623,22 +2108,33 @@ export default function POSTerminalPage() {
                   </div>
                 )}
 
+                <button
+                  onClick={openPaymentModal}
+                  disabled={cart.length === 0 || orderLoading}
+                  className="mt-1.5 h-14 w-full rounded-xl bg-emerald-500 text-[18px] font-black uppercase tracking-wide text-white shadow-xl shadow-emerald-950/40 transition hover:bg-emerald-400 active:scale-[0.99] disabled:bg-emerald-500/40 disabled:text-white/50"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <Banknote size={21} />
+                    PAY ORDER
+                  </span>
+                </button>
+
                 {hasProductionItems ? (
                   <button
                     onClick={() => openOrderTagModal("KITCHEN")}
                     disabled={cart.length === 0 || orderLoading}
-                    className="mt-1.5 h-16 w-full rounded-xl bg-[#f5c400] text-[18px] font-black tracking-wide text-black shadow-xl shadow-yellow-950/40 transition hover:bg-[#ffd21f] active:scale-[0.99] disabled:bg-[#f5c400]/45 disabled:text-black/70"
+                    className="mt-1.5 h-14 w-full rounded-xl bg-[#f5c400] text-[17px] font-black tracking-wide text-black shadow-xl shadow-yellow-950/40 transition hover:bg-[#ffd21f] active:scale-[0.99] disabled:bg-[#f5c400]/45 disabled:text-black/70"
                   >
                     <span className="flex items-center justify-center gap-2">
-                      <ChefHat size={21} />
-                      SEND TO KITCHEN
+                      <Printer size={21} />
+                      SEND ORDER
                     </span>
                   </button>
                 ) : (
                   <button
                     onClick={() => openOrderTagModal("PARK")}
                     disabled={cart.length === 0 || orderLoading}
-                    className="mt-1.5 h-16 w-full rounded-xl bg-[#f5c400] text-[20px] font-black tracking-wide text-black shadow-xl shadow-yellow-950/40 transition hover:bg-[#ffd21f] active:scale-[0.99] disabled:bg-[#f5c400]/45 disabled:text-black/70"
+                    className="mt-1.5 h-14 w-full rounded-xl bg-[#f5c400] text-[18px] font-black tracking-wide text-black shadow-xl shadow-yellow-950/40 transition hover:bg-[#ffd21f] active:scale-[0.99] disabled:bg-[#f5c400]/45 disabled:text-black/70"
                   >
                     <span className="flex items-center justify-center gap-2">
                       <Tag size={21} />
@@ -1651,6 +2147,160 @@ export default function POSTerminalPage() {
           </section>
         </main>
 
+        {showVoidModal && (
+          <div className="fixed inset-0 z-[10054] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="grid max-h-[88vh] w-full max-w-4xl grid-cols-[minmax(0,1fr)_340px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
+              <section className="flex min-h-0 flex-col border-r border-white/10 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-red-300">
+                      POS Void Approval
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black text-white">
+                      Request Void
+                    </h2>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+                      Search a paid receipt or order number, select the transaction,
+                      then submit a manager approval request.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={resetVoidState}
+                    disabled={voidLoading}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <input
+                    autoFocus
+                    value={voidSearch}
+                    onChange={(event) => setVoidSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") searchVoidOrders();
+                    }}
+                    placeholder="Receipt / order no. / order tag"
+                    className="h-12 rounded-xl border border-white/10 bg-[#05080d] px-4 text-sm font-bold uppercase text-white outline-none placeholder:text-slate-700 focus:border-red-300/50"
+                  />
+
+                  <button
+                    onClick={searchVoidOrders}
+                    disabled={voidLoading}
+                    className="h-12 rounded-xl bg-red-500 text-sm font-black uppercase text-white transition hover:bg-red-400 disabled:opacity-40"
+                  >
+                    {voidLoading ? "Searching" : "Search"}
+                  </button>
+                </div>
+
+                {voidMessage && (
+                  <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                    {voidMessage}
+                  </div>
+                )}
+
+                <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-2">
+                  {voidCandidates.length === 0 ? (
+                    <div className="flex min-h-[220px] items-center justify-center text-center text-sm font-bold text-slate-500">
+                      Matching paid transactions will appear here.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {voidCandidates.map((order) => {
+                        const reference =
+                          order.receipt_no ||
+                          order.order_number ||
+                          order.order_tag ||
+                          order.id.slice(0, 8);
+                        const selected = selectedVoidOrder?.id === order.id;
+
+                        return (
+                          <button
+                            key={order.id}
+                            onClick={() => setSelectedVoidOrder(order)}
+                            className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
+                              selected
+                                ? "border-red-300 bg-red-500/15"
+                                : "border-white/10 bg-[#0b1017] hover:bg-white/5"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-lg font-black text-white">
+                                  {reference}
+                                </p>
+                                <p className="mt-1 text-xs font-bold uppercase text-slate-500">
+                                  {order.order_type || "ORDER"} • {order.payment_method_name || order.payment_method || "Payment"}
+                                </p>
+                              </div>
+
+                              <p className="shrink-0 text-lg font-black text-red-200">
+                                {peso(Number(order.total_amount || 0))}
+                              </p>
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase text-emerald-300 ring-1 ring-emerald-400/25">
+                                {order.payment_status || "PAID"}
+                              </span>
+                              <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                                {order.status || "COMPLETED"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="flex min-h-0 flex-col p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  Void Reason
+                </p>
+
+                <textarea
+                  value={voidReason}
+                  onChange={(event) => setVoidReason(event.target.value)}
+                  placeholder="Required reason for manager approval..."
+                  className="mt-3 min-h-[170px] rounded-2xl border border-white/10 bg-[#05080d] p-4 text-sm font-semibold text-white outline-none placeholder:text-slate-700 focus:border-red-300/50"
+                />
+
+                <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-red-300">
+                    Control Note
+                  </p>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-red-100/80">
+                    This does not void the sale immediately. It creates a POS_VOID
+                    approval request. Manager approval updates the transaction.
+                  </p>
+                </div>
+
+                <div className="mt-auto space-y-2 pt-5">
+                  <button
+                    onClick={requestVoidApproval}
+                    disabled={!selectedVoidOrder || !voidReason.trim() || voidLoading}
+                    className="h-13 min-h-[52px] w-full rounded-xl bg-red-500 text-sm font-black uppercase text-white transition hover:bg-red-400 disabled:bg-red-500/40 disabled:text-white/50"
+                  >
+                    {voidLoading ? "Submitting..." : "Submit Void Request"}
+                  </button>
+
+                  <button
+                    onClick={resetVoidState}
+                    disabled={voidLoading}
+                    className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-sm font-black uppercase text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        )}
+
         {showOrderTagModal && (
           <div className="fixed inset-0 z-[10055] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-[#080d14] p-6 shadow-2xl shadow-black">
@@ -1658,7 +2308,7 @@ export default function POSTerminalPage() {
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#f5c400]">
                     {parkActionType === "KITCHEN"
-                      ? "Send To Kitchen"
+                      ? "Send Order"
                       : "Park Order"}
                   </p>
 
@@ -1722,7 +2372,7 @@ export default function POSTerminalPage() {
                 {orderLoading
                   ? "Saving..."
                   : parkActionType === "KITCHEN"
-                    ? "Save + Send To Kitchen"
+                    ? "Save + Print Order Slip"
                     : "Save Parked Order"}
               </button>
             </div>
