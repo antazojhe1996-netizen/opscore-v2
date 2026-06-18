@@ -665,6 +665,8 @@ export default function ApprovalCenterPage() {
   };
 
   const getRequestTypeLabel = (type: string) => {
+    const normalizedType = String(type || "").trim().toUpperCase().replace(/\s+/g, "_");
+
     const labels: any = {
       EXPENSE_REQUEST: "Expense Request",
       CASH_DRAWER_OUT: "Cash Drawer Out",
@@ -683,57 +685,64 @@ export default function ApprovalCenterPage() {
       POS_REFUND: "POS Refund",
     };
 
-    return labels[type] || type;
+    return labels[normalizedType] || type;
   };
 
   const getRequestTypeBadgeStyle = (type: string) => {
-    if (type === "EXPENSE_REQUEST")
+    const normalizedType = String(type || "").trim().toUpperCase().replace(/\s+/g, "_");
+
+    if (normalizedType === "EXPENSE_REQUEST")
       return "border-blue-200 bg-blue-50 text-blue-700";
-    if (type === "PAYROLL_ADJUSTMENT")
+    if (normalizedType === "PAYROLL_ADJUSTMENT")
       return "border-blue-200 bg-blue-50 text-blue-700";
-    if (type === "PAYROLL_REOPEN")
+    if (normalizedType === "PAYROLL_REOPEN")
       return "border-amber-200 bg-amber-50 text-amber-700";
-    if (type === "LEAVE_REQUEST")
+    if (normalizedType === "LEAVE_REQUEST")
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    if (type === "LEAVE_CANCELLATION")
+    if (normalizedType === "LEAVE_CANCELLATION")
       return "border-slate-200 bg-slate-100 text-slate-700";
-    if (type === "OVERTIME_APPROVAL")
+    if (normalizedType === "OVERTIME_APPROVAL")
       return "border-indigo-200 bg-indigo-50 text-indigo-700";
-    if (type === "POS_VOID")
+    if (normalizedType === "POS_VOID")
       return "border-red-200 bg-red-50 text-red-700";
-    if (type === "POS_REFUND")
+    if (normalizedType === "POS_REFUND")
       return "border-orange-200 bg-orange-50 text-orange-700";
-    if (type === "CASH_ADVANCE_RELEASE")
+    if (normalizedType === "CASH_ADVANCE_RELEASE")
       return "border-blue-200 bg-blue-50 text-blue-700";
-    if (type === "OWNER_WITHDRAWAL")
+    if (normalizedType === "OWNER_WITHDRAWAL")
       return "border-red-200 bg-red-50 text-red-700";
-    if (CASH_DRAWER_REQUEST_TYPES.includes(type))
+    if (CASH_DRAWER_REQUEST_TYPES.includes(normalizedType))
       return "border-slate-200 bg-slate-100 text-slate-700";
 
     return "border-slate-200 bg-slate-100 text-slate-700";
   };
 
   const getWorkflowKeyForRequest = (request: any) => {
-    if (!request?.request_type) return "";
+    const requestType = String(request?.request_type || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "_");
+
+    if (!requestType) return "";
 
     // OPSCORE APPROVAL ROUTING FIX:
     // Expense Requests use their own request_type for audit/history,
     // but they should follow the same manager approval lane as Finance/Cash releases
     // unless a dedicated EXPENSE_REQUEST workflow is configured later.
-    if (request.request_type === "EXPENSE_REQUEST") return "CASH_DRAWER_OUT";
-    if (request.request_type === "CASH_EXPENSE_RELEASE")
+    if (requestType === "EXPENSE_REQUEST") return "CASH_DRAWER_OUT";
+    if (requestType === "CASH_EXPENSE_RELEASE")
       return "CASH_DRAWER_OUT";
-    if (request.request_type === "CASH_ADVANCE_RELEASE")
+    if (requestType === "CASH_ADVANCE_RELEASE")
       return "CASH_DRAWER_OUT";
-    if (request.request_type === "REFUND_OUT") return "CASH_DRAWER_OUT";
-    if (request.request_type === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
-    if (request.request_type === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
-    if (request.request_type === "PAYROLL_REOPEN") return "PAYROLL_ADJUSTMENT";
-    if (request.request_type === "OVERTIME_APPROVAL") return "OVERTIME_APPROVAL";
-    if (request.request_type === "POS_VOID") return "POS_VOID";
-    if (request.request_type === "POS_REFUND") return "POS_REFUND";
+    if (requestType === "REFUND_OUT") return "CASH_DRAWER_OUT";
+    if (requestType === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
+    if (requestType === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
+    if (requestType === "PAYROLL_REOPEN") return "PAYROLL_ADJUSTMENT";
+    if (requestType === "OVERTIME_APPROVAL") return "OVERTIME_APPROVAL";
+    if (requestType === "POS_VOID") return "POS_VOID";
+    if (requestType === "POS_REFUND") return "POS_REFUND";
 
-    return request.request_type;
+    return requestType;
   };
 
   const getWorkflowForRequest = (request: any) => {
@@ -824,31 +833,33 @@ export default function ApprovalCenterPage() {
   };
 
   const getRequestCategory = (requestType: string) => {
-    if (requestType === "EXPENSE_REQUEST") return "FINANCE";
+    const normalizedType = String(requestType || "").trim().toUpperCase().replace(/\s+/g, "_");
 
-    if (CASH_DRAWER_REQUEST_TYPES.includes(requestType)) {
+    if (normalizedType === "EXPENSE_REQUEST") return "FINANCE";
+
+    if (CASH_DRAWER_REQUEST_TYPES.includes(normalizedType)) {
       return "CASH";
     }
 
     if (
-      requestType === "PAYROLL_ADJUSTMENT" ||
-      requestType === "PAYROLL_REOPEN"
+      normalizedType === "PAYROLL_ADJUSTMENT" ||
+      normalizedType === "PAYROLL_REOPEN"
     ) {
       return "PAYROLL";
     }
 
     if (
-      requestType === "LEAVE_REQUEST" ||
-      requestType === "LEAVE_CANCELLATION"
+      normalizedType === "LEAVE_REQUEST" ||
+      normalizedType === "LEAVE_CANCELLATION"
     ) {
       return "LEAVE";
     }
 
-    if (requestType === "OVERTIME_APPROVAL") {
+    if (normalizedType === "OVERTIME_APPROVAL") {
       return "OVERTIME";
     }
 
-    if (requestType === "POS_VOID" || requestType === "POS_REFUND") {
+    if (normalizedType === "POS_VOID" || normalizedType === "POS_REFUND") {
       return "POS";
     }
 
@@ -2340,24 +2351,44 @@ export default function ApprovalCenterPage() {
   }, [selectedRequest?.id]);
 
   /// CALCULATIONS
+  const normalizeApprovalStatus = (value: any) =>
+    String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "_");
+
+  const normalizeApprovalRequestType = (value: any) =>
+    String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "_");
+
   const visibleRequests = requests.filter((request) =>
-    canCurrentUserApproveRequest(request),
+    canCurrentUserApproveRequest({
+      ...request,
+      request_type: normalizeApprovalRequestType(request?.request_type),
+    }),
   );
 
-  const pendingRequests = visibleRequests.filter((r) => r.status === "PENDING");
+  const pendingRequests = visibleRequests.filter(
+    (r) => normalizeApprovalStatus(r.status) === "PENDING",
+  );
   const approvedRequests = visibleRequests.filter(
-    (r) => r.status === "APPROVED",
+    (r) => normalizeApprovalStatus(r.status) === "APPROVED",
   );
   const rejectedRequests = visibleRequests.filter(
-    (r) => r.status === "REJECTED",
+    (r) => normalizeApprovalStatus(r.status) === "REJECTED",
   );
 
   const getCategoryCount = (status: string, category: string) => {
+    const normalizedStatus = normalizeApprovalStatus(status);
+
     return visibleRequests.filter((request) => {
-      const statusMatch = request.status === status;
+      const requestType = normalizeApprovalRequestType(request.request_type);
+      const statusMatch = normalizeApprovalStatus(request.status) === normalizedStatus;
       const categoryMatch =
         category === "ALL" ||
-        getRequestCategory(request.request_type) === category;
+        getRequestCategory(requestType) === category;
 
       return statusMatch && categoryMatch;
     }).length;
@@ -2394,10 +2425,11 @@ export default function ApprovalCenterPage() {
   ];
 
   const filteredRequests = visibleRequests.filter((request) => {
-    const statusMatch = request.status === activeTab;
+    const requestType = normalizeApprovalRequestType(request.request_type);
+    const statusMatch = normalizeApprovalStatus(request.status) === normalizeApprovalStatus(activeTab);
     const categoryMatch =
       categoryFilter === "ALL" ||
-      getRequestCategory(request.request_type) === categoryFilter;
+      getRequestCategory(requestType) === categoryFilter;
 
     return statusMatch && categoryMatch;
   });

@@ -249,6 +249,74 @@ export default function CashManagementPage() {
 
   const activeDrawer = drawers.find((drawer) => String(drawer.status || "").toUpperCase() === "OPEN");
 
+  const normalizeName = (value: any) =>
+    String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+  const activeDrawerHolderName = String(activeDrawer?.holder_name || "").trim();
+  const currentActorName = String(currentEmployeeName || "").trim();
+  const hasActiveDrawer = Boolean(activeDrawer?.id);
+  const isCurrentUserDrawerHolder =
+    !hasActiveDrawer ||
+    (normalizeName(activeDrawerHolderName) !== "" &&
+      normalizeName(activeDrawerHolderName) === normalizeName(currentActorName));
+  const drawerMismatchLocked = hasActiveDrawer && !isCurrentUserDrawerHolder;
+  const cashManagementLocked = drawerMismatchLocked || isSaving;
+
+  const cashApprovalRequestTypes = [
+    "CASH_DRAWER_OUT",
+    "CASH_EXPENSE_RELEASE",
+    "CASH_ADVANCE_RELEASE",
+    "OWNER_WITHDRAWAL",
+    "BANK_DEPOSIT",
+    "REFUND_OUT",
+    "ADJUSTMENT_OUT",
+  ];
+
+  const cashApprovalRows = approvalRequests
+    .filter((request) =>
+      cashApprovalRequestTypes.includes(String(request?.request_type || "").trim().toUpperCase()),
+    )
+    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+    .slice(0, 8);
+
+  const getApprovalRequestPayload = (request: any) => {
+    if (!request?.request_payload) return {};
+    if (typeof request.request_payload === "string") {
+      try {
+        return JSON.parse(request.request_payload);
+      } catch (error) {
+        return {};
+      }
+    }
+    return request.request_payload || {};
+  };
+
+  const getApprovalDisplayAmount = (request: any) => {
+    const payload = getApprovalRequestPayload(request);
+    return Number(payload.amount || payload.total_amount || request.amount || 0);
+  };
+
+  const getApprovalReviewerNote = (request: any) =>
+    String(
+      request.rejection_reason ||
+        request.approver_remarks ||
+        request.approval_remarks ||
+        request.manager_remarks ||
+        request.remarks ||
+        "",
+    ).trim();
+
+  const getApprovalStatusStyle = (status: any) => {
+    const normalized = String(status || "").trim().toUpperCase();
+    if (normalized === "APPROVED") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (normalized === "REJECTED") return "border-red-200 bg-red-50 text-red-700";
+    if (normalized === "PENDING") return "border-amber-200 bg-amber-50 text-amber-700";
+    return "border-slate-200 bg-slate-50 text-slate-600";
+  };
+
   const getEmployeeFullName = (employee: any) =>
     `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
 
@@ -364,12 +432,32 @@ export default function CashManagementPage() {
   const onlineBankingTotal = gcashTotal + bankTotal + terminalTotal;
 
   const pendingCashApprovalCount = approvalRequests.filter(
-    (request) => String(request.status || "").toUpperCase() === "PENDING",
+    (request) =>
+      cashApprovalRequestTypes.includes(String(request?.request_type || "").trim().toUpperCase()) &&
+      String(request.status || "").toUpperCase() === "PENDING",
   ).length;
 
   const todaysMovementCount = movements.filter(
     (item) => item.business_date === today && !isVoidedMovement(item),
   ).length;
+
+  const cashInTodayTotal = movements
+    .filter(
+      (item) =>
+        item.business_date === today &&
+        !isVoidedMovement(item) &&
+        item.movement_type === "Cash In",
+    )
+    .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+  const cashOutTodayTotal = movements
+    .filter(
+      (item) =>
+        item.business_date === today &&
+        !isVoidedMovement(item) &&
+        item.movement_type === "Cash Out",
+    )
+    .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
   const isLiquidationEligible = (movement: any) => {
     if (isVoidedMovement(movement)) return false;
@@ -427,6 +515,13 @@ export default function CashManagementPage() {
   }, [movements, ledgerDateScope, dateFilter, typeFilter, paymentFilter, searchTerm, today, activeDrawer?.id]);
 
   const drawerHolderOptions = validEmployees.map((employee) => getEmployeeFullName(employee));
+  const openDrawerHolderOptions = currentActorName ? [currentActorName] : [];
+
+  useEffect(() => {
+    if (showOpenDrawer && currentActorName) {
+      setDrawerHolder(currentActorName);
+    }
+  }, [showOpenDrawer, currentActorName]);
 
 const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return [
@@ -459,6 +554,9 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   activeDrawer?.id,
   activeDrawer?.holder_name,
   activeDrawer?.status,
+  drawerMismatchLocked,
+  activeDrawerHolderName,
+  currentActorName,
 ]);
 
   const getCurrentCompanyId = async () => {
@@ -623,6 +721,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
   const saveMovement = async () => {
     if (savingRef.current) return;
+
+    if (drawerMismatchLocked) {
+      alert(`This drawer belongs to ${activeDrawerHolderName}. Please login using the drawer holder account before recording transactions.`);
+      return;
+    }
 
     if (!activeDrawer && paymentType === "Cash") {
       alert("Open a cash drawer before recording physical cash movement.");
@@ -793,6 +896,18 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   };
 
   const openDrawer = async () => {
+    if (!currentActorName) {
+      alert("Current employee identity was not detected. Please logout and login again before opening a drawer.");
+      return;
+    }
+
+    if (drawerHolder && normalizeName(drawerHolder) !== normalizeName(currentActorName)) {
+      alert("You can only open a cash drawer under your own account.");
+      return;
+    }
+
+    setDrawerHolder(currentActorName);
+
     if (activeDrawer) {
       alert("There is already an open drawer.");
       return;
@@ -810,12 +925,13 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     setIsSaving(true);
     const companyId = await getCurrentCompanyId();
     const actor = getActor();
+    const finalDrawerHolder = currentActorName;
 
     const { data: drawerData, error: drawerError } = await supabase
       .from("finance_cash_drawers")
       .insert({
         company_id: companyId || null,
-        holder_name: drawerHolder,
+        holder_name: finalDrawerHolder,
         opening_float: openingFloatValue,
         status: "OPEN",
         remarks: drawerRemarks.trim(),
@@ -837,8 +953,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       payment_type: "Cash",
       amount: openingFloatValue,
       from_person: "Petty Cash",
-      to_person: drawerHolder,
-      encoded_by: actor.userName || drawerHolder,
+      to_person: finalDrawerHolder,
+      encoded_by: actor.userName || finalDrawerHolder,
       remarks: drawerRemarks.trim() || "Opening drawer float",
       status: "ACTIVE",
       reference_type: "cash_drawer_opening",
@@ -867,7 +983,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       userName: actor.userName,
       module: "Cash Management",
       action: "Open Drawer",
-      description: `${drawerHolder} drawer opened with ${formatMoney(openingFloatValue)} float.`,
+      description: `${finalDrawerHolder} drawer opened with ${formatMoney(openingFloatValue)} float.`,
       severity: "info",
       recordId: drawerData.id,
       newValue: { drawer: drawerData, openingFloat: openingPayload },
@@ -882,6 +998,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   };
 
   const closeDrawer = async () => {
+    if (drawerMismatchLocked) {
+      alert(`This drawer belongs to ${activeDrawerHolderName}. Only the drawer holder can close or remit this drawer.`);
+      return;
+    }
+
     if (!activeDrawer) {
       alert("No active drawer to close.");
       return;
@@ -1205,6 +1326,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   };
 
   const voidMovement = async (movement: any) => {
+    if (drawerMismatchLocked) {
+      alert(`This drawer belongs to ${activeDrawerHolderName}. Only the drawer holder can void cash movements from this drawer.`);
+      return;
+    }
+
     const reason = prompt("Void this movement? Enter reason:");
     const voidReason = String(reason || "").trim();
     if (!voidReason) return;
@@ -1285,6 +1411,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   };
 
   const submitLiquidation = async () => {
+    if (drawerMismatchLocked) {
+      alert(`This drawer belongs to ${activeDrawerHolderName}. Only the drawer holder can submit liquidation for this drawer.`);
+      return;
+    }
+
     if (!selectedLiquidationMovement) return;
 
     const releasedAmount = Math.abs(Number(selectedLiquidationMovement.amount || 0));
@@ -1960,7 +2091,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               <button
                 type="button"
                 onClick={() => setShowCloseDrawer(true)}
-                disabled={!activeDrawer}
+                disabled={!activeDrawer || drawerMismatchLocked}
                 className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Close Drawer
@@ -1976,27 +2107,57 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
             </div>
           </section>
 
-          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <KpiCard label="Cash on Hand" value={formatMoney(cashOnHand)} caption="Active physical cash balance" />
-            <KpiCard label="Current Drawer Online" value={formatMoney(onlineBankingTotal)} caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`} />
-            <KpiCard label="Pending Approvals" value={pendingCashApprovalCount} caption="Money-out requests" />
-            <KpiCard label="For Liquidation" value={formatMoney(pendingLiquidationAmount)} caption={`${pendingLiquidations.length} cash release(s)`} tone={pendingLiquidations.length > 0 ? "warning" : "success"} />
-            <KpiCard label="Today's Movements" value={todaysMovementCount} caption="Active cash ledger records" />
-          </section>
-
-          {pendingLiquidations.length > 0 && (
-            <section className="mb-5 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm">
+          {drawerMismatchLocked && (
+            <section className="mb-5 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-800 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5" size={20} />
+                  <AlertTriangle className="mt-0.5" size={22} />
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em]">Liquidation Warning</p>
-                    <p className="mt-1 text-sm font-bold">
-                      {pendingLiquidations.length} released cash item(s) still need actual spend and returned cash. Liquidate when the requestor comes back.
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em]">Drawer Ownership Lock</p>
+                    <p className="mt-1 text-sm font-bold leading-6">
+                      This active drawer belongs to <span className="font-black">{activeDrawerHolderName || "Unknown Holder"}</span>.
+                      Current login is <span className="font-black">{currentActorName || "Unknown User"}</span>.
+                      Cash In, Cash Out, liquidation, void, remittance, and closing are disabled for this account.
                     </p>
                   </div>
                 </div>
-                <p className="text-sm font-black">Open amount: {formatMoney(pendingLiquidationAmount)}</p>
+                <div className="rounded-2xl border border-red-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-700">
+                  View Only Mode
+                </div>
+              </div>
+            </section>
+          )}
+
+          <section className="mb-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+              <CompactStat label="Cash on Hand" value={formatMoney(cashOnHand)} caption="Current drawer cash" />
+              <CompactStat label="Cash In Today" value={formatMoney(cashInTodayTotal)} caption="Money received today" tone="success" />
+              <CompactStat label="Cash Out Today" value={formatMoney(cashOutTodayTotal)} caption="Money released today" tone={cashOutTodayTotal > 0 ? "warning" : "neutral"} />
+              <CompactStat label="Online Banking" value={formatMoney(onlineBankingTotal)} caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`} tone="info" />
+              <CompactStat label="Pending Approvals" value={pendingCashApprovalCount} caption="Cash-related only" tone={pendingCashApprovalCount > 0 ? "warning" : "neutral"} />
+            </div>
+          </section>
+
+          {(pendingLiquidations.length > 0 || drawerMismatchLocked) && (
+            <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 shadow-sm">
+              <div className="flex flex-col gap-2 text-xs font-bold md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                  {pendingLiquidations.length > 0 && (
+                    <span className="inline-flex items-center gap-2">
+                      <AlertTriangle size={15} />
+                      {pendingLiquidations.length} item(s) need liquidation · {formatMoney(pendingLiquidationAmount)}
+                    </span>
+                  )}
+                  {drawerMismatchLocked && (
+                    <span className="inline-flex items-center gap-2 text-red-700">
+                      <AlertTriangle size={15} />
+                      View only: drawer belongs to {activeDrawerHolderName || "another user"}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">
+                  Cash Control Alert
+                </span>
               </div>
             </section>
           )}
@@ -2016,6 +2177,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               </div>
 
               <div className="p-6">
+                {drawerMismatchLocked && (
+                  <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-700">
+                    Transactions are disabled because this drawer is owned by {activeDrawerHolderName}. Login as the drawer holder to continue.
+                  </div>
+                )}
                 <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Primary Information</p>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <Field label="Business Date">
@@ -2132,7 +2298,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
                 <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
                   <button type="button" onClick={resetForm} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]">Reset</button>
-                  <button type="button" onClick={saveMovement} disabled={isSaving} className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:opacity-60">
+                  <button type="button" onClick={saveMovement} disabled={cashManagementLocked} className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60">
                     <Save size={16} /> Save Movement
                   </button>
                 </div>
@@ -2153,6 +2319,83 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
                 <SummaryLine label="For Liquidation" value={formatMoney(pendingLiquidationAmount)} warning={pendingLiquidations.length > 0} />
               </div>
             </div>
+          </section>
+
+
+          <section className="mb-5 rounded-3xl border border-amber-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-amber-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-600">Action Required</p>
+                <h2 className="mt-1 text-lg font-black text-slate-950">Liquidation Queue</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">Cash releases that still need actual spent, returned cash, receipt count, and liquidation remarks.</p>
+              </div>
+              <span className={`rounded-2xl border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] ${
+                pendingLiquidations.length > 0
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              }`}>
+                {pendingLiquidations.length} Pending · {formatMoney(pendingLiquidationAmount)}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-left text-sm">
+                <thead className="bg-amber-50/60 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3">Date</th>
+                    <th className="px-5 py-3">Source</th>
+                    <th className="px-5 py-3">Payment</th>
+                    <th className="px-5 py-3 text-right">Released</th>
+                    <th className="px-5 py-3">Released To</th>
+                    <th className="px-5 py-3">Encoded By</th>
+                    <th className="px-5 py-3">Remarks</th>
+                    <th className="px-5 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {pendingLiquidations.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-5 py-6 text-center text-sm font-bold text-slate-500">
+                        No liquidation needed. All cash releases are cleared.
+                      </td>
+                    </tr>
+                  ) : (
+                    pendingLiquidations.slice(0, 6).map((item) => (
+                      <tr key={item.id} className="align-top">
+                        <td className="px-5 py-3 font-bold text-slate-700">{item.business_date || "-"}</td>
+                        <td className="px-5 py-3">
+                          <p className="font-black text-slate-950">{item.source || "Cash Release"}</p>
+                          <p className="mt-1 text-[11px] font-bold uppercase text-amber-600">{item.liquidation_status || "FOR_LIQUIDATION"}</p>
+                        </td>
+                        <td className="px-5 py-3 font-bold text-slate-700">{item.payment_type || "Cash"}</td>
+                        <td className="px-5 py-3 text-right font-black text-slate-950">{formatMoney(item.amount)}</td>
+                        <td className="px-5 py-3 font-bold text-slate-700">{item.to_person || "-"}</td>
+                        <td className="px-5 py-3 font-bold text-slate-700">{item.encoded_by || "-"}</td>
+                        <td className="max-w-[320px] px-5 py-3 text-xs font-semibold leading-5 text-slate-600">
+                          <div className="line-clamp-2">{item.remarks || "No remarks encoded."}</div>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => openLiquidation(item)}
+                            disabled={drawerMismatchLocked}
+                            className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Liquidate
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {pendingLiquidations.length > 6 && (
+              <div className="border-t border-slate-100 px-5 py-3 text-xs font-bold text-slate-500">
+                Showing first 6 pending liquidation items. Use the Cash Movement Log below for full history and search.
+              </div>
+            )}
           </section>
 
           <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -2217,16 +2460,82 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
                               {eligible && (
-                                <button type="button" onClick={() => openLiquidation(item)} className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-700 active:scale-[0.98]">
+                                <button type="button" onClick={() => openLiquidation(item)} disabled={drawerMismatchLocked} className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
                                   Liquidate
                                 </button>
                               )}
                               {!isVoidedMovement(item) && (
-                                <button type="button" onClick={() => voidMovement(item)} className="h-10 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 hover:bg-red-100">
+                                <button type="button" onClick={() => voidMovement(item)} disabled={drawerMismatchLocked} className="h-10 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50">
                                   Void
                                 </button>
                               )}
                             </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="mt-5 mb-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Cash Approval Watch</p>
+                <h2 className="mt-1 text-lg font-black text-slate-950">Pending / Recent Cash Approvals</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">Compact view for approval status and manager remarks before drawer close/remittance.</p>
+              </div>
+              <span className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                {cashApprovalRows.filter((request) => String(request.status || "").toUpperCase() === "PENDING").length} Pending
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-left text-sm">
+                <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Request</th>
+                    <th className="px-5 py-3">Amount</th>
+                    <th className="px-5 py-3">Requested By</th>
+                    <th className="px-5 py-3">Submitted</th>
+                    <th className="px-5 py-3">Request Remarks</th>
+                    <th className="px-5 py-3">Approver Remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {cashApprovalRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-6 text-center text-sm font-bold text-slate-500">
+                        No cash approval requests found. New money-out approvals will appear here with reviewer remarks.
+                      </td>
+                    </tr>
+                  ) : (
+                    cashApprovalRows.map((request) => {
+                      const payload = getApprovalRequestPayload(request);
+                      const status = String(request.status || "PENDING").trim().toUpperCase();
+                      const reviewerNote = getApprovalReviewerNote(request);
+                      return (
+                        <tr key={request.id} className="align-top">
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${getApprovalStatusStyle(status)}`}>
+                              {status}
+                            </span>
+                          </td>
+                          <td className="max-w-[220px] px-5 py-3">
+                            <p className="truncate font-black text-slate-950">{request.title || request.request_type}</p>
+                            <p className="mt-1 text-[11px] font-bold uppercase text-slate-400">{request.request_type}</p>
+                          </td>
+                          <td className="px-5 py-3 font-black text-slate-950">{formatMoney(getApprovalDisplayAmount(request))}</td>
+                          <td className="px-5 py-3 font-bold text-slate-700">{request.requested_by || payload.encoded_by || "Requestor"}</td>
+                          <td className="px-5 py-3 text-xs font-semibold text-slate-500">{request.created_at ? new Date(request.created_at).toLocaleString("en-PH", { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"}</td>
+                          <td className="max-w-[280px] px-5 py-3 text-xs font-semibold leading-5 text-slate-600">
+                            <div className="line-clamp-2">{request.description || payload.remarks || payload.reason || "No request remarks."}</div>
+                          </td>
+                          <td className="max-w-[260px] px-5 py-3 text-xs font-bold leading-5 text-slate-600">
+                            <div className="line-clamp-2">{reviewerNote || (status === "PENDING" ? "Waiting for manager review." : "No approver remarks encoded.")}</div>
                           </td>
                         </tr>
                       );
@@ -2419,7 +2728,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         {showOpenDrawer && (
           <Modal title="Open Cash Drawer" onClose={() => setShowOpenDrawer(false)}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Drawer Holder"><select value={drawerHolder} onChange={(e) => setDrawerHolder(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"><option value="">Select holder</option>{drawerHolderOptions.map((name) => <option key={name}>{name}</option>)}</select></Field>
+              <Field label="Drawer Holder"><select value={drawerHolder} onChange={(e) => setDrawerHolder(e.target.value)} disabled className="h-11 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 text-sm font-semibold text-slate-800"><option value="">Select holder</option>{openDrawerHolderOptions.map((name) => <option key={name}>{name}</option>)}</select><p className="mt-1 text-[11px] font-bold text-slate-500">Drawer can only be opened under the currently logged-in employee.</p></Field>
               <Field label="Opening Float"><input value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" /></Field>
               <div className="md:col-span-2"><Field label="Remarks"><textarea value={drawerRemarks} onChange={(e) => setDrawerRemarks(e.target.value)} className="min-h-[84px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800" /></Field></div>
             </div>
@@ -2487,7 +2796,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
               <button onClick={() => setShowCloseDrawer(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700">Cancel</button>
-              <button onClick={closeDrawer} disabled={isSaving} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">Close Drawer</button>
+              <button onClick={closeDrawer} disabled={isSaving || drawerMismatchLocked} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">Close Drawer</button>
             </div>
           </Modal>
         )}
@@ -2502,6 +2811,26 @@ function Field({ label, children }: { label: string; children: any }) {
       <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+
+function CompactStat({ label, value, caption, tone = "neutral" }: { label: string; value: any; caption: string; tone?: Tone }) {
+  const toneClasses =
+    tone === "critical"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : tone === "success"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : "border-slate-200 bg-slate-50 text-slate-700";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${toneClasses}`}>
+      <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] opacity-75">{label}</p>
+      <p className="mt-1 truncate text-base font-black text-slate-950">{value}</p>
+      <p className="mt-0.5 truncate text-[11px] font-bold opacity-70">{caption}</p>
+    </div>
   );
 }
 
