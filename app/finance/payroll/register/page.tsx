@@ -150,7 +150,15 @@ export default function PayrollRegisterPage() {
 
   const canEditPayroll = canEditDraftRegister;
 
-  const canGenerateRegister = Boolean(selectedPeriodId) && canEditDraftRegister;
+  const hasReturnedCorrectionRows = records.some(
+    (record) => getRecordStatus(record) === PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION,
+  );
+
+  const canRegenerateReturnedCorrections =
+    Boolean(selectedPeriodId) && !canEditDraftRegister && hasReturnedCorrectionRows;
+
+  const canGenerateRegister =
+    Boolean(selectedPeriodId) && (canEditDraftRegister || canRegenerateReturnedCorrections);
 
   const canManageRegisterForm = Boolean(selectedPeriodId) && canEditDraftRegister;
 
@@ -1218,7 +1226,7 @@ ${error.message}`);
     }
 
     if (!canGenerateRegister) {
-      alert("Generate Register is only allowed while the payroll period is OPEN. After REGISTERED, Manager must return individual employee rows for correction.");
+      alert("Generate Register is only allowed while the payroll period is OPEN, or when Manager returned employee row(s) for correction.");
       return;
     }
 
@@ -1228,6 +1236,8 @@ ${error.message}`);
       alert("No company selected. Please login again before generating payroll.");
       return;
     }
+
+    const regenerateReturnedOnly = canRegenerateReturnedCorrections;
 
     const payrollEmployees =
       employees.length > 0 ? employees : await loadPayrollEligibleEmployees();
@@ -1396,7 +1406,20 @@ ${error.message}`);
           balance_deductions: 0,
         };
 
-        return computeRecord(base, employeeAdjustments, latestSettings, latestHolidays);
+        const computed = computeRecord(base, employeeAdjustments, latestSettings, latestHolidays);
+
+        if (!regenerateReturnedOnly) return computed;
+
+        return {
+          ...computed,
+          status: "Returned for Correction",
+          record_status: PAYROLL_RECORD_STATUSES.RETURNED_FOR_CORRECTION,
+          release_status: "Returned for Correction",
+          return_reason:
+            "Recomputed returned correction row. Review corrections, then send back to Manager.",
+          returned_at: new Date().toISOString(),
+          returned_by: "Payroll Register Recompute",
+        };
       })
     );
 
@@ -1456,7 +1479,11 @@ ${error.message}`);
       },
     });
 
-    alert(`Payroll generated. CA balances are available for manual partial deduction. Preserved approved/released records: ${protectedExistingRecords.length}.`);
+    alert(
+      regenerateReturnedOnly
+        ? `Returned correction row(s) recomputed. Review holiday/OT/adjustments, then use Send All Ready. Preserved manager/locked/released records: ${protectedExistingRecords.length}.`
+        : `Payroll generated. CA balances are available for manual partial deduction. Preserved approved/released records: ${protectedExistingRecords.length}.`
+    );
   };
 
   const addAdjustment = async () => {
@@ -1818,6 +1845,38 @@ This will remove it from future payroll deductions but keep the audit trail.`
     const minuteRate = dailyRate / paidHours / 60;
 
     const attendanceData = await getAttendanceRows(record.employee_id);
+    const activeHolidayRows = holidays.length > 0 ? holidays : await getHolidays();
+
+    const resolveHolidayMultiplier = (holiday: any) => {
+      const savedMultiplier = Number(
+        holiday?.multiplier ||
+          holiday?.pay_multiplier ||
+          holiday?.holiday_multiplier ||
+          0
+      );
+
+      if (savedMultiplier > 0) return savedMultiplier;
+
+      const rawType = normalize(
+        holiday?.holiday_type || holiday?.type || holiday?.category || holiday?.holiday_category
+      );
+
+      if (rawType.includes("special")) {
+        return Number(activeSettings.special_holiday_multiplier || 1.3);
+      }
+
+      if (rawType.includes("regular")) {
+        return Number(activeSettings.regular_holiday_multiplier || 2);
+      }
+
+      return 1;
+    };
+
+    const holidayPayEnabled =
+      activeSettings.holiday_pay_enabled === "Yes" ||
+      isSettingEnabled(activeSettings, "holiday_enabled") ||
+      isSettingEnabled(activeSettings, "holiday_pay") ||
+      isSettingEnabled(activeSettings, "auto_holiday_pay_enabled");
 
     const attendanceLogs = (attendanceData || []).map((entry: any) => {
       const restDay = isRestDay(entry);
@@ -1848,6 +1907,26 @@ This will remove it from future payroll deductions but keep the audit trail.`
       const absentAmount =
         absentEnabled && rateType === "Monthly" && absent ? dailyRate : 0;
 
+      const attendanceDate = normalizeDate(entry.attendance_date);
+      const matchedHoliday = activeHolidayRows.find((holiday: any) => {
+        const holidayDate = normalizeDate(
+          holiday?.holiday_date || holiday?.date || holiday?.holidayDate || holiday?.business_date
+        );
+
+        return holidayDate && holidayDate === attendanceDate;
+      });
+
+      const holidayMultiplier = matchedHoliday ? resolveHolidayMultiplier(matchedHoliday) : 1;
+      const holidayPayAmount =
+        holidayPayEnabled && matchedHoliday && hasActualTime(entry)
+          ? dailyRate * Math.max(holidayMultiplier - 1, 0)
+          : 0;
+
+      const holidayName =
+        matchedHoliday?.holiday_name || matchedHoliday?.name || matchedHoliday?.title || "";
+      const holidayType =
+        matchedHoliday?.holiday_type || matchedHoliday?.type || matchedHoliday?.category || "Holiday";
+
       let issue = "OK";
       const issueParts: string[] = [];
 
@@ -1857,6 +1936,11 @@ This will remove it from future payroll deductions but keep the audit trail.`
           leavePayEnabled
             ? "Approved Leave / Paid"
             : "Approved Leave / Unpaid"
+        );
+      }
+      if (matchedHoliday) {
+        issueParts.push(
+          `${holidayType} Holiday${holidayName ? ` • ${holidayName}` : ""} • ${holidayMultiplier.toFixed(2)}x • Holiday Pay ${formatMoney(holidayPayAmount)}`
         );
       }
       if (!restDay && !leaveDay && absent) issueParts.push("Absent from scheduled work day");
@@ -1871,7 +1955,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
       if (issueParts.length > 0) issue = issueParts.join(" • ");
 
       return {
-        date: normalizeDate(entry.attendance_date),
+        date: attendanceDate,
         schedule: getScheduleLabel(entry),
         actual: getActualLabel(entry),
         status: entry.status || (restDay ? "RD/OFF" : "No Status"),
@@ -1879,6 +1963,11 @@ This will remove it from future payroll deductions but keep the audit trail.`
         lateAmount,
         undertimeAmount,
         absentAmount,
+        holidayName,
+        holidayType,
+        holidayMultiplier,
+        holidayPayAmount,
+        isHoliday: Boolean(matchedHoliday),
         otAmount,
         detectedOtMinutes: otMinutes,
         approvedOtMinutes,
@@ -1903,6 +1992,12 @@ This will remove it from future payroll deductions but keep the audit trail.`
         lateAmount: 0,
         undertimeAmount: 0,
         absentAmount: 0,
+        holidayName: "",
+        holidayType: "",
+        holidayMultiplier: 1,
+        holidayPayAmount: 0,
+        isHoliday: false,
+        otAmount: 0,
         totalAmount:
           item.adjustment_direction === "Deduction" ? Number(item.amount || 0) : 0,
         isDeduction: item.adjustment_direction === "Deduction",
@@ -1917,6 +2012,12 @@ This will remove it from future payroll deductions but keep the audit trail.`
       lateAmount: 0,
       undertimeAmount: 0,
       absentAmount: 0,
+      holidayName: "",
+      holidayType: "",
+      holidayMultiplier: 1,
+      holidayPayAmount: 0,
+      isHoliday: false,
+      otAmount: 0,
       totalAmount: Number(item.amount || 0),
       isDeduction: true,
     }));
@@ -2950,7 +3051,11 @@ This will remove it from future payroll deductions but keep the audit trail.`
               disabled={isSaving || !canGenerateRegister}
               className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              {selectedPeriod?.needs_regeneration ? "Regenerate Register" : "Generate Register"}
+              {canRegenerateReturnedCorrections
+                ? "Recompute Returned Rows"
+                : selectedPeriod?.needs_regeneration
+                  ? "Regenerate Register"
+                  : "Generate Register"}
             </button>
 
             <button
@@ -3021,7 +3126,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
                 disabled={isSaving || !canGenerateRegister}
                 className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-black text-slate-950 hover:bg-red-400 disabled:opacity-50"
               >
-                Regenerate Register
+                {canRegenerateReturnedCorrections ? "Recompute Returned Rows" : "Regenerate Register"}
               </button>
             </div>
           </section>
@@ -3040,7 +3145,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
           <section className="mb-5 rounded-3xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
             <p className="font-black text-blue-900">Returned Corrections Queue: {returnedCorrectionRecords.length} employee row(s)</p>
             <p className="mt-1 font-semibold">
-              Fix only the returned employee row(s), then use {registerActionLabel}. Other Manager Review, Locked, or Released employees remain untouched.
+              Fix only the returned employee row(s). If settings, holidays, or attendance changed, click Recompute Returned Rows first, then use {registerActionLabel}. Other Manager Review, Locked, or Released employees remain untouched.
             </p>
           </section>
         )}
@@ -3681,12 +3786,39 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                   <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-700">
                     {auditLogs.length} items
                   </span>
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                    {formatMoney(Number(selectedAuditRecord.holiday_pay || 0))} holiday pay
+                  </span>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                    {formatMoney(Number(selectedAuditRecord.ot_pay || 0))} OT pay
+                  </span>
                   <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-black text-red-700">
                     {auditLogs.filter((log) => log.isDeduction).length} deduction item(s)
                   </span>
                   <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
                     {formatMoney(auditLogs.reduce((sum, log) => sum + Number(log.totalAmount || 0), 0))} evidence
                   </span>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Payroll Computation Summary
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                    <AuditAmountBox label="Basic Pay" value={formatMoney(selectedAuditRecord.basic_pay)} />
+                    <AuditAmountBox label="Holiday Pay" value={formatMoney(selectedAuditRecord.holiday_pay)} tone="warning" />
+                    <AuditAmountBox
+                      label={`OT Pay (${Number(selectedAuditRecord.approved_ot_minutes || 0) / 60}h approved)`}
+                      value={formatMoney(selectedAuditRecord.ot_pay)}
+                      tone="success"
+                    />
+                    <AuditAmountBox label="Allowance" value={formatMoney(selectedAuditRecord.allowance)} />
+                    <AuditAmountBox label="Gross Pay" value={formatMoney(selectedAuditRecord.gross_pay)} strong />
+                    <AuditAmountBox label="Total Deductions" value={formatMoney(getDisplayedTotalDeductions(selectedAuditRecord))} tone="danger" strong />
+                    <AuditAmountBox label="Net Pay" value={formatMoney(getDisplayedNetPay(selectedAuditRecord))} strong />
+                    <AuditAmountBox label="Payable" value={formatMoney(getDisplayedReleaseAmount(selectedAuditRecord))} tone="success" strong />
+                  </div>
                 </div>
               </div>
 
@@ -3714,6 +3846,11 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                               <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">
                                 {log.status}
                               </span>
+                              {log.isHoliday && (
+                                <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
+                                  {log.holidayType || "Holiday"} {Number(log.holidayMultiplier || 1).toFixed(2)}x
+                                </span>
+                              )}
                               {log.isDeduction && (
                                 <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-red-700">
                                   Deduction
@@ -3744,7 +3881,16 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                           </button>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-5 overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
+                        {log.isHoliday && (
+                          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">Holiday Pay Evidence</p>
+                            <p className="mt-1">
+                              {log.holidayName || "Holiday"} • {log.holidayType || "Holiday"} • Multiplier {Number(log.holidayMultiplier || 1).toFixed(2)}x • Payroll Holiday Pay {formatMoney(log.holidayPayAmount)}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="mt-3 grid grid-cols-6 overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
                           <div className="border-r border-slate-100 p-2">
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Late</p>
                             <p className="mt-1 font-black text-red-600">{formatMoney(log.lateAmount)}</p>
@@ -3756,6 +3902,15 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                           <div className="border-r border-slate-100 p-2">
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Absent</p>
                             <p className="mt-1 font-black text-red-600">{formatMoney(log.absentAmount)}</p>
+                          </div>
+                          <div className="border-r border-slate-100 p-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Holiday</p>
+                            <p className="mt-1 font-black text-amber-700">{formatMoney(log.holidayPayAmount)}</p>
+                            {log.isHoliday && (
+                              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-slate-500">
+                                {Number(log.holidayMultiplier || 1).toFixed(2)}x
+                              </p>
+                            )}
                           </div>
                           <div className="border-r border-slate-100 p-2">
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">OT Pay</p>
@@ -4147,6 +4302,37 @@ function KpiCard({
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{title}</p>
       </div>
       <h2 className={danger ? "text-3xl font-black tracking-tight text-red-700" : "text-3xl font-black tracking-tight text-slate-950"}>{value}</h2>
+    </div>
+  );
+}
+
+
+function AuditAmountBox({
+  label,
+  value,
+  tone = "neutral",
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "success" | "danger" | "warning";
+  strong?: boolean;
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "danger"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : tone === "warning"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-slate-200 bg-white text-slate-800";
+
+  return (
+    <div className={`rounded-xl border p-3 ${toneClass}`}>
+      <p className="text-[9px] font-black uppercase tracking-[0.16em] opacity-70">
+        {label}
+      </p>
+      <p className={`mt-1 ${strong ? "text-base" : "text-sm"} font-black`}>{value}</p>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export default function ApprovalCenterPage() {
   const [requests, setRequests] = useState<any[]>([]);
   const [approvalWorkflows, setApprovalWorkflows] = useState<any[]>([]);
   const [approvalAssignments, setApprovalAssignments] = useState<any[]>([]);
+  const [employeeDirectory, setEmployeeDirectory] = useState<any[]>([]);
   const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(
     null,
   );
@@ -102,6 +103,18 @@ export default function ApprovalCenterPage() {
       setApprovalAssignments([]);
     } else {
       setApprovalAssignments(assignmentData || []);
+    }
+
+    const { data: employeeDirectoryData, error: employeeDirectoryError } =
+      await supabase
+        .from("employees")
+        .select("id, employee_no, first_name, last_name, department, position, company_id");
+
+    if (employeeDirectoryError) {
+      console.log("GET APPROVAL EMPLOYEE DIRECTORY ERROR:", employeeDirectoryError.message);
+      setEmployeeDirectory([]);
+    } else {
+      setEmployeeDirectory(employeeDirectoryData || []);
     }
   };
 
@@ -782,10 +795,142 @@ export default function ApprovalCenterPage() {
     return workflow?.approver_role || "MANAGER";
   };
 
+  const normalizeApprovalText = (value: any) =>
+    String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+  const getAssignmentScopes = (assignment: any) => {
+    const rawScope = assignment.department_scope;
+
+    if (Array.isArray(rawScope)) {
+      return rawScope.map(normalizeApprovalText).filter(Boolean);
+    }
+
+    const scopeText = String(rawScope || "").trim();
+
+    if (!scopeText) return [];
+
+    if (scopeText.startsWith("[") && scopeText.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(scopeText);
+        if (Array.isArray(parsed)) {
+          return parsed.map(normalizeApprovalText).filter(Boolean);
+        }
+      } catch (error) {
+        // Fall through to comma/newline parsing.
+      }
+    }
+
+    return scopeText
+      .split(/[,|\n]/g)
+      .map(normalizeApprovalText)
+      .filter(Boolean);
+  };
+
+  const getPayloadEmployee = (payload: any) => {
+    const employeeId = String(
+      payload?.employee_id ||
+        payload?.employeeId ||
+        payload?.cash_advance_employee_id ||
+        "",
+    ).trim();
+
+    if (employeeId) {
+      const match = employeeDirectory.find(
+        (employee) => String(employee.id) === employeeId,
+      );
+
+      if (match) return match;
+    }
+
+    const employeeNo = String(
+      payload?.employee_no ||
+        payload?.employee_number ||
+        payload?.employeeNo ||
+        "",
+    ).trim();
+
+    if (employeeNo) {
+      const match = employeeDirectory.find(
+        (employee) => String(employee.employee_no || "") === employeeNo,
+      );
+
+      if (match) return match;
+    }
+
+    const employeeName = normalizeApprovalText(
+      payload?.employee_name ||
+        payload?.employeeName ||
+        payload?.requested_for ||
+        payload?.requestedBy ||
+        "",
+    );
+
+    if (employeeName) {
+      return (
+        employeeDirectory.find((employee) => {
+          const fullName = normalizeApprovalText(
+            `${employee.first_name || ""} ${employee.last_name || ""}`,
+          );
+
+          return fullName === employeeName;
+        }) || null
+      );
+    }
+
+    return null;
+  };
+
+  const getRequestDepartment = (request: any) => {
+    const payload = getPayload(request) || {};
+
+    const directDepartment = String(
+      request?.department ||
+        request?.employee_department ||
+        payload?.department ||
+        payload?.employee_department ||
+        payload?.employeeDepartment ||
+        payload?.request_department ||
+        payload?.requestDepartment ||
+        payload?.department_scope ||
+        "",
+    ).trim();
+
+    if (directDepartment) return directDepartment;
+
+    const employee = getPayloadEmployee(payload);
+
+    return String(employee?.department || "").trim();
+  };
+
+  const isDepartmentRoutedRequest = (request: any) => {
+    const requestType = String(request?.request_type || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "_");
+
+    return [
+      "LEAVE_REQUEST",
+      "LEAVE_CANCELLATION",
+      "OVERTIME_APPROVAL",
+    ].includes(requestType);
+  };
+
+  const scopeMatchesDepartment = (assignment: any, department: string) => {
+    const normalizedDepartment = normalizeApprovalText(department);
+    if (!normalizedDepartment) return false;
+
+    const scopes = getAssignmentScopes(assignment);
+
+    return scopes.some((scope) => scope === normalizedDepartment);
+  };
+
   const getAssignedApproversForRequest = (request: any) => {
     const approverRole = getApproverRoleForRequest(request);
 
-    return approvalAssignments.filter((assignment) => {
+    const baseAssignments = approvalAssignments.filter((assignment) => {
       const assignmentActive = assignment.is_active ?? assignment.active ?? true;
       const status = String(assignment.status || "Active").toLowerCase();
 
@@ -795,6 +940,32 @@ export default function ApprovalCenterPage() {
         !["inactive", "disabled", "archived"].includes(status)
       );
     });
+
+    if (!isDepartmentRoutedRequest(request)) return baseAssignments;
+
+    const requestDepartment = getRequestDepartment(request);
+
+    if (requestDepartment) {
+      const departmentMatches = baseAssignments.filter((assignment) =>
+        scopeMatchesDepartment(assignment, requestDepartment),
+      );
+
+      if (departmentMatches.length > 0) return departmentMatches;
+    }
+
+    const defaultApprovers = baseAssignments.filter((assignment) =>
+      Boolean(assignment.is_default),
+    );
+
+    if (defaultApprovers.length > 0) return defaultApprovers;
+
+    const noScopeApprovers = baseAssignments.filter(
+      (assignment) => getAssignmentScopes(assignment).length === 0,
+    );
+
+    if (noScopeApprovers.length > 0) return noScopeApprovers;
+
+    return baseAssignments;
   };
 
   const assignmentMatchesCurrentUser = (assignment: any) => {
