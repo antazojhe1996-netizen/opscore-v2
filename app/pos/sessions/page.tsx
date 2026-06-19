@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
@@ -8,11 +8,9 @@ import { supabase } from "@/app/lib/supabase";
 import {
   Banknote,
   CheckCircle2,
-  Clock3,
   Play,
   RefreshCw,
   StopCircle,
-  UserCheck,
   Wallet,
 } from "lucide-react";
 
@@ -71,6 +69,18 @@ const isPaidOrder = (order: PosOrder) => {
     paymentStatus === "PAID" &&
     !["VOIDED", "CANCELLED", "PARKED"].includes(status)
   );
+};
+
+const varianceClass = (value: number) => {
+  if (value < 0) {
+    return "rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-bold text-red-700";
+  }
+
+  if (value > 0) {
+    return "rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700";
+  }
+
+  return "rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700";
 };
 
 export default function POSSessionsPage() {
@@ -175,6 +185,24 @@ export default function POSSessionsPage() {
     return getSessionOrders(sessionId).filter(isPaidOrder);
   }
 
+  function getTotalOrders(sessionId: string) {
+    return getSessionOrders(sessionId).filter((order) => {
+      const status = String(order.status || "").toUpperCase();
+      return !["VOIDED", "CANCELLED"].includes(status);
+    }).length;
+  }
+
+  function getPaidOrdersCount(sessionId: string) {
+    return getPaidSessionOrders(sessionId).length;
+  }
+
+  function getParkedOrdersCount(sessionId: string) {
+    return getSessionOrders(sessionId).filter((order) => {
+      const status = String(order.status || "").toUpperCase();
+      return status === "PARKED";
+    }).length;
+  }
+
   function getSessionSales(sessionId: string) {
     return getPaidSessionOrders(sessionId).reduce(
       (sum, order) => sum + Number(order.total_amount || 0),
@@ -218,11 +246,6 @@ export default function POSSessionsPage() {
   const totalClosedSessions = sessions.filter(
     (session) => session.status === "CLOSED",
   ).length;
-
-  const totalSessionSales = sessions.reduce(
-    (sum, session) => sum + getSessionSales(session.id),
-    0,
-  );
 
   async function startSession() {
     setMessage("");
@@ -350,7 +373,10 @@ export default function POSSessionsPage() {
   function getReadVariance(session: PosSession) {
     return session.status === "OPEN"
       ? 0
-      : Number(session.variance || getReadActualCash(session) - getReadExpectedCash(session));
+      : Number(
+          session.variance ||
+            getReadActualCash(session) - getReadExpectedCash(session),
+        );
   }
 
   return (
@@ -374,7 +400,8 @@ export default function POSSessionsPage() {
 
                 <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
                   Open, close, review, and reconcile cashier POS sessions with
-                  payment breakdown and expected cash monitoring.
+                  payment breakdown, order counters, and expected cash
+                  monitoring.
                 </p>
               </div>
 
@@ -531,15 +558,32 @@ export default function POSSessionsPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <MiniCard label="Opening Cash" value={peso(activeSession.opening_cash)} />
+                      <MiniCard
+                        label="Total Orders"
+                        value={String(getTotalOrders(activeSession.id))}
+                      />
+                      <MiniCard
+                        label="Paid Orders"
+                        value={String(getPaidOrdersCount(activeSession.id))}
+                      />
+                      <MiniCard
+                        label="Parked Orders"
+                        value={String(getParkedOrdersCount(activeSession.id))}
+                      />
+                      <MiniCard
+                        label="Opening Cash"
+                        value={peso(activeSession.opening_cash)}
+                      />
                       <MiniCard label="Cash Sales" value={peso(activeCashSales)} />
-                      <MiniCard label="Expected Cash" value={peso(activeExpectedCash)} />
-                      <MiniCard label="Total Sales" value={peso(activeSessionSales)} />
+                      <MiniCard
+                        label="Expected Cash"
+                        value={peso(activeExpectedCash)}
+                      />
                     </div>
 
                     <div>
                       <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                        Closing Cash
+                        Actual Cash Count
                       </label>
                       <input
                         type="number"
@@ -629,6 +673,9 @@ export default function POSSessionsPage() {
                       {[
                         "Cashier",
                         "Status",
+                        "Total Orders",
+                        "Paid Orders",
+                        "Parked Orders",
                         "Opening",
                         "Sales",
                         "Expected",
@@ -652,7 +699,7 @@ export default function POSSessionsPage() {
                     {loading ? (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={13}
                           className="px-5 py-14 text-center text-sm font-semibold text-slate-500"
                         >
                           Loading sessions...
@@ -661,7 +708,7 @@ export default function POSSessionsPage() {
                     ) : sessions.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={13}
                           className="px-5 py-14 text-center text-sm font-semibold text-slate-500"
                         >
                           No POS sessions found.
@@ -704,19 +751,24 @@ export default function POSSessionsPage() {
                               </span>
                             </td>
 
-                            <td className="px-5 py-4">{peso(session.opening_cash)}</td>
+                            <td className="px-5 py-4">
+                              {getTotalOrders(session.id)}
+                            </td>
+                            <td className="px-5 py-4">
+                              {getPaidOrdersCount(session.id)}
+                            </td>
+                            <td className="px-5 py-4">
+                              {getParkedOrdersCount(session.id)}
+                            </td>
+                            <td className="px-5 py-4">
+                              {peso(session.opening_cash)}
+                            </td>
                             <td className="px-5 py-4">{peso(sales)}</td>
                             <td className="px-5 py-4">{peso(expected)}</td>
                             <td className="px-5 py-4">{peso(actual)}</td>
 
                             <td className="px-5 py-4">
-                              <span
-                                className={
-                                  variance === 0
-                                    ? "rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700"
-                                    : "rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-bold text-red-700"
-                                }
-                              >
+                              <span className={varianceClass(variance)}>
                                 {peso(variance)}
                               </span>
                             </td>
@@ -734,7 +786,9 @@ export default function POSSessionsPage() {
                                 onClick={() =>
                                   openRead(
                                     session,
-                                    session.status === "OPEN" ? "X_READ" : "Z_READ",
+                                    session.status === "OPEN"
+                                      ? "X_READ"
+                                      : "Z_READ",
                                   )
                                 }
                                 className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
@@ -760,10 +814,9 @@ export default function POSSessionsPage() {
                     POS Lock Note
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-blue-800">
-                    This page now supports the X Read foundation through active
-                    session payment breakdown and expected cash. Z Read can be
-                    formalized next by adding print/export controls for closed
-                    sessions.
+                    Session Audit V1 now includes total orders, paid orders,
+                    parked orders, actual cash count before variance, and
+                    variance color logic for cashier accountability.
                   </p>
                 </div>
               </div>
@@ -796,6 +849,18 @@ export default function POSSessionsPage() {
                 <div className="flex-1 overflow-y-auto p-6">
                   <div className="grid grid-cols-2 gap-3">
                     <MiniCard
+                      label="Total Orders"
+                      value={String(getTotalOrders(readSession.id))}
+                    />
+                    <MiniCard
+                      label="Paid Orders"
+                      value={String(getPaidOrdersCount(readSession.id))}
+                    />
+                    <MiniCard
+                      label="Parked Orders"
+                      value={String(getParkedOrdersCount(readSession.id))}
+                    />
+                    <MiniCard
                       label="Opening Cash"
                       value={peso(readSession.opening_cash)}
                     />
@@ -812,7 +877,7 @@ export default function POSSessionsPage() {
                       value={peso(getReadExpectedCash(readSession))}
                     />
                     <MiniCard
-                      label="Actual Cash"
+                      label="Actual Cash Count"
                       value={peso(getReadActualCash(readSession))}
                     />
                     <MiniCard

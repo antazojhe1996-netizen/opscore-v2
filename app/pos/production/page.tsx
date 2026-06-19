@@ -28,16 +28,22 @@ type ProductionStation = {
 };
 
 type ProductionStatus =
+  | "NEW"
   | "SENT"
   | "PENDING"
+  | "PRINTED"
+  | "IN_PROGRESS"
   | "PREPARING"
   | "READY"
-  | "COMPLETED";
+  | "COMPLETED"
+  | "VOIDED"
+  | "CANCELLED";
 
 type LaneKey = "NEW" | "PREPARING" | "READY";
 
 type QueueOrder = {
   id: string;
+  company_id: string | null;
   order_tag: string | null;
   table_no: string | null;
   order_type: string | null;
@@ -80,8 +86,11 @@ type StationTab = {
 };
 
 const ACTIVE_STATUSES: ProductionStatus[] = [
+  "NEW",
   "SENT",
   "PENDING",
+  "PRINTED",
+  "IN_PROGRESS",
   "PREPARING",
   "READY",
 ];
@@ -104,27 +113,58 @@ const normalizeCode = (value: string) =>
   value.trim().toUpperCase().replaceAll(" ", "_");
 
 const normalizeStatus = (value: string | null | undefined): ProductionStatus => {
-  const status = String(value || "SENT").toUpperCase();
+  const status = String(value || "SENT").trim().toUpperCase();
+
+  if (status === "NEW") return "NEW";
+  if (status === "PENDING") return "PENDING";
+  if (status === "SENT") return "SENT";
+  if (status === "PRINTED") return "PRINTED";
+  if (status === "IN_PROGRESS") return "IN_PROGRESS";
   if (status === "PREPARING") return "PREPARING";
   if (status === "READY") return "READY";
   if (status === "COMPLETED") return "COMPLETED";
-  if (status === "PENDING") return "PENDING";
+  if (status === "VOIDED") return "VOIDED";
+  if (status === "CANCELLED") return "CANCELLED";
+
   return "SENT";
 };
 
 const getLaneFromStatus = (value: string | null | undefined): LaneKey | null => {
   const status = normalizeStatus(value);
-  if (status === "SENT" || status === "PENDING") return "NEW";
-  if (status === "PREPARING") return "PREPARING";
+
+  if (
+    status === "NEW" ||
+    status === "SENT" ||
+    status === "PENDING" ||
+    status === "PRINTED"
+  ) {
+    return "NEW";
+  }
+
+  if (status === "IN_PROGRESS" || status === "PREPARING") {
+    return "PREPARING";
+  }
+
   if (status === "READY") return "READY";
+
   return null;
 };
 
 const getNextStatus = (status: string | null | undefined): ProductionStatus | null => {
   const normalized = normalizeStatus(status);
-  if (normalized === "SENT" || normalized === "PENDING") return "PREPARING";
-  if (normalized === "PREPARING") return "READY";
+
+  if (
+    normalized === "NEW" ||
+    normalized === "SENT" ||
+    normalized === "PENDING" ||
+    normalized === "PRINTED"
+  ) {
+    return "PREPARING";
+  }
+
+  if (normalized === "IN_PROGRESS" || normalized === "PREPARING") return "READY";
   if (normalized === "READY") return "COMPLETED";
+
   return null;
 };
 
@@ -136,9 +176,19 @@ const getActionLabel = (lane: LaneKey) => {
 
 const getItemActionLabel = (status: string | null | undefined) => {
   const normalized = normalizeStatus(status);
-  if (normalized === "SENT" || normalized === "PENDING") return "Start";
-  if (normalized === "PREPARING") return "Ready";
+
+  if (
+    normalized === "NEW" ||
+    normalized === "SENT" ||
+    normalized === "PENDING" ||
+    normalized === "PRINTED"
+  ) {
+    return "Start";
+  }
+
+  if (normalized === "IN_PROGRESS" || normalized === "PREPARING") return "Ready";
   if (normalized === "READY") return "Complete";
+
   return "Done";
 };
 
@@ -302,39 +352,38 @@ export default function POSProductionQueuePage() {
         .order("sort_order", { ascending: true }),
     );
 
-    const itemQuery = applyCompanyFilter(
-      supabase
-        .from("pos_order_items")
-        .select(
-          `
+    const itemQuery = supabase
+      .from("pos_order_items")
+      .select(
+        `
+        id,
+        company_id,
+        order_id,
+        menu_item_id,
+        item_name,
+        qty,
+        price,
+        total,
+        production_area,
+        production_status,
+        production_station_id,
+        created_at,
+        order:pos_orders (
           id,
           company_id,
-          order_id,
-          menu_item_id,
-          item_name,
-          qty,
-          price,
-          total,
-          production_area,
+          order_tag,
+          table_no,
+          order_type,
+          total_amount,
           production_status,
-          production_station_id,
+          status,
           created_at,
-          order:pos_orders (
-            id,
-            order_tag,
-            table_no,
-            order_type,
-            total_amount,
-            production_status,
-            status,
-            created_at,
-            cashier_id
-          )
-        `,
+          cashier_id
         )
-        .in("production_status", ACTIVE_STATUSES)
-        .order("created_at", { ascending: true }),
-    );
+      `,
+      )
+      .order("created_at", { ascending: true })
+      .limit(1000);
 
     const [stationResult, itemResult] = await Promise.all([
       stationQuery,
@@ -349,8 +398,32 @@ export default function POSProductionQueuePage() {
       return;
     }
 
-    setStations((stationResult.data || []) as ProductionStation[]);
-    setItems((itemResult.data || []) as unknown as QueueItem[]);
+    const loadedStations = (stationResult.data || []) as ProductionStation[];
+    const rawItems = (itemResult.data || []) as unknown as QueueItem[];
+
+    const activeItems = rawItems.filter((item) => {
+      const itemCompanyId = item.company_id || null;
+      const orderCompanyId = item.order?.company_id || null;
+      const itemBelongsToCompany = companyId
+        ? itemCompanyId === companyId ||
+          orderCompanyId === companyId ||
+          (!itemCompanyId && !orderCompanyId)
+        : !itemCompanyId && !orderCompanyId;
+
+      const orderStatus = String(item.order?.status || "").trim().toUpperCase();
+      const itemStatus = normalizeStatus(item.production_status);
+      const lane = getLaneFromStatus(itemStatus);
+
+      return (
+        itemBelongsToCompany &&
+        Boolean(lane) &&
+        ACTIVE_STATUSES.includes(itemStatus) &&
+        !["VOIDED", "CANCELLED", "REFUNDED"].includes(orderStatus)
+      );
+    });
+
+    setStations(loadedStations);
+    setItems(activeItems);
     setLoading(false);
   };
 
@@ -489,7 +562,11 @@ export default function POSProductionQueuePage() {
       statuses.every((status) => status === "READY" || status === "COMPLETED")
     ) {
       nextOrderStatus = "READY";
-    } else if (statuses.some((status) => status === "PREPARING")) {
+    } else if (
+      statuses.some(
+        (status) => status === "PREPARING" || status === "IN_PROGRESS",
+      )
+    ) {
       nextOrderStatus = "PREPARING";
     } else {
       nextOrderStatus = "SENT";

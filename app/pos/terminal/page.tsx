@@ -245,7 +245,9 @@ export default function POSTerminalPage() {
   const [showOrderTagModal, setShowOrderTagModal] = useState(false);
   const [orderTag, setOrderTag] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
-  const [parkActionType, setParkActionType] = useState<"KITCHEN" | "PARK">("PARK");
+  const [parkActionType, setParkActionType] = useState<"KITCHEN" | "PARK">(
+    "PARK",
+  );
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
@@ -254,7 +256,9 @@ export default function POSTerminalPage() {
   const [voidReason, setVoidReason] = useState("");
   const [voidMessage, setVoidMessage] = useState("");
   const [voidLoading, setVoidLoading] = useState(false);
-  const [voidCandidates, setVoidCandidates] = useState<VoidCandidateOrder[]>([]);
+  const [voidCandidates, setVoidCandidates] = useState<VoidCandidateOrder[]>(
+    [],
+  );
   const [selectedVoidOrder, setSelectedVoidOrder] =
     useState<VoidCandidateOrder | null>(null);
 
@@ -271,7 +275,9 @@ export default function POSTerminalPage() {
   const [showSessionAuditModal, setShowSessionAuditModal] = useState(false);
   const [sessionAuditLoading, setSessionAuditLoading] = useState(false);
   const [sessionAuditMessage, setSessionAuditMessage] = useState("");
-  const [sessionAuditOrders, setSessionAuditOrders] = useState<PosTransactionOrder[]>([]);
+  const [sessionAuditOrders, setSessionAuditOrders] = useState<
+    PosTransactionOrder[]
+  >([]);
   const [sessionActualCash, setSessionActualCash] = useState("");
   const [sessionVarianceReason, setSessionVarianceReason] = useState("");
 
@@ -317,7 +323,9 @@ export default function POSTerminalPage() {
     if (!activeSession || loading) return;
 
     const parkedOrderId = localStorage.getItem("opscore_open_parked_order_id");
-    const parkedOrderTag = localStorage.getItem("opscore_open_parked_order_tag");
+    const parkedOrderTag = localStorage.getItem(
+      "opscore_open_parked_order_tag",
+    );
 
     if (!parkedOrderId) return;
 
@@ -766,7 +774,8 @@ export default function POSTerminalPage() {
 
       if (existing) {
         existing.qty += qty;
-        existing.sentQty = Number(existing.sentQty || 0) + (isAlreadySent ? qty : 0);
+        existing.sentQty =
+          Number(existing.sentQty || 0) + (isAlreadySent ? qty : 0);
         existing.requires_production =
           existing.requires_production || isProductionItem || isAlreadySent;
         return;
@@ -855,7 +864,10 @@ export default function POSTerminalPage() {
       currentCart
         .map((item) =>
           item.id === itemId
-            ? { ...item, qty: Math.max(Number(item.sentQty || 0), item.qty - 1) }
+            ? {
+                ...item,
+                qty: Math.max(Number(item.sentQty || 0), item.qty - 1),
+              }
             : item,
         )
         .filter((item) => item.qty > 0),
@@ -959,7 +971,6 @@ export default function POSTerminalPage() {
     setShowOrderTagModal(true);
   };
 
-
   function getStationLabelForSlip(item: CartItem) {
     if (!item.requires_production) return "DIRECT / NO PRODUCTION";
 
@@ -980,7 +991,9 @@ export default function POSTerminalPage() {
     tag: string,
     slipItems: CartItem[] = cart,
     slipNotes = orderNotes,
-    slipMode: "NEW" | "ADDITIONAL" = isAdditionalKitchenSend ? "ADDITIONAL" : "NEW",
+    slipMode: "NEW" | "ADDITIONAL" = isAdditionalKitchenSend
+      ? "ADDITIONAL"
+      : "NEW",
   ) => {
     if (typeof window === "undefined") return;
 
@@ -992,11 +1005,14 @@ export default function POSTerminalPage() {
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
 
-    const groupedItems = slipItems.reduce<Record<string, CartItem[]>>((acc, item) => {
-      const key = getStationLabelForSlip(item);
-      acc[key] = [...(acc[key] || []), item];
-      return acc;
-    }, {});
+    const groupedItems = slipItems.reduce<Record<string, CartItem[]>>(
+      (acc, item) => {
+        const key = getStationLabelForSlip(item);
+        acc[key] = [...(acc[key] || []), item];
+        return acc;
+      },
+      {},
+    );
 
     const slipDate = new Date();
     const slipTime = slipDate.toLocaleString("en-PH", {
@@ -1013,11 +1029,13 @@ export default function POSTerminalPage() {
     });
 
     const cleanTag = tag.trim().toUpperCase();
-    const slipTitle = slipMode === "ADDITIONAL" ? "ADDITIONAL ORDER" : "KITCHEN ORDER";
+    const slipTitle =
+      slipMode === "ADDITIONAL" ? "ADDITIONAL ORDER" : "KITCHEN ORDER";
     const tableLabel = enableTableTracking
       ? selectedTable?.table_name || "NO TABLE"
       : "-";
-    const orderTypeLabel = selectedOrderType?.name || selectedOrderTypeCode || "-";
+    const orderTypeLabel =
+      selectedOrderType?.name || selectedOrderTypeCode || "-";
     const cashierLabel = cashierName || "Cashier";
 
     const stationSections = Object.entries(groupedItems)
@@ -1302,9 +1320,15 @@ export default function POSTerminalPage() {
     }, 1800);
   };
 
-  const buildOrderItemsPayload = (orderId: string, markUnsentAsSent: boolean) => {
+  const buildOrderItemsPayload = (
+    orderId: string,
+    markUnsentAsSent: boolean,
+  ) => {
     return cart.flatMap((item) => {
-      const sentQty = Math.min(Number(item.sentQty || 0), Number(item.qty || 0));
+      const sentQty = Math.min(
+        Number(item.sentQty || 0),
+        Number(item.qty || 0),
+      );
       const unsentQty = Math.max(0, Number(item.qty || 0) - sentQty);
       const basePayload = {
         company_id: activeSession?.company_id || null,
@@ -1472,7 +1496,9 @@ export default function POSTerminalPage() {
 
     if (duplicateOrderId && parkActionType !== "KITCHEN") {
       setOrderLoading(false);
-      setOrderMessage(`Order tag "${cleanTag}" is already queued. Use Recall to update it.`);
+      setOrderMessage(
+        `Order tag "${cleanTag}" is already queued. Use Recall to update it.`,
+      );
       return;
     }
 
@@ -1643,7 +1669,9 @@ export default function POSTerminalPage() {
     order.receipt_no ||
     order.order_number ||
     order.order_tag ||
-    String(order.id || "").slice(0, 8).toUpperCase();
+    String(order.id || "")
+      .slice(0, 8)
+      .toUpperCase();
 
   const loadTransactions = async () => {
     if (!activeSession) {
@@ -1703,7 +1731,9 @@ export default function POSTerminalPage() {
 
     const rows = (data || []) as PosTransactionOrder[];
     setTransactions(rows);
-    setTransactionMessage(rows.length === 0 ? "No transactions for this session yet." : "");
+    setTransactionMessage(
+      rows.length === 0 ? "No transactions for this session yet." : "",
+    );
     setTransactionLoading(false);
   };
 
@@ -1727,7 +1757,9 @@ export default function POSTerminalPage() {
 
     const { data, error } = await supabase
       .from("pos_order_items")
-      .select("id, menu_item_id, item_name, qty, price, total, production_area, production_status")
+      .select(
+        "id, menu_item_id, item_name, qty, price, total, production_area, production_status",
+      )
       .eq("order_id", order.id)
       .order("created_at", { ascending: true });
 
@@ -1873,7 +1905,10 @@ export default function POSTerminalPage() {
     const status = String(order.status || "").toUpperCase();
     const paymentStatus = String(order.payment_status || "").toUpperCase();
 
-    if (paymentStatus !== "PAID" || ["VOIDED", "CANCELLED", "REFUNDED"].includes(status)) {
+    if (
+      paymentStatus !== "PAID" ||
+      ["VOIDED", "CANCELLED", "REFUNDED"].includes(status)
+    ) {
       setTransactionMessage("Only paid active transactions can request void.");
       return;
     }
@@ -1960,7 +1995,7 @@ export default function POSTerminalPage() {
       `,
       )
       .eq("payment_status", "PAID")
-      .not("status", "in", '(VOIDED,CANCELLED,REFUNDED)')
+      .not("status", "in", "(VOIDED,CANCELLED,REFUNDED)")
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -1986,7 +2021,9 @@ export default function POSTerminalPage() {
     const rows = (data || []) as VoidCandidateOrder[];
 
     setVoidCandidates(rows);
-    setVoidMessage(rows.length === 0 ? "No paid matching transaction found." : "");
+    setVoidMessage(
+      rows.length === 0 ? "No paid matching transaction found." : "",
+    );
     setVoidLoading(false);
   };
 
@@ -2059,7 +2096,8 @@ export default function POSTerminalPage() {
         cashier_name: cashierName || "POS Cashier",
         order_type: selectedVoidOrder.order_type,
         payment_method:
-          selectedVoidOrder.payment_method_name || selectedVoidOrder.payment_method,
+          selectedVoidOrder.payment_method_name ||
+          selectedVoidOrder.payment_method,
         total_amount: Number(selectedVoidOrder.total_amount || 0),
         reason,
         requested_at: new Date().toISOString(),
@@ -2133,7 +2171,9 @@ export default function POSTerminalPage() {
 
     const rows = (data || []) as PosTransactionOrder[];
     setSessionAuditOrders(rows);
-    setSessionAuditMessage(rows.length === 0 ? "No POS transactions found for this session." : "");
+    setSessionAuditMessage(
+      rows.length === 0 ? "No POS transactions found for this session." : "",
+    );
     setSessionAuditLoading(false);
   };
 
@@ -2156,15 +2196,21 @@ export default function POSTerminalPage() {
     const status = String(order.status || "").toUpperCase();
     const paymentStatus = String(order.payment_status || "").toUpperCase();
 
-    return paymentStatus === "PAID" && !["VOIDED", "CANCELLED", "REFUNDED"].includes(status);
+    return (
+      paymentStatus === "PAID" &&
+      !["VOIDED", "CANCELLED", "REFUNDED"].includes(status)
+    );
   };
 
   const getPaymentFamily = (order: PosTransactionOrder) => {
-    const paymentText = normalizeCode(`${order.payment_method || ""} ${order.payment_method_name || ""}`);
+    const paymentText = normalizeCode(
+      `${order.payment_method || ""} ${order.payment_method_name || ""}`,
+    );
 
     if (paymentText.includes("GCASH")) return "GCASH";
     if (paymentText.includes("BANK")) return "BANK";
-    if (paymentText.includes("CARD") || paymentText.includes("TERMINAL")) return "TERMINAL";
+    if (paymentText.includes("CARD") || paymentText.includes("TERMINAL"))
+      return "TERMINAL";
     if (paymentText.includes("ROOM")) return "ROOM";
     if (paymentText.includes("CASH")) return "CASH";
 
@@ -2173,16 +2219,19 @@ export default function POSTerminalPage() {
 
   const sessionAuditSummary = useMemo(() => {
     const activeSales = sessionAuditOrders.filter(isActiveSalesOrder);
-    const voidedOrders = sessionAuditOrders.filter((order) =>
-      ["VOIDED", "CANCELLED"].includes(String(order.status || "").toUpperCase()) ||
-      String(order.payment_status || "").toUpperCase() === "VOIDED",
+    const voidedOrders = sessionAuditOrders.filter(
+      (order) =>
+        ["VOIDED", "CANCELLED"].includes(
+          String(order.status || "").toUpperCase(),
+        ) || String(order.payment_status || "").toUpperCase() === "VOIDED",
     );
-    const refundedOrders = sessionAuditOrders.filter((order) =>
-      String(order.status || "").toUpperCase() === "REFUNDED" ||
-      String(order.payment_status || "").toUpperCase() === "REFUNDED",
+    const refundedOrders = sessionAuditOrders.filter(
+      (order) =>
+        String(order.status || "").toUpperCase() === "REFUNDED" ||
+        String(order.payment_status || "").toUpperCase() === "REFUNDED",
     );
-    const unpaidOrders = sessionAuditOrders.filter((order) =>
-      String(order.payment_status || "").toUpperCase() === "UNPAID",
+    const unpaidOrders = sessionAuditOrders.filter(
+      (order) => String(order.payment_status || "").toUpperCase() === "UNPAID",
     );
 
     const sumOrders = (orders: PosTransactionOrder[]) =>
@@ -2199,7 +2248,12 @@ export default function POSTerminalPage() {
     const terminalSales = paymentTotal("TERMINAL");
     const roomChargeSales = paymentTotal("ROOM");
     const otherSales = activeSales
-      .filter((order) => !["CASH", "GCASH", "BANK", "TERMINAL", "ROOM"].includes(getPaymentFamily(order)))
+      .filter(
+        (order) =>
+          !["CASH", "GCASH", "BANK", "TERMINAL", "ROOM"].includes(
+            getPaymentFamily(order),
+          ),
+      )
       .reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
 
     const openingCash = Number(activeSession?.opening_cash || 0);
@@ -2321,7 +2375,8 @@ export default function POSTerminalPage() {
     iframe.style.border = "0";
     document.body.appendChild(iframe);
 
-    const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
+    const iframeDocument =
+      iframe.contentDocument || iframe.contentWindow?.document;
     if (!iframeDocument) {
       document.body.removeChild(iframe);
       return;
@@ -3053,7 +3108,8 @@ export default function POSTerminalPage() {
                       Remittance Summary
                     </h2>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
-                      Use this before remittance to verify sales by payment method, voids, refunds, and expected cash.
+                      Use this before remittance to verify sales by payment
+                      method, voids, refunds, and expected cash.
                     </p>
                   </div>
 
@@ -3102,7 +3158,11 @@ export default function POSTerminalPage() {
                       Online / Terminal
                     </p>
                     <p className="mt-2 text-2xl font-black text-sky-200">
-                      {peso(sessionAuditSummary.gcashSales + sessionAuditSummary.bankSales + sessionAuditSummary.terminalSales)}
+                      {peso(
+                        sessionAuditSummary.gcashSales +
+                          sessionAuditSummary.bankSales +
+                          sessionAuditSummary.terminalSales,
+                      )}
                     </p>
                     <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
                       GCash / Bank / Card
@@ -3128,11 +3188,39 @@ export default function POSTerminalPage() {
                       Payment Breakdown
                     </p>
                     <div className="mt-3 space-y-2 text-sm font-bold">
-                      <div className="flex justify-between"><span className="text-slate-400">Cash</span><span className="text-white">{peso(sessionAuditSummary.cashSales)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">GCash</span><span className="text-white">{peso(sessionAuditSummary.gcashSales)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">Bank</span><span className="text-white">{peso(sessionAuditSummary.bankSales)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">Terminal / Card</span><span className="text-white">{peso(sessionAuditSummary.terminalSales)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">Room / Other</span><span className="text-white">{peso(sessionAuditSummary.roomChargeSales + sessionAuditSummary.otherSales)}</span></div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Cash</span>
+                        <span className="text-white">
+                          {peso(sessionAuditSummary.cashSales)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">GCash</span>
+                        <span className="text-white">
+                          {peso(sessionAuditSummary.gcashSales)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Bank</span>
+                        <span className="text-white">
+                          {peso(sessionAuditSummary.bankSales)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Terminal / Card</span>
+                        <span className="text-white">
+                          {peso(sessionAuditSummary.terminalSales)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Room / Other</span>
+                        <span className="text-white">
+                          {peso(
+                            sessionAuditSummary.roomChargeSales +
+                              sessionAuditSummary.otherSales,
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -3141,10 +3229,35 @@ export default function POSTerminalPage() {
                       Exceptions
                     </p>
                     <div className="mt-3 space-y-2 text-sm font-bold">
-                      <div className="flex justify-between"><span className="text-slate-400">Void Transactions</span><span className="text-red-200">{sessionAuditSummary.voidCount} / {peso(sessionAuditSummary.voidAmount)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">Refunds</span><span className="text-orange-200">{sessionAuditSummary.refundCount} / {peso(sessionAuditSummary.refundAmount)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">Unpaid / Parked</span><span className="text-amber-200">{sessionAuditSummary.unpaidCount} / {peso(sessionAuditSummary.unpaidAmount)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">Total Orders</span><span className="text-white">{sessionAuditSummary.totalOrders}</span></div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">
+                          Void Transactions
+                        </span>
+                        <span className="text-red-200">
+                          {sessionAuditSummary.voidCount} /{" "}
+                          {peso(sessionAuditSummary.voidAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Refunds</span>
+                        <span className="text-orange-200">
+                          {sessionAuditSummary.refundCount} /{" "}
+                          {peso(sessionAuditSummary.refundAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Unpaid / Parked</span>
+                        <span className="text-amber-200">
+                          {sessionAuditSummary.unpaidCount} /{" "}
+                          {peso(sessionAuditSummary.unpaidAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Total Orders</span>
+                        <span className="text-white">
+                          {sessionAuditSummary.totalOrders}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3170,17 +3283,27 @@ export default function POSTerminalPage() {
                       </div>
                     ) : (
                       sessionAuditOrders.slice(0, 80).map((order) => (
-                        <div key={order.id} className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 text-sm">
+                        <div
+                          key={order.id}
+                          className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 text-sm"
+                        >
                           <div className="min-w-0">
-                            <p className="truncate font-black text-white">{getTransactionReference(order)}</p>
+                            <p className="truncate font-black text-white">
+                              {getTransactionReference(order)}
+                            </p>
                             <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
-                              {formatPosDateTime(order.created_at)} • {order.payment_method_name || order.payment_method || "-"}
+                              {formatPosDateTime(order.created_at)} •{" "}
+                              {order.payment_method_name ||
+                                order.payment_method ||
+                                "-"}
                             </p>
                           </div>
                           <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
                             {order.status || order.payment_status || "-"}
                           </span>
-                          <p className="text-right font-black text-slate-100">{peso(Number(order.total_amount || 0))}</p>
+                          <p className="text-right font-black text-slate-100">
+                            {peso(Number(order.total_amount || 0))}
+                          </p>
                         </div>
                       ))
                     )}
@@ -3196,16 +3319,24 @@ export default function POSTerminalPage() {
                 <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
                   <div className="flex items-center justify-between text-sm font-bold text-slate-400">
                     <span>Opening Cash</span>
-                    <span className="text-white">{peso(sessionAuditSummary.openingCash)}</span>
+                    <span className="text-white">
+                      {peso(sessionAuditSummary.openingCash)}
+                    </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm font-bold text-slate-400">
                     <span>Cash Sales</span>
-                    <span className="text-white">{peso(sessionAuditSummary.cashSales)}</span>
+                    <span className="text-white">
+                      {peso(sessionAuditSummary.cashSales)}
+                    </span>
                   </div>
                   <div className="mt-3 border-t border-dashed border-white/15 pt-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase text-white">Expected Cash</span>
-                      <span className="text-xl font-black text-[#f5c400]">{peso(sessionAuditSummary.expectedCash)}</span>
+                      <span className="text-xs font-black uppercase text-white">
+                        Expected Cash
+                      </span>
+                      <span className="text-xl font-black text-[#f5c400]">
+                        {peso(sessionAuditSummary.expectedCash)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -3225,29 +3356,41 @@ export default function POSTerminalPage() {
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                     Variance
                   </p>
-                  <p className={`mt-2 text-3xl font-black ${sessionActualCash === "" ? "text-slate-500" : Math.abs(sessionAuditSummary.variance) < 0.01 ? "text-emerald-200" : "text-red-200"}`}>
-                    {sessionActualCash === "" ? "-" : peso(sessionAuditSummary.variance)}
+                  <p
+                    className={`mt-2 text-3xl font-black ${sessionActualCash === "" ? "text-slate-500" : Math.abs(sessionAuditSummary.variance) < 0.01 ? "text-emerald-200" : "text-red-200"}`}
+                  >
+                    {sessionActualCash === ""
+                      ? "-"
+                      : peso(sessionAuditSummary.variance)}
                   </p>
                 </div>
 
-                {sessionActualCash !== "" && Math.abs(sessionAuditSummary.variance) >= 0.01 && (
-                  <div className="mt-4">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300">
-                      Variance Reason
-                    </label>
-                    <textarea
-                      value={sessionVarianceReason}
-                      onChange={(event) => setSessionVarianceReason(event.target.value)}
-                      placeholder="Required if cash count has variance..."
-                      className="mt-2 min-h-[130px] w-full rounded-xl border border-red-400/30 bg-[#05080d] p-4 text-sm font-semibold text-white outline-none placeholder:text-slate-700 focus:border-red-300/60"
-                    />
-                  </div>
-                )}
+                {sessionActualCash !== "" &&
+                  Math.abs(sessionAuditSummary.variance) >= 0.01 && (
+                    <div className="mt-4">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300">
+                        Variance Reason
+                      </label>
+                      <textarea
+                        value={sessionVarianceReason}
+                        onChange={(event) =>
+                          setSessionVarianceReason(event.target.value)
+                        }
+                        placeholder="Required if cash count has variance..."
+                        className="mt-2 min-h-[130px] w-full rounded-xl border border-red-400/30 bg-[#05080d] p-4 text-sm font-semibold text-white outline-none placeholder:text-slate-700 focus:border-red-300/60"
+                      />
+                    </div>
+                  )}
 
                 <div className="mt-auto space-y-2 pt-5">
                   <button
                     onClick={printSessionAuditSummary}
-                    disabled={sessionAuditLoading || (sessionActualCash !== "" && Math.abs(sessionAuditSummary.variance) >= 0.01 && !sessionVarianceReason.trim())}
+                    disabled={
+                      sessionAuditLoading ||
+                      (sessionActualCash !== "" &&
+                        Math.abs(sessionAuditSummary.variance) >= 0.01 &&
+                        !sessionVarianceReason.trim())
+                    }
                     className="h-13 min-h-[52px] w-full rounded-xl bg-violet-500 text-sm font-black uppercase text-white transition hover:bg-violet-400 disabled:bg-violet-500/40 disabled:text-white/50"
                   >
                     Print Session Summary
@@ -3287,8 +3430,8 @@ export default function POSTerminalPage() {
                       Session Audit
                     </h2>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
-                      Review paid transactions before remittance. Open a row to view items,
-                      print receipt, or request void approval.
+                      Review paid transactions before remittance. Open a row to
+                      view items, print receipt, or request void approval.
                     </p>
                   </div>
 
@@ -3349,7 +3492,9 @@ export default function POSTerminalPage() {
                       transactions.map((order) => {
                         const selected = selectedTransaction?.id === order.id;
                         const status = String(order.status || "").toUpperCase();
-                        const paymentStatus = String(order.payment_status || "").toUpperCase();
+                        const paymentStatus = String(
+                          order.payment_status || "",
+                        ).toUpperCase();
 
                         return (
                           <button
@@ -3364,7 +3509,8 @@ export default function POSTerminalPage() {
                                 {getTransactionReference(order)}
                               </p>
                               <p className="mt-1 truncate text-[10px] font-bold uppercase text-slate-500">
-                                {order.order_type || "ORDER"} {order.table_no ? `• ${order.table_no}` : ""}
+                                {order.order_type || "ORDER"}{" "}
+                                {order.table_no ? `• ${order.table_no}` : ""}
                               </p>
                             </div>
 
@@ -3373,7 +3519,9 @@ export default function POSTerminalPage() {
                             </p>
 
                             <p className="truncate text-xs font-black text-slate-300">
-                              {order.payment_method_name || order.payment_method || "-"}
+                              {order.payment_method_name ||
+                                order.payment_method ||
+                                "-"}
                             </p>
 
                             <p className="text-right text-sm font-black text-[#f5c400]">
@@ -3392,7 +3540,9 @@ export default function POSTerminalPage() {
                               </span>
                               <span
                                 className={`w-fit rounded-full px-2 py-1 text-[9px] font-black uppercase ring-1 ${
-                                  ["VOIDED", "CANCELLED", "REFUNDED"].includes(status)
+                                  ["VOIDED", "CANCELLED", "REFUNDED"].includes(
+                                    status,
+                                  )
                                     ? "bg-red-500/10 text-red-300 ring-red-400/25"
                                     : "bg-white/5 text-slate-400 ring-white/10"
                                 }`}
@@ -3429,7 +3579,9 @@ export default function POSTerminalPage() {
                             Total
                           </p>
                           <p className="mt-1 text-lg font-black text-[#f5c400]">
-                            {peso(Number(selectedTransaction.total_amount || 0))}
+                            {peso(
+                              Number(selectedTransaction.total_amount || 0),
+                            )}
                           </p>
                         </div>
 
@@ -3447,7 +3599,8 @@ export default function POSTerminalPage() {
                     </>
                   ) : (
                     <p className="mt-3 text-sm font-semibold leading-6 text-slate-400">
-                      Select a transaction from the table to view full order details.
+                      Select a transaction from the table to view full order
+                      details.
                     </p>
                   )}
                 </div>
@@ -3480,7 +3633,9 @@ export default function POSTerminalPage() {
                             </p>
                             <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
                               {item.qty || 0} x {peso(Number(item.price || 0))}
-                              {item.production_status ? ` • ${item.production_status}` : ""}
+                              {item.production_status
+                                ? ` • ${item.production_status}`
+                                : ""}
                             </p>
                           </div>
 
@@ -3508,11 +3663,17 @@ export default function POSTerminalPage() {
                     </button>
 
                     <button
-                      onClick={() => requestVoidFromTransaction(selectedTransaction)}
+                      onClick={() =>
+                        requestVoidFromTransaction(selectedTransaction)
+                      }
                       disabled={
-                        String(selectedTransaction.payment_status || "").toUpperCase() !== "PAID" ||
+                        String(
+                          selectedTransaction.payment_status || "",
+                        ).toUpperCase() !== "PAID" ||
                         ["VOIDED", "CANCELLED", "REFUNDED"].includes(
-                          String(selectedTransaction.status || "").toUpperCase(),
+                          String(
+                            selectedTransaction.status || "",
+                          ).toUpperCase(),
                         )
                       }
                       className="h-12 rounded-xl border border-red-400/40 bg-red-500/10 text-xs font-black uppercase text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
@@ -3539,8 +3700,8 @@ export default function POSTerminalPage() {
                       Request Void
                     </h2>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
-                      Search a paid receipt or order number, select the transaction,
-                      then submit a manager approval request.
+                      Search a paid receipt or order number, select the
+                      transaction, then submit a manager approval request.
                     </p>
                   </div>
 
@@ -3611,7 +3772,10 @@ export default function POSTerminalPage() {
                                   {reference}
                                 </p>
                                 <p className="mt-1 text-xs font-bold uppercase text-slate-500">
-                                  {order.order_type || "ORDER"} • {order.payment_method_name || order.payment_method || "Payment"}
+                                  {order.order_type || "ORDER"} •{" "}
+                                  {order.payment_method_name ||
+                                    order.payment_method ||
+                                    "Payment"}
                                 </p>
                               </div>
 
@@ -3653,15 +3817,18 @@ export default function POSTerminalPage() {
                     Control Note
                   </p>
                   <p className="mt-2 text-xs font-semibold leading-5 text-red-100/80">
-                    This does not void the sale immediately. It creates a POS_VOID
-                    approval request. Manager approval updates the transaction.
+                    This does not void the sale immediately. It creates a
+                    POS_VOID approval request. Manager approval updates the
+                    transaction.
                   </p>
                 </div>
 
                 <div className="mt-auto space-y-2 pt-5">
                   <button
                     onClick={requestVoidApproval}
-                    disabled={!selectedVoidOrder || !voidReason.trim() || voidLoading}
+                    disabled={
+                      !selectedVoidOrder || !voidReason.trim() || voidLoading
+                    }
                     className="h-13 min-h-[52px] w-full rounded-xl bg-red-500 text-sm font-black uppercase text-white transition hover:bg-red-400 disabled:bg-red-500/40 disabled:text-white/50"
                   >
                     {voidLoading ? "Submitting..." : "Submit Void Request"}
@@ -3696,13 +3863,13 @@ export default function POSTerminalPage() {
 
                     <h2 className="mt-2 text-3xl font-black text-white">
                       {parkActionType === "KITCHEN"
-                        ? "Items to Send"
+                        ? "Confirm Order Send"
                         : "Order Tag"}
                     </h2>
 
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
                       {parkActionType === "KITCHEN"
-                        ? "Review grouped production items before sending. Only new unsent items will print and route."
+                        ? "Review station routing, unsent quantities, and notes before sending to production. Only new unsent items will print and route."
                         : "Enter a unique tag so cashier can find this order later."}
                     </p>
                   </div>
@@ -3718,47 +3885,77 @@ export default function POSTerminalPage() {
 
                 {parkActionType === "KITCHEN" ? (
                   <div className="mt-5 min-h-0 flex-1 overflow-y-auto rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
-                    {Object.entries(groupedKitchenSendItems).map(
-                      ([stationName, stationItems]) => (
-                        <div key={stationName} className="mb-4 last:mb-0">
-                          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
-                            <p className="text-[12px] font-black uppercase tracking-[0.18em] text-[#f5c400]">
-                              {stationName}
-                            </p>
+                    <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">
+                        {isAdditionalKitchenSend
+                          ? "Additional Order"
+                          : "New Kitchen Order"}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold leading-5 text-amber-100/80">
+                        Cashier must confirm this screen before the slip is
+                        saved, routed, and printed.
+                      </p>
+                    </div>
 
-                            <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] font-black uppercase text-slate-400 ring-1 ring-white/10">
-                              {stationItems.reduce(
-                                (sum, item) => sum + item.unsentQty,
-                                0,
-                              )} item(s)
-                            </span>
-                          </div>
+                    {Object.entries(groupedKitchenSendItems).length === 0 ? (
+                      <div className="rounded-2xl border border-white/10 bg-[#0b1017] p-5 text-sm font-bold text-slate-400">
+                        No new production items to send.
+                      </div>
+                    ) : (
+                      Object.entries(groupedKitchenSendItems).map(
+                        ([stationName, stationItems]) => (
+                          <div key={stationName} className="mb-4 last:mb-0">
+                            <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                              <p className="text-[12px] font-black uppercase tracking-[0.18em] text-[#f5c400]">
+                                {stationName}
+                              </p>
 
-                          <div className="space-y-2">
-                            {stationItems.map((item) => (
-                              <div
-                                key={`${stationName}-${item.id}`}
-                                className="flex items-center justify-between rounded-xl bg-[#0b1017] px-3 py-3 ring-1 ring-white/10"
-                              >
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-black text-white">
-                                    ✓ {item.name}
-                                  </p>
-                                  {Number(item.sentQty || 0) > 0 && (
-                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                                      Previous sent: {item.sentQty}
+                              <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                                {stationItems.reduce(
+                                  (sum, item) => sum + item.unsentQty,
+                                  0,
+                                )}{" "}
+                                item(s)
+                              </span>
+                            </div>
+
+                            <div className="space-y-2">
+                              {stationItems.map((item) => (
+                                <div
+                                  key={`${stationName}-${item.id}`}
+                                  className="flex items-center justify-between rounded-xl bg-[#0b1017] px-3 py-3 ring-1 ring-white/10"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-black text-white">
+                                      ✓ {item.name}
                                     </p>
-                                  )}
-                                </div>
+                                    {Number(item.sentQty || 0) > 0 && (
+                                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                        Previous sent: {item.sentQty}
+                                      </p>
+                                    )}
+                                  </div>
 
-                                <p className="text-lg font-black text-white">
-                                  x{item.unsentQty}
-                                </p>
-                              </div>
-                            ))}
+                                  <p className="text-lg font-black text-white">
+                                    x{item.unsentQty}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ),
+                        ),
+                      )
+                    )}
+
+                    {orderNotes.trim() && (
+                      <div className="mt-4 rounded-2xl border border-white/10 bg-[#0b1017] p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                          Notes
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm font-bold leading-6 text-white">
+                          {orderNotes.trim()}
+                        </p>
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -3823,8 +4020,14 @@ export default function POSTerminalPage() {
                       Incremental Send Active
                     </p>
                     <p className="mt-2 text-xs font-semibold leading-5 text-amber-100/80">
-                      This sends only {kitchenSendItems.length} new line item(s).
-                      Previously sent quantities stay recorded and will not print again.
+                      This sends only{" "}
+                      {kitchenSendItems.reduce(
+                        (sum, item) => sum + item.unsentQty,
+                        0,
+                      )}{" "}
+                      new item(s) across {kitchenSendItems.length} line item(s).
+                      Previously sent quantities stay recorded and will not
+                      print again.
                     </p>
                   </div>
                 )}
@@ -3843,14 +4046,15 @@ export default function POSTerminalPage() {
                     disabled={
                       !orderTag.trim() ||
                       orderLoading ||
-                      (parkActionType === "KITCHEN" && kitchenSendItems.length === 0)
+                      (parkActionType === "KITCHEN" &&
+                        kitchenSendItems.length === 0)
                     }
                     className="h-14 rounded-xl bg-[#f5c400] text-base font-black uppercase tracking-wide text-black shadow-xl shadow-yellow-950/30 transition hover:bg-[#ffd21f] disabled:bg-[#f5c400]/40 disabled:text-black/50"
                   >
                     {orderLoading
                       ? "Saving..."
                       : parkActionType === "KITCHEN"
-                        ? "Send to Kitchen"
+                        ? "Send Order"
                         : "Save Parked Order"}
                   </button>
                 </div>
@@ -4021,23 +4225,34 @@ export default function POSTerminalPage() {
                   </div>
 
                   <div className="mt-1.5 grid grid-cols-3 gap-1">
-                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "BACK"].map(
-                      (key) => (
-                        <button
-                          key={key}
-                          onClick={() => pressKeypad(key)}
-                          className={`h-9 rounded-lg text-lg font-black ring-1 transition active:scale-[0.98] ${
-                            key === "C"
-                              ? "bg-red-500/15 text-red-300 ring-red-400/25"
-                              : key === "BACK"
-                                ? "bg-white/5 text-slate-300 ring-white/10"
-                                : "bg-[#151c26] text-white ring-white/10 hover:bg-[#1d2633]"
-                          }`}
-                        >
-                          {key === "BACK" ? "←" : key}
-                        </button>
-                      ),
-                    )}
+                    {[
+                      "1",
+                      "2",
+                      "3",
+                      "4",
+                      "5",
+                      "6",
+                      "7",
+                      "8",
+                      "9",
+                      "C",
+                      "0",
+                      "BACK",
+                    ].map((key) => (
+                      <button
+                        key={key}
+                        onClick={() => pressKeypad(key)}
+                        className={`h-9 rounded-lg text-lg font-black ring-1 transition active:scale-[0.98] ${
+                          key === "C"
+                            ? "bg-red-500/15 text-red-300 ring-red-400/25"
+                            : key === "BACK"
+                              ? "bg-white/5 text-slate-300 ring-white/10"
+                              : "bg-[#151c26] text-white ring-white/10 hover:bg-[#1d2633]"
+                        }`}
+                      >
+                        {key === "BACK" ? "←" : key}
+                      </button>
+                    ))}
                   </div>
 
                   <div className="mt-2">
@@ -4046,7 +4261,9 @@ export default function POSTerminalPage() {
                     </p>
                     <input
                       value={paymentReference}
-                      onChange={(event) => setPaymentReference(event.target.value)}
+                      onChange={(event) =>
+                        setPaymentReference(event.target.value)
+                      }
                       placeholder="GCash / Card reference"
                       className="mt-1 h-8 w-full rounded-lg border border-white/10 bg-[#05080d] px-3 text-[11px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-amber-300/50"
                     />
@@ -4072,7 +4289,6 @@ export default function POSTerminalPage() {
             </div>
           </div>
         )}
-  
       </div>
     </PageGuard>
   );

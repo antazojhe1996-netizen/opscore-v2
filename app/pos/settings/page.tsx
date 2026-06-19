@@ -1,7 +1,8 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
@@ -17,6 +18,7 @@ import {
   Trash2,
   Utensils,
   ToggleLeft,
+  Upload,
 } from "lucide-react";
 
 type SettingTab =
@@ -250,6 +252,8 @@ export default function POSSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingTab>("general");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [importing, setImporting] = useState(false);
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
 
   const [tables, setTables] = useState<PosTable[]>([]);
   const [orderTypes, setOrderTypes] = useState<PosOption[]>([]);
@@ -557,6 +561,219 @@ export default function POSSettingsPage() {
     await loadSettings();
   };
 
+  const cleanCode = (value: string) =>
+    value.trim().toUpperCase().replaceAll(" ", "_");
+
+  const getCell = (row: Record<string, any>, keys: string[]) => {
+    const normalized = Object.keys(row).reduce<Record<string, any>>((acc, key) => {
+      acc[cleanCode(key)] = row[key];
+      return acc;
+    }, {});
+
+    for (const key of keys) {
+      const found = normalized[cleanCode(key)];
+      if (found !== undefined && found !== null && String(found).trim() !== "") {
+        return String(found).trim();
+      }
+    }
+
+    return "";
+  };
+
+  const asBoolean = (value: string) => {
+    const normalized = cleanCode(value);
+    return ["TRUE", "YES", "Y", "1", "ON", "ACTIVE", "ROUTED", "QUEUE_REQUIRED", "QUEUE"].includes(normalized);
+  };
+
+  const readSheetRows = (workbook: XLSX.WorkBook, possibleNames: string[]) => {
+    const sheetName =
+      workbook.SheetNames.find((name) =>
+        possibleNames.some((possible) => cleanCode(name) === cleanCode(possible)),
+      ) || "";
+
+    if (!sheetName) return [];
+
+    return XLSX.utils.sheet_to_json<Record<string, any>>(workbook.Sheets[sheetName], {
+      defval: "",
+    });
+  };
+
+  const importPosWorkbook = async (file: File) => {
+    setImporting(true);
+    setMessage("");
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+
+      const settingsRows = readSheetRows(workbook, ["SETTINGS", "GENERAL", "POS_SETTINGS"]);
+      const tableRows = readSheetRows(workbook, ["TABLES", "POS_TABLES"]);
+      const orderTypeRows = readSheetRows(workbook, ["ORDER_TYPES", "POS_ORDER_TYPES"]);
+      const paymentRows = readSheetRows(workbook, ["PAYMENT_METHODS", "PAYMENTS", "POS_PAYMENT_METHODS"]);
+      const stationRows = readSheetRows(workbook, ["PRODUCTION_STATIONS", "STATIONS", "POS_PRODUCTION_STATIONS"]);
+      const routingRows = readSheetRows(workbook, ["CATEGORY_ROUTING", "ROUTING", "POS_CATEGORY_ROUTING"]);
+
+      let importedCount = 0;
+
+      for (const row of settingsRows) {
+        const settingKey = getCell(row, ["setting_key", "key", "setting"]);
+        const settingValue = getCell(row, ["setting_value", "value", "enabled"]);
+
+        if (!settingKey) continue;
+
+        await saveSetting(settingKey, settingValue || "false");
+        importedCount += 1;
+      }
+
+      for (const row of tableRows) {
+        const tableName = getCell(row, ["table_name", "name", "table"]);
+        if (!tableName) continue;
+
+        const capacity = Number(getCell(row, ["capacity", "pax"]) || 0);
+        const sortOrder = Number(getCell(row, ["sort_order", "sort"]) || importedCount + 1);
+        const isActive = getCell(row, ["is_active", "active", "status"]) ? asBoolean(getCell(row, ["is_active", "active", "status"])) : true;
+
+        const existing = tables.find((item) => cleanCode(item.table_name) === cleanCode(tableName));
+
+        if (existing) {
+          await supabase
+            .from("pos_tables")
+            .update({ capacity, sort_order: sortOrder, is_active: isActive })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("pos_tables").insert({
+            company_id: companyId,
+            table_name: tableName,
+            capacity,
+            status: "available",
+            sort_order: sortOrder,
+            is_active: isActive,
+          });
+        }
+
+        importedCount += 1;
+      }
+
+      for (const row of orderTypeRows) {
+        const name = getCell(row, ["name", "order_type", "type"]);
+        const code = cleanCode(getCell(row, ["code", "order_type_code"]) || name);
+        if (!name || !code) continue;
+
+        const sortOrder = Number(getCell(row, ["sort_order", "sort"]) || importedCount + 1);
+        const isActive = getCell(row, ["is_active", "active", "status"]) ? asBoolean(getCell(row, ["is_active", "active", "status"])) : true;
+        const existing = orderTypes.find((item) => cleanCode(item.code) === code);
+
+        if (existing) {
+          await supabase.from("pos_order_types").update({ name, sort_order: sortOrder, is_active: isActive }).eq("id", existing.id);
+        } else {
+          await supabase.from("pos_order_types").insert({ company_id: companyId, name, code, sort_order: sortOrder, is_active: isActive });
+        }
+
+        importedCount += 1;
+      }
+
+      for (const row of paymentRows) {
+        const name = getCell(row, ["name", "payment_method", "method"]);
+        const code = cleanCode(getCell(row, ["code", "payment_code"]) || name);
+        if (!name || !code) continue;
+
+        const sortOrder = Number(getCell(row, ["sort_order", "sort"]) || importedCount + 1);
+        const isActive = getCell(row, ["is_active", "active", "status"]) ? asBoolean(getCell(row, ["is_active", "active", "status"])) : true;
+        const existing = paymentMethods.find((item) => cleanCode(item.code) === code);
+
+        if (existing) {
+          await supabase.from("pos_payment_methods").update({ name, sort_order: sortOrder, is_active: isActive }).eq("id", existing.id);
+        } else {
+          await supabase.from("pos_payment_methods").insert({ company_id: companyId, name, code, sort_order: sortOrder, is_active: isActive });
+        }
+
+        importedCount += 1;
+      }
+
+      for (const row of stationRows) {
+        const name = getCell(row, ["name", "station_name", "station"]);
+        const code = cleanCode(getCell(row, ["code", "station_code"]) || name);
+        if (!name || !code) continue;
+
+        const printerName = getCell(row, ["printer_name", "printer"]);
+        const sortOrder = Number(getCell(row, ["sort_order", "sort"]) || importedCount + 1);
+        const isActive = getCell(row, ["is_active", "active", "status"]) ? asBoolean(getCell(row, ["is_active", "active", "status"])) : true;
+        const existing = productionStations.find((item) => cleanCode(item.code) === code);
+
+        if (existing) {
+          await supabase
+            .from("pos_production_stations")
+            .update({ name, printer_name: printerName || null, sort_order: sortOrder, is_active: isActive })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("pos_production_stations").insert({
+            company_id: companyId,
+            name,
+            code,
+            printer_name: printerName || null,
+            sort_order: sortOrder,
+            is_active: isActive,
+          });
+        }
+
+        importedCount += 1;
+      }
+
+      const { data: refreshedStations } = await applyCompanyFilter(
+        supabase.from("pos_production_stations").select("*"),
+      );
+
+      const latestStations = ((refreshedStations || []) as PosOption[]).length
+        ? ((refreshedStations || []) as PosOption[])
+        : productionStations;
+
+      for (const row of routingRows) {
+        const categoryName = getCell(row, ["category", "category_name", "name"]);
+        const categoryCode = cleanCode(getCell(row, ["category_code", "code"]));
+        const routeText = getCell(row, ["routing", "production", "requires_production"]);
+        const stationCode = cleanCode(getCell(row, ["station", "station_code", "production_station", "production_area"]));
+
+        if (!categoryName && !categoryCode) continue;
+
+        const category = categories.find((item) => {
+          const sameCode = categoryCode && cleanCode(item.category_code || "") === categoryCode;
+          const sameName = categoryName && cleanCode(item.name) === cleanCode(categoryName);
+          return sameCode || sameName;
+        });
+
+        if (!category) continue;
+
+        const requiresProduction = routeText ? asBoolean(routeText) : Boolean(stationCode);
+        const station = latestStations.find((item) => cleanCode(item.code) === stationCode || cleanCode(item.name) === stationCode);
+
+        await supabase
+          .from("pos_categories")
+          .update({
+            requires_production: requiresProduction,
+            production_station_id: requiresProduction ? station?.id || null : null,
+            production_area: requiresProduction ? station?.code || stationCode || null : null,
+          })
+          .eq("id", category.id);
+
+        importedCount += 1;
+      }
+
+      await loadSettings();
+      setMessage(`POS settings import complete. ${importedCount} row(s) processed.`);
+    } catch (error: any) {
+      setMessage(
+        error?.message ||
+          "Import failed. Make sure the Excel file uses SETTINGS, TABLES, ORDER_TYPES, PAYMENT_METHODS, PRODUCTION_STATIONS, and CATEGORY_ROUTING sheets.",
+      );
+    } finally {
+      setImporting(false);
+      if (excelInputRef.current) {
+        excelInputRef.current.value = "";
+      }
+    }
+  };
+
+
   return (
     <PageGuard moduleKey="pos_settings">
       <div className="flex min-h-screen bg-slate-950 text-white">
@@ -576,18 +793,42 @@ export default function POSSettingsPage() {
 
                 <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-400">
                   Configure general POS behavior, tables, order types, payment
-                  methods, production stations, service charge, and terminal
-                  defaults without changing code.
+                  methods, production stations, category routing, and terminal
+                  defaults. Use one Excel workbook to import all POS setup data.
                 </p>
               </div>
 
-              <button
-                onClick={loadSettings}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-500"
-              >
-                <RefreshCw size={16} />
-                Refresh
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  ref={excelInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      importPosWorkbook(file);
+                    }
+                  }}
+                />
+
+                <button
+                  onClick={() => excelInputRef.current?.click()}
+                  disabled={importing}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Upload size={16} />
+                  {importing ? "Importing..." : "Import Excel"}
+                </button>
+
+                <button
+                  onClick={loadSettings}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-500"
+                >
+                  <RefreshCw size={16} />
+                  Refresh
+                </button>
+              </div>
             </div>
           </section>
 

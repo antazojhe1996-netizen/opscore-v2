@@ -809,6 +809,102 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       net_expense_amount: shouldCreateExpenseFromCashOut ? amountValue : 0,
     };
 
+    const shouldSendCashReleaseToApproval = async () => {
+      if (!shouldCreateExpenseFromCashOut) return false;
+
+      // Approval workflow acts as the live enable/disable control.
+      // If CASH_DRAWER_OUT is inactive, cash releases stay direct-post.
+      // If the workflow row is missing or the check fails, default to approval-required
+      // so live money cannot bypass the Approval Center by accident.
+      const { data, error } = await supabase
+        .from("approval_workflows")
+        .select("id, is_active")
+        .eq("workflow_key", "CASH_DRAWER_OUT")
+        .limit(1);
+
+      if (error) {
+        console.log("CASH RELEASE APPROVAL CONTROL CHECK ERROR:", error.message);
+        return true;
+      }
+
+      if (!data || data.length === 0) return true;
+
+      return data.some((row: any) => row.is_active !== false);
+    };
+
+    const cashReleaseNeedsApproval = await shouldSendCashReleaseToApproval();
+
+    if (cashReleaseNeedsApproval) {
+      const requestType = isCashAdvanceCashOut
+        ? "CASH_ADVANCE_RELEASE"
+        : "CASH_EXPENSE_RELEASE";
+
+      const requestTitle = isCashAdvanceCashOut
+        ? `Cash Advance Release - ${cashAdvanceEmployeeName || "Employee"}`
+        : `Expense Release - ${expenseDescription.trim() || source}`;
+
+      const requestPayload = {
+        ...movementPayload,
+        status: "PENDING_APPROVAL",
+        should_create_expense: true,
+        is_cash_advance_cash_out: isCashAdvanceCashOut,
+        cash_advance_employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
+        cash_advance_employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : null,
+        cash_advance_purpose: isCashAdvanceCashOut ? cashAdvancePurpose || "Cash Advance" : null,
+        expense_category: isCashAdvanceCashOut ? "Cash Advance" : expenseCategory || "Other",
+        expense_subcategory: isCashAdvanceCashOut ? "Cash Advance Release" : expenseSubcategory || null,
+        expense_department: isCashAdvanceCashOut ? "Payroll" : expenseDepartment || "Operations",
+        expense_description: isCashAdvanceCashOut
+          ? `Cash Advance - ${cashAdvanceEmployeeName}`
+          : expenseDescription.trim(),
+        expense_released_to: isCashAdvanceCashOut ? cashAdvanceEmployeeName : expenseReleasedTo || null,
+        requested_by_user_id: actor.userId,
+        requested_by_name: actor.userName,
+        requested_at: new Date().toISOString(),
+      };
+
+      const { data: approvalData, error: approvalError } = await supabase
+        .from("approval_requests")
+        .insert({
+          company_id: companyId || null,
+          request_type: requestType,
+          module: "Cash Management",
+          title: requestTitle,
+          description: `${source} request for ${formatMoney(amountValue)}. ${movementRemarks}`.trim(),
+          requested_by: autoEncoded,
+          status: "PENDING",
+          reference_id: null,
+          request_payload: requestPayload,
+        })
+        .select()
+        .single();
+
+      if (approvalError) {
+        console.log("CREATE CASH RELEASE APPROVAL ERROR:", approvalError.message);
+        alert(`Failed to create approval request. No cash movement was posted. ${approvalError.message}`);
+        setIsSaving(false);
+        savingRef.current = false;
+        return;
+      }
+
+      await createAuditLog({
+        userName: autoEncoded,
+        module: "Cash Management",
+        action: "Cash Release Sent for Approval",
+        description: `${source} approval request created - ${formatMoney(amountValue)}`,
+        severity: "warning",
+        recordId: approvalData.id,
+        newValue: { approvalRequest: approvalData, payload: requestPayload },
+      });
+
+      setIsSaving(false);
+      savingRef.current = false;
+      resetForm();
+      await refreshCashManagement();
+      alert("Cash release sent to Approval Center. No cash movement was posted yet.");
+      return;
+    }
+
     const isDuplicate = await checkDuplicateMovement(movementPayload);
     if (isDuplicate) {
       alert("Possible duplicate detected. This movement was not saved again.");
