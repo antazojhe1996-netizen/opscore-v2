@@ -6,14 +6,32 @@ import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
-import { Plus, ShieldCheck, Trash2, UserCheck, Users } from "lucide-react";
+import { Plus, ShieldCheck, Star, Trash2, UserCheck, Users } from "lucide-react";
 
-const approvalRoles = ["MANAGER", "OWNER", "PAYROLL", "FINANCE", "SUPERVISOR"];
+const approvalRoles = [
+  "MANAGER",
+  "OWNER",
+  "PAYROLL",
+  "FINANCE",
+  "SUPERVISOR",
+  "OPERATIONS_MANAGER",
+  "ADMIN",
+];
 
 const assignmentTypes = ["PRIMARY", "BACKUP"];
 
+const normalizeText = (value: any) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const normalizeScope = (value: any) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
 export default function ApprovalAssignmentsPage() {
-  /// STATES
   const [assignments, setAssignments] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [approvalWorkflows, setApprovalWorkflows] = useState<any[]>([]);
@@ -21,14 +39,11 @@ export default function ApprovalAssignmentsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  /// FUNCTIONS
-  const getEmployeeName = (employee: any) => {
-    return `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
-  };
+  const getEmployeeName = (employee: any) =>
+    `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
 
-  const getAssignedEmployee = (employeeId: string) => {
-    return employees.find((employee) => String(employee.id) === String(employeeId));
-  };
+  const getAssignedEmployee = (employeeId: string) =>
+    employees.find((employee) => String(employee.id) === String(employeeId));
 
   const getApprovalAssignments = async () => {
     setIsLoading(true);
@@ -37,13 +52,15 @@ export default function ApprovalAssignmentsPage() {
       .from("approval_assignments")
       .select("*")
       .order("approval_role", { ascending: true })
+      .order("department_scope", { ascending: true })
+      .order("is_default", { ascending: false })
       .order("assignment_type", { ascending: true })
       .order("created_at", { ascending: true });
 
     const { data: employeeData, error: employeeError } = await supabase
       .from("employees")
       .select(
-        "id, first_name, last_name, department, position, employment_status, payroll_active"
+        "id, first_name, last_name, department, position, employment_status, payroll_active",
       )
       .order("first_name", { ascending: true });
 
@@ -58,7 +75,9 @@ export default function ApprovalAssignmentsPage() {
 
     if (assignmentError) {
       console.log("GET APPROVAL ASSIGNMENTS ERROR:", assignmentError.message);
-      alert("Failed to load approval assignments. Check approval_assignments table columns.");
+      alert(
+        "Failed to load approval assignments. Check approval_assignments table columns.",
+      );
       return;
     }
 
@@ -84,7 +103,7 @@ export default function ApprovalAssignmentsPage() {
 
     const existingActiveForRole = assignments.filter(
       (assignment) =>
-        assignment.approval_role === approvalRole && assignment.is_active !== false
+        assignment.approval_role === approvalRole && assignment.is_active !== false,
     );
 
     const assignmentType =
@@ -98,6 +117,8 @@ export default function ApprovalAssignmentsPage() {
         approval_role: approvalRole,
         employee_id: null,
         assignment_type: assignmentType,
+        department_scope: "",
+        is_default: existingActiveForRole.length === 0,
         is_active: true,
       })
       .select()
@@ -127,17 +148,24 @@ export default function ApprovalAssignmentsPage() {
   const updateAssignmentEmployee = async (assignment: any, employeeId: string) => {
     if (isSaving) return;
 
-    const duplicate = assignments.find(
-      (item) =>
-        item.id !== assignment.id &&
-        item.is_active !== false &&
-        item.approval_role === assignment.approval_role &&
-        String(item.employee_id || "") === String(employeeId || "") &&
-        employeeId
-    );
+    const duplicate = assignments.find((item) => {
+      if (item.id === assignment.id) return false;
+      if (item.is_active === false) return false;
+      if (item.approval_role !== assignment.approval_role) return false;
+      if (String(item.employee_id || "") !== String(employeeId || "")) return false;
+      if (!employeeId) return false;
+
+      const sameScope =
+        normalizeText(item.department_scope) === normalizeText(assignment.department_scope);
+
+      const sameDefault =
+        Boolean(item.is_default) === Boolean(assignment.is_default);
+
+      return sameScope && sameDefault;
+    });
 
     if (duplicate) {
-      alert("This employee is already assigned to this approval role.");
+      alert("This employee is already assigned to this role and department/default scope.");
       return;
     }
 
@@ -161,11 +189,11 @@ export default function ApprovalAssignmentsPage() {
     }
 
     setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item))
+      current.map((item) => (item.id === assignment.id ? data : item)),
     );
 
     const selectedEmployee = employees.find(
-      (employee) => String(employee.id) === String(employeeId)
+      (employee) => String(employee.id) === String(employeeId),
     );
 
     await createAuditLog({
@@ -210,7 +238,7 @@ export default function ApprovalAssignmentsPage() {
     }
 
     setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item))
+      current.map((item) => (item.id === assignment.id ? data : item)),
     );
 
     await createAuditLog({
@@ -218,6 +246,90 @@ export default function ApprovalAssignmentsPage() {
       module: "Approval Assignments",
       action: "Update Approver Type",
       description: `${assignment.approval_role} approver type changed to ${assignmentType}.`,
+      severity: "warning",
+      recordId: assignment.id,
+      oldValue: assignment,
+      newValue: data,
+    });
+  };
+
+  const updateDepartmentScope = async (assignment: any, departmentScope: string) => {
+    if (isSaving) return;
+
+    const cleanScope = normalizeScope(departmentScope);
+
+    setIsSaving(true);
+
+    const { data, error } = await supabase
+      .from("approval_assignments")
+      .update({
+        department_scope: cleanScope,
+        is_default: cleanScope ? false : Boolean(assignment.is_default),
+      })
+      .eq("id", assignment.id)
+      .select()
+      .single();
+
+    setIsSaving(false);
+
+    if (error) {
+      console.log("UPDATE DEPARTMENT SCOPE ERROR:", error.message);
+      alert("Failed to update department scope.");
+      return;
+    }
+
+    setAssignments((current) =>
+      current.map((item) => (item.id === assignment.id ? data : item)),
+    );
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Assignments",
+      action: "Update Department Scope",
+      description: `${assignment.approval_role} scope changed to ${cleanScope || "All / Default"}.`,
+      severity: "warning",
+      recordId: assignment.id,
+      oldValue: assignment,
+      newValue: data,
+    });
+  };
+
+  const toggleDefaultApprover = async (assignment: any) => {
+    if (isSaving) return;
+
+    const nextDefault = !Boolean(assignment.is_default);
+
+    setIsSaving(true);
+
+    const { data, error } = await supabase
+      .from("approval_assignments")
+      .update({
+        is_default: nextDefault,
+        department_scope: nextDefault ? "" : assignment.department_scope || "",
+      })
+      .eq("id", assignment.id)
+      .select()
+      .single();
+
+    setIsSaving(false);
+
+    if (error) {
+      console.log("TOGGLE DEFAULT APPROVER ERROR:", error.message);
+      alert("Failed to update default approver.");
+      return;
+    }
+
+    setAssignments((current) =>
+      current.map((item) => (item.id === assignment.id ? data : item)),
+    );
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Assignments",
+      action: "Toggle Default Approver",
+      description: `${assignment.approval_role} default approver ${
+        nextDefault ? "enabled" : "disabled"
+      }.`,
       severity: "warning",
       recordId: assignment.id,
       oldValue: assignment,
@@ -248,7 +360,7 @@ export default function ApprovalAssignmentsPage() {
     }
 
     setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item))
+      current.map((item) => (item.id === assignment.id ? data : item)),
     );
 
     await createAuditLog({
@@ -269,7 +381,7 @@ export default function ApprovalAssignmentsPage() {
     if (isSaving) return;
 
     const confirmed = confirm(
-      `Remove this ${assignment.approval_role} approver assignment?`
+      `Remove this ${assignment.approval_role} approver assignment?`,
     );
 
     if (!confirmed) return;
@@ -290,7 +402,7 @@ export default function ApprovalAssignmentsPage() {
     }
 
     setAssignments((current) =>
-      current.filter((item) => item.id !== assignment.id)
+      current.filter((item) => item.id !== assignment.id),
     );
 
     await createAuditLog({
@@ -304,20 +416,17 @@ export default function ApprovalAssignmentsPage() {
     });
   };
 
-  const getWorkflowsForRole = (approvalRole: string) => {
-    return approvalWorkflows.filter(
+  const getWorkflowsForRole = (approvalRole: string) =>
+    approvalWorkflows.filter(
       (workflow) =>
         String(workflow.approver_role || "") === String(approvalRole) &&
-        workflow.is_active !== false
+        workflow.is_active !== false,
     );
-  };
 
-  /// EFFECTS
   useEffect(() => {
     getApprovalAssignments();
   }, []);
 
-  /// CALCULATIONS
   const activeEmployees = useMemo(() => {
     return employees.filter((employee) => {
       const employmentStatus = String(employee.employment_status || "").toLowerCase();
@@ -330,6 +439,16 @@ export default function ApprovalAssignmentsPage() {
     });
   }, [employees]);
 
+  const departmentOptions = useMemo(() => {
+    const departments = employees
+      .map((employee) => normalizeScope(employee.department))
+      .filter(Boolean);
+
+    return Array.from(new Set(departments)).sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [employees]);
+
   const groupedAssignments = useMemo(() => {
     const search = searchTerm.toLowerCase();
 
@@ -340,12 +459,16 @@ export default function ApprovalAssignmentsPage() {
           const employeeName = assignedEmployee
             ? getEmployeeName(assignedEmployee)
             : "";
+          const scope = String(assignment.department_scope || "");
+          const defaultText = assignment.is_default ? "default approver fallback" : "";
 
           const matchesRole = String(assignment.approval_role || "") === role;
           const matchesSearch =
             !search ||
             role.toLowerCase().includes(search) ||
             employeeName.toLowerCase().includes(search) ||
+            scope.toLowerCase().includes(search) ||
+            defaultText.includes(search) ||
             String(assignedEmployee?.department || "")
               .toLowerCase()
               .includes(search) ||
@@ -365,17 +488,30 @@ export default function ApprovalAssignmentsPage() {
         (group) =>
           !search ||
           group.assignments.length > 0 ||
-          group.role.toLowerCase().includes(search)
+          group.role.toLowerCase().includes(search),
       );
   }, [assignments, employees, searchTerm]);
 
   const assignedCount = assignments.filter((item) => item.employee_id).length;
 
   const activeApproverCount = assignments.filter(
-    (item) => item.is_active !== false && item.employee_id
+    (item) => item.is_active !== false && item.employee_id,
   ).length;
 
-  /// UI
+  const departmentScopedCount = assignments.filter(
+    (item) =>
+      item.is_active !== false &&
+      item.employee_id &&
+      String(item.department_scope || "").trim(),
+  ).length;
+
+  const defaultApproverCount = assignments.filter(
+    (item) =>
+      item.is_active !== false &&
+      item.employee_id &&
+      Boolean(item.is_default),
+  ).length;
+
   return (
     <PageGuard moduleKey="approval_assignments">
       <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -395,8 +531,9 @@ export default function ApprovalAssignmentsPage() {
                     Approval Assignments
                   </h1>
                   <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
-                    Assign multiple active approvers per role. Any active assigned
-                    approver can approve or reject routed requests.
+                    Assign role approvers with optional department scope. Leave
+                    and OT can route to the department manager first, then fall
+                    back to a default approver when no department match exists.
                   </p>
                 </div>
 
@@ -410,21 +547,26 @@ export default function ApprovalAssignmentsPage() {
               </div>
             </section>
 
-            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
                 title="Approval Roles"
                 value={approvalRoles.length}
                 icon={<ShieldCheck className="h-5 w-5 text-slate-500" />}
               />
               <SummaryCard
-                title="Assigned Slots"
-                value={assignedCount}
-                icon={<UserCheck className="h-5 w-5 text-emerald-600" />}
-              />
-              <SummaryCard
                 title="Active Approvers"
                 value={activeApproverCount}
                 icon={<Users className="h-5 w-5 text-blue-700" />}
+              />
+              <SummaryCard
+                title="Department Scoped"
+                value={departmentScopedCount}
+                icon={<UserCheck className="h-5 w-5 text-emerald-600" />}
+              />
+              <SummaryCard
+                title="Default Fallbacks"
+                value={defaultApproverCount}
+                icon={<Star className="h-5 w-5 text-amber-600" />}
               />
             </section>
 
@@ -436,19 +578,19 @@ export default function ApprovalAssignmentsPage() {
                       Assignment Matrix
                     </p>
                     <h2 className="mt-1 text-xl font-black text-slate-950">
-                      Role Approvers
+                      Role Approvers by Department
                     </h2>
                     <p className="mt-1 max-w-4xl text-sm font-medium leading-6 text-slate-500">
-                      Primary / Backup is a label only. Approval rule is ANY ONE
-                      active approver.
+                      Department scope is optional. Use Default for fallback
+                      approvers when no department-specific approver is found.
                     </p>
                   </div>
 
                   <input
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search role or employee..."
-                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 lg:w-80"
+                    placeholder="Search role, department, or employee..."
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 lg:w-96"
                   />
                 </div>
               </div>
@@ -465,7 +607,8 @@ export default function ApprovalAssignmentsPage() {
                     {groupedAssignments.map((group) => {
                       const activeRoleApprovers = group.assignments.filter(
                         (assignment) =>
-                          assignment.is_active !== false && assignment.employee_id
+                          assignment.is_active !== false &&
+                          assignment.employee_id,
                       );
 
                       const workflowsForRole = getWorkflowsForRole(group.role);
@@ -496,8 +639,9 @@ export default function ApprovalAssignmentsPage() {
                                 </div>
 
                                 <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
-                                  Requests needing {group.role} approval can be
-                                  approved by any active person listed below.
+                                  Requests needing {group.role} approval can
+                                  route by employee department or default
+                                  fallback.
                                 </p>
 
                                 <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
@@ -545,12 +689,14 @@ export default function ApprovalAssignmentsPage() {
                           </div>
 
                           <div className="overflow-auto">
-                            <table className="w-full min-w-[980px]">
+                            <table className="w-full min-w-[1180px]">
                               <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                                 <tr>
                                   <th className="px-6 py-4">Approver Type</th>
+                                  <th className="px-6 py-4">Department Scope</th>
+                                  <th className="px-6 py-4">Default</th>
                                   <th className="px-6 py-4">Assigned Employee</th>
-                                  <th className="px-6 py-4">Department</th>
+                                  <th className="px-6 py-4">Employee Dept.</th>
                                   <th className="px-6 py-4">Position</th>
                                   <th className="px-6 py-4">Status</th>
                                   <th className="px-6 py-4">Active</th>
@@ -561,7 +707,7 @@ export default function ApprovalAssignmentsPage() {
                               <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
                                 {group.assignments.length === 0 ? (
                                   <tr>
-                                    <td colSpan={7} className="px-6 py-14 text-center">
+                                    <td colSpan={9} className="px-6 py-14 text-center">
                                       <p className="text-sm font-black text-slate-950">
                                         No approvers yet
                                       </p>
@@ -574,7 +720,7 @@ export default function ApprovalAssignmentsPage() {
                                 ) : (
                                   group.assignments.map((assignment) => {
                                     const assignedEmployee = getAssignedEmployee(
-                                      assignment.employee_id
+                                      assignment.employee_id,
                                     );
 
                                     return (
@@ -584,9 +730,7 @@ export default function ApprovalAssignmentsPage() {
                                       >
                                         <td className="px-6 py-4">
                                           <select
-                                            value={
-                                              assignment.assignment_type || "BACKUP"
-                                            }
+                                            value={assignment.assignment_type || "BACKUP"}
                                             disabled={
                                               isSaving ||
                                               assignment.is_active === false
@@ -594,7 +738,7 @@ export default function ApprovalAssignmentsPage() {
                                             onChange={(event) =>
                                               updateAssignmentType(
                                                 assignment,
-                                                event.target.value
+                                                event.target.value,
                                               )
                                             }
                                             className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
@@ -609,6 +753,51 @@ export default function ApprovalAssignmentsPage() {
 
                                         <td className="px-6 py-4">
                                           <select
+                                            value={assignment.department_scope || ""}
+                                            disabled={
+                                              isSaving ||
+                                              assignment.is_active === false ||
+                                              Boolean(assignment.is_default)
+                                            }
+                                            onChange={(event) =>
+                                              updateDepartmentScope(
+                                                assignment,
+                                                event.target.value,
+                                              )
+                                            }
+                                            className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            <option value="">All / No scope</option>
+                                            {departmentOptions.map((department) => (
+                                              <option key={department} value={department}>
+                                                {department}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </td>
+
+                                        <td className="px-6 py-4">
+                                          <button
+                                            onClick={() =>
+                                              toggleDefaultApprover(assignment)
+                                            }
+                                            disabled={
+                                              isSaving ||
+                                              assignment.is_active === false
+                                            }
+                                            className={
+                                              assignment.is_default
+                                                ? "inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 transition-all duration-200 hover:bg-amber-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                                : "inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                            }
+                                          >
+                                            <Star size={13} />
+                                            {assignment.is_default ? "Default" : "Set"}
+                                          </button>
+                                        </td>
+
+                                        <td className="px-6 py-4">
+                                          <select
                                             value={assignment.employee_id || ""}
                                             disabled={
                                               isSaving ||
@@ -617,7 +806,7 @@ export default function ApprovalAssignmentsPage() {
                                             onChange={(event) =>
                                               updateAssignmentEmployee(
                                                 assignment,
-                                                event.target.value
+                                                event.target.value,
                                               )
                                             }
                                             className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
@@ -706,15 +895,15 @@ export default function ApprovalAssignmentsPage() {
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">
-                    Multiple Approver Rule
+                    Department Routing Rule
                   </p>
                   <h3 className="mt-1 text-xl font-black text-slate-950">
-                    Any Active Approver Can Act
+                    Department Match First, Default Fallback Second
                   </h3>
                   <p className="mt-2 max-w-4xl text-sm font-bold leading-6 text-blue-700">
-                    Approval Controls decide which role approves a workflow. This
-                    page shows what each role approves and who belongs to that role.
-                    Any active assigned approver can approve or reject.
+                    Leave and OT should route to an active approver with matching
+                    department scope. If no department match exists, use the
+                    active default approver for the same approval role.
                   </p>
                 </div>
               </div>

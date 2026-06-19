@@ -313,27 +313,105 @@ export default function PayrollManagerPage() {
     await createAuditLog({ userName: releasedBy.trim(), module: "Payroll", action: "Release Payroll Records", description: `${targetRows.length} locked employee payroll record(s) released.`, severity: "warning", newValue: { ids, periodIds, totalRelease, status: STATUS.RELEASED } });
   };
 
-  const returnEmployeeForCorrection = async (record: any) => {
-    if (getRecordStatus(record) !== STATUS.MANAGER_REVIEW) return alert("Only MANAGER REVIEW rows can be returned for correction.");
-    const reason = prompt(`Return ${getEmployeeName(record)} to Payroll Register correction queue?\n\nReason is required:`, "Payroll correction needed");
+  const returnRecordsForCorrection = async (targetRows: any[]) => {
+    if (targetRows.length === 0) return alert("No payroll records selected for return.");
+
+    const invalidRows = targetRows.filter((record) => {
+      const status = getRecordStatus(record);
+      return status !== STATUS.MANAGER_REVIEW && status !== STATUS.LOCKED;
+    });
+
+    if (invalidRows.length > 0) {
+      return alert("Only MANAGER REVIEW or LOCKED payroll records can be returned to Register.");
+    }
+
+    const releasedRows = targetRows.filter((record) => getRecordStatus(record) === STATUS.RELEASED || Number(record.paid_amount || 0) > 0 || record.released_at);
+
+    if (releasedRows.length > 0) {
+      return alert("Return blocked. Released payroll is final and cannot be returned to Register.");
+    }
+
+    const defaultReason =
+      targetRows.length === 1
+        ? "Payroll correction needed"
+        : "Payroll correction needed for selected locked rows";
+
+    const reason = prompt(
+      `Return ${targetRows.length} payroll row(s) to Payroll Register correction queue?\n\nReason is required:`,
+      defaultReason,
+    );
+
     if (!reason || !reason.trim()) return alert("Return reason is required.");
-    if (!confirm(`Return Employee Only?\n\nEmployee: ${getEmployeeName(record)}\nPeriod: ${getPeriodLabel(record)}\nReason: ${reason.trim()}\n\nOnly this employee row will return to Payroll Register.`)) return;
+
+    const totalNet = targetRows.reduce((sum, record) => sum + getRecordNet(record), 0);
+
+    if (
+      !confirm(
+        `Return To Register?\n\nEmployees: ${targetRows.length}\nNet Pay: ${formatPeso(totalNet)}\nReason: ${reason.trim()}\n\nReturned rows will be editable again in Payroll Register. They must be corrected, resent to Manager, locked again, then released.`,
+      )
+    ) {
+      return;
+    }
+
     setIsProcessing(true);
     processingRef.current = true;
+
     try {
-      const { error } = await supabase.from("payroll_records").update({ record_status: STATUS.RETURNED_FOR_CORRECTION, status: "Returned for Correction", release_status: "Returned for Correction", return_reason: reason.trim(), returned_at: new Date().toISOString(), returned_by: "Payroll Manager" }).eq("id", record.id).eq("record_status", STATUS.MANAGER_REVIEW);
+      const ids = targetRows.map((record) => record.id);
+      const periodIds = Array.from(
+        new Set(targetRows.map((record) => record.period_id).filter(Boolean)),
+      );
+      const returnedAt = new Date().toISOString();
+      const returnedBy = "Payroll Manager";
+
+      const { error } = await supabase
+        .from("payroll_records")
+        .update({
+          record_status: STATUS.RETURNED_FOR_CORRECTION,
+          status: "Returned for Correction",
+          release_status: "Returned for Correction",
+          return_reason: reason.trim(),
+          returned_at: returnedAt,
+          returned_by: returnedBy,
+          locked_at: null,
+          locked_by: null,
+        })
+        .in("id", ids)
+        .in("record_status", [STATUS.MANAGER_REVIEW, STATUS.LOCKED]);
+
       if (error) throw new Error(error.message);
-      if (record.period_id) await updatePeriodStatusIfComplete([record.period_id]);
-      await createAuditLog({ userName: "Payroll Manager", module: "Payroll", action: "Return Employee Payroll For Correction", description: `${getEmployeeName(record)} was returned to Payroll Register correction queue. Reason: ${reason.trim()}`, severity: "warning", recordId: record.id, oldValue: record, newValue: { record_status: STATUS.RETURNED_FOR_CORRECTION, reason: reason.trim() } });
+
+      await updatePeriodStatusIfComplete(periodIds);
+
+      await createAuditLog({
+        userName: returnedBy,
+        module: "Payroll",
+        action: "Return Payroll Records To Register",
+        description: `${targetRows.length} payroll record(s) returned to Payroll Register correction queue. Reason: ${reason.trim()}`,
+        severity: "warning",
+        newValue: {
+          ids,
+          periodIds,
+          returnedAt,
+          returnedBy,
+          reason: reason.trim(),
+          record_status: STATUS.RETURNED_FOR_CORRECTION,
+        },
+      });
+
       setSelectedRecordIds([]);
       await loadData();
-      alert("Employee returned to Payroll Register correction queue.");
+      alert("Payroll row(s) returned to Payroll Register correction queue.");
     } catch (error: any) {
       alert(`Return failed.\n\n${error?.message || error}`);
     } finally {
       setIsProcessing(false);
       processingRef.current = false;
     }
+  };
+
+  const returnEmployeeForCorrection = async (record: any) => {
+    await returnRecordsForCorrection([record]);
   };
 
   const tabConfig: Array<{ id: ManagerTab; label: string; count: number }> = [
@@ -420,6 +498,17 @@ export default function PayrollManagerPage() {
               </button>
             )}
 
+            {activeTab === "locked" && (
+              <button
+                type="button"
+                onClick={() => returnRecordsForCorrection(actionTargetRows)}
+                disabled={isProcessing || actionTargetRows.length === 0}
+                className={dangerButton}
+              >
+                Return {selectedActionableRows.length > 0 ? `Selected (${selectedActionableRows.length})` : `All (${actionableRows.length})`}
+              </button>
+            )}
+
             {activeTab !== "released" && activeTab !== "returned" && (
               <button
                 type="button"
@@ -484,7 +573,7 @@ export default function PayrollManagerPage() {
                       <td className="px-4 py-4 font-black text-slate-950">{formatPeso(getReleaseAmount(record))}</td>
                       <td className="px-4 py-4 font-black text-indigo-700">{formatPeso(getCarryForwardAmount(record))}</td>
                       <td className="px-4 py-4"><span className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase ${getStatusClass(status)}`}>{getStatusLabel(record)}</span>{status === STATUS.RETURNED_FOR_CORRECTION && record.return_reason && <div className="mt-1 max-w-[220px] text-[10px] font-semibold text-amber-700">{record.return_reason}</div>}</td>
-                      <td className="px-4 py-4 text-right">{status === STATUS.MANAGER_REVIEW ? <button type="button" onClick={() => returnEmployeeForCorrection(record)} disabled={isProcessing} className={dangerButton}>Return</button> : status === STATUS.RETURNED_FOR_CORRECTION ? <span className="rounded-full bg-amber-50 px-3 py-2 text-[10px] font-black uppercase text-amber-700">Register Correction</span> : status === STATUS.LOCKED ? <span className="rounded-full bg-indigo-50 px-3 py-2 text-[10px] font-black uppercase text-indigo-700">Ready to Release</span> : <span className="rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase text-emerald-700">History Only</span>}</td>
+                      <td className="px-4 py-4 text-right">{status === STATUS.MANAGER_REVIEW ? <button type="button" onClick={() => returnEmployeeForCorrection(record)} disabled={isProcessing} className={dangerButton}>Return</button> : status === STATUS.RETURNED_FOR_CORRECTION ? <span className="rounded-full bg-amber-50 px-3 py-2 text-[10px] font-black uppercase text-amber-700">Register Correction</span> : status === STATUS.LOCKED ? <div className="flex justify-end gap-2"><span className="rounded-full bg-indigo-50 px-3 py-2 text-[10px] font-black uppercase text-indigo-700">Ready to Release</span><button type="button" onClick={() => returnEmployeeForCorrection(record)} disabled={isProcessing} className={dangerButton}>Return</button></div> : <span className="rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase text-emerald-700">History Only</span>}</td>
                     </tr>
                   );
                 })}
