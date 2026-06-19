@@ -268,6 +268,7 @@ export default function CashManagementPage() {
   const cashApprovalRequestTypes = [
     "CASH_DRAWER_OUT",
     "CASH_EXPENSE_RELEASE",
+    "EXPENSE_RELEASE",
     "CASH_ADVANCE_RELEASE",
     "OWNER_WITHDRAWAL",
     "BANK_DEPOSIT",
@@ -809,18 +810,33 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       net_expense_amount: shouldCreateExpenseFromCashOut ? amountValue : 0,
     };
 
+    const getCashReleaseWorkflowKey = () => {
+      if (isCashAdvanceCashOut) return "CASH_ADVANCE_RELEASE";
+      if (isExpenseRelease) return "EXPENSE_RELEASE";
+      return "";
+    };
+
     const shouldSendCashReleaseToApproval = async () => {
       if (!shouldCreateExpenseFromCashOut) return false;
 
-      // Approval workflow acts as the live enable/disable control.
-      // If CASH_DRAWER_OUT is inactive, cash releases stay direct-post.
-      // If the workflow row is missing or the check fails, default to approval-required
-      // so live money cannot bypass the Approval Center by accident.
-      const { data, error } = await supabase
+      const workflowKey = getCashReleaseWorkflowKey();
+
+      if (!workflowKey) return true;
+
+      // HARD GATE:
+      // Expense Release and Cash Advance Release must use their own workflow keys.
+      // Missing row or failed check defaults to approval-required so live money cannot bypass approval.
+      let query = supabase
         .from("approval_workflows")
-        .select("id, is_active")
-        .eq("workflow_key", "CASH_DRAWER_OUT")
+        .select("id, workflow_key, is_active, company_id")
+        .eq("workflow_key", workflowKey)
         .limit(1);
+
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.log("CASH RELEASE APPROVAL CONTROL CHECK ERROR:", error.message);
@@ -837,7 +853,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     if (cashReleaseNeedsApproval) {
       const requestType = isCashAdvanceCashOut
         ? "CASH_ADVANCE_RELEASE"
-        : "CASH_EXPENSE_RELEASE";
+        : "EXPENSE_RELEASE";
 
       const requestTitle = isCashAdvanceCashOut
         ? `Cash Advance Release - ${cashAdvanceEmployeeName || "Employee"}`
@@ -858,6 +874,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           ? `Cash Advance - ${cashAdvanceEmployeeName}`
           : expenseDescription.trim(),
         expense_released_to: isCashAdvanceCashOut ? cashAdvanceEmployeeName : expenseReleasedTo || null,
+        workflow_key: getCashReleaseWorkflowKey(),
         requested_by_user_id: actor.userId,
         requested_by_name: actor.userName,
         requested_at: new Date().toISOString(),
