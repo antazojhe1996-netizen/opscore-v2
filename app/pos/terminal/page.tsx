@@ -268,6 +268,13 @@ export default function POSTerminalPage() {
     PosTransactionItem[]
   >([]);
 
+  const [showSessionAuditModal, setShowSessionAuditModal] = useState(false);
+  const [sessionAuditLoading, setSessionAuditLoading] = useState(false);
+  const [sessionAuditMessage, setSessionAuditMessage] = useState("");
+  const [sessionAuditOrders, setSessionAuditOrders] = useState<PosTransactionOrder[]>([]);
+  const [sessionActualCash, setSessionActualCash] = useState("");
+  const [sessionVarianceReason, setSessionVarianceReason] = useState("");
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
@@ -2070,6 +2077,265 @@ export default function POSTerminalPage() {
     resetVoidState();
   };
 
+  const loadSessionAudit = async () => {
+    if (!activeSession) {
+      setSessionAuditMessage("No active cashier session.");
+      return;
+    }
+
+    setSessionAuditLoading(true);
+    setSessionAuditMessage("");
+
+    let query = supabase
+      .from("pos_orders")
+      .select(
+        `
+        id,
+        company_id,
+        session_id,
+        cashier_id,
+        order_tag,
+        order_number,
+        receipt_no,
+        order_type,
+        table_no,
+        subtotal,
+        service_charge,
+        total_amount,
+        payment_method,
+        payment_method_name,
+        payment_reference,
+        amount_paid,
+        change_amount,
+        payment_status,
+        status,
+        created_at
+      `,
+      )
+      .eq("session_id", activeSession.id)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (activeSession.company_id) {
+      query = query.eq("company_id", activeSession.company_id);
+    } else {
+      query = query.is("company_id", null);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      setSessionAuditOrders([]);
+      setSessionAuditMessage(error.message);
+      setSessionAuditLoading(false);
+      return;
+    }
+
+    const rows = (data || []) as PosTransactionOrder[];
+    setSessionAuditOrders(rows);
+    setSessionAuditMessage(rows.length === 0 ? "No POS transactions found for this session." : "");
+    setSessionAuditLoading(false);
+  };
+
+  const openSessionAuditModal = async () => {
+    setShowSessionAuditModal(true);
+    setSessionActualCash("");
+    setSessionVarianceReason("");
+    await loadSessionAudit();
+  };
+
+  const closeSessionAuditModal = () => {
+    setShowSessionAuditModal(false);
+    setSessionAuditMessage("");
+    setSessionAuditLoading(false);
+    setSessionActualCash("");
+    setSessionVarianceReason("");
+  };
+
+  const isActiveSalesOrder = (order: PosTransactionOrder) => {
+    const status = String(order.status || "").toUpperCase();
+    const paymentStatus = String(order.payment_status || "").toUpperCase();
+
+    return paymentStatus === "PAID" && !["VOIDED", "CANCELLED", "REFUNDED"].includes(status);
+  };
+
+  const getPaymentFamily = (order: PosTransactionOrder) => {
+    const paymentText = normalizeCode(`${order.payment_method || ""} ${order.payment_method_name || ""}`);
+
+    if (paymentText.includes("GCASH")) return "GCASH";
+    if (paymentText.includes("BANK")) return "BANK";
+    if (paymentText.includes("CARD") || paymentText.includes("TERMINAL")) return "TERMINAL";
+    if (paymentText.includes("ROOM")) return "ROOM";
+    if (paymentText.includes("CASH")) return "CASH";
+
+    return paymentText || "OTHER";
+  };
+
+  const sessionAuditSummary = useMemo(() => {
+    const activeSales = sessionAuditOrders.filter(isActiveSalesOrder);
+    const voidedOrders = sessionAuditOrders.filter((order) =>
+      ["VOIDED", "CANCELLED"].includes(String(order.status || "").toUpperCase()) ||
+      String(order.payment_status || "").toUpperCase() === "VOIDED",
+    );
+    const refundedOrders = sessionAuditOrders.filter((order) =>
+      String(order.status || "").toUpperCase() === "REFUNDED" ||
+      String(order.payment_status || "").toUpperCase() === "REFUNDED",
+    );
+    const unpaidOrders = sessionAuditOrders.filter((order) =>
+      String(order.payment_status || "").toUpperCase() === "UNPAID",
+    );
+
+    const sumOrders = (orders: PosTransactionOrder[]) =>
+      orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+
+    const paymentTotal = (family: string) =>
+      activeSales
+        .filter((order) => getPaymentFamily(order) === family)
+        .reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+
+    const cashSales = paymentTotal("CASH");
+    const gcashSales = paymentTotal("GCASH");
+    const bankSales = paymentTotal("BANK");
+    const terminalSales = paymentTotal("TERMINAL");
+    const roomChargeSales = paymentTotal("ROOM");
+    const otherSales = activeSales
+      .filter((order) => !["CASH", "GCASH", "BANK", "TERMINAL", "ROOM"].includes(getPaymentFamily(order)))
+      .reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+
+    const openingCash = Number(activeSession?.opening_cash || 0);
+    const grossSales = sumOrders(activeSales);
+    const voidAmount = sumOrders(voidedOrders);
+    const refundAmount = sumOrders(refundedOrders);
+    const unpaidAmount = sumOrders(unpaidOrders);
+    const expectedCash = openingCash + cashSales;
+    const actualCash = Number(sessionActualCash || 0);
+    const variance = sessionActualCash === "" ? 0 : actualCash - expectedCash;
+
+    return {
+      activeSalesCount: activeSales.length,
+      totalOrders: sessionAuditOrders.length,
+      grossSales,
+      cashSales,
+      gcashSales,
+      bankSales,
+      terminalSales,
+      roomChargeSales,
+      otherSales,
+      voidCount: voidedOrders.length,
+      voidAmount,
+      refundCount: refundedOrders.length,
+      refundAmount,
+      unpaidCount: unpaidOrders.length,
+      unpaidAmount,
+      openingCash,
+      expectedCash,
+      actualCash,
+      variance,
+    };
+  }, [sessionAuditOrders, activeSession?.opening_cash, sessionActualCash]);
+
+  const printSessionAuditSummary = () => {
+    if (typeof window === "undefined") return;
+
+    const escapeText = (value: string | number | null | undefined) =>
+      String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    const summary = sessionAuditSummary;
+    const printedAt = new Date().toLocaleString("en-PH", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>POS Session Audit</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: "Courier New", monospace; }
+            body { width: 80mm; }
+            .receipt { width: 72mm; margin: 0 auto; padding: 5mm 3mm; font-size: 11px; font-weight: 700; }
+            .center { text-align: center; }
+            .brand { font-size: 13px; font-weight: 900; }
+            .title { margin-top: 2px; font-size: 15px; font-weight: 900; }
+            .divider { margin: 7px 0; border-top: 1px dashed #000; }
+            .row { display: flex; justify-content: space-between; gap: 4mm; padding: 2px 0; }
+            .strong { font-size: 13px; font-weight: 900; }
+            .footer { margin-top: 8px; text-align: center; font-size: 9px; }
+          </style>
+        </head>
+        <body>
+          <main class="receipt">
+            <div class="center">
+              <div class="brand">VINCENT RESORT HOTEL</div>
+              <div class="title">POS SESSION AUDIT</div>
+            </div>
+            <div class="divider"></div>
+            <div class="row"><span>CASHIER</span><span>${escapeText(cashierName)}</span></div>
+            <div class="row"><span>PRINTED</span><span>${escapeText(printedAt)}</span></div>
+            <div class="divider"></div>
+            <div class="row"><span>ORDERS</span><span>${escapeText(summary.totalOrders)}</span></div>
+            <div class="row"><span>PAID SALES</span><span>${escapeText(summary.activeSalesCount)}</span></div>
+            <div class="row strong"><span>GROSS SALES</span><span>${escapeText(peso(summary.grossSales))}</span></div>
+            <div class="divider"></div>
+            <div class="row"><span>CASH SALES</span><span>${escapeText(peso(summary.cashSales))}</span></div>
+            <div class="row"><span>GCASH</span><span>${escapeText(peso(summary.gcashSales))}</span></div>
+            <div class="row"><span>BANK</span><span>${escapeText(peso(summary.bankSales))}</span></div>
+            <div class="row"><span>TERMINAL</span><span>${escapeText(peso(summary.terminalSales))}</span></div>
+            <div class="row"><span>ROOM/OTHER</span><span>${escapeText(peso(summary.roomChargeSales + summary.otherSales))}</span></div>
+            <div class="divider"></div>
+            <div class="row"><span>OPENING CASH</span><span>${escapeText(peso(summary.openingCash))}</span></div>
+            <div class="row strong"><span>EXPECTED CASH</span><span>${escapeText(peso(summary.expectedCash))}</span></div>
+            <div class="row"><span>ACTUAL CASH</span><span>${escapeText(sessionActualCash === "" ? "-" : peso(summary.actualCash))}</span></div>
+            <div class="row"><span>VARIANCE</span><span>${escapeText(sessionActualCash === "" ? "-" : peso(summary.variance))}</span></div>
+            ${sessionVarianceReason.trim() ? `<div class="divider"></div><div>VARIANCE REASON:</div><div>${escapeText(sessionVarianceReason.trim())}</div>` : ""}
+            <div class="divider"></div>
+            <div class="row"><span>VOIDS</span><span>${escapeText(summary.voidCount)} / ${escapeText(peso(summary.voidAmount))}</span></div>
+            <div class="row"><span>REFUNDS</span><span>${escapeText(summary.refundCount)} / ${escapeText(peso(summary.refundAmount))}</span></div>
+            <div class="row"><span>UNPAID</span><span>${escapeText(summary.unpaidCount)} / ${escapeText(peso(summary.unpaidAmount))}</span></div>
+            <div class="divider"></div>
+            <div class="footer">PRINTED FROM OPSCORE POS</div>
+          </main>
+          <script>window.onload = function () { window.focus(); window.print(); };</script>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDocument) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    iframeDocument.open();
+    iframeDocument.write(html);
+    iframeDocument.close();
+
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1800);
+  };
+
   const quickCashPayment = () => {
     setOrderMessage("");
 
@@ -2555,7 +2821,7 @@ export default function POSTerminalPage() {
                 )}
               </div>
 
-              <div className="mt-1 grid grid-cols-6 gap-1.5">
+              <div className="mt-1 grid grid-cols-7 gap-1.5">
                 <button
                   onClick={quickCashPayment}
                   disabled={cart.length === 0 || orderLoading}
@@ -2598,6 +2864,15 @@ export default function POSTerminalPage() {
                 >
                   <ReceiptText size={15} />
                   Transactions
+                </button>
+
+                <button
+                  onClick={openSessionAuditModal}
+                  disabled={orderLoading}
+                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-violet-400/35 bg-violet-500/10 text-[13px] font-black text-violet-200 transition hover:border-violet-300/60 hover:bg-violet-500/20 active:scale-[0.98] disabled:opacity-40"
+                >
+                  <Banknote size={15} />
+                  Session Audit
                 </button>
 
                 <button
@@ -2764,6 +3039,240 @@ export default function POSTerminalPage() {
             </aside>
           </section>
         </main>
+
+        {showSessionAuditModal && (
+          <div className="fixed inset-0 z-[10053] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="grid max-h-[90vh] w-full max-w-6xl grid-cols-[minmax(0,1fr)_360px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
+              <section className="flex min-h-0 flex-col border-r border-white/10 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-300">
+                      POS Session Audit
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black text-white">
+                      Remittance Summary
+                    </h2>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+                      Use this before remittance to verify sales by payment method, voids, refunds, and expected cash.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={closeSessionAuditModal}
+                    disabled={sessionAuditLoading}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {sessionAuditMessage && (
+                  <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                    {sessionAuditMessage}
+                  </div>
+                )}
+
+                <div className="mt-5 grid grid-cols-4 gap-3">
+                  <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Gross Sales
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-[#f5c400]">
+                      {peso(sessionAuditSummary.grossSales)}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                      {sessionAuditSummary.activeSalesCount} paid sale(s)
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Cash Sales
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-emerald-200">
+                      {peso(sessionAuditSummary.cashSales)}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                      Cash only
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Online / Terminal
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-sky-200">
+                      {peso(sessionAuditSummary.gcashSales + sessionAuditSummary.bankSales + sessionAuditSummary.terminalSales)}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                      GCash / Bank / Card
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Expected Cash
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {peso(sessionAuditSummary.expectedCash)}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                      Opening + cash sales
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                      Payment Breakdown
+                    </p>
+                    <div className="mt-3 space-y-2 text-sm font-bold">
+                      <div className="flex justify-between"><span className="text-slate-400">Cash</span><span className="text-white">{peso(sessionAuditSummary.cashSales)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">GCash</span><span className="text-white">{peso(sessionAuditSummary.gcashSales)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Bank</span><span className="text-white">{peso(sessionAuditSummary.bankSales)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Terminal / Card</span><span className="text-white">{peso(sessionAuditSummary.terminalSales)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Room / Other</span><span className="text-white">{peso(sessionAuditSummary.roomChargeSales + sessionAuditSummary.otherSales)}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                      Exceptions
+                    </p>
+                    <div className="mt-3 space-y-2 text-sm font-bold">
+                      <div className="flex justify-between"><span className="text-slate-400">Void Transactions</span><span className="text-red-200">{sessionAuditSummary.voidCount} / {peso(sessionAuditSummary.voidAmount)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Refunds</span><span className="text-orange-200">{sessionAuditSummary.refundCount} / {peso(sessionAuditSummary.refundAmount)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Unpaid / Parked</span><span className="text-amber-200">{sessionAuditSummary.unpaidCount} / {peso(sessionAuditSummary.unpaidAmount)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Total Orders</span><span className="text-white">{sessionAuditSummary.totalOrders}</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                      Session Transactions
+                    </p>
+                    <button
+                      onClick={loadSessionAudit}
+                      disabled={sessionAuditLoading}
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                    >
+                      {sessionAuditLoading ? "Refreshing" : "Refresh"}
+                    </button>
+                  </div>
+
+                  <div className="max-h-[28vh] overflow-y-auto divide-y divide-white/10">
+                    {sessionAuditOrders.length === 0 ? (
+                      <div className="px-4 py-10 text-center text-sm font-bold text-slate-500">
+                        No session transactions found.
+                      </div>
+                    ) : (
+                      sessionAuditOrders.slice(0, 80).map((order) => (
+                        <div key={order.id} className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 text-sm">
+                          <div className="min-w-0">
+                            <p className="truncate font-black text-white">{getTransactionReference(order)}</p>
+                            <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                              {formatPosDateTime(order.created_at)} • {order.payment_method_name || order.payment_method || "-"}
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
+                            {order.status || order.payment_status || "-"}
+                          </span>
+                          <p className="text-right font-black text-slate-100">{peso(Number(order.total_amount || 0))}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="flex min-h-0 flex-col p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  Cash Count
+                </p>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="flex items-center justify-between text-sm font-bold text-slate-400">
+                    <span>Opening Cash</span>
+                    <span className="text-white">{peso(sessionAuditSummary.openingCash)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-sm font-bold text-slate-400">
+                    <span>Cash Sales</span>
+                    <span className="text-white">{peso(sessionAuditSummary.cashSales)}</span>
+                  </div>
+                  <div className="mt-3 border-t border-dashed border-white/15 pt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase text-white">Expected Cash</span>
+                      <span className="text-xl font-black text-[#f5c400]">{peso(sessionAuditSummary.expectedCash)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <label className="mt-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  Actual Cash Count
+                </label>
+                <input
+                  type="number"
+                  value={sessionActualCash}
+                  onChange={(event) => setSessionActualCash(event.target.value)}
+                  placeholder="Enter counted cash"
+                  className="mt-2 h-13 min-h-[52px] rounded-xl border border-white/10 bg-[#05080d] px-4 text-xl font-black text-white outline-none placeholder:text-slate-700 focus:border-violet-300/50"
+                />
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Variance
+                  </p>
+                  <p className={`mt-2 text-3xl font-black ${sessionActualCash === "" ? "text-slate-500" : Math.abs(sessionAuditSummary.variance) < 0.01 ? "text-emerald-200" : "text-red-200"}`}>
+                    {sessionActualCash === "" ? "-" : peso(sessionAuditSummary.variance)}
+                  </p>
+                </div>
+
+                {sessionActualCash !== "" && Math.abs(sessionAuditSummary.variance) >= 0.01 && (
+                  <div className="mt-4">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300">
+                      Variance Reason
+                    </label>
+                    <textarea
+                      value={sessionVarianceReason}
+                      onChange={(event) => setSessionVarianceReason(event.target.value)}
+                      placeholder="Required if cash count has variance..."
+                      className="mt-2 min-h-[130px] w-full rounded-xl border border-red-400/30 bg-[#05080d] p-4 text-sm font-semibold text-white outline-none placeholder:text-slate-700 focus:border-red-300/60"
+                    />
+                  </div>
+                )}
+
+                <div className="mt-auto space-y-2 pt-5">
+                  <button
+                    onClick={printSessionAuditSummary}
+                    disabled={sessionAuditLoading || (sessionActualCash !== "" && Math.abs(sessionAuditSummary.variance) >= 0.01 && !sessionVarianceReason.trim())}
+                    className="h-13 min-h-[52px] w-full rounded-xl bg-violet-500 text-sm font-black uppercase text-white transition hover:bg-violet-400 disabled:bg-violet-500/40 disabled:text-white/50"
+                  >
+                    Print Session Summary
+                  </button>
+
+                  <button
+                    onClick={openTransactionsModal}
+                    disabled={sessionAuditLoading}
+                    className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-sm font-black uppercase text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    View Transactions
+                  </button>
+
+                  <button
+                    onClick={closeSessionAuditModal}
+                    disabled={sessionAuditLoading}
+                    className="h-11 w-full rounded-xl border border-white/10 bg-transparent text-sm font-black uppercase text-slate-400 transition hover:bg-white/5 disabled:opacity-40"
+                  >
+                    Close
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        )}
 
         {showTransactionsModal && (
           <div className="fixed inset-0 z-[10053] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
