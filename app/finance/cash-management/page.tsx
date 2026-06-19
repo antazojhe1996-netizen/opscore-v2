@@ -266,8 +266,6 @@ export default function CashManagementPage() {
   const cashManagementLocked = drawerMismatchLocked || isSaving;
 
   const cashApprovalRequestTypes = [
-    "CASH_DRAWER_OUT",
-    "CASH_EXPENSE_RELEASE",
     "EXPENSE_RELEASE",
     "CASH_ADVANCE_RELEASE",
     "OWNER_WITHDRAWAL",
@@ -823,37 +821,52 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
       if (!workflowKey) return true;
 
-      // HARD GATE:
-      // Expense Release and Cash Advance Release must use their own workflow keys.
-      // Missing row or failed check defaults to approval-required so live money cannot bypass approval.
-      let query = supabase
-        .from("approval_workflows")
-        .select("id, workflow_key, is_active, company_id")
-        .eq("workflow_key", workflowKey)
-        .limit(1);
+      // HARD GATE STANDARD:
+      // Only EXPENSE_RELEASE and CASH_ADVANCE_RELEASE are valid cash-release workflow keys.
+      // If workflow lookup fails or is missing, default to approval-required so live money cannot bypass approval.
+      const runLookup = async (withCompany: boolean) => {
+        let query = supabase
+          .from("approval_workflows")
+          .select("id, workflow_key, is_active, company_id")
+          .eq("workflow_key", workflowKey)
+          .limit(5);
 
-      if (companyId) {
-        query = query.eq("company_id", companyId);
-      }
+        if (withCompany && companyId) {
+          query = query.eq("company_id", companyId);
+        }
 
-      const { data, error } = await query;
+        return await query;
+      };
 
-      if (error) {
-        console.log("CASH RELEASE APPROVAL CONTROL CHECK ERROR:", error.message);
+      const primary = await runLookup(Boolean(companyId));
+
+      if (primary.error) {
+        console.log("CASH RELEASE APPROVAL CONTROL CHECK ERROR:", primary.error.message);
         return true;
       }
 
-      if (!data || data.length === 0) return true;
+      let rows = primary.data || [];
 
-      return data.some((row: any) => row.is_active !== false);
+      if (rows.length === 0 && companyId) {
+        const fallback = await runLookup(false);
+
+        if (fallback.error) {
+          console.log("CASH RELEASE APPROVAL CONTROL FALLBACK ERROR:", fallback.error.message);
+          return true;
+        }
+
+        rows = fallback.data || [];
+      }
+
+      if (rows.length === 0) return true;
+
+      return rows.some((row: any) => row.is_active !== false);
     };
 
     const cashReleaseNeedsApproval = await shouldSendCashReleaseToApproval();
 
     if (cashReleaseNeedsApproval) {
-      const requestType = isCashAdvanceCashOut
-        ? "CASH_ADVANCE_RELEASE"
-        : "EXPENSE_RELEASE";
+      const requestType = getCashReleaseWorkflowKey();
 
       const requestTitle = isCashAdvanceCashOut
         ? `Cash Advance Release - ${cashAdvanceEmployeeName || "Employee"}`
@@ -908,7 +921,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         userName: autoEncoded,
         module: "Cash Management",
         action: "Cash Release Sent for Approval",
-        description: `${source} approval request created - ${formatMoney(amountValue)}`,
+        description: `${source} ${getCashReleaseWorkflowKey()} approval request created - ${formatMoney(amountValue)}`,
         severity: "warning",
         recordId: approvalData.id,
         newValue: { approvalRequest: approvalData, payload: requestPayload },
@@ -918,7 +931,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       savingRef.current = false;
       resetForm();
       await refreshCashManagement();
-      alert("Cash release sent to Approval Center. No cash movement was posted yet.");
+      alert(`${requestType} sent to Approval Center. No cash movement was posted yet.`);
       return;
     }
 
