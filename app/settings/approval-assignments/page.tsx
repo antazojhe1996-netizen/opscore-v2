@@ -31,6 +31,38 @@ const normalizeScope = (value: any) =>
     .trim()
     .replace(/\s+/g, " ");
 
+const safeParseDepartmentScopes = (assignment: any): string[] => {
+  const rawJson = assignment?.department_scopes;
+
+  if (Array.isArray(rawJson)) {
+    return rawJson.map(normalizeScope).filter(Boolean);
+  }
+
+  if (typeof rawJson === "string" && rawJson.trim()) {
+    try {
+      const parsed = JSON.parse(rawJson);
+
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeScope).filter(Boolean);
+      }
+    } catch (error) {
+      return rawJson
+        .split(",")
+        .map(normalizeScope)
+        .filter(Boolean);
+    }
+  }
+
+  const legacyScope = normalizeScope(assignment?.department_scope);
+
+  return legacyScope ? [legacyScope] : [];
+};
+
+const uniqueScopes = (values: string[]) =>
+  Array.from(new Set(values.map(normalizeScope).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
 export default function ApprovalAssignmentsPage() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -52,7 +84,6 @@ export default function ApprovalAssignmentsPage() {
       .from("approval_assignments")
       .select("*")
       .order("approval_role", { ascending: true })
-      .order("department_scope", { ascending: true })
       .order("is_default", { ascending: false })
       .order("assignment_type", { ascending: true })
       .order("created_at", { ascending: true });
@@ -82,13 +113,19 @@ export default function ApprovalAssignmentsPage() {
     }
 
     if (employeeError) {
-      console.log("GET EMPLOYEES FOR APPROVAL ASSIGNMENTS ERROR:", employeeError.message);
+      console.log(
+        "GET EMPLOYEES FOR APPROVAL ASSIGNMENTS ERROR:",
+        employeeError.message,
+      );
       alert("Failed to load employees.");
       return;
     }
 
     if (workflowError) {
-      console.log("GET APPROVAL WORKFLOWS FOR ASSIGNMENTS ERROR:", workflowError.message);
+      console.log(
+        "GET APPROVAL WORKFLOWS FOR ASSIGNMENTS ERROR:",
+        workflowError.message,
+      );
       setApprovalWorkflows([]);
     } else {
       setApprovalWorkflows(workflowData || []);
@@ -103,7 +140,8 @@ export default function ApprovalAssignmentsPage() {
 
     const existingActiveForRole = assignments.filter(
       (assignment) =>
-        assignment.approval_role === approvalRole && assignment.is_active !== false,
+        assignment.approval_role === approvalRole &&
+        assignment.is_active !== false,
     );
 
     const assignmentType =
@@ -118,6 +156,7 @@ export default function ApprovalAssignmentsPage() {
         employee_id: null,
         assignment_type: assignmentType,
         department_scope: "",
+        department_scopes: [],
         is_default: existingActiveForRole.length === 0,
         is_active: true,
       })
@@ -148,6 +187,8 @@ export default function ApprovalAssignmentsPage() {
   const updateAssignmentEmployee = async (assignment: any, employeeId: string) => {
     if (isSaving) return;
 
+    const currentScopes = safeParseDepartmentScopes(assignment);
+
     const duplicate = assignments.find((item) => {
       if (item.id === assignment.id) return false;
       if (item.is_active === false) return false;
@@ -155,17 +196,19 @@ export default function ApprovalAssignmentsPage() {
       if (String(item.employee_id || "") !== String(employeeId || "")) return false;
       if (!employeeId) return false;
 
-      const sameScope =
-        normalizeText(item.department_scope) === normalizeText(assignment.department_scope);
+      const itemScopes = safeParseDepartmentScopes(item);
+      const sameScopes =
+        JSON.stringify(uniqueScopes(itemScopes)) ===
+        JSON.stringify(uniqueScopes(currentScopes));
 
       const sameDefault =
         Boolean(item.is_default) === Boolean(assignment.is_default);
 
-      return sameScope && sameDefault;
+      return sameScopes && sameDefault;
     });
 
     if (duplicate) {
-      alert("This employee is already assigned to this role and department/default scope.");
+      alert("This employee is already assigned to this role and same department/default scope.");
       return;
     }
 
@@ -253,18 +296,20 @@ export default function ApprovalAssignmentsPage() {
     });
   };
 
-  const updateDepartmentScope = async (assignment: any, departmentScope: string) => {
+  const updateDepartmentScopes = async (assignment: any, nextScopes: string[]) => {
     if (isSaving) return;
 
-    const cleanScope = normalizeScope(departmentScope);
+    const cleanScopes = uniqueScopes(nextScopes);
+    const legacyScope = cleanScopes.length === 1 ? cleanScopes[0] : "";
 
     setIsSaving(true);
 
     const { data, error } = await supabase
       .from("approval_assignments")
       .update({
-        department_scope: cleanScope,
-        is_default: cleanScope ? false : Boolean(assignment.is_default),
+        department_scopes: cleanScopes,
+        department_scope: legacyScope,
+        is_default: cleanScopes.length > 0 ? false : Boolean(assignment.is_default),
       })
       .eq("id", assignment.id)
       .select()
@@ -273,8 +318,8 @@ export default function ApprovalAssignmentsPage() {
     setIsSaving(false);
 
     if (error) {
-      console.log("UPDATE DEPARTMENT SCOPE ERROR:", error.message);
-      alert("Failed to update department scope.");
+      console.log("UPDATE DEPARTMENT SCOPES ERROR:", error.message);
+      alert("Failed to update department scopes.");
       return;
     }
 
@@ -285,13 +330,34 @@ export default function ApprovalAssignmentsPage() {
     await createAuditLog({
       userName: "OPSCORE USER",
       module: "Approval Assignments",
-      action: "Update Department Scope",
-      description: `${assignment.approval_role} scope changed to ${cleanScope || "All / Default"}.`,
+      action: "Update Department Scopes",
+      description: `${assignment.approval_role} scopes changed to ${
+        cleanScopes.length > 0 ? cleanScopes.join(", ") : "All / No scope"
+      }.`,
       severity: "warning",
       recordId: assignment.id,
       oldValue: assignment,
       newValue: data,
     });
+  };
+
+  const toggleDepartmentScope = async (assignment: any, department: string) => {
+    const scopes = safeParseDepartmentScopes(assignment);
+    const normalizedDepartment = normalizeScope(department);
+
+    const nextScopes = scopes.some(
+      (scope) => normalizeText(scope) === normalizeText(normalizedDepartment),
+    )
+      ? scopes.filter(
+          (scope) => normalizeText(scope) !== normalizeText(normalizedDepartment),
+        )
+      : [...scopes, normalizedDepartment];
+
+    await updateDepartmentScopes(assignment, nextScopes);
+  };
+
+  const clearDepartmentScopes = async (assignment: any) => {
+    await updateDepartmentScopes(assignment, []);
   };
 
   const toggleDefaultApprover = async (assignment: any) => {
@@ -306,6 +372,9 @@ export default function ApprovalAssignmentsPage() {
       .update({
         is_default: nextDefault,
         department_scope: nextDefault ? "" : assignment.department_scope || "",
+        department_scopes: nextDefault
+          ? []
+          : safeParseDepartmentScopes(assignment),
       })
       .eq("id", assignment.id)
       .select()
@@ -459,7 +528,7 @@ export default function ApprovalAssignmentsPage() {
           const employeeName = assignedEmployee
             ? getEmployeeName(assignedEmployee)
             : "";
-          const scope = String(assignment.department_scope || "");
+          const scopes = safeParseDepartmentScopes(assignment).join(" ");
           const defaultText = assignment.is_default ? "default approver fallback" : "";
 
           const matchesRole = String(assignment.approval_role || "") === role;
@@ -467,7 +536,7 @@ export default function ApprovalAssignmentsPage() {
             !search ||
             role.toLowerCase().includes(search) ||
             employeeName.toLowerCase().includes(search) ||
-            scope.toLowerCase().includes(search) ||
+            scopes.toLowerCase().includes(search) ||
             defaultText.includes(search) ||
             String(assignedEmployee?.department || "")
               .toLowerCase()
@@ -502,7 +571,7 @@ export default function ApprovalAssignmentsPage() {
     (item) =>
       item.is_active !== false &&
       item.employee_id &&
-      String(item.department_scope || "").trim(),
+      safeParseDepartmentScopes(item).length > 0,
   ).length;
 
   const defaultApproverCount = assignments.filter(
@@ -531,9 +600,9 @@ export default function ApprovalAssignmentsPage() {
                     Approval Assignments
                   </h1>
                   <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
-                    Assign role approvers with optional department scope. Leave
-                    and OT can route to the department manager first, then fall
-                    back to a default approver when no department match exists.
+                    Assign role approvers with multiple department scopes. Leave
+                    and OT can route to managers handling several departments,
+                    then fall back to a default approver when no match exists.
                   </p>
                 </div>
 
@@ -559,7 +628,7 @@ export default function ApprovalAssignmentsPage() {
                 icon={<Users className="h-5 w-5 text-blue-700" />}
               />
               <SummaryCard
-                title="Department Scoped"
+                title="Scoped Approvers"
                 value={departmentScopedCount}
                 icon={<UserCheck className="h-5 w-5 text-emerald-600" />}
               />
@@ -581,8 +650,8 @@ export default function ApprovalAssignmentsPage() {
                       Role Approvers by Department
                     </h2>
                     <p className="mt-1 max-w-4xl text-sm font-medium leading-6 text-slate-500">
-                      Department scope is optional. Use Default for fallback
-                      approvers when no department-specific approver is found.
+                      Select multiple departments per approver. Default approvers
+                      cannot have department scopes and are used only as fallback.
                     </p>
                   </div>
 
@@ -689,11 +758,11 @@ export default function ApprovalAssignmentsPage() {
                           </div>
 
                           <div className="overflow-auto">
-                            <table className="w-full min-w-[1180px]">
+                            <table className="w-full min-w-[1380px]">
                               <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                                 <tr>
                                   <th className="px-6 py-4">Approver Type</th>
-                                  <th className="px-6 py-4">Department Scope</th>
+                                  <th className="px-6 py-4">Department Scopes</th>
                                   <th className="px-6 py-4">Default</th>
                                   <th className="px-6 py-4">Assigned Employee</th>
                                   <th className="px-6 py-4">Employee Dept.</th>
@@ -722,13 +791,14 @@ export default function ApprovalAssignmentsPage() {
                                     const assignedEmployee = getAssignedEmployee(
                                       assignment.employee_id,
                                     );
+                                    const scopes = safeParseDepartmentScopes(assignment);
 
                                     return (
                                       <tr
                                         key={assignment.id}
                                         className="transition-all duration-200 hover:bg-slate-50"
                                       >
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 align-top">
                                           <select
                                             value={assignment.assignment_type || "BACKUP"}
                                             disabled={
@@ -751,32 +821,101 @@ export default function ApprovalAssignmentsPage() {
                                           </select>
                                         </td>
 
-                                        <td className="px-6 py-4">
-                                          <select
-                                            value={assignment.department_scope || ""}
-                                            disabled={
-                                              isSaving ||
-                                              assignment.is_active === false ||
-                                              Boolean(assignment.is_default)
-                                            }
-                                            onChange={(event) =>
-                                              updateDepartmentScope(
-                                                assignment,
-                                                event.target.value,
-                                              )
-                                            }
-                                            className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            <option value="">All / No scope</option>
-                                            {departmentOptions.map((department) => (
-                                              <option key={department} value={department}>
-                                                {department}
-                                              </option>
-                                            ))}
-                                          </select>
+                                        <td className="px-6 py-4 align-top">
+                                          <div className="w-[360px] rounded-2xl border border-slate-200 bg-white p-3">
+                                            <div className="mb-3 flex items-center justify-between gap-3">
+                                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                                {scopes.length} selected
+                                              </p>
+
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  clearDepartmentScopes(assignment)
+                                                }
+                                                disabled={
+                                                  isSaving ||
+                                                  assignment.is_active === false ||
+                                                  Boolean(assignment.is_default) ||
+                                                  scopes.length === 0
+                                                }
+                                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                              >
+                                                Clear
+                                              </button>
+                                            </div>
+
+                                            {assignment.is_default ? (
+                                              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-700">
+                                                Default fallback approver. Department scopes are disabled.
+                                              </div>
+                                            ) : departmentOptions.length === 0 ? (
+                                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-500">
+                                                No employee departments found.
+                                              </div>
+                                            ) : (
+                                              <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                                                {departmentOptions.map((department) => {
+                                                  const checked = scopes.some(
+                                                    (scope) =>
+                                                      normalizeText(scope) ===
+                                                      normalizeText(department),
+                                                  );
+
+                                                  return (
+                                                    <label
+                                                      key={department}
+                                                      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                                                        checked
+                                                          ? "border-blue-200 bg-blue-50 text-blue-700"
+                                                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                                      } ${
+                                                        isSaving ||
+                                                        assignment.is_active === false
+                                                          ? "cursor-not-allowed opacity-50"
+                                                          : ""
+                                                      }`}
+                                                    >
+                                                      <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        disabled={
+                                                          isSaving ||
+                                                          assignment.is_active === false
+                                                        }
+                                                        onChange={() =>
+                                                          toggleDepartmentScope(
+                                                            assignment,
+                                                            department,
+                                                          )
+                                                        }
+                                                        className="h-4 w-4 rounded border-slate-300"
+                                                      />
+                                                      <span className="truncate">
+                                                        {department}
+                                                      </span>
+                                                    </label>
+                                                  );
+                                                })}
+                                              </div>
+                                            )}
+
+                                            {scopes.length > 0 && (
+                                              <div className="mt-3 flex flex-wrap gap-2">
+                                                {scopes.map((scope) => (
+                                                  <span
+                                                    key={scope}
+                                                    className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700"
+                                                  >
+                                                    {scope}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
                                         </td>
 
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 align-top">
                                           <button
                                             onClick={() =>
                                               toggleDefaultApprover(assignment)
@@ -796,7 +935,7 @@ export default function ApprovalAssignmentsPage() {
                                           </button>
                                         </td>
 
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 align-top">
                                           <select
                                             value={assignment.employee_id || ""}
                                             disabled={
@@ -825,15 +964,15 @@ export default function ApprovalAssignmentsPage() {
                                           </select>
                                         </td>
 
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 align-top">
                                           {assignedEmployee?.department || "-"}
                                         </td>
 
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 align-top">
                                           {assignedEmployee?.position || "-"}
                                         </td>
 
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 align-top">
                                           {assignment.employee_id ? (
                                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                                               Assigned
@@ -845,7 +984,7 @@ export default function ApprovalAssignmentsPage() {
                                           )}
                                         </td>
 
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 align-top">
                                           <button
                                             onClick={() =>
                                               toggleAssignmentStatus(assignment)
@@ -863,7 +1002,7 @@ export default function ApprovalAssignmentsPage() {
                                           </button>
                                         </td>
 
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-6 py-4 text-right align-top">
                                           <button
                                             onClick={() =>
                                               removeAssignment(assignment)
@@ -898,12 +1037,13 @@ export default function ApprovalAssignmentsPage() {
                     Department Routing Rule
                   </p>
                   <h3 className="mt-1 text-xl font-black text-slate-950">
-                    Department Match First, Default Fallback Second
+                    Multi Department Match First, Default Fallback Second
                   </h3>
                   <p className="mt-2 max-w-4xl text-sm font-bold leading-6 text-blue-700">
-                    Leave and OT should route to an active approver with matching
-                    department scope. If no department match exists, use the
-                    active default approver for the same approval role.
+                    Leave and OT should route to an active approver where the
+                    employee department is included in department_scopes. If no
+                    department match exists, use the active default approver for
+                    the same approval role.
                   </p>
                 </div>
               </div>
