@@ -500,9 +500,9 @@ export default function CashManagementPage() {
     if (!activeDrawer) return [];
     return movements.filter(
       (item) =>
-        String(item.cash_drawer_id || "") === String(activeDrawer.id || "") &&
+        isCurrentDrawerMovement(item) &&
         !isVoidedMovement(item) &&
-        String(item.payment_type || "Cash") === "Cash",
+        normalizeName(item.payment_type || "Cash") === "cash",
     );
   }, [movements, activeDrawer?.id]);
 
@@ -545,12 +545,14 @@ export default function CashManagementPage() {
   const currentDrawerNonCashMovements = useMemo(() => {
     if (!activeDrawer) return [];
 
-    return movements.filter(
-      (item) =>
-        String(item.cash_drawer_id || "") === String(activeDrawer.id || "") &&
+    return movements.filter((item) => {
+      const normalizedPayment = normalizeName(item.payment_type || "Cash");
+      return (
+        isCurrentDrawerMovement(item) &&
         !isVoidedMovement(item) &&
-        ["GCash", "Bank", "Terminal"].includes(String(item.payment_type || "Cash")),
-    );
+        ["gcash", "bank", "terminal"].includes(normalizedPayment)
+      );
+    });
   }, [movements, activeDrawer?.id]);
 
   const gcashTotal = currentDrawerNonCashMovements
@@ -584,11 +586,15 @@ export default function CashManagementPage() {
     (item) => item.business_date === today,
   ).length;
 
-  const cashInTodayTotal = currentDrawerMovements
+  // CASH KPI STANDARD:
+  // These top-card totals must follow the same basis as Cash on Hand:
+  // current active drawer + ACTIVE rows only + payment_type = Cash.
+  // GCash / Bank / Terminal are shown separately in Online Banking.
+  const cashInTodayTotal = cashOnlyMovements
     .filter((item) => item.business_date === today && item.movement_type === "Cash In")
     .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
-  const cashOutTodayTotal = currentDrawerMovements
+  const cashOutTodayTotal = cashOnlyMovements
     .filter((item) => item.business_date === today && item.movement_type === "Cash Out")
     .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
@@ -2690,8 +2696,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           <section className="mb-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
               <CompactStat label="Cash on Hand" value={formatMoney(cashOnHand)} caption="Current drawer cash" />
-              <CompactStat label="Cash In Today" value={formatMoney(cashInTodayTotal)} caption="Money received today" tone="success" />
-              <CompactStat label="Cash Out Today" value={formatMoney(cashOutTodayTotal)} caption="Money released today" tone={cashOutTodayTotal > 0 ? "warning" : "neutral"} />
+              <CompactStat label="Cash In Today" value={formatMoney(cashInTodayTotal)} caption="Cash received today" tone="success" />
+              <CompactStat label="Cash Out Today" value={formatMoney(cashOutTodayTotal)} caption="Cash released today" tone={cashOutTodayTotal > 0 ? "warning" : "neutral"} />
               <CompactStat label="Online Banking" value={formatMoney(onlineBankingTotal)} caption={`GCash ${formatMoney(gcashTotal)} · Bank ${formatMoney(bankTotal)} · Terminal ${formatMoney(terminalTotal)}`} tone="info" />
               <CompactStat label="Pending Approvals" value={pendingCashApprovalCount} caption="Cash-related only" tone={pendingCashApprovalCount > 0 ? "warning" : "neutral"} />
             </div>
