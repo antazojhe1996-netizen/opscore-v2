@@ -157,6 +157,8 @@ export default function CashManagementPage() {
   const [closingGcashTurnoverAmount, setClosingGcashTurnoverAmount] = useState("");
   const [closingTurnoverTo, setClosingTurnoverTo] = useState("");
   const [closingRemittanceRemarks, setClosingRemittanceRemarks] = useState("");
+  const [actualClosingGcash, setActualClosingGcash] = useState("");
+  const [drawerOverrideReason, setDrawerOverrideReason] = useState("");
 
   const [sourceName, setSourceName] = useState("");
   const [sourceMovementType, setSourceMovementType] = useState("Cash In");
@@ -167,6 +169,7 @@ export default function CashManagementPage() {
   const [currentEmployeeId, setCurrentEmployeeId] = useState("");
   const [currentCompanyId, setCurrentCompanyId] = useState("");
   const [currentRoleName, setCurrentRoleName] = useState("");
+  const [currentLoginIdentifier, setCurrentLoginIdentifier] = useState("");
 
   const movementTypes = ["Cash In", "Cash Out"];
 
@@ -317,21 +320,31 @@ export default function CashManagementPage() {
 
   const normalizedCurrentRole = normalizeName(currentRoleText).replace(/[_-]+/g, " ");
   const compactCurrentRole = normalizedCurrentRole.replace(/\s+/g, "");
+  const currentIdentityText = normalizeName(
+    [
+      currentActorName,
+      currentRoleText,
+      currentLoginIdentifier,
+    ].join(" "),
+  );
+
   const canOverrideDrawerLock =
     compactCurrentRole.includes("superadmin") ||
     normalizedCurrentRole.includes("super admin") ||
     normalizedCurrentRole === "admin" ||
     normalizedCurrentRole.includes("operations manager") ||
     normalizedCurrentRole.includes("operation manager") ||
-    normalizedCurrentRole.includes("owner");
+    normalizedCurrentRole.includes("owner") ||
+    currentIdentityText.includes("superadmin") ||
+    currentIdentityText.includes("@opscore.com");
 
   const hasActiveDrawer = Boolean(activeDrawer?.id);
   const isCurrentUserDrawerHolder =
     !hasActiveDrawer ||
-    canOverrideDrawerLock ||
     (normalizeName(activeDrawerHolderName) !== "" &&
       normalizeName(activeDrawerHolderName) === normalizeName(currentActorName));
   const drawerMismatchLocked = hasActiveDrawer && !isCurrentUserDrawerHolder;
+  const canCloseActiveDrawer = !drawerMismatchLocked || canOverrideDrawerLock;
   const cashManagementLocked = drawerMismatchLocked || isSaving;
 
   const cashApprovalRequestTypes = [
@@ -569,6 +582,16 @@ export default function CashManagementPage() {
 
   const onlineBankingTotal = gcashTotal + bankTotal + terminalTotal;
 
+  const actualClosingCashValue = actualClosingCash === "" ? NaN : parseAmountValue(actualClosingCash);
+  const closingCashVariance = Number.isFinite(actualClosingCashValue)
+    ? actualClosingCashValue - cashOnHand
+    : 0;
+  const hasClosingCashVariance = Number.isFinite(actualClosingCashValue)
+    ? Math.abs(closingCashVariance) > 0.009
+    : false;
+  const closeDrawerRequiresOverrideReason =
+    drawerMismatchLocked || hasClosingCashVariance || gcashTotal < 0;
+
   const pendingCashApprovalCount = approvalRequests.filter(
     (request) =>
       cashApprovalRequestTypes.includes(String(request?.request_type || "").trim().toUpperCase()) &&
@@ -700,6 +723,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   activeDrawerHolderName,
   currentActorName,
   currentRoleName,
+  currentLoginIdentifier,
 ]);
 
   const getCurrentCompanyId = async () => {
@@ -711,7 +735,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     return String(data?.id || "");
   };
 
-  const loadIdentity = () => {
+  const loadIdentity = async () => {
     if (typeof window === "undefined") return;
 
     const storedCurrentUser = localStorage.getItem("opscore_current_user");
@@ -725,17 +749,57 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       }
     }
 
-    const employeeName =
-      localStorage.getItem("opscore_current_employee_name") ||
-      parsedCurrentUser?.employee_name ||
-      parsedCurrentUser?.name ||
-      parsedCurrentUser?.username ||
-      "OPSCORE USER";
-
-    const roleName =
+    const localRoleName =
       localStorage.getItem("opscore_current_role_name") ||
       localStorage.getItem("opscore_current_role") ||
       localStorage.getItem("opscore_current_role_key") ||
+      "";
+
+    const userRecordId =
+      parsedCurrentUser?.system_user_id ||
+      parsedCurrentUser?.id ||
+      localStorage.getItem("opscore_current_system_user_id") ||
+      "";
+
+    const sessionUsername =
+      localStorage.getItem("opscore_current_username") ||
+      parsedCurrentUser?.username ||
+      parsedCurrentUser?.email ||
+      parsedCurrentUser?.user_email ||
+      parsedCurrentUser?.name ||
+      "";
+
+    let dbUsername = "";
+    let dbEmployeeId = "";
+
+    if (userRecordId) {
+      const { data: systemUserData, error: systemUserError } = await supabase
+        .from("system_users")
+        .select("id, username, employee_id, company_id")
+        .eq("id", userRecordId)
+        .maybeSingle();
+
+      if (!systemUserError && systemUserData) {
+        dbUsername = String(systemUserData.username || "").trim();
+        dbEmployeeId = String(systemUserData.employee_id || "").trim();
+
+        if (!localStorage.getItem("opscore_current_company_id") && systemUserData.company_id) {
+          localStorage.setItem("opscore_current_company_id", String(systemUserData.company_id));
+        }
+      }
+    }
+
+    const employeeName =
+      localStorage.getItem("opscore_current_employee_name") ||
+      parsedCurrentUser?.employee_name ||
+      parsedCurrentUser?.full_name ||
+      parsedCurrentUser?.name ||
+      sessionUsername ||
+      dbUsername ||
+      "OPSCORE USER";
+
+    const finalRoleName =
+      localRoleName ||
       parsedCurrentUser?.role_name ||
       parsedCurrentUser?.role ||
       parsedCurrentUser?.role_key ||
@@ -744,6 +808,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const employeeId =
       localStorage.getItem("opscore_current_employee_id") ||
       parsedCurrentUser?.employee_id ||
+      dbEmployeeId ||
       "";
 
     const companyId =
@@ -751,10 +816,21 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       parsedCurrentUser?.company_id ||
       "";
 
+    const loginIdentifier = [
+      sessionUsername,
+      dbUsername,
+      parsedCurrentUser?.system_user_id,
+      parsedCurrentUser?.id,
+      userRecordId,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
     setCurrentEmployeeName(employeeName);
     setCurrentEmployeeId(employeeId);
     setCurrentCompanyId(companyId);
-    setCurrentRoleName(roleName);
+    setCurrentRoleName(finalRoleName);
+    setCurrentLoginIdentifier(loginIdentifier);
   };
 
   const fetchTable = async (table: string, setter: (rows: any[]) => void, order = "created_at") => {
@@ -828,7 +904,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   };
 
   useEffect(() => {
-    loadIdentity();
+    void loadIdentity();
     void refreshCashManagement();
 
     const channel = supabase.channel("cash-management-realtime");
@@ -1511,21 +1587,31 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   };
 
   const closeDrawer = async () => {
-    if (drawerMismatchLocked) {
-      alert(`This drawer belongs to ${activeDrawerHolderName}. Only the drawer holder can close or remit this drawer.`);
-      return;
-    }
-
     if (!activeDrawer) {
       alert("No active drawer to close.");
       return;
     }
 
+    if (drawerMismatchLocked && !canOverrideDrawerLock) {
+      alert(`This drawer belongs to ${activeDrawerHolderName}. Only the drawer holder or an authorized override role can close this drawer.`);
+      return;
+    }
+
     const actualCashValue = parseAmountValue(actualClosingCash);
+    const actualGcashValue = actualClosingGcash === "" ? gcashTotal : parseAmountValue(actualClosingGcash);
     const cashRemittanceValue = closingRemittanceAmount === "" ? 0 : parseAmountValue(closingRemittanceAmount);
     const gcashRemittanceValue = closingGcashRemittanceAmount === "" ? 0 : parseAmountValue(closingGcashRemittanceAmount);
     const cashTurnoverValue = closingCashTurnoverAmount === "" ? 0 : parseAmountValue(closingCashTurnoverAmount);
     const gcashTurnoverValue = closingGcashTurnoverAmount === "" ? 0 : parseAmountValue(closingGcashTurnoverAmount);
+    const cashVarianceValue = actualCashValue - cashOnHand;
+    const gcashVarianceValue = actualGcashValue - gcashTotal;
+    const isOverrideClose = drawerMismatchLocked && canOverrideDrawerLock;
+    const reasonRequired =
+      isOverrideClose ||
+      Math.abs(cashVarianceValue) > 0.009 ||
+      Math.abs(gcashVarianceValue) > 0.009 ||
+      gcashTotal < 0;
+    const finalOverrideReason = drawerOverrideReason.trim() || closingRemittanceRemarks.trim();
 
     const hasRemittance = cashRemittanceValue > 0 || gcashRemittanceValue > 0;
     const hasTurnover = cashTurnoverValue > 0 || gcashTurnoverValue > 0;
@@ -1533,6 +1619,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     if (
       !Number.isFinite(actualCashValue) ||
       actualCashValue < 0 ||
+      !Number.isFinite(actualGcashValue) ||
       !Number.isFinite(cashRemittanceValue) ||
       cashRemittanceValue < 0 ||
       !Number.isFinite(gcashRemittanceValue) ||
@@ -1542,7 +1629,12 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       !Number.isFinite(gcashTurnoverValue) ||
       gcashTurnoverValue < 0
     ) {
-      alert("Invalid closing, remittance, or turnover amount.");
+      alert("Invalid closing, GCash count, remittance, or turnover amount.");
+      return;
+    }
+
+    if (reasonRequired && !finalOverrideReason) {
+      alert("Override / variance reason is required before closing this drawer.");
       return;
     }
 
@@ -1561,7 +1653,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
 
-    if (gcashRemittanceValue + gcashTurnoverValue > gcashTotal) {
+    const gcashOutflowValue = gcashRemittanceValue + gcashTurnoverValue;
+    if (gcashOutflowValue > 0 && gcashOutflowValue > gcashTotal) {
       alert("GCash remittance plus GCash turnover cannot be greater than current drawer GCash balance.");
       return;
     }
@@ -1782,6 +1875,22 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         }
       }
 
+      const closeAuditRemarks = [
+        closingRemittanceRemarks.trim(),
+        isOverrideClose ? `[Closed By Override: ${actor.userName || "OPSCORE USER"}]` : `[Closed By: ${actor.userName || "OPSCORE USER"}]`,
+        `[Closed By Role: ${currentRoleText || "Not Provided"}]`,
+        `[Drawer Holder: ${activeDrawer.holder_name || activeDrawerHolderName || "Not Provided"}]`,
+        `[Expected Cash: ${formatMoney(cashOnHand)}]`,
+        `[Actual Cash: ${formatMoney(actualCashValue)}]`,
+        `[Cash Variance: ${formatMoney(cashVarianceValue)}]`,
+        `[GCash Expected: ${formatMoney(gcashTotal)}]`,
+        `[GCash Actual/Confirmed: ${formatMoney(actualGcashValue)}]`,
+        `[GCash Variance: ${formatMoney(gcashVarianceValue)}]`,
+        finalOverrideReason ? `[Override / Variance Reason: ${finalOverrideReason}]` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
       const { error: drawerCloseError } = await supabase
         .from("finance_cash_drawers")
         .update({
@@ -1791,9 +1900,9 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           closing_remittance_amount: cashRemittanceValue,
           closing_gcash_remittance_amount: gcashRemittanceValue,
           closing_remittance_received_by: closingRemittanceReceivedBy.trim(),
-          closing_remittance_remarks: closingRemittanceRemarks.trim(),
-          variance: actualCashValue - cashOnHand,
-          remarks: closingRemittanceRemarks.trim(),
+          closing_remittance_remarks: closeAuditRemarks,
+          variance: cashVarianceValue,
+          remarks: closeAuditRemarks,
         })
         .eq("id", activeDrawer.id);
 
@@ -1804,13 +1913,19 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       await createAuditLog({
         userName: actor.userName,
         module: "Cash Management",
-        action: "Close Drawer",
-        description: `${activeDrawer.holder_name} drawer closed. Remit cash ${formatMoney(cashRemittanceValue)}, remit GCash ${formatMoney(gcashRemittanceValue)}, turnover cash ${formatMoney(cashTurnoverValue)}, turnover GCash ${formatMoney(gcashTurnoverValue)}.`,
-        severity: Math.abs(actualCashValue - cashOnHand) > 0.01 ? "warning" : "info",
+        action: isOverrideClose ? "Close Drawer Override" : "Close Drawer",
+        description: `${activeDrawer.holder_name} drawer closed${isOverrideClose ? " by authorized override" : ""}. Cash variance ${formatMoney(cashVarianceValue)}, GCash expected ${formatMoney(gcashTotal)}. Reason: ${finalOverrideReason || "N/A"}`,
+        severity: reasonRequired ? "warning" : "info",
         recordId: activeDrawer.id,
         oldValue: activeDrawer,
         newValue: {
           actualCashValue,
+          actualGcashValue,
+          cashVarianceValue,
+          gcashVarianceValue,
+          isOverrideClose,
+          overrideReason: finalOverrideReason,
+          closeAuditRemarks,
           cashRemittanceValue,
           gcashRemittanceValue,
           cashTurnoverValue,
@@ -1831,6 +1946,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       setClosingGcashTurnoverAmount("");
       setClosingTurnoverTo("");
       setClosingRemittanceRemarks("");
+      setActualClosingGcash("");
+      setDrawerOverrideReason("");
       await refreshCashManagement();
     } catch (error: any) {
       setIsSaving(false);
@@ -2656,7 +2773,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               <button
                 type="button"
                 onClick={() => setShowCloseDrawer(true)}
-                disabled={!activeDrawer || drawerMismatchLocked}
+                disabled={!activeDrawer || !canCloseActiveDrawer}
                 className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Close Drawer
@@ -3330,11 +3447,29 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               </div>
             </div>
 
+            {drawerMismatchLocked && canOverrideDrawerLock && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                Override mode active. This drawer belongs to {activeDrawerHolderName || activeDrawer.holder_name}; closing will be logged under {currentActorName || "current user"}.
+              </div>
+            )}
+
+            {gcashTotal < 0 && (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                GCash is negative ({formatMoney(gcashTotal)}). Close is allowed only with variance / override reason.
+              </div>
+            )}
+
             <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Cash Count</p>
-              <Field label="Actual Closing Cash">
-                <input value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
-              </Field>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Actual Closing Cash">
+                  <input value={actualClosingCash} onChange={(e) => setActualClosingCash(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+                </Field>
+                <Field label="Actual / Confirmed GCash">
+                  <input value={actualClosingGcash} onChange={(e) => setActualClosingGcash(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950" placeholder={String(gcashTotal)} />
+                </Field>
+              </div>
+              <p className="mt-3 text-xs font-bold text-slate-500">Leave GCash blank only if the system GCash balance is confirmed. Negative GCash or override close still requires a reason below.</p>
             </div>
 
             <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-4">
@@ -3371,6 +3506,21 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               <p className="mt-3 text-xs font-bold text-emerald-700">Turnover automatically creates OUT rows from the closing drawer and IN rows for the receiver drawer using the same origin ID.</p>
             </div>
 
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${hasClosingCashVariance ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                Cash variance preview: {Number.isFinite(actualClosingCashValue) ? formatMoney(closingCashVariance) : "Enter actual cash"}
+              </div>
+              <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${closeDrawerRequiresOverrideReason ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                Reason required: {closeDrawerRequiresOverrideReason ? "Yes" : "No"}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <Field label="Override / Variance Reason">
+                <textarea value={drawerOverrideReason} onChange={(e) => setDrawerOverrideReason(e.target.value)} className="min-h-[88px] w-full resize-none rounded-xl border border-amber-200 bg-white p-3 text-sm font-semibold text-slate-800" placeholder="Required for override close, cash variance, or negative GCash. Example: Drawer holder already logged out; verified physical count with supervisor." />
+              </Field>
+            </div>
+
             <div className="mt-4">
               <Field label="Close Remarks">
                 <input value={closingRemittanceRemarks} onChange={(e) => setClosingRemittanceRemarks(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" placeholder="Notes, reference, or shift handover details" />
@@ -3379,7 +3529,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
               <button onClick={() => setShowCloseDrawer(false)} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700">Cancel</button>
-              <button onClick={closeDrawer} disabled={isSaving || drawerMismatchLocked} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">Close Drawer</button>
+              <button onClick={closeDrawer} disabled={isSaving || !canCloseActiveDrawer} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">Close Drawer</button>
             </div>
           </Modal>
         )}
