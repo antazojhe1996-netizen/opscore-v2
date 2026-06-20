@@ -502,8 +502,10 @@ export default function CashManagementPage() {
     !shouldCreateExpenseFromCashOut || cashOutPaymentDeductsFromCashFlow || cashOutPaymentRequiresLiquidation;
   const shouldSendCashReleaseToApproval =
     shouldCreateExpenseFromCashOut && cashOutPaymentRequiresApproval;
+  // Salary Cash Advance is already released to the employee and should not require liquidation.
+  // Only Expense Release should create a FOR_LIQUIDATION queue item.
   const shouldRequireLiquidationForRelease =
-    shouldCreateExpenseFromCashOut && cashOutPaymentRequiresLiquidation;
+    isExpenseRelease && cashOutPaymentRequiresLiquidation;
   const shouldRequireDrawerForSave =
     isCashOutMovement
       ? cashOutPaymentRequiresDrawer || cashOutPaymentDeductsFromCashFlow
@@ -624,8 +626,13 @@ export default function CashManagementPage() {
   const isLiquidationEligible = (movement: any) => {
     if (isVoidedMovement(movement)) return false;
     if (movement.movement_type !== "Cash Out") return false;
-    if (!["Expense Release", "Cash Advance"].includes(String(movement.source || ""))) return false;
-    return String(movement.liquidation_status || "FOR_LIQUIDATION").toUpperCase() !== "LIQUIDATED";
+    if (String(movement.source || "") !== "Expense Release") return false;
+
+    const liquidationStatus = String(
+      movement.liquidation_status || "NOT_REQUIRED",
+    ).toUpperCase();
+
+    return liquidationStatus === "FOR_LIQUIDATION";
   };
 
   const pendingLiquidations = movements.filter(
@@ -641,7 +648,7 @@ export default function CashManagementPage() {
       (!activeDrawer || isCurrentDrawerMovement(item)) &&
       !isVoidedMovement(item) &&
       item.movement_type === "Cash Out" &&
-      ["Expense Release", "Cash Advance"].includes(String(item.source || "")),
+      String(item.source || "") === "Expense Release",
   );
 
   const receiptComplianceRate =
@@ -1425,7 +1432,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           actual_spent_amount: 0,
           returned_cash_amount: 0,
           net_expense_amount: amountValue,
-          liquidation_status: shouldRequireLiquidationForRelease ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
+          liquidation_status: isExpenseRelease && shouldRequireLiquidationForRelease ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
           return_destination: paymentReturnDestinationEnabled
             ? selectedPaymentMethod?.default_return_destination || (cashOutPaymentDeductsFromCashFlow ? "CASH_DRAWER" : "OWNER")
             : null,
@@ -1584,6 +1591,22 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     setOpeningFloat("");
     setDrawerRemarks("");
     await refreshCashManagement();
+  };
+
+  const openCloseDrawerModal = async () => {
+    await refreshCashManagement();
+
+    setActualClosingCash("");
+    setActualClosingGcash("");
+    setClosingRemittanceAmount("");
+    setClosingGcashRemittanceAmount("");
+    setClosingRemittanceReceivedBy("");
+    setClosingCashTurnoverAmount("");
+    setClosingGcashTurnoverAmount("");
+    setClosingTurnoverTo("");
+    setClosingRemittanceRemarks("");
+    setDrawerOverrideReason("");
+    setShowCloseDrawer(true);
   };
 
   const closeDrawer = async () => {
@@ -2772,7 +2795,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
               </button>
               <button
                 type="button"
-                onClick={() => setShowCloseDrawer(true)}
+                onClick={openCloseDrawerModal}
                 disabled={!activeDrawer || !canCloseActiveDrawer}
                 className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
