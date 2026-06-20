@@ -94,6 +94,19 @@ export default function ExpensesPage() {
       maximumFractionDigits: 2,
     })}`;
 
+  const getExpenseDisplayAmount = (expense: any) => {
+    const netAmount = Number(expense.net_expense_amount);
+    const actualSpent = Number(expense.actual_spent_amount);
+    const baseAmount = Number(expense.amount || 0);
+
+    if (String(expense.liquidation_status || "").toUpperCase() === "LIQUIDATED") {
+      if (Number.isFinite(netAmount) && netAmount > 0) return netAmount;
+      if (Number.isFinite(actualSpent) && actualSpent > 0) return actualSpent;
+    }
+
+    return baseAmount;
+  };
+
   const cleanNumber = (value: any) => {
     if (!value) return 0;
 
@@ -220,13 +233,13 @@ export default function ExpensesPage() {
 
   /// CALCULATIONS - SUMMARY CARDS
   const totalExpenses = operatingExpenses.reduce(
-    (sum, expense) => sum + Number(expense.amount || 0),
+    (sum, expense) => sum + getExpenseDisplayAmount(expense),
     0
   );
 
   const todayExpenses = operatingExpenses
     .filter((expense) => expense.expense_date === today)
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const thisMonthExpenses = operatingExpenses
     .filter((expense) => {
@@ -236,27 +249,27 @@ export default function ExpensesPage() {
         date.getMonth() === now.getMonth()
       );
     })
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const cashDrawerExpenseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Cash Drawer")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const manualExpenseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Manual Entry")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const importedExpenseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Imported")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const payrollReleaseTotal = operatingExpenses
     .filter((expense) => getExpenseSourceType(expense) === "Payroll Release")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const cashAdvanceTotal = employeeAdvanceReceivables
     .filter((expense) => expense.deduct_to_payroll)
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const linkedCashAdvanceTotal = employeeAdvanceReceivables
     .filter(
@@ -264,7 +277,7 @@ export default function ExpensesPage() {
         expense.deduct_to_payroll &&
         (expense.employee_balance_id || expense.payroll_adjustment_id)
     )
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   const unlinkedCashAdvanceTotal = employeeAdvanceReceivables
     .filter(
@@ -272,7 +285,7 @@ export default function ExpensesPage() {
         expense.deduct_to_payroll &&
         !(expense.employee_balance_id || expense.payroll_adjustment_id)
     )
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
 
   /// CALCULATIONS - MONTHLY CATEGORY SUMMARY
   const monthlyCategorySummary = monthNames.map((month, monthIndex) => {
@@ -289,7 +302,7 @@ export default function ExpensesPage() {
             expense.category === cat
           );
         })
-        .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+        .reduce((sum, expense) => sum + getExpenseDisplayAmount(expense), 0);
     });
 
     return row;
@@ -883,8 +896,8 @@ export default function ExpensesPage() {
       module: "Expenses",
       action: expense.deduct_to_payroll ? "Void Cash Advance Expense" : "Void Expense",
       description: expense.deduct_to_payroll
-        ? `Voided payroll-linked cash advance for ${expense.employee_name || "Unknown employee"} - ${formatCurrency(expense.amount)}. Reason: ${reason.trim()}`
-        : `Voided expense: ${expense.description || expense.category || "Expense"} - ${formatCurrency(expense.amount)}. Reason: ${reason.trim()}`,
+        ? `Voided payroll-linked cash advance for ${expense.employee_name || "Unknown employee"} - ${formatCurrency(getExpenseDisplayAmount(expense))}. Reason: ${reason.trim()}`
+        : `Voided expense: ${expense.description || expense.category || "Expense"} - ${formatCurrency(getExpenseDisplayAmount(expense))}. Reason: ${reason.trim()}`,
       severity: expense.deduct_to_payroll ? "critical" : "warning",
       recordId: expense.id,
       oldValue: expense,
@@ -920,7 +933,7 @@ export default function ExpensesPage() {
       Description: expense.description,
       Source: expense.source || "",
       Source_Type: getExpenseSourceType(expense),
-      Amount: Number(expense.amount || 0),
+      Amount: getExpenseDisplayAmount(expense),
       Payment_Method: expense.payment_method,
       Deduct_To_Payroll: expense.deduct_to_payroll ? "Yes" : "No",
       Payroll_Period_ID: expense.payroll_period_id || "",
@@ -939,7 +952,7 @@ export default function ExpensesPage() {
       Description: expense.description,
       Source: expense.source || "",
       Source_Type: getExpenseSourceType(expense),
-      Amount: Number(expense.amount || 0),
+      Amount: getExpenseDisplayAmount(expense),
       Payment_Method: expense.payment_method,
       Deduct_To_Payroll: expense.deduct_to_payroll ? "Yes" : "No",
       Payroll_Period_ID: expense.payroll_period_id || "",
@@ -1482,7 +1495,7 @@ export default function ExpensesPage() {
                             {expense.remarks && <p className="mt-1 break-words text-xs font-medium text-slate-500">{expense.remarks}</p>}
                             {getReferenceLabel(expense) && <p className="mt-1 break-all text-xs font-medium text-slate-400">{getReferenceLabel(expense)}</p>}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-black text-slate-950">{formatCurrency(expense.amount)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-black text-slate-950">{formatCurrency(getExpenseDisplayAmount(expense))}</td>
                           <td className="whitespace-nowrap px-4 py-3">
                             <SourceBadge sourceType={sourceType} />
                           </td>
@@ -1638,7 +1651,7 @@ export default function ExpensesPage() {
                           <td className="truncate px-4 py-3">{expense.department || "-"}</td>
                           <td className="break-words px-4 py-3">{expense.description || "-"}</td>
                           <td className="truncate px-4 py-3">{expense.source || "-"}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-black text-slate-950">{formatCurrency(expense.amount)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-black text-slate-950">{formatCurrency(getExpenseDisplayAmount(expense))}</td>
                         </tr>
                       ))}
 

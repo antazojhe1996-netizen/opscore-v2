@@ -1,12 +1,22 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
-import { Plus, ShieldCheck, Star, Trash2, UserCheck, Users } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  UserCheck,
+  Users,
+} from "lucide-react";
 
 const approvalRoles = [
   "MANAGER",
@@ -18,48 +28,77 @@ const approvalRoles = [
   "ADMIN",
 ];
 
-const assignmentTypes = ["PRIMARY", "BACKUP"];
-
 const normalizeText = (value: any) =>
-  String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
+  String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 
 const normalizeScope = (value: any) =>
+  String(value || "").trim().replace(/\s+/g, " ");
+
+const normalizeWorkflowKey = (value: any) =>
+  String(value || "").trim().toUpperCase().replace(/\s+/g, "_");
+
+const formatWorkflowName = (value: any) =>
   String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
-    .replace(/\s+/g, " ");
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const isLegacyProtectedAssignment = (assignment: any) =>
+  assignment?.workflow_keys === null ||
+  assignment?.workflow_keys === undefined ||
+  assignment?.workflow_keys === "";
 
 const safeParseDepartmentScopes = (assignment: any): string[] => {
   const rawJson = assignment?.department_scopes;
 
-  if (Array.isArray(rawJson)) {
-    return rawJson.map(normalizeScope).filter(Boolean);
-  }
+  if (Array.isArray(rawJson)) return rawJson.map(normalizeScope).filter(Boolean);
 
   if (typeof rawJson === "string" && rawJson.trim()) {
     try {
       const parsed = JSON.parse(rawJson);
-
-      if (Array.isArray(parsed)) {
-        return parsed.map(normalizeScope).filter(Boolean);
-      }
-    } catch (error) {
-      return rawJson
-        .split(",")
-        .map(normalizeScope)
-        .filter(Boolean);
+      if (Array.isArray(parsed)) return parsed.map(normalizeScope).filter(Boolean);
+    } catch {
+      return rawJson.split(/[,|\n]/g).map(normalizeScope).filter(Boolean);
     }
   }
 
   const legacyScope = normalizeScope(assignment?.department_scope);
-
   return legacyScope ? [legacyScope] : [];
+};
+
+const safeParseWorkflowKeys = (assignment: any): string[] => {
+  const rawKeys = assignment?.workflow_keys;
+
+  if (rawKeys === null || rawKeys === undefined || rawKeys === "") return [];
+
+  if (Array.isArray(rawKeys)) return rawKeys.map(normalizeWorkflowKey).filter(Boolean);
+
+  if (typeof rawKeys === "string") {
+    const cleanText = rawKeys.trim();
+    if (!cleanText) return [];
+
+    if (cleanText.startsWith("[") && cleanText.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(cleanText);
+        if (Array.isArray(parsed)) return parsed.map(normalizeWorkflowKey).filter(Boolean);
+      } catch {}
+    }
+
+    return cleanText.split(/[,|\n]/g).map(normalizeWorkflowKey).filter(Boolean);
+  }
+
+  return [];
 };
 
 const uniqueScopes = (values: string[]) =>
   Array.from(new Set(values.map(normalizeScope).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+const uniqueWorkflowKeys = (values: string[]) =>
+  Array.from(new Set(values.map(normalizeWorkflowKey).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b),
   );
 
@@ -70,12 +109,25 @@ export default function ApprovalAssignmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedApproverKey, setExpandedApproverKey] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState<"types" | "departments" | null>(null);
+  const [newAssignmentRole, setNewAssignmentRole] = useState("MANAGER");
+  const [newAssignmentEmployeeId, setNewAssignmentEmployeeId] = useState("");
 
   const getEmployeeName = (employee: any) =>
     `${employee?.first_name || ""} ${employee?.last_name || ""}`.trim();
 
   const getAssignedEmployee = (employeeId: string) =>
     employees.find((employee) => String(employee.id) === String(employeeId));
+
+  const getWorkflowDisplayName = (workflowKey: string) => {
+    const normalizedKey = normalizeWorkflowKey(workflowKey);
+    const workflow = approvalWorkflows.find(
+      (item) => normalizeWorkflowKey(item.workflow_key) === normalizedKey,
+    );
+
+    return workflow?.workflow_name || formatWorkflowName(normalizedKey);
+  };
 
   const getApprovalAssignments = async () => {
     setIsLoading(true);
@@ -90,9 +142,7 @@ export default function ApprovalAssignmentsPage() {
 
     const { data: employeeData, error: employeeError } = await supabase
       .from("employees")
-      .select(
-        "id, first_name, last_name, department, position, employment_status, payroll_active",
-      )
+      .select("id, first_name, last_name, department, position, employment_status, payroll_active")
       .order("first_name", { ascending: true });
 
     const { data: workflowData, error: workflowError } = await supabase
@@ -106,391 +156,20 @@ export default function ApprovalAssignmentsPage() {
 
     if (assignmentError) {
       console.log("GET APPROVAL ASSIGNMENTS ERROR:", assignmentError.message);
-      alert(
-        "Failed to load approval assignments. Check approval_assignments table columns.",
-      );
+      alert("Failed to load approval assignments.");
       return;
     }
 
     if (employeeError) {
-      console.log(
-        "GET EMPLOYEES FOR APPROVAL ASSIGNMENTS ERROR:",
-        employeeError.message,
-      );
+      console.log("GET EMPLOYEES ERROR:", employeeError.message);
       alert("Failed to load employees.");
       return;
     }
 
-    if (workflowError) {
-      console.log(
-        "GET APPROVAL WORKFLOWS FOR ASSIGNMENTS ERROR:",
-        workflowError.message,
-      );
-      setApprovalWorkflows([]);
-    } else {
-      setApprovalWorkflows(workflowData || []);
-    }
-
     setAssignments(assignmentData || []);
     setEmployees(employeeData || []);
+    setApprovalWorkflows(workflowError ? [] : workflowData || []);
   };
-
-  const addApprover = async (approvalRole: string) => {
-    if (isSaving) return;
-
-    const existingActiveForRole = assignments.filter(
-      (assignment) =>
-        assignment.approval_role === approvalRole &&
-        assignment.is_active !== false,
-    );
-
-    const assignmentType =
-      existingActiveForRole.length === 0 ? "PRIMARY" : "BACKUP";
-
-    setIsSaving(true);
-
-    const { data, error } = await supabase
-      .from("approval_assignments")
-      .insert({
-        approval_role: approvalRole,
-        employee_id: null,
-        assignment_type: assignmentType,
-        department_scope: "",
-        department_scopes: [],
-        is_default: existingActiveForRole.length === 0,
-        is_active: true,
-      })
-      .select()
-      .single();
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("ADD APPROVER ERROR:", error.message);
-      alert("Failed to add approver.");
-      return;
-    }
-
-    setAssignments((current) => [...current, data]);
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Approval Assignments",
-      action: "Add Approver Slot",
-      description: `${approvalRole} ${assignmentType} approver slot added.`,
-      severity: "warning",
-      recordId: data.id,
-      newValue: data,
-    });
-  };
-
-  const updateAssignmentEmployee = async (assignment: any, employeeId: string) => {
-    if (isSaving) return;
-
-    const currentScopes = safeParseDepartmentScopes(assignment);
-
-    const duplicate = assignments.find((item) => {
-      if (item.id === assignment.id) return false;
-      if (item.is_active === false) return false;
-      if (item.approval_role !== assignment.approval_role) return false;
-      if (String(item.employee_id || "") !== String(employeeId || "")) return false;
-      if (!employeeId) return false;
-
-      const itemScopes = safeParseDepartmentScopes(item);
-      const sameScopes =
-        JSON.stringify(uniqueScopes(itemScopes)) ===
-        JSON.stringify(uniqueScopes(currentScopes));
-
-      const sameDefault =
-        Boolean(item.is_default) === Boolean(assignment.is_default);
-
-      return sameScopes && sameDefault;
-    });
-
-    if (duplicate) {
-      alert("This employee is already assigned to this role and same department/default scope.");
-      return;
-    }
-
-    setIsSaving(true);
-
-    const { data, error } = await supabase
-      .from("approval_assignments")
-      .update({
-        employee_id: employeeId || null,
-      })
-      .eq("id", assignment.id)
-      .select()
-      .single();
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("UPDATE APPROVAL ASSIGNMENT ERROR:", error.message);
-      alert("Failed to update approval assignment.");
-      return;
-    }
-
-    setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item)),
-    );
-
-    const selectedEmployee = employees.find(
-      (employee) => String(employee.id) === String(employeeId),
-    );
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Approval Assignments",
-      action: "Update Approval Assignment",
-      description: `${assignment.approval_role} ${
-        assignment.assignment_type || "APPROVER"
-      } assigned to ${
-        selectedEmployee ? getEmployeeName(selectedEmployee) : "Unassigned"
-      }`,
-      severity: "warning",
-      recordId: assignment.id,
-      oldValue: assignment,
-      newValue: {
-        ...data,
-        assignedEmployee: selectedEmployee || null,
-      },
-    });
-  };
-
-  const updateAssignmentType = async (assignment: any, assignmentType: string) => {
-    if (isSaving) return;
-
-    setIsSaving(true);
-
-    const { data, error } = await supabase
-      .from("approval_assignments")
-      .update({
-        assignment_type: assignmentType,
-      })
-      .eq("id", assignment.id)
-      .select()
-      .single();
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("UPDATE ASSIGNMENT TYPE ERROR:", error.message);
-      alert("Failed to update approver type.");
-      return;
-    }
-
-    setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item)),
-    );
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Approval Assignments",
-      action: "Update Approver Type",
-      description: `${assignment.approval_role} approver type changed to ${assignmentType}.`,
-      severity: "warning",
-      recordId: assignment.id,
-      oldValue: assignment,
-      newValue: data,
-    });
-  };
-
-  const updateDepartmentScopes = async (assignment: any, nextScopes: string[]) => {
-    if (isSaving) return;
-
-    const cleanScopes = uniqueScopes(nextScopes);
-    const legacyScope = cleanScopes.length === 1 ? cleanScopes[0] : "";
-
-    setIsSaving(true);
-
-    const { data, error } = await supabase
-      .from("approval_assignments")
-      .update({
-        department_scopes: cleanScopes,
-        department_scope: legacyScope,
-        is_default: cleanScopes.length > 0 ? false : Boolean(assignment.is_default),
-      })
-      .eq("id", assignment.id)
-      .select()
-      .single();
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("UPDATE DEPARTMENT SCOPES ERROR:", error.message);
-      alert("Failed to update department scopes.");
-      return;
-    }
-
-    setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item)),
-    );
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Approval Assignments",
-      action: "Update Department Scopes",
-      description: `${assignment.approval_role} scopes changed to ${
-        cleanScopes.length > 0 ? cleanScopes.join(", ") : "All / No scope"
-      }.`,
-      severity: "warning",
-      recordId: assignment.id,
-      oldValue: assignment,
-      newValue: data,
-    });
-  };
-
-  const toggleDepartmentScope = async (assignment: any, department: string) => {
-    const scopes = safeParseDepartmentScopes(assignment);
-    const normalizedDepartment = normalizeScope(department);
-
-    const nextScopes = scopes.some(
-      (scope) => normalizeText(scope) === normalizeText(normalizedDepartment),
-    )
-      ? scopes.filter(
-          (scope) => normalizeText(scope) !== normalizeText(normalizedDepartment),
-        )
-      : [...scopes, normalizedDepartment];
-
-    await updateDepartmentScopes(assignment, nextScopes);
-  };
-
-  const clearDepartmentScopes = async (assignment: any) => {
-    await updateDepartmentScopes(assignment, []);
-  };
-
-  const toggleDefaultApprover = async (assignment: any) => {
-    if (isSaving) return;
-
-    const nextDefault = !Boolean(assignment.is_default);
-
-    setIsSaving(true);
-
-    const { data, error } = await supabase
-      .from("approval_assignments")
-      .update({
-        is_default: nextDefault,
-        department_scope: nextDefault ? "" : assignment.department_scope || "",
-        department_scopes: nextDefault
-          ? []
-          : safeParseDepartmentScopes(assignment),
-      })
-      .eq("id", assignment.id)
-      .select()
-      .single();
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("TOGGLE DEFAULT APPROVER ERROR:", error.message);
-      alert("Failed to update default approver.");
-      return;
-    }
-
-    setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item)),
-    );
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Approval Assignments",
-      action: "Toggle Default Approver",
-      description: `${assignment.approval_role} default approver ${
-        nextDefault ? "enabled" : "disabled"
-      }.`,
-      severity: "warning",
-      recordId: assignment.id,
-      oldValue: assignment,
-      newValue: data,
-    });
-  };
-
-  const toggleAssignmentStatus = async (assignment: any) => {
-    if (isSaving) return;
-
-    setIsSaving(true);
-
-    const { data, error } = await supabase
-      .from("approval_assignments")
-      .update({
-        is_active: !assignment.is_active,
-      })
-      .eq("id", assignment.id)
-      .select()
-      .single();
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("TOGGLE APPROVAL ASSIGNMENT STATUS ERROR:", error.message);
-      alert("Failed to update assignment status.");
-      return;
-    }
-
-    setAssignments((current) =>
-      current.map((item) => (item.id === assignment.id ? data : item)),
-    );
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Approval Assignments",
-      action: "Toggle Approval Assignment",
-      description: `${assignment.approval_role} assignment ${
-        data.is_active ? "activated" : "deactivated"
-      }`,
-      severity: "warning",
-      recordId: assignment.id,
-      oldValue: assignment,
-      newValue: data,
-    });
-  };
-
-  const removeAssignment = async (assignment: any) => {
-    if (isSaving) return;
-
-    const confirmed = confirm(
-      `Remove this ${assignment.approval_role} approver assignment?`,
-    );
-
-    if (!confirmed) return;
-
-    setIsSaving(true);
-
-    const { error } = await supabase
-      .from("approval_assignments")
-      .delete()
-      .eq("id", assignment.id);
-
-    setIsSaving(false);
-
-    if (error) {
-      console.log("REMOVE APPROVER ERROR:", error.message);
-      alert("Failed to remove approver.");
-      return;
-    }
-
-    setAssignments((current) =>
-      current.filter((item) => item.id !== assignment.id),
-    );
-
-    await createAuditLog({
-      userName: "OPSCORE USER",
-      module: "Approval Assignments",
-      action: "Remove Approver Assignment",
-      description: `${assignment.approval_role} approver assignment removed.`,
-      severity: "critical",
-      recordId: assignment.id,
-      oldValue: assignment,
-    });
-  };
-
-  const getWorkflowsForRole = (approvalRole: string) =>
-    approvalWorkflows.filter(
-      (workflow) =>
-        String(workflow.approver_role || "") === String(approvalRole) &&
-        workflow.is_active !== false,
-    );
 
   useEffect(() => {
     getApprovalAssignments();
@@ -499,86 +178,387 @@ export default function ApprovalAssignmentsPage() {
   const activeEmployees = useMemo(() => {
     return employees.filter((employee) => {
       const employmentStatus = String(employee.employment_status || "").toLowerCase();
-
-      return (
-        employee.payroll_active === true ||
-        employmentStatus === "active" ||
-        employmentStatus === ""
-      );
+      return employee.payroll_active === true || employmentStatus === "active" || employmentStatus === "";
     });
   }, [employees]);
 
   const departmentOptions = useMemo(() => {
-    const departments = employees
-      .map((employee) => normalizeScope(employee.department))
-      .filter(Boolean);
-
-    return Array.from(new Set(departments)).sort((a, b) =>
-      a.localeCompare(b),
-    );
+    const departments = employees.map((employee) => normalizeScope(employee.department)).filter(Boolean);
+    return Array.from(new Set(departments)).sort((a, b) => a.localeCompare(b));
   }, [employees]);
 
-  const groupedAssignments = useMemo(() => {
-    const search = searchTerm.toLowerCase();
+  const activeWorkflowOptions = useMemo(() => {
+    return approvalWorkflows
+      .filter((workflow) => workflow.is_active !== false && workflow.workflow_key)
+      .map((workflow) => ({
+        ...workflow,
+        normalizedKey: normalizeWorkflowKey(workflow.workflow_key),
+        displayName: workflow.workflow_name || formatWorkflowName(workflow.workflow_key),
+      }))
+      .sort((a, b) => {
+        const moduleCompare = String(a.module || "").localeCompare(String(b.module || ""));
+        if (moduleCompare !== 0) return moduleCompare;
+        return String(a.displayName || "").localeCompare(String(b.displayName || ""));
+      });
+  }, [approvalWorkflows]);
 
-    return approvalRoles
-      .map((role) => {
-        const roleAssignments = assignments.filter((assignment) => {
-          const assignedEmployee = getAssignedEmployee(assignment.employee_id);
-          const employeeName = assignedEmployee
-            ? getEmployeeName(assignedEmployee)
-            : "";
-          const scopes = safeParseDepartmentScopes(assignment).join(" ");
-          const defaultText = assignment.is_default ? "default approver fallback" : "";
+  const addAssignment = async () => {
+    if (isSaving) return;
 
-          const matchesRole = String(assignment.approval_role || "") === role;
-          const matchesSearch =
-            !search ||
-            role.toLowerCase().includes(search) ||
-            employeeName.toLowerCase().includes(search) ||
-            scopes.toLowerCase().includes(search) ||
-            defaultText.includes(search) ||
-            String(assignedEmployee?.department || "")
-              .toLowerCase()
-              .includes(search) ||
-            String(assignedEmployee?.position || "")
-              .toLowerCase()
-              .includes(search);
+    if (!newAssignmentEmployeeId) {
+      alert("Please select an approver.");
+      return;
+    }
 
-          return matchesRole && matchesSearch;
-        });
+    setIsSaving(true);
 
-        return {
-          role,
-          assignments: roleAssignments,
-        };
+    const existingActiveForRole = assignments.filter(
+      (assignment) => assignment.approval_role === newAssignmentRole && assignment.is_active !== false,
+    );
+
+    const assignmentType = existingActiveForRole.length === 0 ? "PRIMARY" : "BACKUP";
+
+    const { data, error } = await supabase
+      .from("approval_assignments")
+      .insert({
+        approval_role: newAssignmentRole,
+        employee_id: newAssignmentEmployeeId,
+        assignment_type: assignmentType,
+        department_scope: "",
+        department_scopes: [],
+        workflow_keys: ["__EMPTY_SCOPED_ROW__"],
+        is_default: false,
+        is_active: true,
       })
-      .filter(
-        (group) =>
-          !search ||
-          group.assignments.length > 0 ||
-          group.role.toLowerCase().includes(search),
+      .select()
+      .single();
+
+    if (error) {
+      setIsSaving(false);
+      console.log("ADD APPROVER ERROR:", error.message);
+      alert("Failed to add approver assignment.");
+      return;
+    }
+
+    const { data: cleanedData, error: cleanError } = await supabase
+      .from("approval_assignments")
+      .update({ workflow_keys: [] })
+      .eq("id", data.id)
+      .select()
+      .single();
+
+    setIsSaving(false);
+
+    if (cleanError) {
+      console.log("CLEAN NEW ASSIGNMENT ERROR:", cleanError.message);
+      alert("Approver created but failed to initialize scoped row.");
+      await getApprovalAssignments();
+      return;
+    }
+
+    setAssignments((current) => [...current, cleanedData]);
+    setExpandedApproverKey(`employee:${newAssignmentEmployeeId}`);
+    setEditMode("types");
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Assignments",
+      action: "Add Approver Assignment",
+      description: `${newAssignmentRole} ${assignmentType} scoped assignment added.`,
+      severity: "warning",
+      recordId: cleanedData.id,
+      newValue: cleanedData,
+    });
+  };
+
+  const updateAssignment = async (assignment: any, patch: Record<string, any>, action: string) => {
+    if (isSaving) return null;
+
+    setIsSaving(true);
+
+    const { data, error } = await supabase
+      .from("approval_assignments")
+      .update(patch)
+      .eq("id", assignment.id)
+      .select()
+      .single();
+
+    setIsSaving(false);
+
+    if (error) {
+      console.log(`${action.toUpperCase()} ERROR:`, error.message);
+      alert(`Failed to update ${action.toLowerCase()}.`);
+      return null;
+    }
+
+    setAssignments((current) => current.map((item) => (item.id === assignment.id ? data : item)));
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Assignments",
+      action,
+      description: `${assignment.approval_role} assignment updated.`,
+      severity: "warning",
+      recordId: assignment.id,
+      oldValue: assignment,
+      newValue: data,
+    });
+
+    return data;
+  };
+
+  const createScopedAssignment = async (group: any) => {
+    const sourceRow = group.assignments.find((item: any) => item.is_active !== false) || group.assignments[0];
+
+    if (!sourceRow?.employee_id) {
+      alert("Approver must be assigned to an employee first.");
+      return null;
+    }
+
+    setIsSaving(true);
+
+    const { data, error } = await supabase
+      .from("approval_assignments")
+      .insert({
+        approval_role: sourceRow.approval_role || "MANAGER",
+        employee_id: sourceRow.employee_id,
+        assignment_type: "BACKUP",
+        department_scope: "",
+        department_scopes: [],
+        workflow_keys: ["__EMPTY_SCOPED_ROW__"],
+        is_default: false,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      setIsSaving(false);
+      console.log("CREATE SCOPED ASSIGNMENT ERROR:", error.message);
+      alert("Failed to create scoped approval row.");
+      return null;
+    }
+
+    const { data: cleanedData, error: cleanError } = await supabase
+      .from("approval_assignments")
+      .update({ workflow_keys: [] })
+      .eq("id", data.id)
+      .select()
+      .single();
+
+    setIsSaving(false);
+
+    if (cleanError) {
+      console.log("CLEAN SCOPED ASSIGNMENT ERROR:", cleanError.message);
+      alert("Scoped row created but failed to initialize.");
+      await getApprovalAssignments();
+      return null;
+    }
+
+    setAssignments((current) => [...current, cleanedData]);
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Assignments",
+      action: "Create Scoped Approval Assignment",
+      description: `Scoped workflow row created for ${group.employeeName}.`,
+      severity: "warning",
+      recordId: cleanedData.id,
+      newValue: cleanedData,
+    });
+
+    return cleanedData;
+  };
+
+  const getEditableScopedAssignment = async (group: any) => {
+    const existingScoped = group.assignments.find(
+      (assignment: any) => !isLegacyProtectedAssignment(assignment),
+    );
+
+    if (existingScoped) return existingScoped;
+
+    return await createScopedAssignment(group);
+  };
+
+  const removeScopedAssignment = async (assignment: any) => {
+    if (isSaving) return;
+
+    if (isLegacyProtectedAssignment(assignment)) {
+      alert("Legacy protected row cannot be deleted here.");
+      return;
+    }
+
+    const confirmed = confirm("Remove this scoped approval row?");
+    if (!confirmed) return;
+
+    setIsSaving(true);
+
+    const { error } = await supabase.from("approval_assignments").delete().eq("id", assignment.id);
+
+    setIsSaving(false);
+
+    if (error) {
+      console.log("REMOVE SCOPED ASSIGNMENT ERROR:", error.message);
+      alert("Failed to remove scoped assignment.");
+      return;
+    }
+
+    setAssignments((current) => current.filter((item) => item.id !== assignment.id));
+
+    await createAuditLog({
+      userName: "OPSCORE USER",
+      module: "Approval Assignments",
+      action: "Remove Scoped Approval Assignment",
+      description: `${assignment.approval_role} scoped assignment removed.`,
+      severity: "critical",
+      recordId: assignment.id,
+      oldValue: assignment,
+    });
+  };
+
+  const updateGroupWorkflowKeys = async (group: any, nextWorkflowKeys: string[]) => {
+    const cleanWorkflowKeys = uniqueWorkflowKeys(nextWorkflowKeys);
+
+    const scopedRows = group.assignments.filter(
+      (assignment: any) => !isLegacyProtectedAssignment(assignment),
+    );
+
+    if (cleanWorkflowKeys.length === 0) {
+      for (const row of scopedRows) {
+        await removeScopedAssignment(row);
+      }
+      return;
+    }
+
+    const editableAssignment = await getEditableScopedAssignment(group);
+    if (!editableAssignment) return;
+
+    await updateAssignment(
+      editableAssignment,
+      { workflow_keys: cleanWorkflowKeys },
+      "Update Approval Types",
+    );
+  };
+
+  const toggleGroupWorkflowKey = async (group: any, workflowKey: string) => {
+    const scopedRows = group.assignments.filter(
+      (assignment: any) => !isLegacyProtectedAssignment(assignment),
+    );
+
+    const currentKeys = uniqueWorkflowKeys(
+      scopedRows.flatMap((assignment: any) => safeParseWorkflowKeys(assignment)),
+    );
+
+    const normalizedKey = normalizeWorkflowKey(workflowKey);
+
+    const nextKeys = currentKeys.includes(normalizedKey)
+      ? currentKeys.filter((key) => key !== normalizedKey)
+      : [...currentKeys, normalizedKey];
+
+    await updateGroupWorkflowKeys(group, nextKeys);
+  };
+
+  const updateGroupDepartmentScopes = async (group: any, nextScopes: string[]) => {
+    const targetAssignment =
+      group.assignments.find((assignment: any) => !isLegacyProtectedAssignment(assignment)) ||
+      group.assignments[0];
+
+    if (!targetAssignment) return;
+
+    const cleanScopes = uniqueScopes(nextScopes);
+    const legacyScope = cleanScopes.length === 1 ? cleanScopes[0] : "";
+
+    await updateAssignment(
+      targetAssignment,
+      {
+        department_scopes: cleanScopes,
+        department_scope: legacyScope,
+        is_default: cleanScopes.length > 0 ? false : Boolean(targetAssignment.is_default),
+      },
+      "Update Leave OT Department Routing",
+    );
+  };
+
+  const toggleGroupDepartmentScope = async (group: any, department: string) => {
+    const allScopes = uniqueScopes(
+      group.assignments.flatMap((assignment: any) => safeParseDepartmentScopes(assignment)),
+    );
+
+    const normalizedDepartment = normalizeScope(department);
+
+    const nextScopes = allScopes.some(
+      (scope) => normalizeText(scope) === normalizeText(normalizedDepartment),
+    )
+      ? allScopes.filter((scope) => normalizeText(scope) !== normalizeText(normalizedDepartment))
+      : [...allScopes, normalizedDepartment];
+
+    await updateGroupDepartmentScopes(group, nextScopes);
+  };
+
+  const deactivateGroup = async (group: any) => {
+    if (isSaving) return;
+
+    const confirmed = confirm(`Deactivate approval assignments for ${group.employeeName}?`);
+    if (!confirmed) return;
+
+    for (const assignment of group.assignments) {
+      if (assignment.is_active !== false) {
+        await updateAssignment(assignment, { is_active: false }, "Deactivate Approver Assignments");
+      }
+    }
+  };
+
+  const approverGroups = useMemo(() => {
+    const search = normalizeText(searchTerm);
+    const map = new Map<string, any>();
+
+    assignments.forEach((assignment) => {
+      const employee = assignment.employee_id ? getAssignedEmployee(assignment.employee_id) : null;
+      const employeeName = employee ? getEmployeeName(employee) : "Unassigned";
+      const key = assignment.employee_id ? `employee:${assignment.employee_id}` : `unassigned:${assignment.id}`;
+
+      const workflowKeys = safeParseWorkflowKeys(assignment);
+      const scopes = safeParseDepartmentScopes(assignment);
+
+      const searchable = normalizeText(
+        [
+          employeeName,
+          employee?.department,
+          employee?.position,
+          assignment.approval_role,
+          assignment.assignment_type,
+          workflowKeys.join(" "),
+          workflowKeys.map(getWorkflowDisplayName).join(" "),
+          scopes.join(" "),
+          isLegacyProtectedAssignment(assignment) ? "legacy protected" : "",
+        ].join(" "),
       );
-  }, [assignments, employees, searchTerm]);
+
+      if (search && !searchable.includes(search)) return;
+
+      if (!map.has(key)) {
+        map.set(key, { key, employee, employeeName, assignments: [] });
+      }
+
+      map.get(key).assignments.push(assignment);
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.employeeName === "Unassigned" && b.employeeName !== "Unassigned") return 1;
+      if (a.employeeName !== "Unassigned" && b.employeeName === "Unassigned") return -1;
+      return a.employeeName.localeCompare(b.employeeName);
+    });
+  }, [assignments, employees, searchTerm, approvalWorkflows]);
 
   const assignedCount = assignments.filter((item) => item.employee_id).length;
-
   const activeApproverCount = assignments.filter(
     (item) => item.is_active !== false && item.employee_id,
   ).length;
-
-  const departmentScopedCount = assignments.filter(
-    (item) =>
-      item.is_active !== false &&
-      item.employee_id &&
-      safeParseDepartmentScopes(item).length > 0,
+  const scopedCount = assignments.filter(
+    (item) => item.is_active !== false && item.employee_id && !isLegacyProtectedAssignment(item),
   ).length;
-
-  const defaultApproverCount = assignments.filter(
-    (item) =>
-      item.is_active !== false &&
-      item.employee_id &&
-      Boolean(item.is_default),
+  const legacyCount = assignments.filter(
+    (item) => item.is_active !== false && item.employee_id && isLegacyProtectedAssignment(item),
   ).length;
 
   return (
@@ -599,17 +579,16 @@ export default function ApprovalAssignmentsPage() {
                   <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                     Approval Assignments
                   </h1>
-                  <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
-                    Assign role approvers with multiple department scopes. Leave
-                    and OT can route to managers handling several departments,
-                    then fall back to a default approver when no match exists.
+                  <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-slate-500">
+                    Simple approver-first setup. Approval chips are configurable from database workflows.
+                    Legacy Cash Management rows stay protected.
                   </p>
                 </div>
 
                 <button
                   onClick={getApprovalAssignments}
                   disabled={isLoading}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isLoading ? "Refreshing..." : "Refresh"}
                 </button>
@@ -617,436 +596,382 @@ export default function ApprovalAssignmentsPage() {
             </section>
 
             <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard
-                title="Approval Roles"
-                value={approvalRoles.length}
-                icon={<ShieldCheck className="h-5 w-5 text-slate-500" />}
-              />
-              <SummaryCard
-                title="Active Approvers"
-                value={activeApproverCount}
-                icon={<Users className="h-5 w-5 text-blue-700" />}
-              />
-              <SummaryCard
-                title="Scoped Approvers"
-                value={departmentScopedCount}
-                icon={<UserCheck className="h-5 w-5 text-emerald-600" />}
-              />
-              <SummaryCard
-                title="Default Fallbacks"
-                value={defaultApproverCount}
-                icon={<Star className="h-5 w-5 text-amber-600" />}
-              />
+              <SummaryCard title="Assignments" value={assignedCount} icon={<ShieldCheck className="h-5 w-5 text-slate-500" />} />
+              <SummaryCard title="Active Approvers" value={activeApproverCount} icon={<Users className="h-5 w-5 text-blue-700" />} />
+              <SummaryCard title="Scoped Rows" value={scopedCount} icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} />
+              <SummaryCard title="Legacy Protected" value={legacyCount} icon={<UserCheck className="h-5 w-5 text-amber-600" />} />
             </section>
 
-            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 px-6 py-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                      Assignment Matrix
-                    </p>
-                    <h2 className="mt-1 text-xl font-black text-slate-950">
-                      Role Approvers by Department
-                    </h2>
-                    <p className="mt-1 max-w-4xl text-sm font-medium leading-6 text-slate-500">
-                      Select multiple departments per approver. Default approvers
-                      cannot have department scopes and are used only as fallback.
-                    </p>
-                  </div>
-
-                  <input
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search role, department, or employee..."
-                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 lg:w-96"
-                  />
-                </div>
-              </div>
-
-              <div className="p-6">
-                {isLoading ? (
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 px-6 py-14 text-center">
-                    <p className="text-sm font-black text-slate-950">
-                      Loading approval assignments...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-5">
-                    {groupedAssignments.map((group) => {
-                      const activeRoleApprovers = group.assignments.filter(
-                        (assignment) =>
-                          assignment.is_active !== false &&
-                          assignment.employee_id,
-                      );
-
-                      const workflowsForRole = getWorkflowsForRole(group.role);
-
-                      return (
-                        <div
-                          key={group.role}
-                          className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
-                        >
-                          <div className="border-b border-slate-100 p-6">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                              <div>
-                                <div className="flex flex-wrap items-center gap-3">
-                                  <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                                    {group.role}
-                                  </span>
-
-                                  {activeRoleApprovers.length > 0 ? (
-                                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                                      {activeRoleApprovers.length} active approver
-                                      {activeRoleApprovers.length > 1 ? "s" : ""}
-                                    </span>
-                                  ) : (
-                                    <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
-                                      No active approver
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
-                                  Requests needing {group.role} approval can
-                                  route by employee department or default
-                                  fallback.
-                                </p>
-
-                                <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                                  <div className="mb-3 flex items-center justify-between gap-3">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                                      Approves
-                                    </p>
-
-                                    <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                                      {workflowsForRole.length} workflow
-                                      {workflowsForRole.length !== 1 ? "s" : ""}
-                                    </span>
-                                  </div>
-
-                                  {workflowsForRole.length === 0 ? (
-                                    <p className="text-sm font-medium text-slate-500">
-                                      No active workflows assigned to this role.
-                                    </p>
-                                  ) : (
-                                    <div className="flex flex-wrap gap-2">
-                                      {workflowsForRole.map((workflow) => (
-                                        <span
-                                          key={workflow.id}
-                                          title={workflow.workflow_key}
-                                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700"
-                                        >
-                                          {workflow.workflow_name ||
-                                            workflow.workflow_key}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <button
-                                onClick={() => addApprover(group.role)}
-                                disabled={isSaving}
-                                className="flex h-11 w-fit items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <Plus size={16} />
-                                Add Approver
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="overflow-auto">
-                            <table className="w-full min-w-[1380px]">
-                              <thead className="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                                <tr>
-                                  <th className="px-6 py-4">Approver Type</th>
-                                  <th className="px-6 py-4">Department Scopes</th>
-                                  <th className="px-6 py-4">Default</th>
-                                  <th className="px-6 py-4">Assigned Employee</th>
-                                  <th className="px-6 py-4">Employee Dept.</th>
-                                  <th className="px-6 py-4">Position</th>
-                                  <th className="px-6 py-4">Status</th>
-                                  <th className="px-6 py-4">Active</th>
-                                  <th className="px-6 py-4 text-right">Remove</th>
-                                </tr>
-                              </thead>
-
-                              <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
-                                {group.assignments.length === 0 ? (
-                                  <tr>
-                                    <td colSpan={9} className="px-6 py-14 text-center">
-                                      <p className="text-sm font-black text-slate-950">
-                                        No approvers yet
-                                      </p>
-                                      <p className="mt-1 text-sm font-medium text-slate-500">
-                                        Click Add Approver to create an assignment
-                                        slot.
-                                      </p>
-                                    </td>
-                                  </tr>
-                                ) : (
-                                  group.assignments.map((assignment) => {
-                                    const assignedEmployee = getAssignedEmployee(
-                                      assignment.employee_id,
-                                    );
-                                    const scopes = safeParseDepartmentScopes(assignment);
-
-                                    return (
-                                      <tr
-                                        key={assignment.id}
-                                        className="transition-all duration-200 hover:bg-slate-50"
-                                      >
-                                        <td className="px-6 py-4 align-top">
-                                          <select
-                                            value={assignment.assignment_type || "BACKUP"}
-                                            disabled={
-                                              isSaving ||
-                                              assignment.is_active === false
-                                            }
-                                            onChange={(event) =>
-                                              updateAssignmentType(
-                                                assignment,
-                                                event.target.value,
-                                              )
-                                            }
-                                            className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            {assignmentTypes.map((type) => (
-                                              <option key={type} value={type}>
-                                                {type}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </td>
-
-                                        <td className="px-6 py-4 align-top">
-                                          <div className="w-[360px] rounded-2xl border border-slate-200 bg-white p-3">
-                                            <div className="mb-3 flex items-center justify-between gap-3">
-                                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                                                {scopes.length} selected
-                                              </p>
-
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  clearDepartmentScopes(assignment)
-                                                }
-                                                disabled={
-                                                  isSaving ||
-                                                  assignment.is_active === false ||
-                                                  Boolean(assignment.is_default) ||
-                                                  scopes.length === 0
-                                                }
-                                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                              >
-                                                Clear
-                                              </button>
-                                            </div>
-
-                                            {assignment.is_default ? (
-                                              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-700">
-                                                Default fallback approver. Department scopes are disabled.
-                                              </div>
-                                            ) : departmentOptions.length === 0 ? (
-                                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-500">
-                                                No employee departments found.
-                                              </div>
-                                            ) : (
-                                              <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                                                {departmentOptions.map((department) => {
-                                                  const checked = scopes.some(
-                                                    (scope) =>
-                                                      normalizeText(scope) ===
-                                                      normalizeText(department),
-                                                  );
-
-                                                  return (
-                                                    <label
-                                                      key={department}
-                                                      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition ${
-                                                        checked
-                                                          ? "border-blue-200 bg-blue-50 text-blue-700"
-                                                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                                                      } ${
-                                                        isSaving ||
-                                                        assignment.is_active === false
-                                                          ? "cursor-not-allowed opacity-50"
-                                                          : ""
-                                                      }`}
-                                                    >
-                                                      <input
-                                                        type="checkbox"
-                                                        checked={checked}
-                                                        disabled={
-                                                          isSaving ||
-                                                          assignment.is_active === false
-                                                        }
-                                                        onChange={() =>
-                                                          toggleDepartmentScope(
-                                                            assignment,
-                                                            department,
-                                                          )
-                                                        }
-                                                        className="h-4 w-4 rounded border-slate-300"
-                                                      />
-                                                      <span className="truncate">
-                                                        {department}
-                                                      </span>
-                                                    </label>
-                                                  );
-                                                })}
-                                              </div>
-                                            )}
-
-                                            {scopes.length > 0 && (
-                                              <div className="mt-3 flex flex-wrap gap-2">
-                                                {scopes.map((scope) => (
-                                                  <span
-                                                    key={scope}
-                                                    className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700"
-                                                  >
-                                                    {scope}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </td>
-
-                                        <td className="px-6 py-4 align-top">
-                                          <button
-                                            onClick={() =>
-                                              toggleDefaultApprover(assignment)
-                                            }
-                                            disabled={
-                                              isSaving ||
-                                              assignment.is_active === false
-                                            }
-                                            className={
-                                              assignment.is_default
-                                                ? "inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 transition-all duration-200 hover:bg-amber-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                                                : "inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                                            }
-                                          >
-                                            <Star size={13} />
-                                            {assignment.is_default ? "Default" : "Set"}
-                                          </button>
-                                        </td>
-
-                                        <td className="px-6 py-4 align-top">
-                                          <select
-                                            value={assignment.employee_id || ""}
-                                            disabled={
-                                              isSaving ||
-                                              assignment.is_active === false
-                                            }
-                                            onChange={(event) =>
-                                              updateAssignmentEmployee(
-                                                assignment,
-                                                event.target.value,
-                                              )
-                                            }
-                                            className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            <option value="">Unassigned</option>
-                                            {activeEmployees.map((employee) => (
-                                              <option
-                                                key={employee.id}
-                                                value={employee.id}
-                                              >
-                                                {getEmployeeName(employee)} —{" "}
-                                                {employee.department ||
-                                                  "No Department"}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </td>
-
-                                        <td className="px-6 py-4 align-top">
-                                          {assignedEmployee?.department || "-"}
-                                        </td>
-
-                                        <td className="px-6 py-4 align-top">
-                                          {assignedEmployee?.position || "-"}
-                                        </td>
-
-                                        <td className="px-6 py-4 align-top">
-                                          {assignment.employee_id ? (
-                                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                                              Assigned
-                                            </span>
-                                          ) : (
-                                            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                                              Needs Assignment
-                                            </span>
-                                          )}
-                                        </td>
-
-                                        <td className="px-6 py-4 align-top">
-                                          <button
-                                            onClick={() =>
-                                              toggleAssignmentStatus(assignment)
-                                            }
-                                            disabled={isSaving}
-                                            className={
-                                              assignment.is_active === false
-                                                ? "h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                                                : "h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                                            }
-                                          >
-                                            {assignment.is_active === false
-                                              ? "Activate"
-                                              : "Deactivate"}
-                                          </button>
-                                        </td>
-
-                                        <td className="px-6 py-4 text-right align-top">
-                                          <button
-                                            onClick={() =>
-                                              removeAssignment(assignment)
-                                            }
-                                            disabled={isSaving}
-                                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                                            aria-label="Remove assignment"
-                                          >
-                                            <Trash2 size={14} />
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="mt-6 rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+            <section className="mb-6 rounded-3xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
               <div className="flex gap-3">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">
-                    Department Routing Rule
+                    Safe Routing Rules
                   </p>
                   <h3 className="mt-1 text-xl font-black text-slate-950">
-                    Multi Department Match First, Default Fallback Second
+                    Cash Management legacy rows are protected
                   </h3>
-                  <p className="mt-2 max-w-4xl text-sm font-bold leading-6 text-blue-700">
-                    Leave and OT should route to an active approver where the
-                    employee department is included in department_scopes. If no
-                    department match exists, use the active default approver for
-                    the same approval role.
+                  <p className="mt-2 max-w-5xl text-sm font-bold leading-6 text-blue-700">
+                    workflow_keys = NULL stays legacy protected. POS Void/Refund and future approvals use scoped rows only.
+                    Department scope only matters for Leave / OT.
                   </p>
                 </div>
               </div>
+            </section>
+
+            <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_220px_300px_160px] xl:items-end">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Search
+                  </p>
+                  <input
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Search approver, approval type, department..."
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    New Role
+                  </p>
+                  <select
+                    value={newAssignmentRole}
+                    onChange={(event) => setNewAssignmentRole(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    {approvalRoles.map((role) => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    New Approver
+                  </p>
+                  <select
+                    value={newAssignmentEmployeeId}
+                    onChange={(event) => setNewAssignmentEmployeeId(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  >
+                    <option value="">Select approver</option>
+                    {activeEmployees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {getEmployeeName(employee)} — {employee.department || "No Department"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={addAssignment}
+                  disabled={isSaving}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus size={16} />
+                  Add
+                </button>
+              </div>
+            </section>
+
+            <section className="space-y-5">
+              {isLoading ? (
+                <EmptyState title="Loading approval assignments..." />
+              ) : approverGroups.length === 0 ? (
+                <EmptyState title="No approval assignments found" />
+              ) : (
+                approverGroups.map((group) => {
+                  const employee = group.employee;
+                  const isExpanded = expandedApproverKey === group.key;
+
+                  const activeRows = group.assignments.filter((item: any) => item.is_active !== false);
+                  const legacyRows = group.assignments.filter((item: any) => isLegacyProtectedAssignment(item));
+                  const scopedRows = group.assignments.filter((item: any) => !isLegacyProtectedAssignment(item));
+
+                  const scopedWorkflowKeys = uniqueWorkflowKeys(
+                    scopedRows.flatMap((item: any) => safeParseWorkflowKeys(item)),
+                  );
+
+                  const allScopes = uniqueScopes(
+                    group.assignments.flatMap((item: any) => safeParseDepartmentScopes(item)),
+                  );
+
+                  return (
+                    <div key={group.key} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                      <div className="p-5">
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Chip>Approver</Chip>
+                              <Chip tone="emerald">{activeRows.length} active</Chip>
+                              {legacyRows.length > 0 && <Chip tone="amber">legacy protected</Chip>}
+                            </div>
+
+                            <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">
+                              {group.employeeName}
+                            </h2>
+
+                            <p className="mt-1 text-sm font-semibold text-slate-500">
+                              {employee?.department || "No Department"} • {employee?.position || "No Position"}
+                            </p>
+
+                            <div className="mt-5 space-y-4">
+                              <SummaryBlock title="Approves">
+                                {legacyRows.length > 0 && <Chip tone="amber">Legacy All Workflows</Chip>}
+
+                                {scopedWorkflowKeys.length === 0 && legacyRows.length === 0 ? (
+                                  <Chip>No approval types assigned</Chip>
+                                ) : (
+                                  scopedWorkflowKeys.map((key) => (
+                                    <Chip key={key} tone="blue">{getWorkflowDisplayName(key)}</Chip>
+                                  ))
+                                )}
+                              </SummaryBlock>
+
+                              <SummaryBlock title="Leave / OT Department Routing">
+                                {allScopes.length === 0 ? (
+                                  <Chip>All Departments</Chip>
+                                ) : (
+                                  allScopes.map((scope) => (
+                                    <Chip key={scope} tone="emerald">{scope}</Chip>
+                                  ))
+                                )}
+                              </SummaryBlock>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                            <button
+                              onClick={() => {
+                                setExpandedApproverKey(isExpanded ? null : group.key);
+                                setEditMode("types");
+                              }}
+                              className="h-10 rounded-xl border border-blue-200 bg-blue-50 px-4 text-xs font-black text-blue-700 transition hover:bg-blue-100"
+                            >
+                              Edit Approval Types
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setExpandedApproverKey(isExpanded ? null : group.key);
+                                setEditMode("departments");
+                              }}
+                              className="h-10 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                            >
+                              Edit Leave/OT Departments
+                            </button>
+
+                            <button
+                              onClick={() => deactivateGroup(group)}
+                              disabled={isSaving}
+                              className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Deactivate
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setExpandedApproverKey(isExpanded ? null : group.key);
+                                setEditMode(isExpanded ? null : "types");
+                              }}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50"
+                              aria-label="Toggle approver details"
+                            >
+                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-slate-100 bg-slate-50 p-5">
+                          <div className="mb-4 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => setEditMode("types")}
+                              className={
+                                editMode === "types"
+                                  ? "h-10 rounded-xl bg-slate-950 px-4 text-xs font-black text-white"
+                                  : "h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-black text-slate-700 hover:bg-slate-50"
+                              }
+                            >
+                              Approval Types
+                            </button>
+
+                            <button
+                              onClick={() => setEditMode("departments")}
+                              className={
+                                editMode === "departments"
+                                  ? "h-10 rounded-xl bg-slate-950 px-4 text-xs font-black text-white"
+                                  : "h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-black text-slate-700 hover:bg-slate-50"
+                              }
+                            >
+                              Leave / OT Departments
+                            </button>
+                          </div>
+
+                          {editMode === "types" && (
+                            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                              <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                    Edit Approval Types
+                                  </p>
+                                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                                    Add or remove approval chips
+                                  </h3>
+                                  <p className="mt-1 text-sm font-bold text-slate-500">
+                                    Loaded from approval_workflows. No hardcoded approval types.
+                                  </p>
+                                </div>
+
+                                {legacyRows.length > 0 && <Chip tone="amber">Legacy rows protected</Chip>}
+                              </div>
+
+                              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                {activeWorkflowOptions.length === 0 ? (
+                                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
+                                    No active approval workflows found.
+                                  </div>
+                                ) : (
+                                  activeWorkflowOptions.map((workflow) => {
+                                    const checked = scopedWorkflowKeys.includes(workflow.normalizedKey);
+
+                                    return (
+                                      <label
+                                        key={workflow.id || workflow.normalizedKey}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm font-bold transition ${
+                                          checked
+                                            ? "border-blue-200 bg-blue-50 text-blue-700"
+                                            : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                        } ${isSaving ? "cursor-not-allowed opacity-50" : ""}`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          disabled={isSaving}
+                                          onChange={() => toggleGroupWorkflowKey(group, workflow.normalizedKey)}
+                                          className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                                        />
+
+                                        <span className="min-w-0">
+                                          <span className="block truncate">{workflow.displayName}</span>
+                                          <span className="mt-1 block truncate text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                                            {workflow.module || "Workflow"} • {workflow.normalizedKey}
+                                          </span>
+                                        </span>
+                                      </label>
+                                    );
+                                  })
+                                )}
+                              </div>
+
+                              {scopedRows.length > 0 && (
+                                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                    Scoped Rows
+                                  </p>
+
+                                  <div className="mt-3 space-y-2">
+                                    {scopedRows.map((assignment: any) => (
+                                      <div
+                                        key={assignment.id}
+                                        className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 md:flex-row md:items-center md:justify-between"
+                                      >
+                                        <div>
+                                          <p className="text-sm font-black text-slate-950">
+                                            {assignment.approval_role} • {assignment.assignment_type || "BACKUP"}
+                                          </p>
+                                          <p className="mt-1 text-xs font-bold text-slate-500">
+                                            {safeParseWorkflowKeys(assignment).length} workflow key(s)
+                                          </p>
+                                        </div>
+
+                                        <button
+                                          onClick={() => removeScopedAssignment(assignment)}
+                                          disabled={isSaving}
+                                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-red-600 px-3 text-xs font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          <Trash2 size={13} />
+                                          Remove Scoped Row
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {editMode === "departments" && (
+                            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                              <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                    Edit Leave / OT Departments
+                                  </p>
+                                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                                    Department routing scope
+                                  </h3>
+                                  <p className="mt-1 text-sm font-bold text-slate-500">
+                                    Department scope only matters for Leave and OT.
+                                  </p>
+                                </div>
+
+                                <button
+                                  onClick={() => updateGroupDepartmentScopes(group, [])}
+                                  disabled={isSaving || allScopes.length === 0}
+                                  className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Clear Departments
+                                </button>
+                              </div>
+
+                              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                {departmentOptions.length === 0 ? (
+                                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
+                                    No departments found from employees.
+                                  </div>
+                                ) : (
+                                  departmentOptions.map((department) => {
+                                    const checked = allScopes.some(
+                                      (scope) => normalizeText(scope) === normalizeText(department),
+                                    );
+
+                                    return (
+                                      <label
+                                        key={department}
+                                        className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 text-sm font-bold transition ${
+                                          checked
+                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                            : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                        } ${isSaving ? "cursor-not-allowed opacity-50" : ""}`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          disabled={isSaving}
+                                          onChange={() => toggleGroupDepartmentScope(group, department)}
+                                          className="h-4 w-4 rounded border-slate-300"
+                                        />
+
+                                        <span className="truncate">{department}</span>
+                                      </label>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </section>
           </div>
         </main>
@@ -1067,14 +992,54 @@ function SummaryCard({
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-          {title}
-        </p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{title}</p>
         {icon}
       </div>
-      <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
-        {value}
-      </h2>
+      <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</h2>
+    </div>
+  );
+}
+
+function SummaryBlock({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{title}</p>
+      <div className="mt-2 flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+function Chip({
+  children,
+  tone = "slate",
+}: {
+  children: React.ReactNode;
+  tone?: "slate" | "blue" | "emerald" | "amber";
+}) {
+  const classes = {
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
+    blue: "border-blue-200 bg-blue-50 text-blue-700",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+  };
+
+  return (
+    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${classes[tone]}`}>
+      {children}
+    </span>
+  );
+}
+
+function EmptyState({ title }: { title: string }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
+      <p className="text-sm font-black text-slate-950">{title}</p>
     </div>
   );
 }

@@ -106,6 +106,7 @@ export default function CashManagementPage() {
   const [expenseSubcategories, setExpenseSubcategories] = useState<any[]>([]);
   const [approvalRequests, setApprovalRequests] = useState<any[]>([]);
   const [cashSources, setCashSources] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
   const [businessDate, setBusinessDate] = useState(today);
   const [movementType, setMovementType] = useState("Cash In");
@@ -143,6 +144,7 @@ export default function CashManagementPage() {
   const [liquidationNoReceiptReason, setLiquidationNoReceiptReason] = useState("");
   const [liquidationNoReceiptExplanation, setLiquidationNoReceiptExplanation] = useState("");
   const [liquidationRemarks, setLiquidationRemarks] = useState("");
+  const [liquidationReturnDestination, setLiquidationReturnDestination] = useState("OWNER");
 
   const [drawerHolder, setDrawerHolder] = useState("");
   const [openingFloat, setOpeningFloat] = useState("");
@@ -164,9 +166,59 @@ export default function CashManagementPage() {
   const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [currentEmployeeId, setCurrentEmployeeId] = useState("");
   const [currentCompanyId, setCurrentCompanyId] = useState("");
+  const [currentRoleName, setCurrentRoleName] = useState("");
 
   const movementTypes = ["Cash In", "Cash Out"];
-  const paymentTypes = ["Cash", "GCash", "Bank", "Terminal"];
+
+  const fallbackPaymentMethods = [
+    {
+      name: "Cash",
+      is_active: true,
+      deduct_from_cash_flow: true,
+      requires_approval: true,
+      requires_liquidation: true,
+      requires_drawer: true,
+      return_destination_enabled: true,
+      default_return_destination: "CASH_DRAWER",
+    },
+    {
+      name: "GCash",
+      is_active: true,
+      deduct_from_cash_flow: false,
+      requires_approval: false,
+      requires_liquidation: false,
+      requires_drawer: false,
+      return_destination_enabled: false,
+    },
+    {
+      name: "Bank",
+      is_active: true,
+      deduct_from_cash_flow: false,
+      requires_approval: false,
+      requires_liquidation: false,
+      requires_drawer: false,
+      return_destination_enabled: false,
+    },
+    {
+      name: "Terminal",
+      is_active: true,
+      deduct_from_cash_flow: false,
+      requires_approval: false,
+      requires_liquidation: false,
+      requires_drawer: false,
+      return_destination_enabled: false,
+    },
+    {
+      name: "Owner Abono",
+      is_active: true,
+      deduct_from_cash_flow: false,
+      requires_approval: false,
+      requires_liquidation: true,
+      requires_drawer: false,
+      return_destination_enabled: true,
+      default_return_destination: "OWNER",
+    },
+  ];
 
   const fallbackCashSources = [
     { name: "Restaurant Sales", movement_type: "Cash In", category: "Revenue", is_active: true },
@@ -257,9 +309,22 @@ export default function CashManagementPage() {
 
   const activeDrawerHolderName = String(activeDrawer?.holder_name || "").trim();
   const currentActorName = String(currentEmployeeName || "").trim();
+  const currentRoleText = String(currentRoleName || "").trim();
+
+  const normalizedCurrentRole = normalizeName(currentRoleText).replace(/[_-]+/g, " ");
+  const compactCurrentRole = normalizedCurrentRole.replace(/\s+/g, "");
+  const canOverrideDrawerLock =
+    compactCurrentRole.includes("superadmin") ||
+    normalizedCurrentRole.includes("super admin") ||
+    normalizedCurrentRole === "admin" ||
+    normalizedCurrentRole.includes("operations manager") ||
+    normalizedCurrentRole.includes("operation manager") ||
+    normalizedCurrentRole.includes("owner");
+
   const hasActiveDrawer = Boolean(activeDrawer?.id);
   const isCurrentUserDrawerHolder =
     !hasActiveDrawer ||
+    canOverrideDrawerLock ||
     (normalizeName(activeDrawerHolderName) !== "" &&
       normalizeName(activeDrawerHolderName) === normalizeName(currentActorName));
   const drawerMismatchLocked = hasActiveDrawer && !isCurrentUserDrawerHolder;
@@ -340,6 +405,58 @@ export default function CashManagementPage() {
     return base.filter((item) => item?.is_active !== false);
   }, [cashSources]);
 
+  const activePaymentMethods = useMemo(() => {
+    const base = paymentMethods.length > 0 ? paymentMethods : fallbackPaymentMethods;
+
+    return base
+      .filter((item) => item?.is_active !== false)
+      .map((item) => ({
+        ...item,
+        name: String(item.name || item.payment_method || item.label || "").trim(),
+      }))
+      .filter((item) => item.name)
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  }, [paymentMethods]);
+
+  const paymentTypes = activePaymentMethods.map((item) => item.name);
+
+  const selectedPaymentMethod = activePaymentMethods.find(
+    (item) => normalizeName(item.name) === normalizeName(paymentType),
+  );
+
+  const paymentDeductsFromCashFlow = Boolean(
+    selectedPaymentMethod?.deduct_from_cash_flow ??
+      (normalizeName(paymentType) === "cash"),
+  );
+
+  const paymentRequiresApproval = Boolean(
+    selectedPaymentMethod?.requires_approval ??
+      (normalizeName(paymentType) === "cash"),
+  );
+
+  const paymentRequiresLiquidation = Boolean(
+    selectedPaymentMethod?.requires_liquidation ??
+      (normalizeName(paymentType) === "cash"),
+  );
+
+  const paymentRequiresDrawer = Boolean(
+    selectedPaymentMethod?.requires_drawer ??
+      (normalizeName(paymentType) === "cash"),
+  );
+
+  const paymentReturnDestinationEnabled = Boolean(
+    selectedPaymentMethod?.return_destination_enabled ??
+      (normalizeName(paymentType) === "cash" || normalizeName(paymentType).includes("owner")),
+  );
+
+  const isCashInMovement = movementType === "Cash In";
+  const isCashOutMovement = movementType === "Cash Out";
+
+  const cashOutPaymentDeductsFromCashFlow = isCashOutMovement && paymentDeductsFromCashFlow;
+  const cashOutPaymentRequiresApproval = isCashOutMovement && paymentRequiresApproval;
+  const cashOutPaymentRequiresLiquidation = isCashOutMovement && paymentRequiresLiquidation;
+  const cashOutPaymentRequiresDrawer = isCashOutMovement && paymentRequiresDrawer;
+
   const availableSourceOptions = useMemo(() => {
     const list = activeSourceRows
       .filter((item) => String(item.movement_type || item.direction || "Cash In") === movementType)
@@ -355,9 +472,25 @@ export default function CashManagementPage() {
     }
   }, [movementType, availableSourceOptions]);
 
+  useEffect(() => {
+    if (paymentTypes.length > 0 && !paymentTypes.includes(paymentType)) {
+      setPaymentType(paymentTypes[0]);
+    }
+  }, [paymentTypes.join("|"), paymentType]);
+
   const isCashAdvanceCashOut = movementType === "Cash Out" && source === "Cash Advance";
   const isExpenseRelease = movementType === "Cash Out" && source === "Expense Release";
   const shouldCreateExpenseFromCashOut = isExpenseRelease || isCashAdvanceCashOut;
+  const shouldCreateCashMovementRecord =
+    !shouldCreateExpenseFromCashOut || cashOutPaymentDeductsFromCashFlow || cashOutPaymentRequiresLiquidation;
+  const shouldSendCashReleaseToApproval =
+    shouldCreateExpenseFromCashOut && cashOutPaymentRequiresApproval;
+  const shouldRequireLiquidationForRelease =
+    shouldCreateExpenseFromCashOut && cashOutPaymentRequiresLiquidation;
+  const shouldRequireDrawerForSave =
+    isCashOutMovement
+      ? cashOutPaymentRequiresDrawer || cashOutPaymentDeductsFromCashFlow
+      : paymentDeductsFromCashFlow;
 
   const cashOnlyMovements = useMemo(() => {
     if (!activeDrawer) return [];
@@ -556,6 +689,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
   drawerMismatchLocked,
   activeDrawerHolderName,
   currentActorName,
+  currentRoleName,
 ]);
 
   const getCurrentCompanyId = async () => {
@@ -569,15 +703,48 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
   const loadIdentity = () => {
     if (typeof window === "undefined") return;
+
+    const storedCurrentUser = localStorage.getItem("opscore_current_user");
+    let parsedCurrentUser: any = null;
+
+    if (storedCurrentUser) {
+      try {
+        parsedCurrentUser = JSON.parse(storedCurrentUser);
+      } catch (error) {
+        parsedCurrentUser = null;
+      }
+    }
+
     const employeeName =
       localStorage.getItem("opscore_current_employee_name") ||
-      localStorage.getItem("opscore_current_role_name") ||
+      parsedCurrentUser?.employee_name ||
+      parsedCurrentUser?.name ||
+      parsedCurrentUser?.username ||
       "OPSCORE USER";
-    const employeeId = localStorage.getItem("opscore_current_employee_id") || "";
-    const companyId = localStorage.getItem("opscore_current_company_id") || "";
+
+    const roleName =
+      localStorage.getItem("opscore_current_role_name") ||
+      localStorage.getItem("opscore_current_role") ||
+      localStorage.getItem("opscore_current_role_key") ||
+      parsedCurrentUser?.role_name ||
+      parsedCurrentUser?.role ||
+      parsedCurrentUser?.role_key ||
+      "";
+
+    const employeeId =
+      localStorage.getItem("opscore_current_employee_id") ||
+      parsedCurrentUser?.employee_id ||
+      "";
+
+    const companyId =
+      localStorage.getItem("opscore_current_company_id") ||
+      parsedCurrentUser?.company_id ||
+      "";
+
     setCurrentEmployeeName(employeeName);
     setCurrentEmployeeId(employeeId);
     setCurrentCompanyId(companyId);
+    setCurrentRoleName(roleName);
   };
 
   const fetchTable = async (table: string, setter: (rows: any[]) => void, order = "created_at") => {
@@ -609,6 +776,21 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     setCashSources(data || []);
   };
 
+  const getPaymentMethods = async () => {
+    const { data, error } = await supabase
+      .from("finance_payment_methods")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.log("GET PAYMENT METHODS ERROR:", error.message);
+      setPaymentMethods([]);
+      return;
+    }
+
+    setPaymentMethods(data || []);
+  };
+
   const getEmployees = async () => {
     const { data, error } = await supabase
       .from("employees")
@@ -628,6 +810,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       fetchTable("finance_cash_drawers", setDrawers, "created_at"),
       fetchTable("approval_requests", setApprovalRequests, "created_at"),
       getCashSources(),
+      getPaymentMethods(),
       getEmployees(),
       fetchTable("expense_categories", setExpenseCategories, "name"),
       fetchTable("expense_subcategories", setExpenseSubcategories, "name"),
@@ -639,7 +822,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     void refreshCashManagement();
 
     const channel = supabase.channel("cash-management-realtime");
-    ["finance_cash_movements", "finance_cash_drawers", "approval_requests", "finance_cash_sources", "expenses"].forEach((table) => {
+    ["finance_cash_movements", "finance_cash_drawers", "approval_requests", "finance_cash_sources", "finance_payment_methods", "expenses"].forEach((table) => {
       channel.on("postgres_changes", { event: "*", schema: "public", table }, () => {
         void refreshCashManagement();
       });
@@ -718,6 +901,83 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     return Boolean(data?.length);
   };
 
+  const normalizeDuplicateKeyText = (value: any) =>
+    String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+  const getPayloadObject = (value: any) => {
+    if (!value) return {};
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        return {};
+      }
+    }
+    return value || {};
+  };
+
+  const cashReleaseApprovalMatchesPayload = (existingRequest: any, nextPayload: any) => {
+    const existingPayload = getPayloadObject(existingRequest?.request_payload);
+
+    const existingAmount = Number(existingPayload.amount || 0);
+    const nextAmount = Number(nextPayload.amount || 0);
+
+    return (
+      String(existingPayload.business_date || "") === String(nextPayload.business_date || "") &&
+      String(existingPayload.cash_drawer_id || "") === String(nextPayload.cash_drawer_id || "") &&
+      String(existingPayload.movement_type || "") === String(nextPayload.movement_type || "") &&
+      String(existingPayload.source || "") === String(nextPayload.source || "") &&
+      String(existingPayload.payment_type || "Cash") === String(nextPayload.payment_type || "Cash") &&
+      Math.abs(existingAmount - nextAmount) < 0.009 &&
+      normalizeDuplicateKeyText(existingPayload.from_person) === normalizeDuplicateKeyText(nextPayload.from_person) &&
+      normalizeDuplicateKeyText(existingPayload.to_person) === normalizeDuplicateKeyText(nextPayload.to_person) &&
+      normalizeDuplicateKeyText(existingPayload.expense_description) === normalizeDuplicateKeyText(nextPayload.expense_description) &&
+      normalizeDuplicateKeyText(existingPayload.expense_released_to) === normalizeDuplicateKeyText(nextPayload.expense_released_to) &&
+      normalizeDuplicateKeyText(existingPayload.cash_advance_employee_id) === normalizeDuplicateKeyText(nextPayload.cash_advance_employee_id) &&
+      normalizeDuplicateKeyText(existingPayload.cash_advance_purpose) === normalizeDuplicateKeyText(nextPayload.cash_advance_purpose)
+    );
+  };
+
+  const findExistingCashReleaseApproval = async ({
+    companyId,
+    requestType,
+    requestPayload,
+  }: {
+    companyId: string;
+    requestType: string;
+    requestPayload: any;
+  }) => {
+    let query = supabase
+      .from("approval_requests")
+      .select("id, status, title, created_at, requested_by, request_payload, source_document_type, source_document_id")
+      .eq("request_type", requestType)
+      .in("status", ["PENDING", "APPROVED"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (companyId) query = query.eq("company_id", companyId);
+
+    if (requestPayload.cash_drawer_id) {
+      query = query.eq("source_document_type", requestType);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.log("CASH RELEASE APPROVAL DUPLICATE CHECK ERROR:", error.message);
+      throw new Error(error.message);
+    }
+
+    const rows = data || [];
+
+    return (
+      rows.find((item: any) => cashReleaseApprovalMatchesPayload(item, requestPayload)) || null
+    );
+  };
+
   const saveMovement = async () => {
     if (savingRef.current) return;
 
@@ -726,8 +986,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
 
-    if (!activeDrawer && paymentType === "Cash") {
-      alert("Open a cash drawer before recording physical cash movement.");
+    if (!activeDrawer && shouldRequireDrawerForSave) {
+      alert("Open a cash drawer before recording this payment source.");
       return;
     }
 
@@ -742,7 +1002,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
 
-    if (movementType === "Cash Out" && paymentType === "Cash" && amountValue > cashOnHand) {
+    if (isCashOutMovement && cashOutPaymentDeductsFromCashFlow && amountValue > cashOnHand) {
       alert("Cash out cannot be greater than current cash on hand.");
       return;
     }
@@ -789,22 +1049,31 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       status: "ACTIVE",
       reference_type: shouldCreateExpenseFromCashOut ? "expense" : "manual_cash_movement",
       reference_id: null,
+      approval_request_id: null,
       origin_type: shouldCreateExpenseFromCashOut
-        ? isCashAdvanceCashOut
-          ? "manual_cash_advance_release"
-          : "manual_expense_release"
+        ? shouldCreateCashMovementRecord
+          ? isCashAdvanceCashOut
+            ? "manual_cash_advance_release"
+            : "manual_expense_release"
+          : isCashAdvanceCashOut
+            ? "non_cash_cash_advance_expense"
+            : "non_cash_expense_release"
         : "manual_cash_movement",
       origin_id: manualOriginId,
       created_by_module: "Cash Management",
       source_action: shouldCreateExpenseFromCashOut
-        ? isCashAdvanceCashOut
-          ? "MANUAL_CASH_ADVANCE_RELEASE"
-          : "MANUAL_EXPENSE_RELEASE"
+        ? shouldCreateCashMovementRecord
+          ? isCashAdvanceCashOut
+            ? "MANUAL_CASH_ADVANCE_RELEASE"
+            : "MANUAL_EXPENSE_RELEASE"
+          : isCashAdvanceCashOut
+            ? "CREATE_NON_CASH_ADVANCE_EXPENSE_ONLY"
+            : "CREATE_NON_CASH_EXPENSE_ONLY"
         : `MANUAL_${movementType.toUpperCase().replaceAll(" ", "_")}`,
       created_by_user_id: actor.userId,
       created_by_user_name: actor.userName,
-      cash_drawer_id: activeDrawer?.id || null,
-      liquidation_status: shouldCreateExpenseFromCashOut ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
+      cash_drawer_id: shouldRequireDrawerForSave ? activeDrawer?.id || null : null,
+      liquidation_status: shouldRequireLiquidationForRelease ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
       net_expense_amount: shouldCreateExpenseFromCashOut ? amountValue : 0,
     };
 
@@ -814,7 +1083,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return "";
     };
 
-    const shouldSendCashReleaseToApproval = async () => {
+    const workflowApprovalIsActive = async () => {
       if (!shouldCreateExpenseFromCashOut) return false;
 
       const workflowKey = getCashReleaseWorkflowKey();
@@ -863,7 +1132,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return rows.some((row: any) => row.is_active !== false);
     };
 
-    const cashReleaseNeedsApproval = await shouldSendCashReleaseToApproval();
+    const cashReleaseNeedsApproval = shouldSendCashReleaseToApproval && (await workflowApprovalIsActive());
 
     if (cashReleaseNeedsApproval) {
       const requestType = getCashReleaseWorkflowKey();
@@ -872,9 +1141,14 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         ? `Cash Advance Release - ${cashAdvanceEmployeeName || "Employee"}`
         : `Expense Release - ${expenseDescription.trim() || source}`;
 
+      const sourceDocumentType = requestType;
+      const sourceDocumentId = manualOriginId;
+
       const requestPayload = {
         ...movementPayload,
         status: "PENDING_APPROVAL",
+        source_document_type: sourceDocumentType,
+        source_document_id: sourceDocumentId,
         should_create_expense: true,
         is_cash_advance_cash_out: isCashAdvanceCashOut,
         cash_advance_employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
@@ -893,6 +1167,29 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         requested_at: new Date().toISOString(),
       };
 
+      let existingApproval: any = null;
+
+      try {
+        existingApproval = await findExistingCashReleaseApproval({
+          companyId,
+          requestType,
+          requestPayload,
+        });
+      } catch (duplicateCheckError: any) {
+        alert(`Approval duplicate safety check failed. No request was created. ${duplicateCheckError?.message || duplicateCheckError}`);
+        setIsSaving(false);
+        savingRef.current = false;
+        return;
+      }
+
+      if (existingApproval) {
+        alert(`Duplicate blocked. This cash release already has an ${existingApproval.status} approval request: ${existingApproval.title || existingApproval.id}`);
+        setIsSaving(false);
+        savingRef.current = false;
+        await refreshCashManagement();
+        return;
+      }
+
       const { data: approvalData, error: approvalError } = await supabase
         .from("approval_requests")
         .insert({
@@ -904,6 +1201,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           requested_by: autoEncoded,
           status: "PENDING",
           reference_id: null,
+          source_document_type: sourceDocumentType,
+          source_document_id: sourceDocumentId,
           request_payload: requestPayload,
         })
         .select()
@@ -932,6 +1231,72 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       resetForm();
       await refreshCashManagement();
       alert(`${requestType} sent to Approval Center. No cash movement was posted yet.`);
+      return;
+    }
+
+    if (shouldCreateExpenseFromCashOut && !shouldCreateCashMovementRecord && !shouldRequireLiquidationForRelease) {
+      const { data: expenseData, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          company_id: companyId || null,
+          expense_date: businessDate,
+          category: isCashAdvanceCashOut ? "Cash Advance" : expenseCategory || "Other",
+          subcategory: isCashAdvanceCashOut ? "Cash Advance Release" : expenseSubcategory || null,
+          department: isCashAdvanceCashOut ? "Payroll" : expenseDepartment || "Operations",
+          description: isCashAdvanceCashOut ? `Cash Advance - ${cashAdvanceEmployeeName}` : expenseDescription.trim(),
+          amount: amountValue,
+          released_amount: amountValue,
+          actual_spent_amount: amountValue,
+          returned_cash_amount: 0,
+          net_expense_amount: amountValue,
+          liquidation_status: "NOT_REQUIRED",
+          return_destination: paymentReturnDestinationEnabled
+            ? selectedPaymentMethod?.default_return_destination || "OWNER"
+            : null,
+          payment_method: paymentType,
+          employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
+          employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : expenseReleasedTo || null,
+          remarks: [
+            movementRemarks,
+            `[Payment Source: ${paymentType}]`,
+            "[Cash Flow: NOT_DEDUCTED]",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          source: isCashAdvanceCashOut
+            ? "Cash Management - Non Cash Advance"
+            : "Cash Management - Non Cash Expense",
+          posted_to_cash_movements: false,
+          cash_movement_id: null,
+          approval_request_id: null,
+          cash_posted_date: null,
+        })
+        .select()
+        .single();
+
+      if (expenseError) {
+        console.log("SAVE NON CASH EXPENSE ERROR:", expenseError.message);
+        alert(`Failed to save expense-only record. ${expenseError.message}`);
+        setIsSaving(false);
+        savingRef.current = false;
+        return;
+      }
+
+      await createAuditLog({
+        userName: autoEncoded,
+        module: "Cash Management",
+        action: "Expense Only Created",
+        description: `${paymentType} ${source} recorded as expense only - ${formatMoney(amountValue)}. No cash drawer movement created.`,
+        severity: "info",
+        recordId: expenseData.id,
+        newValue: { expense: expenseData, paymentMethod: selectedPaymentMethod },
+      });
+
+      setIsSaving(false);
+      savingRef.current = false;
+      resetForm();
+      await refreshCashManagement();
+      alert(`${paymentType} expense saved. No cash drawer movement was posted.`);
       return;
     }
 
@@ -974,7 +1339,10 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           actual_spent_amount: 0,
           returned_cash_amount: 0,
           net_expense_amount: amountValue,
-          liquidation_status: "FOR_LIQUIDATION",
+          liquidation_status: shouldRequireLiquidationForRelease ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
+          return_destination: paymentReturnDestinationEnabled
+            ? selectedPaymentMethod?.default_return_destination || (cashOutPaymentDeductsFromCashFlow ? "CASH_DRAWER" : "OWNER")
+            : null,
           payment_method: paymentType,
           employee_id: isCashAdvanceCashOut ? cashAdvanceEmployeeId : null,
           employee_name: isCashAdvanceCashOut ? cashAdvanceEmployeeName : expenseReleasedTo || null,
@@ -982,6 +1350,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           source: isCashAdvanceCashOut ? "Cash Control - Cash Advance" : "Cash Control",
           posted_to_cash_movements: true,
           cash_movement_id: movementData.id,
+          approval_request_id: null,
           cash_posted_date: new Date().toISOString(),
         })
         .select()
@@ -1018,7 +1387,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     savingRef.current = false;
     resetForm();
     await refreshCashManagement();
-    alert(shouldCreateExpenseFromCashOut ? "Cash release saved. Liquidation warning is now active." : "Cash movement saved.");
+    alert(shouldCreateExpenseFromCashOut ? (shouldRequireLiquidationForRelease ? "Cash release saved. Liquidation warning is now active." : "Cash release saved.") : "Cash movement saved.");
   };
 
   const openDrawer = async () => {
@@ -1027,12 +1396,18 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
 
-    if (drawerHolder && normalizeName(drawerHolder) !== normalizeName(currentActorName)) {
+    if (
+      !canOverrideDrawerLock &&
+      drawerHolder &&
+      normalizeName(drawerHolder) !== normalizeName(currentActorName)
+    ) {
       alert("You can only open a cash drawer under your own account.");
       return;
     }
 
-    setDrawerHolder(currentActorName);
+    if (!canOverrideDrawerLock) {
+      setDrawerHolder(currentActorName);
+    }
 
     if (activeDrawer) {
       alert("There is already an open drawer.");
@@ -1051,7 +1426,9 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     setIsSaving(true);
     const companyId = await getCurrentCompanyId();
     const actor = getActor();
-    const finalDrawerHolder = currentActorName;
+    const finalDrawerHolder = canOverrideDrawerLock
+      ? drawerHolder || currentActorName
+      : currentActorName;
 
     const { data: drawerData, error: drawerError } = await supabase
       .from("finance_cash_drawers")
@@ -1501,20 +1878,28 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     setLiquidationReceiptCount("1");
     setLiquidationNoReceiptReason("");
     setLiquidationNoReceiptExplanation("");
+    const defaultDestination =
+      String(movement.return_destination || "").trim().toUpperCase() ||
+      (String(movement.payment_type || "").toLowerCase().includes("owner")
+        ? "OWNER"
+        : movement.cash_drawer_id
+          ? "CASH_DRAWER"
+          : "OWNER");
+    setLiquidationReturnDestination(defaultDestination === "CASH_DRAWER" ? "CASH_DRAWER" : "OWNER");
     setLiquidationRemarks("");
     setShowLiquidationModal(true);
   };
 
-  const handleLiquidationActualSpentChange = (value: string) => {
-    setLiquidationActualSpent(value);
+  const handleLiquidationCashReturnedChange = (value: string) => {
+    setLiquidationCashReturned(value);
 
     if (!selectedLiquidationMovement) return;
 
     const releasedAmount = Math.abs(Number(selectedLiquidationMovement.amount || 0));
-    const actualSpent = Number(value || 0);
+    const returnedAmount = Number(value || 0);
 
-    if (Number.isFinite(actualSpent)) {
-      setLiquidationCashReturned(String(Math.max(releasedAmount - actualSpent, 0)));
+    if (Number.isFinite(returnedAmount)) {
+      setLiquidationActualSpent(String(Math.max(releasedAmount - returnedAmount, 0)));
     }
   };
 
@@ -1533,7 +1918,13 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
             .filter(Boolean)
             .join(" ");
 
-    return [liquidationRemarks.trim(), receiptText].filter(Boolean).join(" ");
+    return [
+      liquidationRemarks.trim(),
+      `[Returned To: ${liquidationReturnDestination === "CASH_DRAWER" ? "Cash Drawer" : "Owner"}]`,
+      receiptText,
+    ]
+      .filter(Boolean)
+      .join(" ");
   };
 
   const submitLiquidation = async () => {
@@ -1587,6 +1978,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         liquidated_by: liquidatedBy,
         liquidation_remarks: finalLiquidationRemarks,
         receipt_count: receiptCount,
+        return_destination: liquidationReturnDestination,
       })
       .eq("id", selectedLiquidationMovement.id)
       .eq("status", "ACTIVE");
@@ -1602,6 +1994,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       await supabase
         .from("expenses")
         .update({
+          amount: actualSpent,
           actual_spent_amount: actualSpent,
           returned_cash_amount: cashReturned,
           net_expense_amount: actualSpent,
@@ -1610,12 +2003,14 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           liquidated_by: liquidatedBy,
           liquidation_remarks: finalLiquidationRemarks,
           receipt_count: receiptCount,
+          return_destination: liquidationReturnDestination,
         })
         .eq("id", linkedExpenseId);
     } else {
       await supabase
         .from("expenses")
         .update({
+          amount: actualSpent,
           actual_spent_amount: actualSpent,
           returned_cash_amount: cashReturned,
           net_expense_amount: actualSpent,
@@ -1624,22 +2019,23 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           liquidated_by: liquidatedBy,
           liquidation_remarks: finalLiquidationRemarks,
           receipt_count: receiptCount,
+          return_destination: liquidationReturnDestination,
         })
         .eq("cash_movement_id", selectedLiquidationMovement.id);
     }
 
-    if (cashReturned > 0) {
+    if (cashReturned > 0 && liquidationReturnDestination === "CASH_DRAWER") {
       const returnPayload = {
         company_id: companyId || null,
         business_date: today,
         movement_type: "Cash In",
-        source: "Expense Return",
-        payment_type: selectedLiquidationMovement.payment_type || "Cash",
+        source: selectedLiquidationMovement.payment_type === "Owner Abono" ? "Owner Abono Return" : "Expense Return",
+        payment_type: "Cash",
         amount: cashReturned,
         from_person: selectedLiquidationMovement.to_person || "Requestor",
         to_person: activeDrawer?.holder_name || selectedLiquidationMovement.from_person || liquidatedBy,
         encoded_by: liquidatedBy,
-        remarks: `Auto cash return from liquidation of ${selectedLiquidationMovement.source}. ${finalLiquidationRemarks}`.trim(),
+        remarks: `Auto cash return to drawer from liquidation of ${selectedLiquidationMovement.source}. ${finalLiquidationRemarks}`.trim(),
         status: "ACTIVE",
         reference_type: "expense_liquidation_return",
         reference_id: selectedLiquidationMovement.id,
@@ -1653,21 +2049,50 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         liquidation_status: "NOT_REQUIRED",
       };
 
-      const duplicateReturn = movements.some(
+      const existingReturnMovement = movements.find(
         (item) =>
           !isVoidedMovement(item) &&
           item.reference_type === "expense_liquidation_return" &&
           String(item.reference_id || "") === String(selectedLiquidationMovement.id || ""),
       );
 
-      const isDuplicate = duplicateReturn || (await checkDuplicateMovement(returnPayload));
+      if (existingReturnMovement?.id) {
+        const { error: returnUpdateError } = await supabase
+          .from("finance_cash_movements")
+          .update({
+            business_date: returnPayload.business_date,
+            movement_type: "Cash In",
+            source: returnPayload.source,
+            payment_type: "Cash",
+            amount: returnPayload.amount,
+            from_person: returnPayload.from_person,
+            to_person: returnPayload.to_person,
+            encoded_by: returnPayload.encoded_by,
+            remarks: returnPayload.remarks,
+            status: "ACTIVE",
+            cash_drawer_id: returnPayload.cash_drawer_id,
+            liquidation_status: "NOT_REQUIRED",
+          })
+          .eq("id", existingReturnMovement.id);
 
-      if (!isDuplicate) {
-        const { error: returnInsertError } = await supabase.from("finance_cash_movements").insert(returnPayload);
-        if (returnInsertError) {
+        if (returnUpdateError) {
           setIsSaving(false);
-          alert(`Liquidation saved, but returned cash posting failed. ${returnInsertError.message}`);
+          alert(`Liquidation saved, but returned cash update failed. ${returnUpdateError.message}`);
           return;
+        }
+      } else {
+        const isDuplicate = await checkDuplicateMovement(returnPayload);
+
+        if (!isDuplicate) {
+          const { error: returnInsertError } = await supabase
+            .from("finance_cash_movements")
+            .insert(returnPayload);
+
+          if (returnInsertError) {
+            setIsSaving(false);
+            alert(`Liquidation saved, but returned cash posting failed. ${returnInsertError.message}`);
+            return;
+          }
         }
       }
     }
@@ -1694,7 +2119,11 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     setShowLiquidationModal(false);
     setSelectedLiquidationMovement(null);
     await refreshCashManagement();
-    alert("Liquidation saved. Returned cash was posted to Cash In if applicable.");
+    alert(
+      liquidationReturnDestination === "CASH_DRAWER"
+        ? "Liquidation saved. Returned cash was posted to Cash In if applicable."
+        : "Liquidation saved. Returned cash is marked as returned to Owner and was not posted to drawer cash."
+    );
   };
 
   const saveCashSource = async () => {
@@ -2743,25 +3172,43 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         {showLiquidationModal && selectedLiquidationMovement && (
           <Modal title="Liquidate Cash Release" onClose={() => setShowLiquidationModal(false)}>
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-800">
-              Released amount must equal Actual Spent + Cash Returned. Returned cash will auto-post as Cash In / Expense Return.
+              Released amount must equal Actual Spent + Cash Returned. Choose whether the sukli returns to Owner or posts back to Cash Drawer.
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <SummaryBox label="Released Amount" value={formatMoney(selectedLiquidationMovement.amount)} />
               <SummaryBox label="Source" value={selectedLiquidationMovement.source} />
-              <Field label="Actual Spent">
-                <input
-                  value={liquidationActualSpent}
-                  onChange={(e) => handleLiquidationActualSpentChange(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950"
-                />
-              </Field>
               <Field label="Cash Returned / Sukli">
                 <input
                   value={liquidationCashReturned}
-                  onChange={(e) => setLiquidationCashReturned(e.target.value)}
+                  onChange={(e) => handleLiquidationCashReturnedChange(e.target.value)}
                   className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-lg font-black text-slate-950"
                 />
-                <p className="mt-1 text-[11px] font-bold text-slate-500">Auto-computed from released amount minus actual spent. You may adjust only if cash count differs.</p>
+                <p className="mt-1 text-[11px] font-bold text-slate-500">
+                  Encode only the actual sukli returned. Actual spent will auto-compute.
+                </p>
+              </Field>
+              <Field label="Actual Spent">
+                <input
+                  value={liquidationActualSpent}
+                  readOnly
+                  className="h-11 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 text-lg font-black text-slate-950"
+                />
+                <p className="mt-1 text-[11px] font-bold text-slate-500">
+                  Auto-computed: Released Amount minus Cash Returned.
+                </p>
+              </Field>
+              <Field label="Return Destination">
+                <select
+                  value={liquidationReturnDestination}
+                  onChange={(e) => setLiquidationReturnDestination(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+                >
+                  <option value="OWNER">Return to Owner</option>
+                  <option value="CASH_DRAWER">Return to Cash Drawer</option>
+                </select>
+                <p className="mt-1 text-[11px] font-bold text-slate-500">
+                  Owner return will not affect cash on hand. Cash Drawer return will post as Cash In.
+                </p>
               </Field>
               <Field label="Receipt Status">
                 <select

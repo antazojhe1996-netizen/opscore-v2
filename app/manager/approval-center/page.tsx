@@ -6,9 +6,10 @@ import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import TopNavbar from "@/components/TopNavbar";
 
-const CASH_DRAWER_REQUEST_TYPES = [
-  "CASH_DRAWER_OUT",
+const LEGACY_CASH_REQUEST_TYPES = [
+  "EXPENSE_RELEASE",
   "CASH_EXPENSE_RELEASE",
+  "CASH_DRAWER_OUT",
   "CASH_ADVANCE_RELEASE",
   "OWNER_WITHDRAWAL",
   "BANK_DEPOSIT",
@@ -698,97 +699,63 @@ export default function ApprovalCenterPage() {
     });
   };
 
-  const getRequestTypeLabel = (type: string) => {
-    const normalizedType = String(type || "").trim().toUpperCase().replace(/\s+/g, "_");
-
-    const labels: any = {
-      EXPENSE_REQUEST: "Expense Request",
-      CASH_DRAWER_OUT: "Cash Drawer Out",
-      CASH_EXPENSE_RELEASE: "Cash Expense Release",
-      CASH_ADVANCE_RELEASE: "Cash Advance Release",
-      OWNER_WITHDRAWAL: "Owner Withdrawal",
-      BANK_DEPOSIT: "Bank Deposit",
-      REFUND_OUT: "Refund",
-      ADJUSTMENT_OUT: "Adjustment",
-      PAYROLL_ADJUSTMENT: "Payroll Adjustment",
-      PAYROLL_REOPEN: "Payroll Reopen",
-      LEAVE_REQUEST: "Leave Request",
-      LEAVE_CANCELLATION: "Leave Cancellation",
-      OVERTIME_APPROVAL: "Overtime Approval",
-      POS_VOID: "POS Void",
-      POS_REFUND: "POS Refund",
-    };
-
-    return labels[normalizedType] || type;
-  };
-
-  const getRequestTypeBadgeStyle = (type: string) => {
-    const normalizedType = String(type || "").trim().toUpperCase().replace(/\s+/g, "_");
-
-    if (normalizedType === "EXPENSE_REQUEST")
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    if (normalizedType === "PAYROLL_ADJUSTMENT")
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    if (normalizedType === "PAYROLL_REOPEN")
-      return "border-amber-200 bg-amber-50 text-amber-700";
-    if (normalizedType === "LEAVE_REQUEST")
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    if (normalizedType === "LEAVE_CANCELLATION")
-      return "border-slate-200 bg-slate-100 text-slate-700";
-    if (normalizedType === "OVERTIME_APPROVAL")
-      return "border-indigo-200 bg-indigo-50 text-indigo-700";
-    if (normalizedType === "POS_VOID")
-      return "border-red-200 bg-red-50 text-red-700";
-    if (normalizedType === "POS_REFUND")
-      return "border-orange-200 bg-orange-50 text-orange-700";
-    if (normalizedType === "CASH_ADVANCE_RELEASE")
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    if (normalizedType === "OWNER_WITHDRAWAL")
-      return "border-red-200 bg-red-50 text-red-700";
-    if (CASH_DRAWER_REQUEST_TYPES.includes(normalizedType))
-      return "border-slate-200 bg-slate-100 text-slate-700";
-
-    return "border-slate-200 bg-slate-100 text-slate-700";
-  };
-
-  const getWorkflowKeyForRequest = (request: any) => {
-    const requestType = String(request?.request_type || "")
+  const normalizeWorkflowKey = (value: any) =>
+    String(value || "")
       .trim()
       .toUpperCase()
       .replace(/\s+/g, "_");
 
-    if (!requestType) return "";
+  const formatWorkflowLabel = (value: any) =>
+    String(value || "")
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase()
+      .replace(/\w/g, (char) => char.toUpperCase());
 
-    // OPSCORE APPROVAL ROUTING FIX:
-    // Expense Requests use their own request_type for audit/history,
-    // but they should follow the same manager approval lane as Finance/Cash releases
-    // unless a dedicated EXPENSE_REQUEST workflow is configured later.
-    if (requestType === "EXPENSE_REQUEST") return "CASH_DRAWER_OUT";
-    if (requestType === "CASH_EXPENSE_RELEASE")
-      return "CASH_DRAWER_OUT";
-    if (requestType === "CASH_ADVANCE_RELEASE")
-      return "CASH_DRAWER_OUT";
-    if (requestType === "REFUND_OUT") return "CASH_DRAWER_OUT";
-    if (requestType === "ADJUSTMENT_OUT") return "CASH_DRAWER_OUT";
-    if (requestType === "LEAVE_CANCELLATION") return "LEAVE_REQUEST";
-    if (requestType === "PAYROLL_REOPEN") return "PAYROLL_ADJUSTMENT";
-    if (requestType === "OVERTIME_APPROVAL") return "OVERTIME_APPROVAL";
-    if (requestType === "POS_VOID") return "POS_VOID";
-    if (requestType === "POS_REFUND") return "POS_REFUND";
-
-    return requestType;
+  const getRequestWorkflowKey = (request: any) => {
+    const payload = getPayload(request) || {};
+    return normalizeWorkflowKey(
+      payload.workflow_key ||
+        payload.workflowKey ||
+        request.workflow_key ||
+        request.request_type,
+    );
   };
 
   const getWorkflowForRequest = (request: any) => {
-    const workflowKey = getWorkflowKeyForRequest(request);
-
+    const workflowKey = getRequestWorkflowKey(request);
     return (
       approvalWorkflows.find(
-        (workflow) =>
-          String(workflow.workflow_key || "") === String(workflowKey),
+        (workflow) => normalizeWorkflowKey(workflow.workflow_key) === workflowKey,
       ) || null
     );
   };
+
+  const getRequestTypeLabel = (type: string) => {
+    const normalizedType = normalizeWorkflowKey(type);
+    const workflow = approvalWorkflows.find(
+      (item) => normalizeWorkflowKey(item.workflow_key) === normalizedType,
+    );
+    return workflow?.workflow_name || formatWorkflowLabel(normalizedType || type);
+  };
+
+  const getRequestTypeBadgeStyle = (type: string) => {
+    const workflow = approvalWorkflows.find(
+      (item) => normalizeWorkflowKey(item.workflow_key) === normalizeWorkflowKey(type),
+    );
+    const moduleName = String(workflow?.module || "").trim().toUpperCase();
+
+    if (moduleName.includes("POS")) return "border-red-200 bg-red-50 text-red-700";
+    if (moduleName.includes("LEAVE")) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (moduleName.includes("OT") || moduleName.includes("OVERTIME")) return "border-indigo-200 bg-indigo-50 text-indigo-700";
+    if (moduleName.includes("PAYROLL")) return "border-blue-200 bg-blue-50 text-blue-700";
+    if (moduleName.includes("CASH") || moduleName.includes("FINANCE")) return "border-amber-200 bg-amber-50 text-amber-700";
+
+    return "border-slate-200 bg-slate-100 text-slate-700";
+  };
+
+  const getWorkflowKeyForRequest = (request: any) => getRequestWorkflowKey(request);
 
   const getApproverRoleForRequest = (request: any) => {
     const workflow = getWorkflowForRequest(request);
@@ -802,32 +769,68 @@ export default function ApprovalCenterPage() {
       .toLowerCase();
 
   const getAssignmentScopes = (assignment: any) => {
-    const rawScope = assignment.department_scope;
+    const rawScopes = assignment.department_scopes;
 
-    if (Array.isArray(rawScope)) {
-      return rawScope.map(normalizeApprovalText).filter(Boolean);
+    if (Array.isArray(rawScopes)) {
+      return rawScopes.map(normalizeApprovalText).filter(Boolean);
     }
 
-    const scopeText = String(rawScope || "").trim();
+    if (typeof rawScopes === "string" && rawScopes.trim()) {
+      try {
+        const parsed = JSON.parse(rawScopes);
+        if (Array.isArray(parsed)) return parsed.map(normalizeApprovalText).filter(Boolean);
+      } catch (error) {
+        return rawScopes.split(/[,|\n]/g).map(normalizeApprovalText).filter(Boolean);
+      }
+    }
 
+    const rawScope = assignment.department_scope;
+    if (Array.isArray(rawScope)) return rawScope.map(normalizeApprovalText).filter(Boolean);
+
+    const scopeText = String(rawScope || "").trim();
     if (!scopeText) return [];
 
     if (scopeText.startsWith("[") && scopeText.endsWith("]")) {
       try {
         const parsed = JSON.parse(scopeText);
-        if (Array.isArray(parsed)) {
-          return parsed.map(normalizeApprovalText).filter(Boolean);
-        }
+        if (Array.isArray(parsed)) return parsed.map(normalizeApprovalText).filter(Boolean);
       } catch (error) {
-        // Fall through to comma/newline parsing.
+        // Fall through.
       }
     }
 
-    return scopeText
-      .split(/[,|\n]/g)
-      .map(normalizeApprovalText)
-      .filter(Boolean);
+    return scopeText.split(/[,|\n]/g).map(normalizeApprovalText).filter(Boolean);
   };
+
+  const getAssignmentWorkflowKeys = (assignment: any) => {
+    const rawKeys = assignment.workflow_keys;
+
+    if (rawKeys === null || rawKeys === undefined || rawKeys === "") return [];
+    if (Array.isArray(rawKeys)) return rawKeys.map(normalizeWorkflowKey).filter(Boolean);
+
+    if (typeof rawKeys === "string") {
+      const cleanText = rawKeys.trim();
+      if (!cleanText) return [];
+
+      if (cleanText.startsWith("[") && cleanText.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(cleanText);
+          if (Array.isArray(parsed)) return parsed.map(normalizeWorkflowKey).filter(Boolean);
+        } catch (error) {
+          // Fall through.
+        }
+      }
+
+      return cleanText.split(/[,|\n]/g).map(normalizeWorkflowKey).filter(Boolean);
+    }
+
+    return [];
+  };
+
+  const isLegacyAssignment = (assignment: any) =>
+    assignment.workflow_keys === null ||
+    assignment.workflow_keys === undefined ||
+    assignment.workflow_keys === "";
 
   const getPayloadEmployee = (payload: any) => {
     const employeeId = String(
@@ -929,11 +932,11 @@ export default function ApprovalCenterPage() {
 
   const getAssignedApproversForRequest = (request: any) => {
     const approverRole = getApproverRoleForRequest(request);
+    const workflowKey = getWorkflowKeyForRequest(request);
 
-    const baseAssignments = approvalAssignments.filter((assignment) => {
+    const roleAssignments = approvalAssignments.filter((assignment) => {
       const assignmentActive = assignment.is_active ?? assignment.active ?? true;
       const status = String(assignment.status || "Active").toLowerCase();
-
       return (
         String(assignment.approval_role || "") === String(approverRole) &&
         assignmentActive !== false &&
@@ -941,28 +944,28 @@ export default function ApprovalCenterPage() {
       );
     });
 
+    const workflowScopedAssignments = roleAssignments.filter((assignment) => {
+      if (isLegacyAssignment(assignment)) return true;
+      const workflowKeys = getAssignmentWorkflowKeys(assignment);
+      return workflowKeys.includes(workflowKey);
+    });
+
+    const baseAssignments = workflowScopedAssignments.length > 0 ? workflowScopedAssignments : roleAssignments;
+
     if (!isDepartmentRoutedRequest(request)) return baseAssignments;
 
     const requestDepartment = getRequestDepartment(request);
-
     if (requestDepartment) {
       const departmentMatches = baseAssignments.filter((assignment) =>
         scopeMatchesDepartment(assignment, requestDepartment),
       );
-
       if (departmentMatches.length > 0) return departmentMatches;
     }
 
-    const defaultApprovers = baseAssignments.filter((assignment) =>
-      Boolean(assignment.is_default),
-    );
-
+    const defaultApprovers = baseAssignments.filter((assignment) => Boolean(assignment.is_default));
     if (defaultApprovers.length > 0) return defaultApprovers;
 
-    const noScopeApprovers = baseAssignments.filter(
-      (assignment) => getAssignmentScopes(assignment).length === 0,
-    );
-
+    const noScopeApprovers = baseAssignments.filter((assignment) => getAssignmentScopes(assignment).length === 0);
     if (noScopeApprovers.length > 0) return noScopeApprovers;
 
     return baseAssignments;
@@ -1024,53 +1027,42 @@ export default function ApprovalCenterPage() {
     return `${assignedApprovers.length} active approver${assignedApprovers.length > 1 ? "s" : ""}`;
   };
 
-  const getRequestCategory = (requestType: string) => {
-    const normalizedType = String(requestType || "").trim().toUpperCase().replace(/\s+/g, "_");
+  const getRequestCategory = (requestOrType: any) => {
+    const requestType = typeof requestOrType === "string" ? requestOrType : requestOrType?.request_type;
+    const workflowKey = normalizeWorkflowKey(
+      typeof requestOrType === "string" ? requestOrType : getWorkflowKeyForRequest(requestOrType),
+    );
 
-    if (normalizedType === "EXPENSE_REQUEST") return "FINANCE";
+    const workflow = approvalWorkflows.find(
+      (item) => normalizeWorkflowKey(item.workflow_key) === workflowKey,
+    );
 
-    if (CASH_DRAWER_REQUEST_TYPES.includes(normalizedType)) {
-      return "CASH";
-    }
+    const moduleText = String(workflow?.module || "").trim();
+    if (moduleText) return normalizeWorkflowKey(moduleText);
 
-    if (
-      normalizedType === "PAYROLL_ADJUSTMENT" ||
-      normalizedType === "PAYROLL_REOPEN"
-    ) {
-      return "PAYROLL";
-    }
-
-    if (
-      normalizedType === "LEAVE_REQUEST" ||
-      normalizedType === "LEAVE_CANCELLATION"
-    ) {
-      return "LEAVE";
-    }
-
-    if (normalizedType === "OVERTIME_APPROVAL") {
-      return "OVERTIME";
-    }
-
-    if (normalizedType === "POS_VOID" || normalizedType === "POS_REFUND") {
-      return "POS";
-    }
-
-    return "OTHER";
+    return normalizeWorkflowKey(requestType || "OTHER");
   };
 
   const getCategoryLabel = (category: string) => {
-    const labels: Record<string, string> = {
-      ALL: "All",
-      FINANCE: "Finance",
-      CASH: "Cash",
-      PAYROLL: "Payroll",
-      LEAVE: "Leave",
-      OVERTIME: "Overtime",
-      POS: "POS",
-      OTHER: "Other",
-    };
+    if (category === "ALL") return "All";
 
-    return labels[category] || category;
+    const workflow = approvalWorkflows.find(
+      (item) => normalizeWorkflowKey(item.module) === normalizeWorkflowKey(category),
+    );
+
+    return workflow?.module || formatWorkflowLabel(category);
+  };
+
+  const isCashDrawerApprovalRequest = (request: any) => {
+    const payload = getPayload(request) || {};
+    const requestType = getWorkflowKeyForRequest(request);
+    const movementType = String(payload.movement_type || "").trim().toUpperCase();
+    const hasCashPayload = Boolean(payload.cash_drawer_id || payload.should_create_expense || payload.source_action);
+
+    return (
+      LEGACY_CASH_REQUEST_TYPES.includes(requestType) ||
+      (hasCashPayload && ["CASH OUT", "CASH IN", "OPENING FLOAT", "REMITTANCE", "TURNOVER"].includes(movementType))
+    );
   };
 
   const getApprovalRequestMarker = (requestId: any) =>
@@ -1216,11 +1208,20 @@ export default function ApprovalCenterPage() {
           currentEmployeeName ||
           "Manager Approval Center",
         remarks: movementRemarks,
+        status: "ACTIVE",
         reference_type: payload.should_create_expense
           ? "expense"
           : "approval_request",
         reference_id: payload.should_create_expense ? null : request.id,
+        origin_type: payload.origin_type || "approval_request",
+        origin_id: payload.origin_id || request.id,
+        created_by_module: payload.created_by_module || "Approval Center",
+        source_action: payload.source_action || `APPROVE_${getWorkflowKeyForRequest(request)}`,
+        created_by_user_id: currentSystemUserId || currentEmployeeId || null,
+        created_by_user_name: currentEmployeeName || "Manager Approval Center",
         cash_drawer_id: payload.cash_drawer_id || null,
+        liquidation_status: payload.liquidation_status || (payload.should_create_expense ? "FOR_LIQUIDATION" : "NOT_REQUIRED"),
+        net_expense_amount: payload.should_create_expense ? amountValue : 0,
       })
       .select()
       .single();
@@ -1258,6 +1259,11 @@ export default function ApprovalCenterPage() {
             ? `Cash Advance - ${payload.cash_advance_employee_name || ""}`
             : payload.expense_description,
           amount: amountValue,
+          released_amount: amountValue,
+          actual_spent_amount: 0,
+          returned_cash_amount: 0,
+          net_expense_amount: amountValue,
+          liquidation_status: "FOR_LIQUIDATION",
           payment_method: payload.payment_type || "Cash",
           employee_id: payload.is_cash_advance_cash_out
             ? payload.cash_advance_employee_id || null
@@ -2237,7 +2243,7 @@ export default function ApprovalCenterPage() {
       return;
     }
 
-    if (CASH_DRAWER_REQUEST_TYPES.includes(request.request_type)) {
+    if (isCashDrawerApprovalRequest(request)) {
       const executed = await executeCashDrawerMovement(request);
 
       if (!executed) {
@@ -2600,40 +2606,23 @@ export default function ApprovalCenterPage() {
       const statusMatch = normalizeApprovalStatus(request.status) === normalizedStatus;
       const categoryMatch =
         category === "ALL" ||
-        getRequestCategory(requestType) === category;
+        getRequestCategory(request) === category;
 
       return statusMatch && categoryMatch;
     }).length;
   };
 
+  const dynamicCategoryKeys = Array.from(
+    new Set(visibleRequests.map((request) => getRequestCategory(request)).filter(Boolean)),
+  ).sort((a, b) => getCategoryLabel(a).localeCompare(getCategoryLabel(b)));
+
   const categoryItems = [
     { key: "ALL", label: "All", count: getCategoryCount(activeTab, "ALL") },
-    {
-      key: "FINANCE",
-      label: "Finance",
-      count: getCategoryCount(activeTab, "FINANCE"),
-    },
-    { key: "CASH", label: "Cash", count: getCategoryCount(activeTab, "CASH") },
-    {
-      key: "PAYROLL",
-      label: "Payroll",
-      count: getCategoryCount(activeTab, "PAYROLL"),
-    },
-    {
-      key: "LEAVE",
-      label: "Leave",
-      count: getCategoryCount(activeTab, "LEAVE"),
-    },
-    {
-      key: "OVERTIME",
-      label: "Overtime",
-      count: getCategoryCount(activeTab, "OVERTIME"),
-    },
-    {
-      key: "POS",
-      label: "POS",
-      count: getCategoryCount(activeTab, "POS"),
-    },
+    ...dynamicCategoryKeys.map((key) => ({
+      key,
+      label: getCategoryLabel(key),
+      count: getCategoryCount(activeTab, key),
+    })),
   ];
 
   const filteredRequests = visibleRequests.filter((request) => {
@@ -2641,7 +2630,7 @@ export default function ApprovalCenterPage() {
     const statusMatch = normalizeApprovalStatus(request.status) === normalizeApprovalStatus(activeTab);
     const categoryMatch =
       categoryFilter === "ALL" ||
-      getRequestCategory(requestType) === categoryFilter;
+      getRequestCategory(request) === categoryFilter;
 
     return statusMatch && categoryMatch;
   });

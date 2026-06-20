@@ -2455,11 +2455,6 @@ export default function POSTerminalPage() {
 
   const openVoidModal = async () => {
     setOrderMessage("");
-    setVoidMessage("");
-    setVoidSearch("");
-    setVoidReason("");
-    setSelectedVoidOrder(null);
-    setVoidCandidates([]);
 
     if (!enableVoidApproval) {
       setOrderMessage("Void approval is disabled in POS settings.");
@@ -2471,7 +2466,8 @@ export default function POSTerminalPage() {
       return;
     }
 
-    setShowVoidModal(true);
+    setOrderMessage("Open Transactions, select a paid transaction, then tap Request Void.");
+    await openTransactionsModal();
   };
 
   const searchVoidOrders = async () => {
@@ -2546,7 +2542,7 @@ export default function POSTerminalPage() {
 
   const requestVoidApproval = async () => {
     if (!selectedVoidOrder) {
-      setVoidMessage("Select a transaction to void.");
+      setVoidMessage("Select a paid transaction from Session Audit first.");
       return;
     }
 
@@ -2566,10 +2562,10 @@ export default function POSTerminalPage() {
     setVoidMessage("");
 
     const { data: existingRequest, error: existingError } = await supabase
-      .from("approval_requests")
+      .from("pos_voids")
       .select("id,status")
-      .eq("request_type", "POS_VOID")
-      .eq("reference_id", selectedVoidOrder.id)
+      .eq("order_id", selectedVoidOrder.id)
+      .eq("request_type", "ORDER_VOID")
       .in("status", ["PENDING", "APPROVED"])
       .limit(1)
       .maybeSingle();
@@ -2594,31 +2590,13 @@ export default function POSTerminalPage() {
       selectedVoidOrder.order_tag ||
       selectedVoidOrder.id.slice(0, 8);
 
-    const { error } = await supabase.from("approval_requests").insert({
-      company_id: activeSession.company_id,
-      request_type: "POS_VOID",
-      module: "POS",
-      reference_id: selectedVoidOrder.id,
-      title: `POS Void Request - ${reference}`,
-      description: `Void request for ${reference}. Reason: ${reason}`,
-      requested_by: cashierName || "POS Cashier",
+    const { error } = await supabase.from("pos_voids").insert({
+      company_id: selectedVoidOrder.company_id || activeSession.company_id || null,
+      order_id: selectedVoidOrder.id,
+      void_reason: reason,
+      voided_by: activeSession.opened_by || selectedVoidOrder.cashier_id || null,
       status: "PENDING",
-      request_payload: {
-        order_id: selectedVoidOrder.id,
-        order_tag: selectedVoidOrder.order_tag,
-        order_number: selectedVoidOrder.order_number,
-        receipt_no: selectedVoidOrder.receipt_no,
-        session_id: selectedVoidOrder.session_id,
-        cashier_id: selectedVoidOrder.cashier_id || activeSession.opened_by,
-        cashier_name: cashierName || "POS Cashier",
-        order_type: selectedVoidOrder.order_type,
-        payment_method:
-          selectedVoidOrder.payment_method_name ||
-          selectedVoidOrder.payment_method,
-        total_amount: Number(selectedVoidOrder.total_amount || 0),
-        reason,
-        requested_at: new Date().toISOString(),
-      },
+      request_type: "ORDER_VOID",
     });
 
     if (error) {
@@ -2628,8 +2606,9 @@ export default function POSTerminalPage() {
     }
 
     setVoidLoading(false);
-    setOrderMessage(`Void request submitted for ${reference}.`);
+    setTransactionMessage(`Void request submitted for ${reference}.`);
     resetVoidState();
+    setShowTransactionsModal(true);
   };
 
   const loadSessionAudit = async () => {
@@ -4127,6 +4106,37 @@ export default function POSTerminalPage() {
                           </p>
                         </div>
                       </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() =>
+                            printTransactionReceipt(
+                              selectedTransaction,
+                              selectedTransactionItems,
+                            )
+                          }
+                          className="h-11 rounded-xl border border-amber-400/40 bg-amber-400 text-xs font-black uppercase text-black transition hover:bg-amber-300"
+                        >
+                          Reprint
+                        </button>
+
+                        <button
+                          onClick={() => requestVoidFromTransaction(selectedTransaction)}
+                          disabled={
+                            String(
+                              selectedTransaction.payment_status || "",
+                            ).toUpperCase() !== "PAID" ||
+                            ["VOIDED", "CANCELLED", "REFUNDED"].includes(
+                              String(
+                                selectedTransaction.status || "",
+                              ).toUpperCase(),
+                            )
+                          }
+                          className="h-11 rounded-xl border border-red-400/40 bg-red-500 text-xs font-black uppercase text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:bg-red-500/30 disabled:text-white/50"
+                        >
+                          Request Void
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <p className="mt-3 text-sm font-semibold leading-6 text-slate-400">
@@ -4220,7 +4230,7 @@ export default function POSTerminalPage() {
 
         {showVoidModal && (
           <div className="fixed inset-0 z-[10054] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-            <div className="grid max-h-[88vh] w-full max-w-4xl grid-cols-[minmax(0,1fr)_340px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
+            <div className="grid max-h-[88vh] w-full max-w-3xl grid-cols-[minmax(0,1fr)_320px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d14] shadow-2xl shadow-black">
               <section className="flex min-h-0 flex-col border-r border-white/10 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -4231,8 +4241,9 @@ export default function POSTerminalPage() {
                       Request Void
                     </h2>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
-                      Search a paid receipt or order number, select the
-                      transaction, then submit a manager approval request.
+                      This request is linked to the selected Session Audit
+                      transaction. Cashier does not need to type or remember a
+                      receipt number.
                     </p>
                   </div>
 
@@ -4245,89 +4256,70 @@ export default function POSTerminalPage() {
                   </button>
                 </div>
 
-                <div className="mt-5 grid grid-cols-[minmax(0,1fr)_120px] gap-2">
-                  <input
-                    autoFocus
-                    value={voidSearch}
-                    onChange={(event) => setVoidSearch(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") searchVoidOrders();
-                    }}
-                    placeholder="Receipt / order no. / order tag"
-                    className="h-12 rounded-xl border border-white/10 bg-[#05080d] px-4 text-sm font-bold uppercase text-white outline-none placeholder:text-slate-700 focus:border-red-300/50"
-                  />
-
-                  <button
-                    onClick={searchVoidOrders}
-                    disabled={voidLoading}
-                    className="h-12 rounded-xl bg-red-500 text-sm font-black uppercase text-white transition hover:bg-red-400 disabled:opacity-40"
-                  >
-                    {voidLoading ? "Searching" : "Search"}
-                  </button>
-                </div>
-
                 {voidMessage && (
-                  <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                  <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
                     {voidMessage}
                   </div>
                 )}
 
-                <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-2">
-                  {voidCandidates.length === 0 ? (
-                    <div className="flex min-h-[220px] items-center justify-center text-center text-sm font-bold text-slate-500">
-                      Matching paid transactions will appear here.
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    Selected Transaction
+                  </p>
+
+                  {selectedVoidOrder ? (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <p className="text-2xl font-black text-white">
+                          {selectedVoidOrder.receipt_no ||
+                            selectedVoidOrder.order_number ||
+                            selectedVoidOrder.order_tag ||
+                            selectedVoidOrder.id.slice(0, 8)}
+                        </p>
+                        <p className="mt-1 text-xs font-bold uppercase text-slate-500">
+                          {selectedVoidOrder.order_type || "ORDER"} • {" "}
+                          {selectedVoidOrder.payment_method_name ||
+                            selectedVoidOrder.payment_method ||
+                            "Payment"}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-white/[0.04] p-4 ring-1 ring-white/10">
+                          <p className="text-[9px] font-black uppercase text-slate-500">
+                            Amount
+                          </p>
+                          <p className="mt-1 text-xl font-black text-[#f5c400]">
+                            {peso(Number(selectedVoidOrder.total_amount || 0))}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl bg-white/[0.04] p-4 ring-1 ring-white/10">
+                          <p className="text-[9px] font-black uppercase text-slate-500">
+                            Status
+                          </p>
+                          <p className="mt-1 text-sm font-black uppercase text-emerald-300">
+                            {selectedVoidOrder.payment_status || "PAID"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {voidCandidates.map((order) => {
-                        const reference =
-                          order.receipt_no ||
-                          order.order_number ||
-                          order.order_tag ||
-                          order.id.slice(0, 8);
-                        const selected = selectedVoidOrder?.id === order.id;
-
-                        return (
-                          <button
-                            key={order.id}
-                            onClick={() => setSelectedVoidOrder(order)}
-                            className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
-                              selected
-                                ? "border-red-300 bg-red-500/15"
-                                : "border-white/10 bg-[#0b1017] hover:bg-white/5"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-lg font-black text-white">
-                                  {reference}
-                                </p>
-                                <p className="mt-1 text-xs font-bold uppercase text-slate-500">
-                                  {order.order_type || "ORDER"} •{" "}
-                                  {order.payment_method_name ||
-                                    order.payment_method ||
-                                    "Payment"}
-                                </p>
-                              </div>
-
-                              <p className="shrink-0 text-lg font-black text-red-200">
-                                {peso(Number(order.total_amount || 0))}
-                              </p>
-                            </div>
-
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase text-emerald-300 ring-1 ring-emerald-400/25">
-                                {order.payment_status || "PAID"}
-                              </span>
-                              <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-black uppercase text-slate-400 ring-1 ring-white/10">
-                                {order.status || "COMPLETED"}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
+                    <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm font-bold leading-6 text-amber-100">
+                      No transaction selected. Close this window, open
+                      Transactions, select a paid row, then tap Request Void.
                     </div>
                   )}
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-red-300">
+                    Control Note
+                  </p>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-red-100/80">
+                    This does not void the sale immediately. It creates a
+                    pending POS void request for manager approval.
+                  </p>
                 </div>
               </section>
 
@@ -4337,22 +4329,12 @@ export default function POSTerminalPage() {
                 </p>
 
                 <textarea
+                  autoFocus
                   value={voidReason}
                   onChange={(event) => setVoidReason(event.target.value)}
                   placeholder="Required reason for manager approval..."
-                  className="mt-3 min-h-[170px] rounded-2xl border border-white/10 bg-[#05080d] p-4 text-sm font-semibold text-white outline-none placeholder:text-slate-700 focus:border-red-300/50"
+                  className="mt-3 min-h-[220px] rounded-2xl border border-white/10 bg-[#05080d] p-4 text-sm font-semibold text-white outline-none placeholder:text-slate-700 focus:border-red-300/50"
                 />
-
-                <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-red-300">
-                    Control Note
-                  </p>
-                  <p className="mt-2 text-xs font-semibold leading-5 text-red-100/80">
-                    This does not void the sale immediately. It creates a
-                    POS_VOID approval request. Manager approval updates the
-                    transaction.
-                  </p>
-                </div>
 
                 <div className="mt-auto space-y-2 pt-5">
                   <button

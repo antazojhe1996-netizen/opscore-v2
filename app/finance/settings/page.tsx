@@ -128,6 +128,30 @@ export default function FinanceSettingsPage() {
     getFinanceSettings();
   };
 
+  const updatePaymentMethodRule = async (
+    id: string,
+    field:
+      | "deduct_from_cash_flow"
+      | "requires_approval"
+      | "requires_liquidation"
+      | "requires_drawer"
+      | "return_destination_enabled",
+    value: boolean
+  ) => {
+    const { error } = await supabase
+      .from("finance_payment_methods")
+      .update({ [field]: value })
+      .eq("id", id);
+
+    if (error) {
+      console.log("UPDATE PAYMENT METHOD RULE ERROR:", error);
+      alert("Failed to update payment method rule. Check if the rule columns exist.");
+      return;
+    }
+
+    getFinanceSettings();
+  };
+
   const deleteItem = async (table: string, id: string, name: string) => {
     const confirmed = window.confirm(
       `Delete "${name}"? This should only be used for newly added or unused settings.`
@@ -288,13 +312,10 @@ export default function FinanceSettingsPage() {
                 loading={loading}
               />
 
-              <SettingsPanel
-                title="Payment Methods"
-                description="How the expense was paid."
+              <PaymentMethodRulesPanel
                 inputValue={newPaymentMethod}
                 setInputValue={setNewPaymentMethod}
                 items={paymentMethods}
-                tableName="finance_payment_methods"
                 addItem={() =>
                   addItem("finance_payment_methods", newPaymentMethod, () =>
                     setNewPaymentMethod("")
@@ -302,6 +323,7 @@ export default function FinanceSettingsPage() {
                 }
                 toggleItem={toggleItem}
                 deleteItem={deleteItem}
+                updatePaymentMethodRule={updatePaymentMethodRule}
                 loading={loading}
               />
             </section>
@@ -392,6 +414,234 @@ function SectionHeader({
     </div>
   );
 }
+
+
+function PaymentMethodRulesPanel({
+  inputValue,
+  setInputValue,
+  items,
+  addItem,
+  toggleItem,
+  deleteItem,
+  updatePaymentMethodRule,
+  loading,
+}: any) {
+  const activeCount = items.filter((item: any) => item.is_active).length;
+  const inactiveCount = items.length - activeCount;
+
+  const boolValue = (value: any) => value === true;
+
+  const renderRuleToggle = (
+    item: any,
+    field:
+      | "deduct_from_cash_flow"
+      | "requires_approval"
+      | "requires_liquidation"
+      | "requires_drawer"
+      | "return_destination_enabled",
+    label: string,
+    helpText: string
+  ) => {
+    const checked = boolValue(item[field]);
+
+    return (
+      <button
+        type="button"
+        onClick={() => updatePaymentMethodRule(item.id, field, !checked)}
+        className={
+          checked
+            ? "rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-xs font-black text-emerald-700 transition-all duration-200 hover:bg-emerald-100 active:scale-[0.98]"
+            : "rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-black text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-[0.98]"
+        }
+      >
+        <span className="block">
+          {checked ? "YES" : "NO"} · {label}
+        </span>
+        <span className="mt-1 block text-[10px] font-bold normal-case leading-4 opacity-80">
+          {helpText}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-6 py-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              Payment Logic
+            </p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">
+              Payment Methods
+            </h3>
+            <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+              Control whether each payment method affects drawer cash flow,
+              requires approval, creates liquidation, requires drawer access,
+              and allows return destination selection.
+            </p>
+            <p className="mt-2 text-xs font-bold text-slate-400">
+              Table: <span className="text-slate-700">finance_payment_methods</span>
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+            Total: <span className="text-slate-950">{items.length}</span> · Active:{" "}
+            <span className="text-emerald-700">{activeCount}</span> · Inactive:{" "}
+            <span className="text-red-700">{inactiveCount}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-b border-slate-100 p-6">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Add payment method, e.g. Owner Abono..."
+            className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+          />
+
+          <button
+            onClick={addItem}
+            className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+
+      <div className="max-h-[620px] overflow-auto">
+        <table className="w-full min-w-[1180px]">
+          <thead className="sticky top-0 bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+            <tr>
+              <th className="px-6 py-4">Method</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4">Cash Flow Rules</th>
+              <th className="px-6 py-4 text-right">Action</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+            {loading && (
+              <tr>
+                <td colSpan={4} className="px-6 py-14 text-center">
+                  <p className="text-sm font-black text-slate-950">Loading...</p>
+                </td>
+              </tr>
+            )}
+
+            {!loading &&
+              items.map((item: any) => (
+                <tr
+                  key={item.id}
+                  className="transition-all duration-200 hover:bg-slate-50"
+                >
+                  <td className="px-6 py-4">
+                    <p className="font-black text-slate-950">{item.name}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">
+                      {String(item.name || "")
+                        .trim()
+                        .toUpperCase()
+                        .replace(/\s+/g, "_")}
+                    </p>
+                  </td>
+
+                  <td className="px-6 py-4">
+                    {item.is_active ? (
+                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                        Inactive
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+                      {renderRuleToggle(
+                        item,
+                        "deduct_from_cash_flow",
+                        "Cash Flow",
+                        "Affects drawer cash on hand"
+                      )}
+                      {renderRuleToggle(
+                        item,
+                        "requires_approval",
+                        "Approval",
+                        "Sends request to Approval Center"
+                      )}
+                      {renderRuleToggle(
+                        item,
+                        "requires_liquidation",
+                        "Liquidation",
+                        "Requires actual spent / returned cash"
+                      )}
+                      {renderRuleToggle(
+                        item,
+                        "requires_drawer",
+                        "Drawer",
+                        "Requires an active cash drawer"
+                      )}
+                      {renderRuleToggle(
+                        item,
+                        "return_destination_enabled",
+                        "Return Destination",
+                        "Allows Owner / Cash Drawer return choice"
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        onClick={() =>
+                          toggleItem("finance_payment_methods", item.id, item.is_active)
+                        }
+                        className={
+                          item.is_active
+                            ? "h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                            : "h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98]"
+                        }
+                      >
+                        {item.is_active ? "Disable" : "Enable"}
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          deleteItem("finance_payment_methods", item.id, item.name)
+                        }
+                        className="h-10 rounded-xl bg-red-600 px-4 text-xs font-bold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.98]"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-6 py-14 text-center">
+                  <p className="text-sm font-black text-slate-950">
+                    No payment methods found
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Add Cash, Bank, GCash, Terminal, or Owner Abono.
+                  </p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 
 function SettingsPanel({
   title,
