@@ -227,7 +227,12 @@ export default function BillsPage() {
         description: `${bill.category} Bill - ${MONTHS[bill.bill_month - 1]} ${bill.bill_year}`,
         amount: bill.amount,
         payment_method: paymentMethod,
-        remarks: bill.remarks || "Generated from Bills Module",
+        remarks: [
+          bill.remarks || "Generated from Bills Module",
+          `[Bill ID: ${bill.id}]`,
+        ]
+          .filter(Boolean)
+          .join(" "),
         source: "Bills Module",
       })
       .select("id")
@@ -245,7 +250,12 @@ export default function BillsPage() {
         status: "Paid",
         paid_date: paidDate,
         payment_method: paymentMethod,
-        expense_id: expenseData?.id || null,
+        remarks: [
+          bill.remarks || "Generated from Bills Module",
+          expenseData?.id ? `[Expense ID: ${expenseData.id}]` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
       })
       .eq("id", bill.id)
       .eq("company_id", companyId);
