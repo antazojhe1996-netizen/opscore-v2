@@ -73,6 +73,50 @@ type PaymentMethod = {
   is_active: boolean;
 };
 
+type PosModifierGroup = {
+  id: string;
+  company_id: string | null;
+  group_name: string;
+  group_code: string | null;
+  selection_type: string;
+  min_select: number;
+  max_select: number;
+  is_required: boolean;
+  sort_order: number | null;
+  status: string;
+};
+
+type PosModifierOption = {
+  id: string;
+  company_id: string | null;
+  modifier_group_id: string;
+  option_name: string;
+  option_code: string | null;
+  price_adjustment: number;
+  cost_adjustment: number;
+  sort_order: number | null;
+  status: string;
+};
+
+type PosSetupPackGroup = {
+  id: string;
+  company_id: string | null;
+  pack_id: string;
+  group_id: string;
+  created_at?: string;
+};
+
+type CartModifierSelection = {
+  group_id: string;
+  group_name: string;
+  selection_type: string;
+  choices: {
+    option_id: string;
+    option_name: string;
+    price_adjustment: number;
+  }[];
+};
+
 type Category = {
   id: string;
   name: string;
@@ -89,6 +133,7 @@ type Category = {
 type Product = {
   id: string;
   category_id: string;
+  setup_pack_id?: string | null;
   item_code: string | null;
   name: string;
   description: string | null;
@@ -104,6 +149,12 @@ type Product = {
 
 type CartItem = {
   id: string;
+  cart_key?: string;
+  modifier_signature?: string;
+  display_name?: string;
+  modifiers?: CartModifierSelection[];
+  setup_pack_id?: string | null;
+  setup_pack_name?: string | null;
   item_code: string | null;
   name: string;
   price: number;
@@ -232,6 +283,10 @@ export default function POSTerminalPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [modifierGroups, setModifierGroups] = useState<PosModifierGroup[]>([]);
+  const [modifierOptions, setModifierOptions] = useState<PosModifierOption[]>([]);
+  const [setupPackGroups, setSetupPackGroups] = useState<PosSetupPackGroup[]>([]);
+
 
   const [selectedMenuGroupId, setSelectedMenuGroupId] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -289,15 +344,23 @@ export default function POSTerminalPage() {
   );
   const [loadedParkedOrderTag, setLoadedParkedOrderTag] = useState("");
 
+  const [modifierModalProduct, setModifierModalProduct] = useState<Product | null>(null);
+  const [modifierSelections, setModifierSelections] = useState<Record<string, string[]>>({});
+  const [modifierMessage, setModifierMessage] = useState("");
+
+
   const companyId =
     typeof window !== "undefined"
       ? localStorage.getItem("opscore_current_company_id")
       : null;
 
   const goToParkedOrders = () => {
-    if (typeof window !== "undefined") {
-      window.location.href = `${window.location.origin}/pos/parked-orders`;
-    }
+    if (typeof window === "undefined") return;
+
+    // Hard navigation is intentional here. The Recall page can be blocked by
+    // stale client-router state after print/session actions, so this bypasses
+    // Next client routing and forces the parked-orders route to mount fresh.
+    window.location.assign("/pos/parked-orders");
   };
 
   const queueParkedOrdersRedirect = () => {
@@ -530,6 +593,7 @@ export default function POSTerminalPage() {
           `
           id,
           category_id,
+          setup_pack_id,
           item_code,
           name,
           description,
@@ -558,6 +622,31 @@ export default function POSTerminalPage() {
         .order("name", { ascending: true }),
     );
 
+    const modifierGroupQuery = applyCompanyFilter(
+      supabase
+        .from("pos_modifier_groups")
+        .select("*")
+        .eq("status", "active")
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("group_name", { ascending: true }),
+    );
+
+    const modifierOptionQuery = applyCompanyFilter(
+      supabase
+        .from("pos_modifier_options")
+        .select("*")
+        .eq("status", "active")
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("option_name", { ascending: true }),
+    );
+
+    const setupPackGroupQuery = applyCompanyFilter(
+      supabase
+        .from("pos_setup_pack_groups")
+        .select("*")
+        .order("created_at", { ascending: true }),
+    );
+
     const [
       settingsResult,
       menuGroupResult,
@@ -567,6 +656,9 @@ export default function POSTerminalPage() {
       paymentResult,
       categoryResult,
       productResult,
+      modifierGroupResult,
+      modifierOptionResult,
+      setupPackGroupResult,
     ] = await Promise.all([
       settingsQuery,
       menuGroupQuery,
@@ -576,6 +668,9 @@ export default function POSTerminalPage() {
       paymentQuery,
       categoryQuery,
       productQuery,
+      modifierGroupQuery,
+      modifierOptionQuery,
+      setupPackGroupQuery,
     ]);
 
     const firstError =
@@ -586,7 +681,10 @@ export default function POSTerminalPage() {
       orderTypeResult.error ||
       paymentResult.error ||
       categoryResult.error ||
-      productResult.error;
+      productResult.error ||
+      modifierGroupResult.error ||
+      modifierOptionResult.error ||
+      setupPackGroupResult.error;
 
     if (firstError) {
       setOrderMessage(firstError.message);
@@ -608,6 +706,9 @@ export default function POSTerminalPage() {
     setPaymentMethods(loadedPaymentMethods);
     setCategories((categoryResult.data || []) as unknown as Category[]);
     setProducts((productResult.data || []) as unknown as Product[]);
+    setModifierGroups((modifierGroupResult.data || []) as PosModifierGroup[]);
+    setModifierOptions((modifierOptionResult.data || []) as PosModifierOption[]);
+    setSetupPackGroups((setupPackGroupResult.data || []) as PosSetupPackGroup[]);
 
     const getLoadedSetting = (key: string) =>
       loadedSettings.find((setting) => setting.setting_key === key)
@@ -750,7 +851,7 @@ export default function POSTerminalPage() {
     const { data: itemData, error: itemError } = await supabase
       .from("pos_order_items")
       .select(
-        "menu_item_id, item_name, qty, price, production_area, production_status",
+        "id, menu_item_id, item_name, qty, price, production_area, production_status",
       )
       .eq("order_id", orderId)
       .order("created_at", { ascending: true });
@@ -760,16 +861,94 @@ export default function POSTerminalPage() {
       return;
     }
 
+    const orderItemIds = (itemData || [])
+      .map((item: any) => item.id)
+      .filter(Boolean);
+
+    let modifierRowsByOrderItem = new Map<string, any[]>();
+
+    if (orderItemIds.length > 0) {
+      const { data: modifierRows, error: modifierError } = await supabase
+        .from("pos_order_item_modifiers")
+        .select(
+          "order_item_id, setup_pack_id, setup_pack_name, modifier_group_id, modifier_group_name, modifier_option_id, modifier_option_name, price_adjustment, sort_order",
+        )
+        .in("order_item_id", orderItemIds)
+        .order("sort_order", { ascending: true });
+
+      if (modifierError) {
+        setOrderMessage(modifierError.message);
+        return;
+      }
+
+      (modifierRows || []).forEach((row: any) => {
+        const current = modifierRowsByOrderItem.get(row.order_item_id) || [];
+        modifierRowsByOrderItem.set(row.order_item_id, [...current, row]);
+      });
+    }
+
+    const buildModifiersFromRows = (rows: any[]): CartModifierSelection[] => {
+      const grouped = new Map<string, CartModifierSelection>();
+
+      rows.forEach((row) => {
+        const groupId = String(row.modifier_group_id || row.modifier_group_name || "");
+        if (!groupId) return;
+
+        const existing = grouped.get(groupId);
+        const choice = {
+          option_id: String(row.modifier_option_id || row.modifier_option_name || ""),
+          option_name: String(row.modifier_option_name || ""),
+          price_adjustment: Number(row.price_adjustment || 0),
+        };
+
+        if (existing) {
+          existing.choices.push(choice);
+          return;
+        }
+
+        grouped.set(groupId, {
+          group_id: groupId,
+          group_name: String(row.modifier_group_name || "Option"),
+          selection_type: "single",
+          choices: [choice],
+        });
+      });
+
+      return Array.from(grouped.values());
+    };
+
     const loadedItemsMap = new Map<string, CartItem>();
 
     (itemData || []).forEach((item: any) => {
-      const key = String(item.menu_item_id || item.item_name);
+      const itemModifiers = buildModifiersFromRows(
+        modifierRowsByOrderItem.get(item.id) || [],
+      );
+      const modifierSignature = buildModifierSignature(itemModifiers);
+      const product = products.find(
+        (productItem) => String(productItem.id) === String(item.menu_item_id || ""),
+      );
+      const baseName =
+        product?.name ||
+        String(item.item_name || "")
+          .replace(/\s*\([^)]*\)\s*$/g, "")
+          .trim();
+      const setupPackId =
+        product?.setup_pack_id ||
+        modifierRowsByOrderItem.get(item.id)?.[0]?.setup_pack_id ||
+        null;
+      const setupPackName =
+        modifierRowsByOrderItem.get(item.id)?.[0]?.setup_pack_name || null;
+      const key = `${String(item.menu_item_id || baseName)}__${modifierSignature || "NONE"}`;
       const qty = Number(item.qty || 0);
-      const isProductionItem = item.production_status !== "COMPLETED";
-      const isAlreadySent =
-        item.production_status === "SENT" ||
-        item.production_status === "PRINTED" ||
-        item.production_status === "IN_PROGRESS";
+      const normalizedStatus = String(item.production_status || "").toUpperCase();
+      const isProductionItem = normalizedStatus !== "COMPLETED";
+      const isAlreadySent = [
+        "SENT",
+        "PRINTED",
+        "IN_PROGRESS",
+        "PREPARING",
+        "READY",
+      ].includes(normalizedStatus);
       const existing = loadedItemsMap.get(key);
 
       if (existing) {
@@ -783,8 +962,17 @@ export default function POSTerminalPage() {
 
       loadedItemsMap.set(key, {
         id: item.menu_item_id,
-        item_code: null,
-        name: item.item_name,
+        cart_key: key,
+        item_code: product?.item_code || null,
+        name: baseName || String(item.item_name || "POS Item"),
+        display_name: buildDisplayName(
+          { ...(product || {}), name: baseName || String(item.item_name || "POS Item") } as Product,
+          itemModifiers,
+        ),
+        modifier_signature: modifierSignature,
+        modifiers: itemModifiers,
+        setup_pack_id: setupPackId,
+        setup_pack_name: setupPackName,
         price: Number(item.price || 0),
         qty,
         production_area: item.production_area || null,
@@ -823,13 +1011,75 @@ export default function POSTerminalPage() {
     return "•";
   };
 
-  const addToCart = (product: Product) => {
+  const getProductModifierGroups = (product: Product) => {
+    if (!product.setup_pack_id) return [];
+
+    const linkedGroupIds = setupPackGroups
+      .filter((link) => link.pack_id === product.setup_pack_id)
+      .map((link) => link.group_id);
+
+    return linkedGroupIds
+      .map((groupId) => modifierGroups.find((group) => group.id === groupId))
+      .filter(Boolean) as PosModifierGroup[];
+  };
+
+  const getGroupOptions = (groupId: string) =>
+    modifierOptions.filter((option) => option.modifier_group_id === groupId);
+
+  const buildModifierSignature = (modifiers: CartModifierSelection[]) =>
+    modifiers
+      .map((modifier) =>
+        `${modifier.group_id}:${modifier.choices
+          .map((choice) => choice.option_id)
+          .sort()
+          .join(",")}`,
+      )
+      .sort()
+      .join("|");
+
+  const buildDisplayName = (
+    product: Product,
+    modifiers: CartModifierSelection[] = [],
+  ) => {
+    const selectedText = modifiers
+      .flatMap((modifier) =>
+        modifier.choices.map(
+          (choice) => `${modifier.group_name}: ${choice.option_name}`,
+        ),
+      )
+      .join(" / ");
+
+    return selectedText ? `${product.name} (${selectedText})` : product.name;
+  };
+
+  const addProductToCart = (
+    product: Product,
+    modifiers: CartModifierSelection[] = [],
+  ) => {
+    const modifierSignature = buildModifierSignature(modifiers);
+    const cartKey = `${product.id}__${modifierSignature || "NONE"}`;
+    const displayName = buildDisplayName(product, modifiers);
+    const modifierTotal = modifiers.reduce(
+      (sum, modifier) =>
+        sum +
+        modifier.choices.reduce(
+          (choiceSum, choice) => choiceSum + Number(choice.price_adjustment || 0),
+          0,
+        ),
+      0,
+    );
+    const finalPrice = Number(product.price || 0) + modifierTotal;
+
     setCart((currentCart) => {
-      const existingItem = currentCart.find((item) => item.id === product.id);
+      const existingItem = currentCart.find(
+        (item) => (item.cart_key || item.id) === cartKey,
+      );
 
       if (existingItem) {
         return currentCart.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item,
+          (item.cart_key || item.id) === cartKey
+            ? { ...item, qty: item.qty + 1 }
+            : item,
         );
       }
 
@@ -837,9 +1087,15 @@ export default function POSTerminalPage() {
         ...currentCart,
         {
           id: product.id,
+          cart_key: cartKey,
           item_code: product.item_code,
           name: product.name,
-          price: Number(product.price || 0),
+          display_name: displayName,
+          modifier_signature: modifierSignature,
+          modifiers,
+          setup_pack_id: product.setup_pack_id || null,
+          setup_pack_name: null,
+          price: finalPrice,
           qty: 1,
           production_area: getRequiresProduction(product)
             ? getProductionCode(product)
@@ -851,19 +1107,119 @@ export default function POSTerminalPage() {
     });
   };
 
-  const increaseQty = (itemId: string) => {
+  const addToCart = (product: Product) => {
+    const groups = getProductModifierGroups(product);
+
+    if (product.setup_pack_id && groups.length > 0) {
+      setModifierModalProduct(product);
+      setModifierSelections({});
+      setModifierMessage("");
+      return;
+    }
+
+    addProductToCart(product);
+  };
+
+  const toggleModifierSelection = (
+    group: PosModifierGroup,
+    optionId: string,
+  ) => {
+    setModifierMessage("");
+
+    setModifierSelections((current) => {
+      const currentSelections = current[group.id] || [];
+      const isSelected = currentSelections.includes(optionId);
+      const isSingle =
+        String(group.selection_type || "single").toLowerCase() === "single";
+
+      if (isSingle) {
+        return {
+          ...current,
+          [group.id]: isSelected ? [] : [optionId],
+        };
+      }
+
+      return {
+        ...current,
+        [group.id]: isSelected
+          ? currentSelections.filter((id) => id !== optionId)
+          : [...currentSelections, optionId],
+      };
+    });
+  };
+
+  const closeModifierModal = () => {
+    setModifierModalProduct(null);
+    setModifierSelections({});
+    setModifierMessage("");
+  };
+
+  const confirmModifierSelection = () => {
+    if (!modifierModalProduct) return;
+
+    const groups = getProductModifierGroups(modifierModalProduct);
+    const builtModifiers: CartModifierSelection[] = [];
+
+    for (const group of groups) {
+      const selectedOptionIds = modifierSelections[group.id] || [];
+      const selectionType = String(group.selection_type || "single").toLowerCase();
+      const minSelect =
+        selectionType === "single" && group.is_required
+          ? 1
+          : Math.max(0, Number(group.min_select || 0));
+      const maxSelect =
+        selectionType === "single"
+          ? 1
+          : Math.max(1, Number(group.max_select || 1));
+
+      if (selectedOptionIds.length < minSelect) {
+        setModifierMessage(`Select at least ${minSelect} for ${group.group_name}.`);
+        return;
+      }
+
+      if (selectedOptionIds.length > maxSelect) {
+        setModifierMessage(`Select up to ${maxSelect} for ${group.group_name}.`);
+        return;
+      }
+
+      const choices = selectedOptionIds
+        .map((optionId) => getGroupOptions(group.id).find((option) => option.id === optionId))
+        .filter(Boolean)
+        .map((option) => ({
+          option_id: option!.id,
+          option_name: option!.option_name,
+          price_adjustment: Number(option!.price_adjustment || 0),
+        }));
+
+      if (choices.length > 0) {
+        builtModifiers.push({
+          group_id: group.id,
+          group_name: group.group_name,
+          selection_type: group.selection_type,
+          choices,
+        });
+      }
+    }
+
+    addProductToCart(modifierModalProduct, builtModifiers);
+    closeModifierModal();
+  };
+
+  const increaseQty = (itemKey: string) => {
     setCart((currentCart) =>
       currentCart.map((item) =>
-        item.id === itemId ? { ...item, qty: item.qty + 1 } : item,
+        (item.cart_key || item.id) === itemKey
+          ? { ...item, qty: item.qty + 1 }
+          : item,
       ),
     );
   };
 
-  const decreaseQty = (itemId: string) => {
+  const decreaseQty = (itemKey: string) => {
     setCart((currentCart) =>
       currentCart
         .map((item) =>
-          item.id === itemId
+          (item.cart_key || item.id) === itemKey
             ? {
                 ...item,
                 qty: Math.max(Number(item.sentQty || 0), item.qty - 1),
@@ -1041,14 +1397,44 @@ export default function POSTerminalPage() {
     const stationSections = Object.entries(groupedItems)
       .map(([stationName, stationItems]) => {
         const rows = stationItems
-          .map(
-            (item) => `
+          .map((item) => {
+            const modifierHtml =
+              item.modifiers && item.modifiers.length > 0
+                ? `
+                  <div class="modifier-block">
+                    ${item.modifiers
+                      .map(
+                        (modifier) => `
+                          <div class="modifier-group">
+                            ${escapeSlipText(modifier.group_name)}
+                          </div>
+
+                          ${modifier.choices
+                            .map(
+                              (choice) => `
+                                <div class="modifier-option">
+                                  • ${escapeSlipText(choice.option_name)}
+                                </div>
+                              `,
+                            )
+                            .join("")}
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                `
+                : "";
+
+            return `
               <div class="item-row">
                 <span class="item-qty">${escapeSlipText(item.qty)}x</span>
-                <span class="item-name">${escapeSlipText(item.name)}</span>
+                <span class="item-name">
+                  ${escapeSlipText(item.name)}
+                  ${modifierHtml}
+                </span>
               </div>
-            `,
-          )
+            `;
+          })
           .join("");
 
         return `
@@ -1206,6 +1592,25 @@ export default function POSTerminalPage() {
               overflow-wrap: anywhere;
             }
 
+            .modifier-block {
+              margin-top: 4px;
+              padding-left: 2px;
+            }
+
+            .modifier-group {
+              margin-top: 3px;
+              font-size: 11px;
+              font-weight: 900;
+              line-height: 1.12;
+            }
+
+            .modifier-option {
+              padding-left: 4px;
+              font-size: 11px;
+              font-weight: 700;
+              line-height: 1.12;
+            }
+
             .notes-text {
               padding: 3px 0 1px;
               font-size: 14px;
@@ -1334,7 +1739,7 @@ export default function POSTerminalPage() {
         company_id: activeSession?.company_id || null,
         order_id: orderId,
         menu_item_id: item.id,
-        item_name: item.name,
+        item_name: item.display_name || item.name,
         price: item.price,
         production_area: item.requires_production ? item.production_area : null,
       };
@@ -1366,6 +1771,105 @@ export default function POSTerminalPage() {
 
       return rows;
     });
+  };
+
+  const buildOrderRowsForCartItem = (
+    orderId: string,
+    item: CartItem,
+    markUnsentAsSent: boolean,
+  ) => {
+    const sentQty = Math.min(Number(item.sentQty || 0), Number(item.qty || 0));
+    const unsentQty = Math.max(0, Number(item.qty || 0) - sentQty);
+    const basePayload = {
+      company_id: activeSession?.company_id || null,
+      order_id: orderId,
+      menu_item_id: item.id,
+      item_name: item.display_name || item.name,
+      price: item.price,
+      production_area: item.requires_production ? item.production_area : null,
+    };
+
+    const rows: any[] = [];
+
+    if (sentQty > 0) {
+      rows.push({
+        ...basePayload,
+        qty: sentQty,
+        total: item.price * sentQty,
+        production_status: item.requires_production ? "SENT" : "COMPLETED",
+      });
+    }
+
+    if (unsentQty > 0) {
+      rows.push({
+        ...basePayload,
+        qty: unsentQty,
+        total: item.price * unsentQty,
+        production_status:
+          enableProductionRouting && item.requires_production
+            ? markUnsentAsSent
+              ? "SENT"
+              : "PENDING"
+            : "COMPLETED",
+      });
+    }
+
+    return rows;
+  };
+
+  const buildModifierRowsForOrderItem = (
+    orderId: string,
+    orderItemId: string,
+    item: CartItem,
+  ) => {
+    return (item.modifiers || []).flatMap((modifier, modifierIndex) =>
+      modifier.choices.map((choice, choiceIndex) => ({
+        company_id: activeSession?.company_id || null,
+        order_id: orderId,
+        order_item_id: orderItemId,
+        menu_item_id: item.id,
+        setup_pack_id: item.setup_pack_id || null,
+        setup_pack_name: item.setup_pack_name || null,
+        modifier_group_id: modifier.group_id,
+        modifier_group_name: modifier.group_name,
+        modifier_option_id: choice.option_id,
+        modifier_option_name: choice.option_name,
+        price_adjustment: Number(choice.price_adjustment || 0),
+        sort_order: modifierIndex * 100 + choiceIndex,
+      })),
+    );
+  };
+
+  const insertOrderItemsWithModifiers = async (
+    orderId: string,
+    sourceCart: CartItem[],
+    markUnsentAsSent: boolean,
+  ) => {
+    for (const item of sourceCart) {
+      const rows = buildOrderRowsForCartItem(orderId, item, markUnsentAsSent);
+      if (rows.length === 0) continue;
+
+      const { data: insertedItems, error: itemError } = await supabase
+        .from("pos_order_items")
+        .insert(rows)
+        .select("id");
+
+      if (itemError) return itemError;
+
+      const modifierRows = (insertedItems || []).flatMap((insertedItem: any) =>
+        buildModifierRowsForOrderItem(orderId, insertedItem.id, item),
+      );
+
+      if (modifierRows.length > 0) {
+        const { error: modifierError } = await supabase
+          .from("pos_order_item_modifiers")
+          .insert(modifierRows);
+
+        if (modifierError) return modifierError;
+      }
+    }
+
+    return null;
   };
 
   const getKitchenSlipItems = () =>
@@ -1425,6 +1929,17 @@ export default function POSTerminalPage() {
         return;
       }
 
+      const { error: deleteModifiersError } = await supabase
+        .from("pos_order_item_modifiers")
+        .delete()
+        .eq("order_id", loadedParkedOrderId);
+
+      if (deleteModifiersError) {
+        setOrderLoading(false);
+        setOrderMessage(deleteModifiersError.message);
+        return;
+      }
+
       const { error: deleteItemsError } = await supabase
         .from("pos_order_items")
         .delete()
@@ -1436,14 +1951,11 @@ export default function POSTerminalPage() {
         return;
       }
 
-      const refreshedItems = buildOrderItemsPayload(
+      const insertItemsError = await insertOrderItemsWithModifiers(
         loadedParkedOrderId,
+        cart,
         parkActionType === "KITCHEN",
       );
-
-      const { error: insertItemsError } = await supabase
-        .from("pos_order_items")
-        .insert(refreshedItems);
 
       if (insertItemsError) {
         setOrderLoading(false);
@@ -1531,6 +2043,17 @@ export default function POSTerminalPage() {
         return;
       }
 
+      const { error: deleteDuplicateModifiersError } = await supabase
+        .from("pos_order_item_modifiers")
+        .delete()
+        .eq("order_id", duplicateOrderId);
+
+      if (deleteDuplicateModifiersError) {
+        setOrderLoading(false);
+        setOrderMessage(deleteDuplicateModifiersError.message);
+        return;
+      }
+
       const { error: deleteDuplicateItemsError } = await supabase
         .from("pos_order_items")
         .delete()
@@ -1542,14 +2065,11 @@ export default function POSTerminalPage() {
         return;
       }
 
-      const duplicateOrderItems = buildOrderItemsPayload(
+      const insertDuplicateItemsError = await insertOrderItemsWithModifiers(
         duplicateOrderId,
+        cart,
         true,
       );
-
-      const { error: insertDuplicateItemsError } = await supabase
-        .from("pos_order_items")
-        .insert(duplicateOrderItems);
 
       if (insertDuplicateItemsError) {
         setOrderLoading(false);
@@ -1605,14 +2125,11 @@ export default function POSTerminalPage() {
       return;
     }
 
-    const orderItems = buildOrderItemsPayload(
+    const itemsError = await insertOrderItemsWithModifiers(
       orderData.id,
+      cart,
       parkActionType === "KITCHEN",
     );
-
-    const { error: itemsError } = await supabase
-      .from("pos_order_items")
-      .insert(orderItems);
 
     if (itemsError) {
       setOrderLoading(false);
@@ -2549,24 +3066,11 @@ export default function POSTerminalPage() {
       return;
     }
 
-    const orderItems = cart.map((item) => ({
-      company_id: activeSession.company_id,
-      order_id: orderData.id,
-      menu_item_id: item.id,
-      item_name: item.name,
-      qty: item.qty,
-      price: item.price,
-      total: item.price * item.qty,
-      production_area: item.requires_production ? item.production_area : null,
-      production_status:
-        enableProductionRouting && item.requires_production
-          ? "PENDING"
-          : "COMPLETED",
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("pos_order_items")
-      .insert(orderItems);
+    const itemsError = await insertOrderItemsWithModifiers(
+      orderData.id,
+      cart,
+      false,
+    );
 
     if (itemsError) {
       setOrderLoading(false);
@@ -2859,6 +3363,12 @@ export default function POSTerminalPage() {
                                 HOT
                               </div>
                             )}
+
+                          {product.setup_pack_id && (
+                            <div className="absolute bottom-0 right-0 rounded-tl-md bg-[#f5c400] px-1.5 py-0.5 text-[8px] font-black uppercase text-black">
+                              OPTIONS
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex min-h-[42px] flex-col justify-between px-2 py-1.5">
@@ -2904,13 +3414,17 @@ export default function POSTerminalPage() {
                   Hold
                 </button>
 
-                <button
-                  onClick={goToParkedOrders}
+                <a
+                  href="/pos/parked-orders"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    goToParkedOrders();
+                  }}
                   className="flex h-10 items-center justify-center gap-2 rounded-xl border border-amber-400/35 bg-amber-500/10 text-[13px] font-black text-amber-200 transition hover:border-amber-300/60 hover:bg-amber-500/20 active:scale-[0.98]"
                 >
                   <Undo2 size={15} />
                   Recall
-                </button>
+                </a>
 
                 <button
                   onClick={openTransactionsModal}
@@ -2982,12 +3496,29 @@ export default function POSTerminalPage() {
                 ) : (
                   <div className="divide-y divide-white/10">
                     {cart.map((item) => (
-                      <div key={item.id} className="py-1">
+                      <div key={item.cart_key || item.id} className="py-1">
                         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-[12px] font-black leading-[15px] text-white">
                               {item.name}
                             </p>
+                            {item.modifiers && item.modifiers.length > 0 && (
+                              <div className="mt-0.5 space-y-0.5">
+                                {item.modifiers.flatMap((modifier) =>
+                                  modifier.choices.map((choice) => (
+                                    <p
+                                      key={`${modifier.group_id}-${choice.option_id}`}
+                                      className="truncate text-[9px] font-bold leading-[11px] text-amber-200/90"
+                                    >
+                                      • {modifier.group_name}: {choice.option_name}
+                                      {Number(choice.price_adjustment || 0) !== 0
+                                        ? ` (${peso(Number(choice.price_adjustment || 0))})`
+                                        : ""}
+                                    </p>
+                                  )),
+                                )}
+                              </div>
+                            )}
                             <p className="truncate text-[10px] font-semibold leading-[13px] text-slate-500">
                               {item.qty} × {peso(Number(item.price || 0))}
                             </p>
@@ -2999,14 +3530,14 @@ export default function POSTerminalPage() {
                             </p>
 
                             <button
-                              onClick={() => decreaseQty(item.id)}
+                              onClick={() => decreaseQty(item.cart_key || item.id)}
                               className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#111821] text-slate-300 ring-1 ring-white/10 transition hover:bg-[#17202b]"
                             >
                               <Minus size={13} />
                             </button>
 
                             <button
-                              onClick={() => increaseQty(item.id)}
+                              onClick={() => increaseQty(item.cart_key || item.id)}
                               className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-black transition hover:bg-amber-400"
                             >
                               <Plus size={13} />
@@ -4060,6 +4591,125 @@ export default function POSTerminalPage() {
                 </div>
               </section>
             </div>
+          </div>
+        )}
+
+        {modifierModalProduct && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+            <section className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1017] text-white shadow-2xl shadow-black/60">
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">
+                    Smart Setup Pack
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black leading-tight">
+                    {modifierModalProduct.name}
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-400">
+                    Select required options before adding this item.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeModifierModal}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="max-h-[65vh] space-y-4 overflow-y-auto p-5">
+                {getProductModifierGroups(modifierModalProduct).map((group) => {
+                  const options = getGroupOptions(group.id);
+                  const selectedIds = modifierSelections[group.id] || [];
+                  const isSingle =
+                    String(group.selection_type || "single").toLowerCase() === "single";
+
+                  return (
+                    <section
+                      key={group.id}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                    >
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-base font-black text-white">
+                            {group.group_name}
+                          </h3>
+                          <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                            {isSingle ? "Single Select" : "Multiple Select"} • Min{" "}
+                            {isSingle && group.is_required ? 1 : group.min_select || 0} / Max{" "}
+                            {isSingle ? 1 : group.max_select || 1}
+                          </p>
+                        </div>
+
+                        {group.is_required && (
+                          <span className="rounded-full bg-red-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-red-200 ring-1 ring-red-400/25">
+                            Required
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {options.map((option) => {
+                          const selected = selectedIds.includes(option.id);
+
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => toggleModifierSelection(group, option.id)}
+                              className={`flex min-h-[46px] items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
+                                selected
+                                  ? "border-amber-300 bg-amber-400 text-black"
+                                  : "border-white/10 bg-[#111820] text-white hover:border-white/25 hover:bg-[#17202b]"
+                              }`}
+                            >
+                              <span className="text-sm font-black">
+                                {option.option_name}
+                              </span>
+                              <span
+                                className={`text-xs font-black ${
+                                  selected ? "text-black/70" : "text-slate-400"
+                                }`}
+                              >
+                                {Number(option.price_adjustment || 0) !== 0
+                                  ? peso(Number(option.price_adjustment || 0))
+                                  : "Included"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+
+                {modifierMessage && (
+                  <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-3 text-sm font-bold text-red-200">
+                    {modifierMessage}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-white/10 p-5">
+                <button
+                  type="button"
+                  onClick={closeModifierModal}
+                  className="h-11 rounded-xl border border-white/15 px-5 text-sm font-black text-slate-300 transition hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmModifierSelection}
+                  className="h-11 rounded-xl bg-[#f5c400] px-5 text-sm font-black uppercase text-black transition hover:bg-[#ffd21f]"
+                >
+                  Add To Order
+                </button>
+              </div>
+            </section>
           </div>
         )}
 

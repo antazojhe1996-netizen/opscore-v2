@@ -54,6 +54,23 @@ type QueueOrder = {
   cashier_id: string | null;
 };
 
+type QueueModifier = {
+  id: string;
+  company_id: string | null;
+  order_id: string;
+  order_item_id: string;
+  menu_item_id: string | null;
+  setup_pack_id: string | null;
+  setup_pack_name: string | null;
+  modifier_group_id: string | null;
+  modifier_group_name: string;
+  modifier_option_id: string | null;
+  modifier_option_name: string;
+  price_adjustment: number | null;
+  sort_order: number | null;
+  created_at: string | null;
+};
+
 type QueueItem = {
   id: string;
   company_id: string | null;
@@ -67,6 +84,7 @@ type QueueItem = {
   production_status: ProductionStatus | string | null;
   production_station_id: string | null;
   created_at: string | null;
+  modifiers?: QueueModifier[];
   order?: QueueOrder | null;
 };
 
@@ -328,6 +346,17 @@ export default function POSProductionQueuePage() {
           loadProductionQueue(false);
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pos_order_item_modifiers",
+        },
+        () => {
+          loadProductionQueue(false);
+        },
+      )
       .subscribe();
 
     return () => {
@@ -401,7 +430,34 @@ export default function POSProductionQueuePage() {
     const loadedStations = (stationResult.data || []) as ProductionStation[];
     const rawItems = (itemResult.data || []) as unknown as QueueItem[];
 
-    const activeItems = rawItems.filter((item) => {
+    const itemIds = rawItems.map((item) => item.id).filter(Boolean);
+    let modifiersByItem = new Map<string, QueueModifier[]>();
+
+    if (itemIds.length > 0) {
+      const { data: modifierData, error: modifierError } = await supabase
+        .from("pos_order_item_modifiers")
+        .select("*")
+        .in("order_item_id", itemIds)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (modifierError) {
+        setMessage(modifierError.message);
+      } else {
+        (modifierData || []).forEach((modifier: any) => {
+          const orderItemId = String(modifier.order_item_id || "");
+          const current = modifiersByItem.get(orderItemId) || [];
+          modifiersByItem.set(orderItemId, [...current, modifier as QueueModifier]);
+        });
+      }
+    }
+
+    const itemsWithModifiers = rawItems.map((item) => ({
+      ...item,
+      modifiers: modifiersByItem.get(item.id) || [],
+    }));
+
+    const activeItems = itemsWithModifiers.filter((item) => {
       const itemCompanyId = item.company_id || null;
       const orderCompanyId = item.order?.company_id || null;
       const itemBelongsToCompany = companyId
@@ -644,6 +700,18 @@ export default function POSProductionQueuePage() {
     return `ADDITIONAL ITEMS • ${previousQty} PREVIOUSLY SENT`;
   };
 
+  const groupedModifiers = (item: QueueItem) => {
+    const groups = new Map<string, QueueModifier[]>();
+
+    (item.modifiers || []).forEach((modifier) => {
+      const groupName = modifier.modifier_group_name || "Option";
+      const current = groups.get(groupName) || [];
+      groups.set(groupName, [...current, modifier]);
+    });
+
+    return Array.from(groups.entries());
+  };
+
   return (
     <PageGuard moduleKey="pos_terminal">
       <div className="h-screen overflow-hidden bg-[#05080d] text-white">
@@ -656,7 +724,7 @@ export default function POSProductionQueuePage() {
 
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">
-                  OPSCORE Production Monitor
+                  OPSCORE Production Monitor V2
                 </p>
                 <h1 className="truncate text-2xl font-black leading-tight">
                   Production Queue
@@ -678,7 +746,7 @@ export default function POSProductionQueuePage() {
 
             <div className="flex shrink-0 items-center gap-2">
               <button
-                onClick={() => router.push("/pos/parked-orders")}
+                onClick={() => window.location.href = "/pos/parked-orders"}
                 className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase text-white transition hover:bg-white/10 active:scale-[0.98]"
               >
                 <ArrowLeft size={14} />
@@ -870,6 +938,26 @@ export default function POSProductionQueuePage() {
                                   <p className="truncate text-[15px] font-black text-white">
                                     {item.item_name}
                                   </p>
+
+                                  {groupedModifiers(item).length > 0 && (
+                                    <div className="mt-1 space-y-0.5 rounded-xl border border-amber-400/15 bg-amber-400/5 px-2 py-1.5">
+                                      {groupedModifiers(item).map(([groupName, modifiers]) => (
+                                        <div
+                                          key={`${item.id}-${groupName}`}
+                                          className="grid grid-cols-[86px_minmax(0,1fr)] gap-1 text-[10px] leading-4"
+                                        >
+                                          <span className="truncate font-black uppercase text-amber-300">
+                                            {groupName}
+                                          </span>
+                                          <span className="truncate font-black uppercase text-white">
+                                            {modifiers
+                                              .map((modifier) => modifier.modifier_option_name)
+                                              .join(", ")}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
 
                                   <div className="mt-1 flex items-center gap-1.5">
                                     <span className="rounded-lg bg-amber-400 px-2 py-0.5 text-xs font-black text-black">

@@ -10,6 +10,7 @@ import {
   Ban,
   Eye,
   Loader2,
+  Printer,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -69,15 +70,19 @@ type Employee = {
   last_name: string | null;
 };
 
-type PosApprovalRequest = {
+type PosVoidRequest = {
   id: string;
-  request_type: string | null;
-  reference_id: string | null;
-  status: string | null;
-  title: string | null;
-  description: string | null;
-  request_payload: any;
+  company_id: string | null;
+  order_id: string;
+  void_reason: string | null;
+  voided_by: string | null;
+  approved_by: string | null;
   created_at: string | null;
+  status: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  request_type: string | null;
 };
 
 const peso = (value: number | null | undefined) =>
@@ -148,7 +153,7 @@ export default function POSCashierTransactionsPage() {
 
   const [orders, setOrders] = useState<PosOrder[]>([]);
   const [items, setItems] = useState<PosOrderItem[]>([]);
-  const [approvalRequests, setApprovalRequests] = useState<PosApprovalRequest[]>([]);
+  const [voidRequests, setVoidRequests] = useState<PosVoidRequest[]>([]);
 
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<PosOrder | null>(null);
@@ -208,7 +213,7 @@ const { data: sessionData, error: sessionError } = await sessionQuery
       setActiveSession(null);
       setOrders([]);
       setItems([]);
-      setApprovalRequests([]);
+      setVoidRequests([]);
       setLoading(false);
       return;
     }
@@ -218,7 +223,7 @@ const { data: sessionData, error: sessionError } = await sessionQuery
       setActiveSession(null);
       setOrders([]);
       setItems([]);
-      setApprovalRequests([]);
+      setVoidRequests([]);
       setLoading(false);
       return;
     }
@@ -280,7 +285,7 @@ const { data: sessionData, error: sessionError } = await sessionQuery
       setMessage(orderError.message);
       setOrders([]);
       setItems([]);
-      setApprovalRequests([]);
+      setVoidRequests([]);
       setLoading(false);
       return;
     }
@@ -289,7 +294,7 @@ const { data: sessionData, error: sessionError } = await sessionQuery
     const orderIds = loadedOrders.map((order) => order.id);
 
     let loadedItems: PosOrderItem[] = [];
-    let loadedApprovals: PosApprovalRequest[] = [];
+    let loadedVoids: PosVoidRequest[] = [];
 
     if (orderIds.length > 0) {
       const { data: itemData, error: itemError } = await supabase
@@ -306,21 +311,24 @@ const { data: sessionData, error: sessionError } = await sessionQuery
         loadedItems = (itemData || []) as PosOrderItem[];
       }
 
-      const { data: approvalData } = await supabase
-        .from("approval_requests")
+      const { data: voidData, error: voidError } = await supabase
+        .from("pos_voids")
         .select(
-          "id, request_type, reference_id, status, title, description, request_payload, created_at",
+          "id, company_id, order_id, void_reason, voided_by, approved_by, created_at, status, approved_at, rejected_at, rejection_reason, request_type",
         )
-        .in("request_type", ["POS_VOID", "POS_REFUND"])
-        .in("reference_id", orderIds)
+        .in("order_id", orderIds)
         .order("created_at", { ascending: false });
 
-      loadedApprovals = (approvalData || []) as PosApprovalRequest[];
+      if (voidError) {
+        setMessage(voidError.message);
+      } else {
+        loadedVoids = (voidData || []) as PosVoidRequest[];
+      }
     }
 
     setOrders(loadedOrders);
     setItems(loadedItems);
-    setApprovalRequests(loadedApprovals);
+    setVoidRequests(loadedVoids);
     setLoading(false);
   };
 
@@ -333,16 +341,16 @@ const { data: sessionData, error: sessionError } = await sessionQuery
   const getOrderItemCount = (orderId: string) =>
     getOrderItems(orderId).reduce((sum, item) => sum + Number(item.qty || 0), 0);
 
-  const getApprovalForOrder = (orderId: string, type = "POS_VOID") =>
-    approvalRequests.find(
+  const getVoidRequestForOrder = (orderId: string) =>
+    voidRequests.find(
       (request) =>
-        request.reference_id === orderId &&
-        request.request_type === type &&
+        request.order_id === orderId &&
+        String(request.request_type || "ORDER_VOID").toUpperCase() === "ORDER_VOID" &&
         ["PENDING", "APPROVED"].includes(String(request.status || "").toUpperCase()),
     ) || null;
 
   const getOperationalStatus = (order: PosOrder) => {
-    const voidRequest = getApprovalForOrder(order.id, "POS_VOID");
+    const voidRequest = getVoidRequestForOrder(order.id);
 
     if (voidRequest) {
       return String(voidRequest.status || "").toUpperCase() === "APPROVED"
@@ -357,7 +365,7 @@ const { data: sessionData, error: sessionError } = await sessionQuery
     const status = String(order.status || "").toUpperCase();
 
     if (["VOIDED", "CANCELLED", "REFUNDED"].includes(status)) return false;
-    if (getApprovalForOrder(order.id, "POS_VOID")) return false;
+    if (getVoidRequestForOrder(order.id)) return false;
 
     return true;
   };
@@ -405,9 +413,9 @@ const { data: sessionData, error: sessionError } = await sessionQuery
     .reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
 
   const nonCashSales = sessionSales - cashSales;
-  const voidPending = approvalRequests.filter(
+  const voidPending = voidRequests.filter(
     (request) =>
-      request.request_type === "POS_VOID" &&
+      String(request.request_type || "ORDER_VOID").toUpperCase() === "ORDER_VOID" &&
       String(request.status || "").toUpperCase() === "PENDING",
   ).length;
 
@@ -444,33 +452,13 @@ const { data: sessionData, error: sessionError } = await sessionQuery
 
     const reference = getOrderReference(voidOrder);
 
-    const { error } = await supabase.from("approval_requests").insert({
+    const { error } = await supabase.from("pos_voids").insert({
       company_id: voidOrder.company_id || activeSession?.company_id || companyId,
-      request_type: "POS_VOID",
-      module: "POS",
-      reference_id: voidOrder.id,
-      title: `POS Void Request - ${reference}`,
-      description: `Cashier requested void for ${reference}. Reason: ${reason}`,
-      requested_by: cashierName || "POS Cashier",
+      order_id: voidOrder.id,
+      void_reason: reason,
+      voided_by: activeSession?.opened_by || voidOrder.cashier_id || null,
       status: "PENDING",
-      request_payload: {
-        order_id: voidOrder.id,
-        order_tag: voidOrder.order_tag,
-        order_number: voidOrder.order_number,
-        receipt_no: voidOrder.receipt_no,
-        session_id: voidOrder.session_id,
-        cashier_id: voidOrder.cashier_id,
-        cashier_name: cashierName,
-        order_type: voidOrder.order_type,
-        table_no: voidOrder.table_no,
-        payment_status: voidOrder.payment_status,
-        payment_method: voidOrder.payment_method_name || voidOrder.payment_method,
-        production_status: voidOrder.production_status,
-        status: voidOrder.status,
-        total_amount: Number(voidOrder.total_amount || 0),
-        reason,
-        requested_at: new Date().toISOString(),
-      },
+      request_type: "ORDER_VOID",
     });
 
     if (error) {
@@ -483,6 +471,133 @@ const { data: sessionData, error: sessionError } = await sessionQuery
     setMessage(`Void request submitted for ${reference}.`);
     await loadCashierTransactions(false);
   };
+
+  const printOrderReceipt = (order: PosOrder) => {
+    if (typeof window === "undefined") return;
+
+    const escapeText = (value: string | number | null | undefined) =>
+      String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    const reference = getOrderReference(order);
+    const orderItems = getOrderItems(order.id);
+
+    const rowsHtml = orderItems
+      .map(
+        (item) => `
+          <div class="row">
+            <div>
+              <div class="name">${escapeText(item.item_name || "-")}</div>
+              <div class="sub">${escapeText(item.qty || 0)} x ${escapeText(peso(Number(item.price || 0)))}</div>
+            </div>
+            <div class="amount">${escapeText(peso(Number(item.total || 0)))}</div>
+          </div>
+        `,
+      )
+      .join("");
+
+    const receiptHtml = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>POS Receipt - ${escapeText(reference)}</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: "Courier New", monospace; text-transform: uppercase; }
+            body { width: 80mm; }
+            .receipt { width: 72mm; margin: 0 auto; padding: 5mm 3mm; font-size: 11px; font-weight: 700; }
+            .center { text-align: center; }
+            .brand { font-size: 13px; font-weight: 900; }
+            .title { margin-top: 2px; font-size: 15px; font-weight: 900; }
+            .divider { margin: 7px 0; border-top: 1px dashed #000; }
+            .meta { display: grid; grid-template-columns: 23mm 1fr; gap: 2px 3mm; }
+            .right { text-align: right; }
+            .row { display: grid; grid-template-columns: 1fr 23mm; gap: 2mm; padding: 4px 0; border-bottom: 1px dashed #aaa; }
+            .name { font-size: 12px; font-weight: 900; overflow-wrap: anywhere; }
+            .sub { margin-top: 1px; font-size: 10px; }
+            .amount { text-align: right; font-size: 12px; font-weight: 900; }
+            .total { display: flex; justify-content: space-between; margin-top: 4px; font-size: 13px; font-weight: 900; }
+            .footer { margin-top: 8px; text-align: center; font-size: 9px; }
+            @media screen { body { background: #f3f4f6; } .receipt { margin: 8px auto; border: 1px solid #ccc; } }
+          </style>
+        </head>
+        <body>
+          <main class="receipt">
+            <div class="center">
+              <div class="brand">VINCENT RESORT HOTEL</div>
+              <div class="title">POS RECEIPT</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <section class="meta">
+              <div>REF</div><div class="right">${escapeText(reference)}</div>
+              <div>TIME</div><div class="right">${escapeText(formatDateTime(order.created_at))}</div>
+              <div>CASHIER</div><div class="right">${escapeText(cashierName || "Cashier")}</div>
+              <div>TYPE</div><div class="right">${escapeText(order.order_type || "-")}</div>
+              <div>PAYMENT</div><div class="right">${escapeText(order.payment_method_name || order.payment_method || "-")}</div>
+            </section>
+
+            <div class="divider"></div>
+
+            ${rowsHtml || "<div class='center'>NO ITEMS FOUND</div>"}
+
+            <div class="divider"></div>
+
+            <div class="total"><span>SUBTOTAL</span><span>${escapeText(peso(Number(order.subtotal || 0)))}</span></div>
+            <div class="total"><span>DISCOUNT</span><span>${escapeText(peso(Number(order.discount_amount || 0)))}</span></div>
+            <div class="total"><span>SERVICE</span><span>${escapeText(peso(Number(order.service_charge || 0)))}</span></div>
+            <div class="total"><span>TOTAL</span><span>${escapeText(peso(Number(order.total_amount || 0)))}</span></div>
+            <div class="total"><span>PAID</span><span>${escapeText(peso(Number(order.amount_paid || 0)))}</span></div>
+            <div class="total"><span>CHANGE</span><span>${escapeText(peso(Number(order.change_amount || 0)))}</span></div>
+
+            <div class="divider"></div>
+            <div class="footer">REPRINTED FROM OPSCORE POS</div>
+          </main>
+
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+
+    document.body.appendChild(iframe);
+
+    const iframeDocument =
+      iframe.contentDocument || iframe.contentWindow?.document;
+
+    if (!iframeDocument) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    iframeDocument.open();
+    iframeDocument.write(receiptHtml);
+    iframeDocument.close();
+
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1800);
+  };
+
 
   return (
     <PageGuard moduleKey="pos_terminal">
@@ -670,6 +785,14 @@ const { data: sessionData, error: sessionError } = await sessionQuery
                         </button>
 
                         <button
+                          onClick={() => printOrderReceipt(order)}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 text-xs font-black uppercase text-amber-300 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                        >
+                          <Printer size={15} />
+                          Print
+                        </button>
+
+                        <button
                           onClick={() => openVoidModal(order)}
                           disabled={!canRequestVoid(order)}
                           className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500/10 px-4 text-xs font-black uppercase text-red-300 transition hover:bg-red-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
@@ -775,18 +898,18 @@ const { data: sessionData, error: sessionError } = await sessionQuery
                 <section className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
                   <div className="border-b border-white/10 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                      Void / Approval Status
+                      Void Request Status
                     </p>
                   </div>
 
                   <div className="p-4">
-                    {getApprovalForOrder(selectedOrder.id, "POS_VOID") ? (
+                    {getVoidRequestForOrder(selectedOrder.id) ? (
                       <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4">
                         <p className="font-black uppercase text-amber-300">
-                          {String(getApprovalForOrder(selectedOrder.id, "POS_VOID")?.status || "-")}
+                          {String(getVoidRequestForOrder(selectedOrder.id)?.status || "-")}
                         </p>
                         <p className="mt-1 text-xs font-bold text-amber-100">
-                          {getApprovalForOrder(selectedOrder.id, "POS_VOID")?.description || "Void request submitted."}
+                          {getVoidRequestForOrder(selectedOrder.id)?.void_reason || "Void request submitted."}
                         </p>
                       </div>
                     ) : (
@@ -798,7 +921,15 @@ const { data: sessionData, error: sessionError } = await sessionQuery
                 </section>
               </div>
 
-              <div className="border-t border-white/10 bg-[#0b1017] p-5">
+              <div className="grid grid-cols-2 gap-3 border-t border-white/10 bg-[#0b1017] p-5">
+                <button
+                  onClick={() => printOrderReceipt(selectedOrder)}
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 text-sm font-black uppercase text-amber-300 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                >
+                  <Printer size={17} />
+                  Reprint
+                </button>
+
                 <button
                   onClick={() => openVoidModal(selectedOrder)}
                   disabled={!canRequestVoid(selectedOrder)}
