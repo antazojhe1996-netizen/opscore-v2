@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
@@ -49,6 +49,8 @@ export default function BillsPage() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [loading, setLoading] = useState(false);
+  const [savingBillId, setSavingBillId] = useState<string | null>(null);
+  const markingPaidRef = useRef<Record<string, boolean>>({});
 
   const [billMonth, setBillMonth] = useState(new Date().getMonth() + 1);
   const [category, setCategory] = useState("Electric");
@@ -207,7 +209,17 @@ export default function BillsPage() {
       return;
     }
 
-    if (bill.status === "Paid") return;
+    if (!bill?.id) {
+      alert("Invalid bill record. Please refresh and try again.");
+      return;
+    }
+
+    if (markingPaidRef.current[bill.id] || savingBillId === bill.id) return;
+
+    if (bill.status === "Paid") {
+      alert("This bill is already marked as paid.");
+      return;
+    }
 
     const confirmed = confirm(
       `Mark ${bill.category} ${formatMoney(bill.amount)} as PAID and create expense entry?`
@@ -215,58 +227,113 @@ export default function BillsPage() {
 
     if (!confirmed) return;
 
-    const paidDate = today;
+    markingPaidRef.current[bill.id] = true;
+    setSavingBillId(bill.id);
 
-    const { data: expenseData, error: expenseError } = await supabase
-      .from("expenses")
-      .insert({
-        company_id: companyId,
-        expense_date: paidDate,
-        category: bill.category,
-        department: "General",
-        description: `${bill.category} Bill - ${MONTHS[bill.bill_month - 1]} ${bill.bill_year}`,
-        amount: bill.amount,
-        payment_method: paymentMethod,
-        remarks: [
-          bill.remarks || "Generated from Bills Module",
-          `[Bill ID: ${bill.id}]`,
-        ]
-          .filter(Boolean)
-          .join(" "),
-        source: "Bills Module",
-      })
-      .select("id")
-      .single();
+    try {
+      const paidDate = today;
+      const billReference = `[Bill ID: ${bill.id}]`;
+      const baseDescription = `${bill.category} Bill - ${MONTHS[bill.bill_month - 1]} ${bill.bill_year}`;
 
-    if (expenseError) {
-      console.error("CREATE EXPENSE FROM BILL ERROR:", expenseError);
-      alert(expenseError.message || "Failed to create expense entry.");
-      return;
+      const { data: latestBill, error: latestBillError } = await supabase
+        .from("finance_bills")
+        .select("id, status, remarks")
+        .eq("id", bill.id)
+        .eq("company_id", companyId)
+        .maybeSingle();
+
+      if (latestBillError) {
+        console.error("VERIFY BILL STATUS ERROR:", latestBillError);
+        alert(latestBillError.message || "Failed to verify bill status.");
+        return;
+      }
+
+      if (!latestBill?.id) {
+        alert("Bill record was not found. Please refresh and try again.");
+        return;
+      }
+
+      if (String(latestBill.status || "").toLowerCase() === "paid") {
+        alert("This bill is already marked as paid.");
+        await getBills();
+        return;
+      }
+
+      const { data: existingExpenses, error: existingExpenseError } = await supabase
+        .from("expenses")
+        .select("id, status, remarks, created_at")
+        .eq("company_id", companyId)
+        .ilike("remarks", `%${billReference}%`)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (existingExpenseError) {
+        console.error("CHECK EXISTING BILL EXPENSE ERROR:", existingExpenseError);
+        alert(existingExpenseError.message || "Failed to check existing expense entry.");
+        return;
+      }
+
+      let expenseId = existingExpenses?.[0]?.id || null;
+
+      if (!expenseId) {
+        const { data: expenseData, error: expenseError } = await supabase
+          .from("expenses")
+          .insert({
+            company_id: companyId,
+            expense_date: paidDate,
+            category: bill.category,
+            department: "General",
+            description: baseDescription,
+            amount: bill.amount,
+            payment_method: paymentMethod,
+            remarks: [
+              bill.remarks || "Generated from Bills Module",
+              billReference,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            source: "Bills Module",
+          })
+          .select("id")
+          .single();
+
+        if (expenseError) {
+          console.error("CREATE EXPENSE FROM BILL ERROR:", expenseError);
+          alert(expenseError.message || "Failed to create expense entry.");
+          return;
+        }
+
+        expenseId = expenseData?.id || null;
+      }
+
+      const { error: billError } = await supabase
+        .from("finance_bills")
+        .update({
+          status: "Paid",
+          paid_date: paidDate,
+          payment_method: paymentMethod,
+          remarks: [
+            bill.remarks || "Generated from Bills Module",
+            expenseId ? `[Expense ID: ${expenseId}]` : "",
+            billReference,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        })
+        .eq("id", bill.id)
+        .eq("company_id", companyId);
+
+      if (billError) {
+        console.error("MARK BILL PAID ERROR:", billError);
+        alert(billError.message || "Expense was created but bill status failed to update. Please refresh before trying again.");
+        return;
+      }
+
+      await getBills();
+    } finally {
+      delete markingPaidRef.current[bill.id];
+      setSavingBillId(null);
     }
-
-    const { error: billError } = await supabase
-      .from("finance_bills")
-      .update({
-        status: "Paid",
-        paid_date: paidDate,
-        payment_method: paymentMethod,
-        remarks: [
-          bill.remarks || "Generated from Bills Module",
-          expenseData?.id ? `[Expense ID: ${expenseData.id}]` : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
-      })
-      .eq("id", bill.id)
-      .eq("company_id", companyId);
-
-    if (billError) {
-      console.error("MARK BILL PAID ERROR:", billError);
-      alert(billError.message || "Expense was created but bill status failed to update.");
-      return;
-    }
-
-    await getBills();
   };
 
   const activeBills = bills.filter((bill) => bill.status !== "Cancelled");
@@ -453,8 +520,12 @@ export default function BillsPage() {
 
                                   <div className="flex flex-wrap justify-center gap-1">
                                     {bill.status !== "Paid" && bill.status !== "Cancelled" && (
-                                      <button onClick={() => markPaid(bill)} className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98]">
-                                        Paid
+                                      <button
+                                        onClick={() => markPaid(bill)}
+                                        disabled={savingBillId === bill.id}
+                                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {savingBillId === bill.id ? "Posting..." : "Paid"}
                                       </button>
                                     )}
                                     {bill.status !== "Paid" && bill.status !== "Cancelled" && (

@@ -97,18 +97,67 @@ export default function RestaurantImportPage() {
     return date.toISOString().split("T")[0];
   };
 
+  const normalizeKey = (value: any) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[^a-z0-9 ]/g, "");
+
   const getValue = (row: any, possibleKeys: string[]) => {
     const keys = Object.keys(row);
 
     for (const target of possibleKeys) {
-      const foundKey = keys.find(
-        (key) => key.toLowerCase().trim() === target.toLowerCase().trim()
-      );
+      const normalizedTarget = normalizeKey(target);
+
+      const foundKey = keys.find((key) => normalizeKey(key) === normalizedTarget);
 
       if (foundKey) return row[foundKey];
     }
 
     return null;
+  };
+
+  const extractRowsFromWorksheet = (worksheet: XLSX.WorkSheet) => {
+    const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+    }) as any[][];
+
+    const headerIndex = matrix.findIndex((cells) => {
+      const normalized = cells.map((cell) => normalizeKey(cell));
+      return normalized.includes("date") && normalized.includes("revenue");
+    });
+
+    if (headerIndex < 0) {
+      return XLSX.utils.sheet_to_json(worksheet, {
+        defval: "",
+        raw: false,
+      }) as any[];
+    }
+
+    const headers = matrix[headerIndex].map((cell, index) => {
+      const label = String(cell || "").trim();
+      return label || `EMPTY_${index}`;
+    });
+
+    return matrix
+      .slice(headerIndex + 1)
+      .map((cells) => {
+        const row: Record<string, any> = {};
+
+        headers.forEach((header, index) => {
+          if (!String(header).startsWith("EMPTY_")) {
+            row[header] = cells[index] ?? "";
+          }
+        });
+
+        return row;
+      })
+      .filter((row) =>
+        Object.values(row).some((value) => String(value || "").trim() !== "")
+      );
   };
 
   const getSummary = (rows: RestaurantSale[]) => {
@@ -144,11 +193,11 @@ export default function RestaurantImportPage() {
 
     rows.forEach((row, index) => {
       const saleDate = normalizeDate(
-        getValue(row, ["Date", "date", "Sale Date", "Sales Date", "Business Date"])
+        getValue(row, ["Date", "date", "Sale Date", "Sales Date", "Business Date", "Business date"])
       );
 
       const revenue = cleanNumber(
-        getValue(row, ["Revenue", "revenue", "Sales", "Net Sales", "Gross Sales"])
+        getValue(row, ["Revenue", "revenue", "Sales", "Net Sales", "Gross Sales", "Total Revenue"])
       );
 
       const receipts = cleanNumber(
@@ -162,9 +211,11 @@ export default function RestaurantImportPage() {
       const averageReceipt = cleanNumber(
         getValue(row, [
           "Average Receipt",
+          "Average receipt",
           "average_receipt",
           "Avg Receipt",
           "Average Check",
+          "Avg Check",
         ])
       );
 
@@ -302,9 +353,7 @@ export default function RestaurantImportPage() {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
 
-      const rows: any[] = XLSX.utils.sheet_to_json(worksheet, {
-        defval: "",
-      });
+      const rows: any[] = extractRowsFromWorksheet(worksheet);
 
       const { validRows, rejectedRows } = buildRowsFromSheet(rows);
 
@@ -323,7 +372,7 @@ export default function RestaurantImportPage() {
           },
           "warning"
         );
-        alert("No valid restaurant sales rows found. Please check the file columns.");
+        alert("No valid restaurant sales rows found. Please check the file columns or hidden header rows.");
       }
 
       if (fileInputRef.current) fileInputRef.current.value = "";
