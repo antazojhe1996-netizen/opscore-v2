@@ -301,6 +301,10 @@ export default function CashManagementPage() {
 
   const activeDrawer = drawers.find((drawer) => String(drawer.status || "").toUpperCase() === "OPEN");
 
+  const isCurrentDrawerMovement = (item: any) =>
+    Boolean(activeDrawer?.id) &&
+    String(item.cash_drawer_id || "") === String(activeDrawer.id || "");
+
   const normalizeName = (value: any) =>
     String(value || "")
       .trim()
@@ -500,7 +504,7 @@ export default function CashManagementPage() {
         !isVoidedMovement(item) &&
         String(item.payment_type || "Cash") === "Cash",
     );
-  }, [movements, activeDrawer]);
+  }, [movements, activeDrawer?.id]);
 
   const openingFloatTotal = cashOnlyMovements
     .filter((item) => item.movement_type === "Opening Float")
@@ -569,26 +573,23 @@ export default function CashManagementPage() {
       String(request.status || "").toUpperCase() === "PENDING",
   ).length;
 
-  const todaysMovementCount = movements.filter(
-    (item) => item.business_date === today && !isVoidedMovement(item),
+  const currentDrawerMovements = useMemo(() => {
+    if (!activeDrawer) return [];
+    return movements.filter(
+      (item) => isCurrentDrawerMovement(item) && !isVoidedMovement(item),
+    );
+  }, [movements, activeDrawer?.id]);
+
+  const todaysMovementCount = currentDrawerMovements.filter(
+    (item) => item.business_date === today,
   ).length;
 
-  const cashInTodayTotal = movements
-    .filter(
-      (item) =>
-        item.business_date === today &&
-        !isVoidedMovement(item) &&
-        item.movement_type === "Cash In",
-    )
+  const cashInTodayTotal = currentDrawerMovements
+    .filter((item) => item.business_date === today && item.movement_type === "Cash In")
     .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
-  const cashOutTodayTotal = movements
-    .filter(
-      (item) =>
-        item.business_date === today &&
-        !isVoidedMovement(item) &&
-        item.movement_type === "Cash Out",
-    )
+  const cashOutTodayTotal = currentDrawerMovements
+    .filter((item) => item.business_date === today && item.movement_type === "Cash Out")
     .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
   const isLiquidationEligible = (movement: any) => {
@@ -598,7 +599,9 @@ export default function CashManagementPage() {
     return String(movement.liquidation_status || "FOR_LIQUIDATION").toUpperCase() !== "LIQUIDATED";
   };
 
-  const pendingLiquidations = movements.filter(isLiquidationEligible);
+  const pendingLiquidations = movements.filter(
+    (item) => isLiquidationEligible(item) && (!activeDrawer || isCurrentDrawerMovement(item)),
+  );
   const pendingLiquidationAmount = pendingLiquidations.reduce(
     (sum, item) => sum + Math.abs(Number(item.amount || 0)),
     0,
@@ -606,6 +609,7 @@ export default function CashManagementPage() {
 
   const receiptTrackedRows = movements.filter(
     (item) =>
+      (!activeDrawer || isCurrentDrawerMovement(item)) &&
       !isVoidedMovement(item) &&
       item.movement_type === "Cash Out" &&
       ["Expense Release", "Cash Advance"].includes(String(item.source || "")),
