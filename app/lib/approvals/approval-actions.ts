@@ -183,13 +183,27 @@ export async function executeCashDrawerApprovalAction({
 
     createdExpenseData = expenseData;
 
-    await supabase
-      .from("finance_cash_movements")
-      .update({
-        reference_id: expenseData.id,
-        approval_request_id: request.id,
-      })
-      .eq("id", movementData.id);
+    const { data: linkedMovement, error: linkedMovementError } = await supabase
+  .from("finance_cash_movements")
+  .update({
+    reference_id: expenseData.id,
+    approval_request_id: request.id,
+  })
+  .eq("id", movementData.id)
+  .select("id, reference_id, approval_request_id")
+  .single();
+
+if (linkedMovementError) {
+  throw new Error(
+    `Expense created but movement link failed: ${linkedMovementError.message}`
+  );
+}
+
+if (String(linkedMovement?.reference_id || "") !== String(expenseData.id)) {
+  throw new Error(
+    "Expense created but reference_id was not saved to finance_cash_movements."
+  );
+}
 
     if (payload.is_cash_advance_cash_out) {
       const { data: balanceData, error: balanceError } = await supabase
