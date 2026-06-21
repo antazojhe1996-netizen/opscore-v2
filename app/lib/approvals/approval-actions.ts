@@ -114,6 +114,23 @@ export async function executeCashDrawerApprovalAction({
     throw new Error(movementError.message);
   }
 
+  const { data: linkedMovementData, error: linkMovementError } = await supabase
+    .from("finance_cash_movements")
+    .update({
+      approval_request_id: request.id,
+    })
+    .eq("id", movementData.id)
+    .select("id, approval_request_id")
+    .single();
+
+  if (linkMovementError) {
+    throw new Error(`Cash movement posted but approval link failed: ${linkMovementError.message}`);
+  }
+
+  if (String(linkedMovementData?.approval_request_id || "") !== String(request.id)) {
+    throw new Error("Cash movement posted but approval_request_id was not saved. Approval stopped for audit safety.");
+  }
+
   let createdExpenseData: any = null;
   let createdBalanceData: any = null;
 
@@ -223,3 +240,4 @@ export async function executeCashDrawerApprovalAction({
     employeeBalance: createdBalanceData,
   };
 }
+
