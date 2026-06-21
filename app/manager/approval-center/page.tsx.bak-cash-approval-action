@@ -5,7 +5,6 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import TopNavbar from "@/components/TopNavbar";
-import { executeCashDrawerApprovalAction } from "@/app/lib/approvals/approval-actions";
 
 const LEGACY_CASH_REQUEST_TYPES = [
   "EXPENSE_RELEASE",
@@ -2245,22 +2244,7 @@ export default function ApprovalCenterPage() {
     }
 
     if (isCashDrawerApprovalRequest(request)) {
-      let executed = false;
-
-      try {
-        await executeCashDrawerApprovalAction({
-          request,
-          currentEmployeeName,
-          currentEmployeeId,
-          currentSystemUserId,
-          companyId: await getCompanyIdForRequest(request, getPayload(request) || {}),
-        });
-
-        executed = true;
-      } catch (error: any) {
-        alert(`Cash approval execution failed. Request was not approved. ${error?.message || error}`);
-        executed = false;
-      }
+      const executed = await executeCashDrawerMovement(request);
 
       if (!executed) {
         setIsProcessing(false);
@@ -3513,4 +3497,3 @@ function SummaryLine({ label, value, strong }: any) {
     </div>
   );
 }
-
