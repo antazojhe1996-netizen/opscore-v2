@@ -556,6 +556,19 @@ export default function CashManagementPage() {
     : false;
   const closeDrawerRequiresOverrideReason =
     drawerMismatchLocked || hasClosingCashVariance || gcashTotal < 0;
+  const actualCashEntered = Number.isFinite(actualClosingCashValue);
+  const cashShortageOrOverage = actualCashEntered ? actualClosingCashValue - cashOnHand : 0;
+  const cashVarianceLabel =
+    !actualCashEntered
+      ? "Enter actual cash counted"
+      : Math.abs(cashShortageOrOverage) < 0.009
+        ? "Balanced"
+        : cashShortageOrOverage < 0
+          ? `${formatMoney(Math.abs(cashShortageOrOverage))} shortage`
+          : `${formatMoney(cashShortageOrOverage)} overage`;
+
+  const suggestedActualCashTurnover = actualCashEntered ? Math.max(actualClosingCashValue, 0) : cashOnHand;
+  const suggestedFullExpectedTurnover = Math.max(cashOnHand, 0);
 
   const pendingCashApprovalCount = approvalRequests.filter(
     (request) =>
@@ -3443,31 +3456,151 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
             </div>
 
             <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Turnover to Next Drawer Holder</p>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+                Cashier Close Guide
+              </p>
+
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h4 className="text-lg font-black text-slate-950">
+                      Step 1: Count the actual cash in drawer
+                    </h4>
+                    <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+                      Actual cash counted means the physical cash on hand before remittance or turnover.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-right">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700">
+                      OPSCORE Cash On Hand
+                    </p>
+                    <p className="text-xl font-black text-slate-950">
+                      {formatMoney(cashOnHand)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Expected Cash
+                    </p>
+                    <p className="mt-2 text-xl font-black text-slate-950">
+                      {formatMoney(cashOnHand)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Actual Cash Counted
+                    </p>
+                    <p className="mt-2 text-xl font-black text-slate-950">
+                      {actualCashEntered ? formatMoney(actualClosingCashValue) : "Not entered"}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-2xl border p-4 ${
+                    actualCashEntered && Math.abs(cashShortageOrOverage) > 0.009
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-emerald-200 bg-emerald-100"
+                  }`}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      Status
+                    </p>
+                    <p className={`mt-2 text-xl font-black ${
+                      actualCashEntered && Math.abs(cashShortageOrOverage) > 0.009
+                        ? "text-amber-700"
+                        : "text-emerald-700"
+                    }`}>
+                      {cashVarianceLabel}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`mt-3 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${
+                actualCashEntered && Math.abs(cashShortageOrOverage) > 0.009
+                  ? "border-amber-200 bg-white text-amber-800"
+                  : "border-emerald-200 bg-white text-emerald-800"
+              }`}>
+                {actualCashEntered ? (
+                  Math.abs(cashShortageOrOverage) > 0.009 ? (
+                    <>
+                      OPSCORE recommends closing with documented variance. Expected cash is {formatMoney(cashOnHand)}, but actual counted cash is {formatMoney(actualClosingCashValue)}. Enter a variance reason before closing.
+                    </>
+                  ) : (
+                    <>
+                      OPSCORE recommends turning over {formatMoney(suggestedActualCashTurnover)} if all counted cash will be handed to the next drawer holder.
+                    </>
+                  )
+                ) : (
+                  <>Enter actual cash counted first to see the OPSCORE recommendation.</>
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!actualCashEntered) {
+                      alert("Enter actual cash counted first.");
+                      return;
+                    }
+                    setClosingCashTurnoverAmount(String(suggestedActualCashTurnover));
+                  }}
+                  className="rounded-2xl border border-emerald-200 bg-emerald-600 px-4 py-3 text-sm font-black uppercase tracking-[0.14em] text-white shadow-sm hover:bg-emerald-700"
+                >
+                  Turnover All Counted Cash ({actualCashEntered ? formatMoney(suggestedActualCashTurnover) : "Enter Cash"})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClosingCashTurnoverAmount("");
+                    setClosingGcashTurnoverAmount("");
+                  }}
+                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black uppercase tracking-[0.14em] text-slate-700 hover:bg-slate-100"
+                >
+                  Custom / Manual Turnover
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Field label="Cash Turnover">
-                  <input value={closingCashTurnoverAmount} onChange={(e) => setClosingCashTurnoverAmount(e.target.value)} className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+                  <input
+                    value={closingCashTurnoverAmount}
+                    onChange={(e) => setClosingCashTurnoverAmount(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-lg font-black text-slate-950"
+                    placeholder="0.00"
+                  />
                 </Field>
+
                 <Field label="GCash Turnover">
-                  <input value={closingGcashTurnoverAmount} onChange={(e) => setClosingGcashTurnoverAmount(e.target.value)} className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-lg font-black text-slate-950" placeholder="0.00" />
+                  <input
+                    value={closingGcashTurnoverAmount}
+                    onChange={(e) => setClosingGcashTurnoverAmount(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-lg font-black text-slate-950"
+                    placeholder="0.00"
+                  />
                 </Field>
+
                 <Field label="Turnover To">
-                  <select value={closingTurnoverTo} onChange={(e) => setClosingTurnoverTo(e.target.value)} className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm font-semibold text-slate-800">
+                  <select
+                    value={closingTurnoverTo}
+                    onChange={(e) => setClosingTurnoverTo(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm font-semibold text-slate-800"
+                  >
                     <option value="">Select receiver</option>
-                    {drawerHolderOptions.map((name) => <option key={name}>{name}</option>)}
+                    {drawerHolderOptions.map((name) => (
+                      <option key={name}>{name}</option>
+                    ))}
                   </select>
                 </Field>
               </div>
-              <p className="mt-3 text-xs font-bold text-emerald-700">Turnover automatically creates OUT rows from the closing drawer and IN rows for the receiver drawer using the same origin ID.</p>
-            </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${hasClosingCashVariance ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
-                Cash variance preview: {Number.isFinite(actualClosingCashValue) ? formatMoney(closingCashVariance) : "Enter actual cash"}
-              </div>
-              <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${closeDrawerRequiresOverrideReason ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
-                Reason required: {closeDrawerRequiresOverrideReason ? "Yes" : "No"}
-              </div>
+              <p className="mt-3 text-xs font-bold text-emerald-700">
+                Turnover automatically creates OUT rows from the closing drawer and IN rows for the receiver drawer using the same origin ID.
+              </p>
             </div>
 
             <div className="mt-4">
@@ -3568,5 +3701,10 @@ function Modal({ title, children, onClose, wide = false }: { title: string; chil
     </div>
   );
 }
+
+
+
+
+
 
 
