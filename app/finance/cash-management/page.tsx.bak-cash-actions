@@ -19,10 +19,6 @@ import PageGuard from "@/components/PageGuard";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
 import { calculateDrawerLedgerSummary } from "@/app/lib/finance/cash-ledger";
-import {
-  buildMovementOriginId,
-  checkDuplicateCashMovement,
-} from "@/app/lib/finance/cash-actions";
 
 type Tone = "critical" | "warning" | "info" | "success" | "neutral";
 
@@ -925,6 +921,38 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     userId: currentEmployeeId || null,
     userName: currentEmployeeName || "OPSCORE USER",
   });
+
+  const buildMovementOriginId = () => crypto.randomUUID();
+
+  const checkDuplicateMovement = async (payload: any) => {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const baseRemarks = String(payload.remarks || "").trim();
+
+    let query = supabase
+      .from("finance_cash_movements")
+      .select("id, created_at")
+      .eq("status", "ACTIVE")
+      .eq("business_date", payload.business_date)
+      .eq("movement_type", payload.movement_type)
+      .eq("source", payload.source)
+      .eq("payment_type", payload.payment_type || "Cash")
+      .eq("amount", payload.amount)
+      .gte("created_at", tenMinutesAgo)
+      .limit(1);
+
+    if (payload.cash_drawer_id) query = query.eq("cash_drawer_id", payload.cash_drawer_id);
+    if (baseRemarks) query = query.ilike("remarks", baseRemarks);
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.log("DUPLICATE MOVEMENT CHECK ERROR:", error.message);
+      return false;
+    }
+
+    return Boolean(data?.length);
+  };
+
   const normalizeDuplicateKeyText = (value: any) =>
     String(value || "")
       .trim()
@@ -1324,7 +1352,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
 
-    const isDuplicate = await checkDuplicateCashMovement(movementPayload);
+    const isDuplicate = await checkDuplicateMovement(movementPayload);
     if (isDuplicate) {
       alert("Possible duplicate detected. This movement was not saved again.");
       setIsSaving(false);
@@ -1496,7 +1524,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       liquidation_status: "NOT_REQUIRED",
     };
 
-    const isDuplicate = await checkDuplicateCashMovement(openingPayload);
+    const isDuplicate = await checkDuplicateMovement(openingPayload);
     if (!isDuplicate) {
       const { error: openingMovementError } = await supabase.from("finance_cash_movements").insert(openingPayload);
       if (openingMovementError) {
@@ -1622,7 +1650,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const postedMovements: any[] = [];
 
     const insertMovement = async (payload: any) => {
-      const isDuplicate = await checkDuplicateCashMovement(payload);
+      const isDuplicate = await checkDuplicateMovement(payload);
       if (isDuplicate) {
         throw new Error(`Possible duplicate ${payload.payment_type} ${payload.source} movement detected. Close drawer was stopped.`);
       }
@@ -1845,7 +1873,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         .filter(Boolean)
         .join(" ");
 
-      const { error: drawerCloseError } = await supabase
+            const { error: drawerCloseError } = await supabase
         .from("finance_cash_drawers")
         .update({
           status: "CLOSED",
@@ -2163,7 +2191,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
           return;
         }
       } else {
-        const isDuplicate = await checkDuplicateCashMovement(returnPayload);
+        const isDuplicate = await checkDuplicateMovement(returnPayload);
 
         if (!isDuplicate) {
           const { error: returnInsertError } = await supabase
@@ -3568,5 +3596,4 @@ function Modal({ title, children, onClose, wide = false }: { title: string; chil
     </div>
   );
 }
-
 
