@@ -563,9 +563,6 @@ export default function PayrollManagerPage() {
           remaining_payroll_balance: nextRemaining,
           released_at: isFullyReleased ? now : partialReleaseRecord.released_at || null,
           released_by: isFullyReleased ? releasedBy.trim() : partialReleaseRecord.released_by || null,
-          last_release_amount: amount,
-          last_release_at: now,
-          last_release_by: releasedBy.trim(),
         })
         .eq("id", partialReleaseRecord.id);
 
