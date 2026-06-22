@@ -508,8 +508,12 @@ export default function CashManagementPage() {
   const isCashAdvanceCashOut = movementType === "Cash Out" && source === "Cash Advance";
   const isExpenseRelease = movementType === "Cash Out" && source === "Expense Release";
   const shouldCreateExpenseFromCashOut = isExpenseRelease || isCashAdvanceCashOut;
-  const shouldCreateCashMovementRecord =
-    !shouldCreateExpenseFromCashOut || cashOutPaymentDeductsFromCashFlow || cashOutPaymentRequiresLiquidation;
+  // MOVEMENT POSTING STANDARD:
+  // A payment method can be report-only / non-cash-flow (example: Owner Abono, Pool Bar Expenses from sales)
+  // and still require a ledger movement for approval audit, drawer report, PDF, and expense ledger linkage.
+  // Cash On Hand impact is controlled by payment_type / deduct_from_cash_flow inside the ledger math,
+  // not by skipping finance_cash_movements.
+  const shouldCreateCashMovementRecord = true;
   const shouldSendCashReleaseToApproval =
     shouldCreateExpenseFromCashOut && cashOutPaymentRequiresApproval;
   // Salary Cash Advance is already released to the employee and should not require liquidation.
@@ -1109,7 +1113,18 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         : `MANUAL_${movementType.toUpperCase().replaceAll(" ", "_")}`,
       created_by_user_id: actor.userId,
       created_by_user_name: actor.userName,
-      cash_drawer_id: shouldRequireDrawerForSave ? activeDrawer?.id || null : null,
+      // REPORT LINK STANDARD:
+      // Cash-flow rules decide whether this affects Cash on Hand.
+      // Drawer linkage decides whether it appears in this drawer's report/PDF.
+      // Non-cash approved releases such as "Pool Bar Expenses from sales" must still
+      // stay linked to the active drawer for audit/reporting, while the ledger math
+      // excludes them from cash reconciliation because payment_type is not Cash.
+      cash_drawer_id:
+        shouldCreateExpenseFromCashOut && activeDrawer?.id
+          ? activeDrawer.id
+          : shouldRequireDrawerForSave
+            ? activeDrawer?.id || null
+            : null,
       liquidation_status: shouldRequireLiquidationForRelease ? "FOR_LIQUIDATION" : "NOT_REQUIRED",
       net_expense_amount: shouldCreateExpenseFromCashOut ? amountValue : 0,
     };
@@ -2309,20 +2324,29 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
   const getDrawerCashSummary = (drawer: any) => {
     const rows = getDrawerMovements(drawer);
-    const cashRows = rows.filter((item) => String(item.payment_type || "Cash") === "Cash");
+
+    const paymentKey = (value: any) => normalizeName(value || "Cash");
+    const sourceKey = (value: any) => normalizeName(value);
+    const typeKey = (value: any) => String(value || "").trim();
+
+    // CASH RECONCILIATION STANDARD:
+    // Only physical Cash affects expected cash / cash variance.
+    // Custom payment types such as "Pool Bar Expenses from sales" remain in reports,
+    // but never reduce the drawer's physical cash-on-hand.
+    const cashRows = rows.filter((item) => paymentKey(item.payment_type) === "cash");
 
     const openingFloatTotal = cashRows
-      .filter((item) => item.movement_type === "Opening Float")
+      .filter((item) => typeKey(item.movement_type) === "Opening Float")
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
     const cashTurnoverReceivedTotal = cashRows
       .filter((item) => {
-        const sourceText = String(item.source || "").toLowerCase();
+        const sourceText = sourceKey(item.source);
         const actionText = String(item.source_action || "").toUpperCase();
         const isDrawerTurnover = sourceText.includes("drawer turnover");
 
         return (
-          item.movement_type === "Cash In" &&
+          typeKey(item.movement_type) === "Cash In" &&
           isDrawerTurnover &&
           (actionText.startsWith("RECEIVE_") || actionText === "")
         );
@@ -2332,31 +2356,31 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const cashSalesTotal = cashRows
       .filter(
         (item) =>
-          item.movement_type === "Cash In" &&
-          String(item.source || "") !== "Expense Return" &&
-          !String(item.source || "").toLowerCase().includes("drawer turnover"),
+          typeKey(item.movement_type) === "Cash In" &&
+          sourceKey(item.source) !== "expense return" &&
+          !sourceKey(item.source).includes("drawer turnover"),
       )
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
     const cashReturnTotal = cashRows
-      .filter((item) => item.movement_type === "Cash In" && String(item.source || "") === "Expense Return")
+      .filter((item) => typeKey(item.movement_type) === "Cash In" && sourceKey(item.source) === "expense return")
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
     const cashExpenseTotal = cashRows
-      .filter((item) => item.movement_type === "Cash Out")
+      .filter((item) => typeKey(item.movement_type) === "Cash Out")
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
     const remittanceTotalValue = cashRows
-      .filter((item) => item.movement_type === "Remittance")
+      .filter((item) => typeKey(item.movement_type) === "Remittance")
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
     const turnoverTotalValue = cashRows
       .filter((item) => {
-        const sourceText = String(item.source || "").toLowerCase();
+        const sourceText = sourceKey(item.source);
         const actionText = String(item.source_action || "").toUpperCase();
 
         return (
-          item.movement_type === "Turnover" &&
+          typeKey(item.movement_type) === "Turnover" &&
           sourceText.includes("drawer turnover") &&
           (actionText.includes("TURNOVER_OUT") || actionText === "")
         );
@@ -2364,38 +2388,72 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
     const actualCash = Number(drawer?.actual_cash || 0);
-    const expectedCashBeforeClose =
+
+    // CLOSED DRAWER REPORT STANDARD:
+    // The PDF must follow the same source of truth used at drawer close.
+    // For closed drawers, use saved finance_cash_drawers.expected_cash / variance.
+    // Recomputing from historical movements can double-count manual recon rows
+    // such as Room Sales + Drawer Turnover Received for the same physical cash.
+    const storedExpectedCash = Number(drawer?.expected_cash);
+    const hasStoredExpectedCash =
+      String(drawer?.status || "").toUpperCase() === "CLOSED" &&
+      Number.isFinite(storedExpectedCash);
+
+    const computedExpectedCashBeforeClose =
       openingFloatTotal + cashSalesTotal + cashReturnTotal + cashTurnoverReceivedTotal - cashExpenseTotal;
+
+    const expectedCashBeforeClose = hasStoredExpectedCash
+      ? storedExpectedCash
+      : computedExpectedCashBeforeClose;
+
+    // If a closed drawer has a saved expected cash value, back-solve the displayed
+    // turnover received line so the printed reconciliation ties to the actual close.
+    // This prevents old/manual turnover-recon rows from inflating Expected Cash.
+    const reportCashTurnoverReceivedTotal = hasStoredExpectedCash
+      ? Math.max(
+          0,
+          expectedCashBeforeClose + cashExpenseTotal - openingFloatTotal - cashSalesTotal - cashReturnTotal,
+        )
+      : cashTurnoverReceivedTotal;
+
     const totalCashOutflowAtClose = remittanceTotalValue + turnoverTotalValue;
     const remainingCash = Math.max(actualCash - totalCashOutflowAtClose, 0);
-    const variance = actualCash - expectedCashBeforeClose;
+
+    const storedVariance = Number(drawer?.variance);
+    const variance =
+      String(drawer?.status || "").toUpperCase() === "CLOSED" && Number.isFinite(storedVariance)
+        ? storedVariance
+        : actualCash - expectedCashBeforeClose;
 
     const salesBySource = (sourceName: string) =>
       rows
         .filter(
           (item) =>
-            item.movement_type === "Cash In" &&
-            String(item.source || "").toLowerCase().includes(sourceName.toLowerCase()),
+            typeKey(item.movement_type) === "Cash In" &&
+            sourceKey(item.source).includes(sourceName.toLowerCase()),
         )
         .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
-    const collectionsByPayment = (paymentName: string) =>
-      rows
+    const collectionsByPayment = (paymentNames: string | string[]) => {
+      const names = (Array.isArray(paymentNames) ? paymentNames : [paymentNames]).map((item) => normalizeName(item));
+
+      return rows
         .filter(
           (item) =>
-            item.movement_type === "Cash In" &&
-            String(item.source || "") !== "Expense Return" &&
-            !String(item.source || "").toLowerCase().includes("drawer turnover") &&
-            String(item.payment_type || "Cash") === paymentName,
+            typeKey(item.movement_type) === "Cash In" &&
+            sourceKey(item.source) !== "expense return" &&
+            !sourceKey(item.source).includes("drawer turnover") &&
+            names.includes(paymentKey(item.payment_type)),
         )
         .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+    };
 
     const expenseBySource = (sourceName: string) =>
       rows
         .filter(
           (item) =>
-            item.movement_type === "Cash Out" &&
-            String(item.source || "").toLowerCase().includes(sourceName.toLowerCase()),
+            typeKey(item.movement_type) === "Cash Out" &&
+            sourceKey(item.source).includes(sourceName.toLowerCase()),
         )
         .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
@@ -2405,15 +2463,19 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const otherSales = rows
       .filter(
         (item) =>
-          item.movement_type === "Cash In" &&
-          String(item.source || "") !== "Expense Return" &&
-          !String(item.source || "").toLowerCase().includes("drawer turnover") &&
-          !String(item.source || "").toLowerCase().includes("room") &&
-          !String(item.source || "").toLowerCase().includes("restaurant") &&
-          !String(item.source || "").toLowerCase().includes("apartment"),
+          typeKey(item.movement_type) === "Cash In" &&
+          sourceKey(item.source) !== "expense return" &&
+          !sourceKey(item.source).includes("drawer turnover") &&
+          !sourceKey(item.source).includes("room") &&
+          !sourceKey(item.source).includes("restaurant") &&
+          !sourceKey(item.source).includes("apartment"),
       )
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
+    // REPORTING STANDARD:
+    // Expense summary includes all approved/released expense movements linked to the drawer,
+    // regardless of payment type. This is where "Pool Bar Expenses from sales" appears.
+    // Cash reconciliation above remains cash-only.
     const expenseRelease = expenseBySource("Expense Release");
     const cashAdvance = expenseBySource("Cash Advance");
     const ownerWithdrawal = expenseBySource("Owner Withdrawal");
@@ -2421,11 +2483,31 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const otherExpenses = rows
       .filter(
         (item) =>
-          item.movement_type === "Cash Out" &&
-          !String(item.source || "").toLowerCase().includes("expense release") &&
-          !String(item.source || "").toLowerCase().includes("cash advance") &&
-          !String(item.source || "").toLowerCase().includes("owner withdrawal") &&
-          !String(item.source || "").toLowerCase().includes("bank deposit"),
+          typeKey(item.movement_type) === "Cash Out" &&
+          !sourceKey(item.source).includes("expense release") &&
+          !sourceKey(item.source).includes("cash advance") &&
+          !sourceKey(item.source).includes("owner withdrawal") &&
+          !sourceKey(item.source).includes("bank deposit"),
+      )
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const manualCashExpenses = rows
+      .filter(
+        (item) =>
+          typeKey(item.movement_type) === "Cash Out" &&
+          paymentKey(item.payment_type) === "cash" &&
+          !sourceKey(item.source).includes("expense release") &&
+          !sourceKey(item.source).includes("cash advance") &&
+          !sourceKey(item.source).includes("owner withdrawal") &&
+          !sourceKey(item.source).includes("bank deposit"),
+      )
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
+
+    const reportOnlyExpenses = rows
+      .filter(
+        (item) =>
+          typeKey(item.movement_type) === "Cash Out" &&
+          paymentKey(item.payment_type) !== "cash",
       )
       .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0);
 
@@ -2433,7 +2515,7 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       rows,
       openingFloatTotal,
       cashSalesTotal,
-      cashTurnoverReceivedTotal,
+      cashTurnoverReceivedTotal: reportCashTurnoverReceivedTotal,
       cashReturnTotal,
       cashExpenseTotal,
       expectedCashBeforeRemittance: expectedCashBeforeClose,
@@ -2445,8 +2527,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       variance,
       cashCollections: collectionsByPayment("Cash"),
       gcashCollections: collectionsByPayment("GCash"),
-      bankCollections: collectionsByPayment("Bank"),
-      terminalCollections: collectionsByPayment("Terminal"),
+      bankCollections: collectionsByPayment(["Bank", "Bank Transfer"]),
+      terminalCollections: collectionsByPayment(["Terminal", "Terminal / Card", "Credit Card", "Card"]),
       roomSales,
       restaurantSales,
       apartmentCollection,
@@ -2456,6 +2538,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       ownerWithdrawal,
       bankDeposit,
       otherExpenses,
+      manualCashExpenses,
+      reportOnlyExpenses,
     };
   };
 
@@ -2640,17 +2724,18 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
 
               <div class="box">
                 <h2>EXPENSE SUMMARY</h2>
-                <div class="line"><span>Manual Cash Expenses</span><strong>${formatMoney(summary.otherExpenses)}</strong></div>
+                <div class="line"><span>Manual Cash Expenses</span><strong>${formatMoney(summary.manualCashExpenses)}</strong></div>
                 <div class="line"><span>Expense Releases</span><strong>${formatMoney(summary.expenseRelease)}</strong></div>
                 <div class="line"><span>Cash Advances</span><strong>${formatMoney(summary.cashAdvance)}</strong></div>
                 <div class="line"><span>Owner Withdrawal</span><strong>${formatMoney(summary.ownerWithdrawal)}</strong></div>
                 <div class="line"><span>Bank Deposit</span><strong>${formatMoney(summary.bankDeposit)}</strong></div>
                 <div class="line"><span>Other Expenses</span><strong>${formatMoney(summary.otherExpenses)}</strong></div>
+                <div class="line"><span>Report-Only / Non-Cash Expenses</span><strong>${formatMoney(summary.reportOnlyExpenses)}</strong></div>
                 <div class="line total"><span>Total Expenses</span><strong>${formatMoney(totalExpenses)}</strong></div>
               </div>
             </div>
 
-            <div class="note">Cash drawer rule: Expected Cash includes opening float, cash sales, cash turnover received, and expense returns less cash expenses. Remaining Cash After Close deducts cash turnover and cash remittance from actual cash counted. Bank, GCash, and Terminal collections are shown for reference only.</div>
+            <div class="note">Cash drawer rule: Expected Cash includes opening float, cash sales, cash turnover received, and expense returns less cash expenses. Remaining Cash After Close deducts cash turnover and cash remittance from actual cash counted. Bank, GCash, Terminal, and custom report-only payment types are shown for reference only. Non-cash expense payments appear in Expense Summary but do not reduce physical cash.</div>
             <div class="remarks"><h3>MANAGEMENT REMARKS</h3><div>${managementRemarks}</div></div>
             <div class="signatures">
               <div class="sig"><strong>${drawer?.holder_name || "Cashier"}</strong>Prepared By / Cashier</div>

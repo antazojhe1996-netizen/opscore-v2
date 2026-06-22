@@ -9,38 +9,29 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
-  DollarSign,
+  Eye,
   Landmark,
   Receipt,
   ShieldCheck,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
+import TopNavbar from "@/components/TopNavbar";
 
 export default function FinancePage() {
-  const financeHealth = 92;
-
-  const financeBriefing = [
-    "Cash position is stable for today’s operations.",
-    "Revenue monitoring is ready for room, restaurant, apartment, and other income streams.",
-    "Expense exposure is controlled through requests, approvals, release, and liquidation.",
-    "Pending requests and cash accountability should be reviewed before end-of-day closing.",
-  ];
-
-  const recommendedActions = [
-    "Review pending finance approvals before cash release.",
-    "Verify today’s revenue posting from rooms, restaurant, and apartment collections.",
-    "Check unreconciled cash accountability and liquidation status.",
-  ];
-
   const workbenchActions = [
     {
       title: "Cash Management",
-      description: "Open drawer, cash movements, remittance, and accountability.",
+      description: "Open drawer, cash movements, remittance, liquidation, and accountability.",
       href: "/finance/cash-management",
       primary: true,
+    },
+    {
+      title: "Financial Watcher",
+      description: "Review cash variance, posting issues, and financial exposure.",
+      href: "/finance/watcher",
+      watcher: true,
     },
     {
       title: "Expenses Ledger",
@@ -48,101 +39,67 @@ export default function FinancePage() {
       href: "/finance/expenses",
     },
     {
+      title: "Bills Monitoring",
+      description: "Monitor bills, payables, due dates, and owner obligations.",
+      href: "/finance/bills",
+    },
+    {
       title: "Apartment Operations",
       description: "Review apartment collections, exposure, billing, and payments.",
       href: "/finance/apartment",
     },
     {
-      title: "Payroll Manager",
-      description: "Review release control, partial balances, and payroll status.",
-      href: "/payroll-manager",
-    },
-    {
-      title: "Decision Center",
-      description: "Review approvals before releasing cash or payroll actions.",
+      title: "Approval Center",
+      description: "Review requests before cash or payroll release.",
       href: "/approval-center",
     },
   ];
 
   return (
     <PageGuard moduleKey="finance_dashboard">
-      <div className="flex min-h-screen bg-[#07111f] text-white">
+      <div className="flex min-h-screen bg-[#F5F7FB] text-slate-900">
         <Sidebar />
+        <TopNavbar breadcrumb="FINANCE / DASHBOARD" />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-          {/* HERO */}
-          <section className="relative mb-8 overflow-hidden rounded-[2rem] border border-blue-300/20 bg-gradient-to-br from-[#0B1220] via-[#13203D] to-[#07111f] p-6 shadow-2xl shadow-blue-950/30 sm:p-8">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-400/15 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-24 left-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
-
-            <div className="relative grid grid-cols-1 gap-6 xl:grid-cols-12 xl:items-end">
-              <div className="xl:col-span-8">
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-200/80">
-                  Financial Command Center
-                </p>
-
-                <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-5xl">
-                  Finance Dashboard
-                </h1>
-
-                <p className="mt-4 max-w-3xl text-sm leading-6 text-blue-100/75 sm:text-base">
-                  Monitor cash position, revenue performance, expenses,
-                  pending approvals, and financial risk from one executive
-                  workspace.
-                </p>
-
-                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <HeroMiniStat label="Cash" value="Stable" />
-                  <HeroMiniStat label="Controls" value="Active" />
-                  <HeroMiniStat label="Risk" value="Review" />
-                </div>
-              </div>
-
-              <div className="xl:col-span-4">
-                <div className="rounded-[1.5rem] border border-blue-300/20 bg-white/[0.055] p-5 backdrop-blur-xl">
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-200/70">
-                    Finance Health
-                  </p>
-
-                  <div className="mt-4 flex items-end justify-between gap-4">
-                    <div>
-                      <p className="text-5xl font-black leading-none text-white">
-                        {financeHealth}
-                      </p>
-                      <p className="mt-1 text-xs font-black uppercase tracking-[0.2em] text-emerald-300">
-                        Controlled
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-emerald-300/20 bg-emerald-500/10 p-3 text-emerald-200">
-                      <ShieldCheck size={28} />
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-xs leading-5 text-blue-100/65">
-                    Finance controls are active. Review pending requests,
-                    liquidations, and revenue posting before closing.
-                  </p>
-                </div>
-              </div>
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-[#F5F7FB] px-4 pb-8 pt-20 sm:px-6 lg:px-7">
+          {/* PAGE HEADER */}
+          <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                Finance
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                Finance Dashboard
+              </h1>
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                Monitor cash control, revenue, expenses, approvals, accountability, and financial risk from one workspace.
+              </p>
             </div>
+
+            <Link
+              href="/finance/watcher"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
+            >
+              <Eye size={16} />
+              Open Financial Watcher
+            </Link>
           </section>
 
-          {/* EXECUTIVE KPIS */}
-          <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {/* KPI ROW */}
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <FinanceKpiCard
               icon={<Banknote size={22} />}
               title="Cash Position"
               value="₱0.00"
-              description="Available cash and accountable funds"
+              description="Available cash and accountable funds."
               status="Stable"
             />
 
             <FinanceKpiCard
-              icon={<TrendingUp size={22} />}
+              icon={<BarChart3 size={22} />}
               title="Revenue Today"
               value="₱0.00"
-              description="Rooms, restaurant, apartments, and other income"
+              description="Rooms, restaurant, apartment, and other collections."
               status="Monitoring"
             />
 
@@ -150,65 +107,100 @@ export default function FinancePage() {
               icon={<Receipt size={22} />}
               title="Expenses Today"
               value="₱0.00"
-              description="Approved, released, and posted expenses"
+              description="Approved, released, posted, and liquidated expenses."
               status="Controlled"
             />
 
             <FinanceKpiCard
-              icon={<Clock size={22} />}
-              title="Pending Requests"
-              value="0"
-              description="Finance items waiting for review or approval"
-              status="Action Queue"
+              icon={<AlertTriangle size={22} />}
+              title="Financial Exposure"
+              value="₱0.00"
+              description="Variance, missing postings, and unresolved findings."
+              status="Review"
               warning
             />
           </section>
 
-          {/* WORKBENCH ACTIONS */}
-          <section className="mt-8 rounded-[1.75rem] border border-blue-300/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/20 sm:p-6">
-            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          {/* WATCHER HIGHLIGHT */}
+          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
-                  Financial Workbench Actions
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  OPSCORE Watcher
                 </p>
-                <h2 className="mt-2 text-2xl font-black text-white">
-                  Open Daily Finance Workflows
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  Financial Watcher
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-                  Use these shortcuts for daily finance operations while this page remains the executive overview.
+                <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-500">
+                  Financial Watcher reviews drawer variance, missing movements, approval posting gaps, and financial exposure so managers can understand cash issues without reading full audit trails.
                 </p>
               </div>
 
-              <div className="rounded-full border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-blue-200/70">
-                Workbench Layer
-              </div>
+              <Link
+                href="/finance/watcher"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+              >
+                View Findings
+                <ArrowUpRight size={16} />
+              </Link>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <WatcherMiniCard label="Critical Findings" value="0" tone="danger" />
+              <WatcherMiniCard label="Needs Review" value="0" tone="warning" />
+              <WatcherMiniCard label="Balanced Areas" value="0" tone="success" />
+            </div>
+          </section>
+
+          {/* WORKBENCH ACTIONS */}
+          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Financial Workbench Actions
+              </p>
+              <h2 className="mt-2 text-xl font-black text-slate-950">
+                Open Daily Finance Workflows
+              </h2>
+              <p className="mt-2 max-w-4xl text-sm font-medium text-slate-500">
+                Use these shortcuts for cash control, expenses, approvals, bills, and financial monitoring.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {workbenchActions.map((item) => (
                 <Link
                   key={item.title}
                   href={item.href}
-                  className={`group rounded-2xl border p-4 transition ${
-                    item.primary
-                      ? "border-blue-400/30 bg-blue-600 text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500"
-                      : "border-slate-800 bg-slate-950/60 text-slate-200 hover:border-blue-300/20 hover:bg-slate-900"
-                  }`}
+                  className="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-sm font-black">{item.title}</h3>
-                      <p
-                        className={`mt-2 text-xs leading-5 ${
-                          item.primary ? "text-blue-50/80" : "text-slate-500"
-                        }`}
-                      >
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-slate-950">
+                          {item.title}
+                        </h3>
+
+                        {item.primary && (
+                          <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">
+                            Primary
+                          </span>
+                        )}
+
+                        {item.watcher && (
+                          <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-red-700">
+                            Watcher
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
                         {item.description}
                       </p>
                     </div>
+
                     <ArrowUpRight
-                      size={16}
-                      className={item.primary ? "text-white" : "text-blue-300"}
+                      size={17}
+                      className="shrink-0 text-slate-400 transition group-hover:text-slate-950"
                     />
                   </div>
                 </Link>
@@ -216,85 +208,29 @@ export default function FinancePage() {
             </div>
           </section>
 
-          {/* INTELLIGENCE */}
-          <section className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
-            <div className="rounded-[1.75rem] border border-blue-300/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20 xl:col-span-7">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
-                    OPSCORE Finance Intelligence
-                  </p>
-                  <h2 className="mt-2 text-2xl font-black text-white">
-                    Executive Finance Briefing
-                  </h2>
-                </div>
-                <div className="rounded-2xl border border-blue-300/20 bg-blue-500/10 p-3 text-blue-200">
-                  <BarChart3 size={24} />
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                {financeBriefing.map((item) => (
-                  <div
-                    key={item}
-                    className="flex gap-3 rounded-2xl border border-blue-300/10 bg-slate-950/50 p-4"
-                  >
-                    <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-300" size={16} />
-                    <p className="text-sm leading-6 text-slate-300">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[1.75rem] border border-blue-300/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20 xl:col-span-5">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">
-                Recommended Actions
-              </p>
-              <h2 className="mt-2 text-2xl font-black text-white">
-                Finance Control Checklist
-              </h2>
-
-              <div className="mt-6 space-y-3">
-                {recommendedActions.map((item, index) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-slate-700/60 bg-slate-950/55 p-4"
-                  >
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-200/70">
-                      Action {index + 1}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                      {item}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* FINANCE OVERVIEW */}
-          <section className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
+          {/* FINANCE CONTROL SUMMARY */}
+          <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
             <FinancePanel
               icon={<Wallet size={22} />}
               title="Cash Accountability"
               value="₱0.00"
-              description="Released cash not yet liquidated or closed."
+              description="Released cash, drawer accountability, remittance, and liquidation exposure."
               items={[
                 "Cash drawer monitoring active",
                 "Liquidation review ready",
-                "Accountability aging pending data",
+                "Variance findings routed to Watcher",
               ]}
             />
 
             <FinancePanel
               icon={<CreditCard size={22} />}
-              title="Expense Overview"
+              title="Expense Control"
               value="₱0.00"
-              description="Operational spending under finance control."
+              description="Operational spending under approval and liquidation control."
               items={[
-                "Approved expenses included",
-                "Voided expenses excluded from totals",
-                "Pending approvals monitored separately",
+                "Approved expenses monitored",
+                "Voided expenses excluded",
+                "Missing posting checks planned",
               ]}
             />
 
@@ -305,55 +241,14 @@ export default function FinancePage() {
               description="Consolidated revenue monitoring by source."
               items={[
                 "Room sales",
-                "Restaurant and sports bar",
+                "Restaurant and pool bar sales",
                 "Apartment and other revenue",
               ]}
             />
           </section>
-
-          {/* RISK MONITOR */}
-          <section className="mt-8 rounded-[1.75rem] border border-red-300/10 bg-gradient-to-br from-red-500/10 via-slate-900/70 to-slate-950 p-6">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-red-200/80">
-                  Financial Risk Monitor
-                </p>
-                <h2 className="mt-2 text-2xl font-black text-white">
-                  Items Requiring Finance Review
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-                  This dashboard should highlight unmatched expenses, overdue
-                  bills, pending liquidations, pending approvals, and cash
-                  accountability exceptions once connected to live finance data.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-red-300/20 bg-red-500/10 p-4 text-red-200">
-                <AlertTriangle size={30} />
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <RiskMiniCard label="Unmatched Expenses" value="0" />
-              <RiskMiniCard label="Pending Liquidations" value="0" />
-              <RiskMiniCard label="Overdue Bills" value="0" />
-              <RiskMiniCard label="Pending Approvals" value="0" />
-            </div>
-          </section>
         </main>
       </div>
     </PageGuard>
-  );
-}
-
-function HeroMiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-blue-300/10 bg-white/[0.045] px-4 py-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200/60">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-black text-white">{value}</p>
-    </div>
   );
 }
 
@@ -373,29 +268,65 @@ function FinanceKpiCard({
   warning?: boolean;
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-blue-300/10 bg-white/[0.04] p-5 shadow-xl shadow-black/15 transition hover:border-blue-300/20 hover:bg-white/[0.055]">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-slate-400">{title}</p>
-          <h3 className="mt-3 text-3xl font-black text-white">{value}</h3>
+          <p className="text-sm font-semibold text-slate-500">{title}</p>
+          <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+            {value}
+          </h3>
         </div>
 
         <div
-          className={`rounded-2xl p-3 ${
+          className={`rounded-2xl border p-3 ${
             warning
-              ? "border border-red-300/20 bg-red-500/10 text-red-200"
-              : "border border-blue-300/20 bg-blue-500/10 text-blue-200"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-blue-200 bg-blue-50 text-blue-700"
           }`}
         >
           {icon}
         </div>
       </div>
 
-      <p className="mt-3 text-xs leading-5 text-slate-500">{description}</p>
+      <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
+        {description}
+      </p>
 
-      <div className="mt-4 inline-flex rounded-full border border-blue-300/10 bg-slate-950/60 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-blue-200/80">
+      <div
+        className={`mt-4 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
+          warning
+            ? "border-amber-200 bg-amber-50 text-amber-700"
+            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+        }`}
+      >
         {status}
       </div>
+    </div>
+  );
+}
+
+function WatcherMiniCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "danger" | "warning" | "success";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+  return (
+    <div className={`rounded-3xl border p-5 ${toneClass}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em]">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-black tracking-tight">{value}</p>
     </div>
   );
 }
@@ -414,40 +345,34 @@ function FinancePanel({
   items: string[];
 }) {
   return (
-    <div className="rounded-[1.75rem] border border-blue-300/10 bg-white/[0.04] p-6 shadow-xl shadow-black/15">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-300">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
             {title}
           </p>
-          <h3 className="mt-3 text-3xl font-black text-white">{value}</h3>
+          <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+            {value}
+          </h3>
         </div>
-        <div className="rounded-2xl border border-blue-300/20 bg-blue-500/10 p-3 text-blue-200">
+
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-blue-700">
           {icon}
         </div>
-      </div>
+      </div>  
 
-      <p className="mt-3 text-sm leading-6 text-slate-400">{description}</p>
+      <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
+        {description}
+      </p>
 
       <div className="mt-5 space-y-2">
         {items.map((item) => (
-          <div key={item} className="flex items-center gap-2 text-sm text-slate-300">
-            <ArrowUpRight size={14} className="text-blue-300" />
+          <div key={item} className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <CheckCircle2 size={15} className="text-emerald-600" />
             <span>{item}</span>
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function RiskMiniCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-red-300/10 bg-slate-950/50 p-4">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-red-200/60">
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
     </div>
   );
 }
