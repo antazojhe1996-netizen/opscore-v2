@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";
 import { createAuditLog } from "@/app/lib/audit";
+import { executeCashDrawerApprovalAction } from "@/app/lib/approvals/approval-actions";
+
 const CASH_DRAWER_REQUEST_TYPES = [
   "CASH_DRAWER_OUT",
   "CASH_EXPENSE_RELEASE",
@@ -2030,266 +2032,36 @@ export default function EmployeePortalPage() {
     setLoading(false);
   };
 
-  const getApprovalRequestMarker = (requestId: any) =>
-    `Approval Request ID: ${String(requestId || "")}`;
-
-  const appendApprovalRequestMarker = (remarks: any, requestId: any) => {
-    const baseRemarks = String(
-      remarks || "Approved cash drawer movement",
-    ).trim();
-    const marker = getApprovalRequestMarker(requestId);
-
-    if (baseRemarks.includes(marker)) return baseRemarks;
-
-    return `${baseRemarks} | ${marker}`;
-  };
-
-  const cashDrawerMovementAlreadyPosted = async (
-    request: ApprovalRequest,
-    payload: any,
-    amountValue: number,
-  ) => {
-    const marker = getApprovalRequestMarker(request.id);
-
-    const { data: markerMatch, error: markerError } = await supabase
-      .from("finance_cash_movements")
-      .select("id, created_at")
-      .ilike("remarks", `%${marker}%`)
-      .limit(1)
-      .maybeSingle();
-
-    if (markerError) {
-      console.log("PORTAL CASH APPROVAL DUPLICATE MARKER CHECK ERROR:", markerError.message);
-      throw new Error(markerError.message);
-    }
-
-    if (markerMatch) return true;
-
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString();
-    const baseRemarks = String(
-      payload.remarks || request.description || "Approved cash drawer movement",
-    ).trim();
-
-    let fallbackQuery = supabase
-      .from("finance_cash_movements")
-      .select("id, created_at")
-      .eq("business_date", payload.business_date)
-      .eq("movement_type", payload.movement_type)
-      .eq("source", payload.source)
-      .eq("payment_type", payload.payment_type || "Cash")
-      .eq("amount", amountValue)
-      .eq("from_person", payload.from_person || "")
-      .eq("to_person", payload.to_person || "")
-      .ilike("remarks", `%${baseRemarks}%`)
-      .gte("created_at", tenMinutesAgo)
-      .limit(1);
-
-    fallbackQuery = payload.cash_drawer_id
-      ? fallbackQuery.eq("cash_drawer_id", payload.cash_drawer_id)
-      : fallbackQuery.is("cash_drawer_id", null);
-
-    const { data: fallbackMatch, error: fallbackError } =
-      await fallbackQuery.maybeSingle();
-
-    if (fallbackError) {
-      console.log("PORTAL CASH APPROVAL DUPLICATE FALLBACK CHECK ERROR:", fallbackError.message);
-      throw new Error(fallbackError.message);
-    }
-
-    return Boolean(fallbackMatch);
-  };
-
   const executeMobileCashDrawerMovement = async (request: ApprovalRequest) => {
-    const payload = getApprovalPayload(request);
-
-    if (!payload) {
-      alert("Missing cash drawer approval payload. Check approval_requests.request_payload column.");
-      return false;
-    }
-
-    const amountValue = Number(payload.amount || 0);
-    const companyId = String(
-      request.company_id ||
-        payload.company_id ||
-        currentUser?.company_id ||
-        localStorage.getItem("opscore_current_company_id") ||
-        ""
-    ).trim() || (await getCurrentCompanyId());
-
-    if (!companyId) {
-      alert("Approval cannot continue. No company_id found for this request.");
-      return false;
-    }
-
-    if (amountValue <= 0) {
-      alert("Invalid approval amount.");
-      return false;
-    }
-
-    let alreadyPosted = false;
-
     try {
-      alreadyPosted = await cashDrawerMovementAlreadyPosted(request, payload, amountValue);
-    } catch (duplicateCheckError: any) {
-      alert(
-        `Duplicate safety check failed. Nothing was posted. ${
-          duplicateCheckError?.message || duplicateCheckError
-        }`,
-      );
+      const payload = getApprovalPayload(request);
+
+      const companyId =
+        String(
+          request.company_id ||
+            payload.company_id ||
+            currentUser?.company_id ||
+            localStorage.getItem("opscore_current_company_id") ||
+            "",
+        ).trim() || (await getCurrentCompanyId());
+
+      await executeCashDrawerApprovalAction({
+        request,
+        currentEmployeeName: getCurrentUserName(),
+        currentEmployeeId: currentUser?.id || null,
+        currentSystemUserId:
+          currentUser?.system_user_id ||
+          localStorage.getItem("opscore_current_system_user_id") ||
+          null,
+        companyId,
+      });
+
+      return true;
+    } catch (error: any) {
+      console.log("PORTAL CASH APPROVAL ACTION ERROR:", error?.message || error);
+      alert(`Cash approval failed. ${error?.message || error}`);
       return false;
     }
-
-    if (alreadyPosted) {
-      alert("Possible duplicate approval detected. This request already created a cash movement. Nothing was posted again.");
-      return false;
-    }
-
-    const movementRemarks = appendApprovalRequestMarker(
-      payload.remarks || request.description || "Approved cash drawer movement",
-      request.id,
-    );
-
-    const { data: movementData, error: movementError } = await supabase
-      .from("finance_cash_movements")
-      .insert({
-        company_id: companyId,
-        business_date: payload.business_date,
-        movement_type: payload.movement_type,
-        source: payload.source,
-        payment_type: payload.payment_type || "Cash",
-        amount: amountValue,
-        from_person: payload.from_person || payload.holder_name || getCurrentUserName(),
-        to_person: payload.to_person || payload.receiver_name || "",
-        encoded_by: payload.encoded_by || getCurrentUserName() || "Mobile Approval Center",
-        remarks: movementRemarks,
-        reference_type: payload.should_create_expense ? "expense" : "approval_request",
-        reference_id: payload.should_create_expense ? null : request.id,
-        cash_drawer_id: payload.cash_drawer_id || null,
-      })
-      .select()
-      .single();
-
-    if (movementError) {
-      console.log("PORTAL APPROVED CASH MOVEMENT INSERT ERROR:", movementError.message);
-      alert(`Approval failed before drawer posting. ${movementError.message}`);
-      return false;
-    }
-
-    let createdExpenseData: any = null;
-    let createdBalanceData: any = null;
-
-    if (payload.should_create_expense) {
-      const { data: expenseData, error: expenseError } = await supabase
-        .from("expenses")
-        .insert({
-          company_id: companyId,
-          expense_date: payload.business_date,
-          category: payload.is_cash_advance_cash_out
-            ? "Cash Advance"
-            : payload.expense_category,
-          subcategory: payload.is_cash_advance_cash_out
-            ? "Cash Advance Release"
-            : payload.expense_subcategory || null,
-          department: payload.is_cash_advance_cash_out
-            ? "Payroll"
-            : payload.expense_department,
-          description: payload.is_cash_advance_cash_out
-            ? `Cash Advance - ${payload.cash_advance_employee_name || ""}`
-            : payload.expense_description,
-          amount: amountValue,
-          payment_method: payload.payment_type || "Cash",
-          employee_id: payload.is_cash_advance_cash_out
-            ? payload.cash_advance_employee_id || null
-            : null,
-          employee_name: payload.is_cash_advance_cash_out
-            ? payload.cash_advance_employee_name || null
-            : null,
-          deduct_to_payroll: Boolean(payload.is_cash_advance_cash_out),
-          payroll_period_id: payload.is_cash_advance_cash_out
-            ? payload.payroll_period_id || null
-            : null,
-          remarks: payload.is_cash_advance_cash_out
-            ? `Source: Mobile Approval Center. Auto linked to: ${payload.payroll_period_label || "Payroll Period"}. ${payload.cash_advance_purpose || ""} ${movementRemarks}`.trim()
-            : `${movementRemarks}${payload.expense_released_to ? ` Released to: ${payload.expense_released_to}` : ""}`.trim(),
-          source: payload.is_cash_advance_cash_out
-            ? "Cash Drawer - Cash Advance"
-            : "Cash Drawer",
-          posted_to_cash_movements: true,
-          cash_movement_id: movementData.id,
-          cash_posted_date: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (expenseError) {
-        console.log("PORTAL APPROVED CASH MOVEMENT EXPENSE ERROR:", expenseError.message);
-        alert("Cash movement was posted, but linked expense failed. Check expenses table columns.");
-        return false;
-      }
-
-      createdExpenseData = expenseData;
-
-      await supabase
-        .from("finance_cash_movements")
-        .update({ reference_id: expenseData.id })
-        .eq("id", movementData.id);
-
-      if (payload.is_cash_advance_cash_out) {
-        const { data: balanceData, error: balanceError } = await supabase
-          .from("employee_balances")
-          .insert({
-            company_id: companyId,
-            employee_id: payload.cash_advance_employee_id,
-            employee_name: payload.cash_advance_employee_name,
-            balance_type: "Cash Advance",
-            original_amount: amountValue,
-            remaining_balance: amountValue,
-            status: "Active",
-            source_module: "Cash Drawer",
-            source_id: movementData.id,
-            period_id: payload.payroll_period_id || null,
-            remarks: `Source: Mobile Approval Center. Expense ID: ${expenseData.id}. Cash Movement ID: ${movementData.id}. ${payload.cash_advance_purpose || ""}. ${getApprovalRequestMarker(request.id)}`,
-          })
-          .select()
-          .single();
-
-        if (balanceError) {
-          console.log("PORTAL APPROVED CASH ADVANCE BALANCE ERROR:", balanceError.message);
-          alert("Cash advance posted to drawer and expenses, but employee balance failed.");
-        } else {
-          createdBalanceData = balanceData;
-
-          await supabase
-            .from("expenses")
-            .update({ employee_balance_id: balanceData.id })
-            .eq("id", expenseData.id);
-
-          if (payload.payroll_period_id) {
-            await supabase
-              .from("payroll_periods")
-              .update({ needs_regeneration: true })
-              .eq("id", payload.payroll_period_id);
-          }
-        }
-      }
-    }
-
-    await createAuditLog({
-      userName: getCurrentUserName() || "OPSCORE USER",
-      module: "Employee Portal Approval Center",
-      action: "Approve Cash Drawer Movement",
-      description: `${request.request_type} approved on mobile and posted - ${formatMoney(amountValue)}`,
-      severity: "warning",
-      recordId: String(request.id),
-      newValue: {
-        approvalRequest: request,
-        movement: movementData,
-        expense: createdExpenseData,
-        employeeBalance: createdBalanceData,
-      },
-    });
-
-    return true;
   };
 
 
@@ -2297,7 +2069,7 @@ export default function EmployeePortalPage() {
     if (!canUseManagerTools || !request?.id) return;
 
     const requestType = String(request.request_type || "").toUpperCase();
-    const payload = request.request_payload || {};
+    const payload = getApprovalPayload(request);
     const referenceId = request.reference_id || payload.leave_id;
 
     setActionLoadingId(request.id as string | number);
@@ -2417,19 +2189,14 @@ export default function EmployeePortalPage() {
     }
 
     const requestType = String(request.request_type || "").toUpperCase();
-    const payload = request.request_payload || {};
+    const payload = getApprovalPayload(request);
     const referenceId = request.reference_id || payload.leave_id;
 
     setActionLoadingId(request.id as string | number);
 
-    if (CASH_DRAWER_REQUEST_TYPES.includes(requestType)) {
-      const executed = await executeMobileCashDrawerMovement(request);
-
-      if (!executed) {
-        setActionLoadingId(null);
-        return;
-      }
-    }
+    // CASH DRAWER SAFETY RULE:
+    // Rejected cash requests must never post finance_cash_movements.
+    // Only approval can call executeMobileCashDrawerMovement().
 
     if (requestType === "LEAVE_REQUEST" && referenceId) {
       const { error: leaveError } = await supabase
