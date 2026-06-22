@@ -29,6 +29,67 @@ export const appendApprovalRequestMarker = (remarks: any, requestId: any) => {
   return `${baseRemarks} | ${marker}`;
 };
 
+const getExistingApprovalMovement = async (request: any) => {
+  const marker = getApprovalRequestMarker(request.id);
+
+  const { data: linkedRows, error: linkedError } = await supabase
+    .from("finance_cash_movements")
+    .select("*")
+    .eq("approval_request_id", request.id)
+    .neq("status", "VOIDED")
+    .order("created_at", { ascending: true });
+
+  if (linkedError) throw new Error(linkedError.message);
+
+  if ((linkedRows || []).length > 1) {
+    throw new Error(
+      `Approval audit blocked. This request already has ${linkedRows.length} linked cash movements.`,
+    );
+  }
+
+  if (linkedRows?.[0]) return linkedRows[0];
+
+  const { data: markerRows, error: markerError } = await supabase
+    .from("finance_cash_movements")
+    .select("*")
+    .ilike("remarks", `%${marker}%`)
+    .neq("status", "VOIDED")
+    .order("created_at", { ascending: true });
+
+  if (markerError) throw new Error(markerError.message);
+
+  if ((markerRows || []).length > 1) {
+    throw new Error(
+      `Approval audit blocked. This request already has ${markerRows.length} marker-matched cash movements.`,
+    );
+  }
+
+  if (markerRows?.[0]) return markerRows[0];
+
+  return null;
+};
+
+const markApprovalApproved = async ({
+  request,
+  currentEmployeeName,
+}: {
+  request: any;
+  currentEmployeeName: string;
+}) => {
+  const { error } = await supabase
+    .from("approval_requests")
+    .update({
+      status: "APPROVED",
+      approved_by: currentEmployeeName || "Approval Center",
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", request.id);
+
+  if (error) {
+    throw new Error(`Approval status update failed: ${error.message}`);
+  }
+};
+
 export async function executeCashDrawerApprovalAction({
   request,
   currentEmployeeName,
@@ -44,33 +105,43 @@ export async function executeCashDrawerApprovalAction({
 }) {
   const payload = getApprovalPayload(request);
   const amountValue = Number(payload.amount || 0);
-  const finalCompanyId = String(companyId || request.company_id || payload.company_id || "").trim();
+  const finalCompanyId = String(
+    companyId || request.company_id || payload.company_id || "",
+  ).trim();
 
-  if (!finalCompanyId) {
-    throw new Error("No company_id found for this approval request.");
-  }
+  if (!request?.id) throw new Error("Invalid approval request.");
+  if (!finalCompanyId) throw new Error("No company_id found for this approval request.");
+  if (!Number.isFinite(amountValue) || amountValue <= 0) throw new Error("Invalid approval amount.");
 
-  if (!Number.isFinite(amountValue) || amountValue <= 0) {
-    throw new Error("Invalid approval amount.");
+  const existingMovement = await getExistingApprovalMovement(request);
+
+  if (existingMovement?.id) {
+    await supabase
+      .from("finance_cash_movements")
+      .update({ approval_request_id: request.id })
+      .eq("id", existingMovement.id);
+
+    await markApprovalApproved({ request, currentEmployeeName });
+
+    await createAuditLog({
+      userName: currentEmployeeName || "OPSCORE USER",
+      module: "Approval Center",
+      action: "Cash Approval Idempotent Skip",
+      description: `${request.request_type} already had one movement. Approval marked approved without duplicate posting.`,
+      severity: "warning",
+      recordId: request.id,
+      newValue: { existingMovementId: existingMovement.id },
+    });
+
+    return {
+      movement: existingMovement,
+      expense: null,
+      employeeBalance: null,
+      reusedExistingMovement: true,
+    };
   }
 
   const marker = getApprovalRequestMarker(request.id);
-
-  const { data: existingMovement, error: existingError } = await supabase
-    .from("finance_cash_movements")
-    .select("id")
-    .eq("approval_request_id", request.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (existingError) {
-    throw new Error(existingError.message);
-  }
-
-  if (existingMovement?.id) {
-    throw new Error("This approval already has a linked cash movement.");
-  }
-
   const movementRemarks = appendApprovalRequestMarker(
     payload.remarks || request.description || "Approved cash drawer movement",
     request.id,
@@ -95,41 +166,24 @@ export async function executeCashDrawerApprovalAction({
       reference_id: payload.should_create_expense ? null : request.id,
 
       approval_request_id: request.id,
-      origin_type: payload.origin_type || "approval_request",
-      origin_id: payload.origin_id || request.id,
-      created_by_module: payload.created_by_module || "Approval Center",
+      origin_type: "approval_request",
+      origin_id: request.id,
+      created_by_module: "Approval Center",
       source_action: payload.source_action || `APPROVE_${normalizeWorkflowKey(request.request_type)}`,
       created_by_user_id: currentSystemUserId || currentEmployeeId || null,
       created_by_user_name: currentEmployeeName || "Approval Center",
       cash_drawer_id: payload.cash_drawer_id || null,
       liquidation_status:
         payload.liquidation_status ||
-        (payload.should_create_expense ? "FOR_LIQUIDATION" : "NOT_REQUIRED"),
+        (payload.should_create_expense && !payload.is_cash_advance_cash_out
+          ? "FOR_LIQUIDATION"
+          : "NOT_REQUIRED"),
       net_expense_amount: payload.should_create_expense ? amountValue : 0,
     })
     .select()
     .single();
 
-  if (movementError) {
-    throw new Error(movementError.message);
-  }
-
-  const { data: linkedMovementData, error: linkMovementError } = await supabase
-    .from("finance_cash_movements")
-    .update({
-      approval_request_id: request.id,
-    })
-    .eq("id", movementData.id)
-    .select("id, approval_request_id")
-    .single();
-
-  if (linkMovementError) {
-    throw new Error(`Cash movement posted but approval link failed: ${linkMovementError.message}`);
-  }
-
-  if (String(linkedMovementData?.approval_request_id || "") !== String(request.id)) {
-    throw new Error("Cash movement posted but approval_request_id was not saved. Approval stopped for audit safety.");
-  }
+  if (movementError) throw new Error(movementError.message);
 
   let createdExpenseData: any = null;
   let createdBalanceData: any = null;
@@ -140,14 +194,18 @@ export async function executeCashDrawerApprovalAction({
       .insert({
         company_id: finalCompanyId,
         expense_date: payload.business_date,
-        category: payload.is_cash_advance_cash_out ? "Cash Advance" : payload.expense_category,
+        category: payload.is_cash_advance_cash_out
+          ? "Cash Advance"
+          : payload.expense_category || "Other",
         subcategory: payload.is_cash_advance_cash_out
           ? "Cash Advance Release"
           : payload.expense_subcategory || null,
-        department: payload.is_cash_advance_cash_out ? "Payroll" : payload.expense_department,
+        department: payload.is_cash_advance_cash_out
+          ? "Payroll"
+          : payload.expense_department || "Operations",
         description: payload.is_cash_advance_cash_out
           ? `Cash Advance - ${payload.cash_advance_employee_name || ""}`
-          : payload.expense_description,
+          : payload.expense_description || request.description || "Approved expense release",
         amount: amountValue,
         released_amount: amountValue,
         actual_spent_amount: 0,
@@ -183,27 +241,17 @@ export async function executeCashDrawerApprovalAction({
 
     createdExpenseData = expenseData;
 
-    const { data: linkedMovement, error: linkedMovementError } = await supabase
-  .from("finance_cash_movements")
-  .update({
-    reference_id: expenseData.id,
-    approval_request_id: request.id,
-  })
-  .eq("id", movementData.id)
-  .select("id, reference_id, approval_request_id")
-  .single();
+    const { error: movementLinkError } = await supabase
+      .from("finance_cash_movements")
+      .update({
+        reference_id: expenseData.id,
+        approval_request_id: request.id,
+      })
+      .eq("id", movementData.id);
 
-if (linkedMovementError) {
-  throw new Error(
-    `Expense created but movement link failed: ${linkedMovementError.message}`
-  );
-}
-
-if (String(linkedMovement?.reference_id || "") !== String(expenseData.id)) {
-  throw new Error(
-    "Expense created but reference_id was not saved to finance_cash_movements."
-  );
-}
+    if (movementLinkError) {
+      throw new Error(`Expense created but movement link failed: ${movementLinkError.message}`);
+    }
 
     if (payload.is_cash_advance_cash_out) {
       const { data: balanceData, error: balanceError } = await supabase
@@ -224,8 +272,9 @@ if (String(linkedMovement?.reference_id || "") !== String(expenseData.id)) {
         .select()
         .single();
 
-      if (!balanceError) {
+      if (!balanceError && balanceData?.id) {
         createdBalanceData = balanceData;
+
         await supabase
           .from("expenses")
           .update({ employee_balance_id: balanceData.id })
@@ -234,11 +283,13 @@ if (String(linkedMovement?.reference_id || "") !== String(expenseData.id)) {
     }
   }
 
+  await markApprovalApproved({ request, currentEmployeeName });
+
   await createAuditLog({
     userName: currentEmployeeName || "OPSCORE USER",
     module: "Approval Center",
     action: "Execute Cash Approval Action",
-    description: `${request.request_type} posted with linked approval_request_id.`,
+    description: `${request.request_type} approved and posted exactly one cash movement.`,
     severity: "warning",
     recordId: request.id,
     newValue: {
@@ -252,6 +303,6 @@ if (String(linkedMovement?.reference_id || "") !== String(expenseData.id)) {
     movement: movementData,
     expense: createdExpenseData,
     employeeBalance: createdBalanceData,
+    reusedExistingMovement: false,
   };
 }
-
