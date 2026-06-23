@@ -20,12 +20,34 @@ type WatcherFinding = {
   severity: string;
   status: string;
   entity_type: string;
+  entity_id: string | null;
   title: string;
   finding: string;
   recommendation: string | null;
   financial_impact: number | null;
   evidence: any;
+  business_date: string | null;
   created_at: string;
+  review_status: string | null;
+  reviewed_by_name: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+};
+
+type CashMovement = {
+  id: string;
+  cash_drawer_id: string | null;
+  movement_type: string | null;
+  source: string | null;
+  amount: number | null;
+  payment_type: string | null;
+  business_date: string | null;
+  status: string | null;
+  created_at?: string | null;
+  remarks?: string | null;
+  from_person?: string | null;
+  to_person?: string | null;
+  encoded_by?: string | null;
 };
 
 const peso = (value: number | null | undefined) =>
@@ -34,10 +56,26 @@ const peso = (value: number | null | undefined) =>
     maximumFractionDigits: 2,
   })}`;
 
+const MANAGEMENT_ADJUSTMENT_PAYMENT_TYPES = [
+  "owners abono",
+  "owner abono",
+  "pool bar expenses from sales",
+];
+
+const NON_CASH_PAYMENT_TYPES = [
+  "gcash",
+  "bank",
+  "bank transfer",
+  "terminal",
+  "credit card",
+  "card",
+];
+
 export default function FinancialWatcherPage() {
   const [findings, setFindings] = useState<WatcherFinding[]>([]);
   const [selected, setSelected] = useState<WatcherFinding | null>(null);
   const [investigation, setInvestigation] = useState<WatcherFinding | null>(null);
+  const [activeTab, setActiveTab] = useState<"FOR_REVIEW" | "REVIEWED">("FOR_REVIEW");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,22 +96,44 @@ export default function FinancialWatcherPage() {
       console.error("[FINANCIAL WATCHER]", error);
       setFindings([]);
     } else {
-      setFindings(data || []);
-      setSelected(data?.[0] || null);
+      setFindings((data || []) as WatcherFinding[]);
+      setSelected(((data || [])[0] as WatcherFinding) || null);
     }
 
     setLoading(false);
   }
 
+  const visibleFindings = useMemo(() => {
+    return findings.filter((finding) => {
+      const reviewStatus = finding.review_status || "FOR_REVIEW";
+      return activeTab === "REVIEWED"
+        ? reviewStatus === "REVIEWED"
+        : reviewStatus !== "REVIEWED";
+    });
+  }, [findings, activeTab]);
+
+  useEffect(() => {
+    setSelected(visibleFindings[0] || null);
+  }, [visibleFindings]);
+
   const stats = useMemo(() => {
-    const critical = findings.filter((f) => f.severity === "CRITICAL").length;
-    const review = findings.filter((f) => f.severity === "REVIEW").length;
-    const exposure = findings.reduce(
+    const forReview = findings.filter(
+      (f) => (f.review_status || "FOR_REVIEW") !== "REVIEWED"
+    );
+    const reviewed = findings.filter((f) => f.review_status === "REVIEWED");
+    const critical = forReview.filter((f) => f.severity === "CRITICAL").length;
+    const exposure = forReview.reduce(
       (sum, f) => sum + Number(f.financial_impact || 0),
       0
     );
 
-    return { critical, review, exposure, total: findings.length };
+    return {
+      critical,
+      forReview: forReview.length,
+      reviewed: reviewed.length,
+      exposure,
+      total: findings.length,
+    };
   }, [findings]);
 
   return (
@@ -98,8 +158,8 @@ export default function FinancialWatcherPage() {
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <KpiCard label="Critical Findings" value={stats.critical} tone="danger" />
-            <KpiCard label="Needs Review" value={stats.review} tone="warning" />
-            <KpiCard label="Open Findings" value={stats.total} tone="info" />
+            <KpiCard label="For Review" value={stats.forReview} tone="warning" />
+            <KpiCard label="Reviewed" value={stats.reviewed} tone="info" />
             <KpiCard label="Financial Exposure" value={peso(stats.exposure)} tone="danger" />
           </section>
 
@@ -112,6 +172,32 @@ export default function FinancialWatcherPage() {
                 <h2 className="mt-2 text-xl font-black text-slate-950">
                   Issues Requiring Attention
                 </h2>
+
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("FOR_REVIEW")}
+                    className={`h-11 rounded-xl border px-4 text-sm font-bold transition-all duration-200 active:scale-[0.98] ${
+                      activeTab === "FOR_REVIEW"
+                        ? "border-slate-950 bg-slate-950 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    For Review ({stats.forReview})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("REVIEWED")}
+                    className={`h-11 rounded-xl border px-4 text-sm font-bold transition-all duration-200 active:scale-[0.98] ${
+                      activeTab === "REVIEWED"
+                        ? "border-slate-950 bg-slate-950 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Reviewed ({stats.reviewed})
+                  </button>
+                </div>
               </div>
 
               <div className="divide-y divide-slate-100">
@@ -119,18 +205,18 @@ export default function FinancialWatcherPage() {
                   <div className="py-14 text-center text-sm font-semibold text-slate-500">
                     Loading watcher findings...
                   </div>
-                ) : findings.length === 0 ? (
+                ) : visibleFindings.length === 0 ? (
                   <div className="py-14 text-center">
                     <CheckCircle2 className="mx-auto text-emerald-600" size={28} />
                     <p className="mt-3 text-sm font-black text-slate-950">
                       No open financial findings.
                     </p>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                      Financial Watcher did not find unresolved issues.
+                      {activeTab === "REVIEWED" ? "No reviewed financial findings yet." : "Financial Watcher did not find unresolved issues."}
                     </p>
                   </div>
                 ) : (
-                  findings.map((finding) => (
+                  visibleFindings.map((finding) => (
                     <button
                       key={finding.id}
                       type="button"
@@ -148,6 +234,11 @@ export default function FinancialWatcherPage() {
                           <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-700">
                             {finding.entity_type}
                           </span>
+                          {(finding.review_status || "FOR_REVIEW") === "REVIEWED" && (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                              Reviewed
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="mt-3 text-sm font-black text-slate-950">
@@ -227,6 +318,11 @@ export default function FinancialWatcherPage() {
           <InvestigationDrawer
             finding={investigation}
             onClose={() => setInvestigation(null)}
+            onReviewed={() => {
+              setInvestigation(null);
+              loadFindings();
+              setActiveTab("REVIEWED");
+            }}
           />
         )}
       </div>
@@ -237,14 +333,89 @@ export default function FinancialWatcherPage() {
 function InvestigationDrawer({
   finding,
   onClose,
+  onReviewed,
 }: {
   finding: WatcherFinding;
   onClose: () => void;
+  onReviewed: () => void;
 }) {
   const [showEvidence, setShowEvidence] = useState(false);
+  const [movements, setMovements] = useState<CashMovement[]>([]);
+  const [loadingMovements, setLoadingMovements] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState(finding.review_notes || "");
+  const [savingReview, setSavingReview] = useState(false);
 
   const evidence = finding.evidence || {};
   const isDrawerVariance = finding.entity_type === "CASH_DRAWER";
+  const drawerId = finding.entity_id;
+  const drawerBusinessDate = getBusinessDate(finding, evidence);
+
+  useEffect(() => {
+    async function loadMovements() {
+      if (!drawerId || finding.entity_type !== "CASH_DRAWER") {
+        setMovements([]);
+        return;
+      }
+
+      setLoadingMovements(true);
+
+      let query = supabase
+        .from("finance_cash_movements")
+        .select(
+          "id,cash_drawer_id,movement_type,source,amount,payment_type,business_date,status,created_at,remarks,from_person,to_person,encoded_by"
+        )
+        .eq("cash_drawer_id", drawerId)
+        .eq("status", "ACTIVE");
+
+      if (drawerBusinessDate) {
+        query = query.eq("business_date", drawerBusinessDate);
+      }
+
+      const { data, error } = await query
+        .order("business_date", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("[WATCHER MOVEMENTS]", error);
+        setMovements([]);
+      } else {
+        setMovements((data || []) as CashMovement[]);
+      }
+
+      setLoadingMovements(false);
+    }
+
+    loadMovements();
+  }, [drawerId, drawerBusinessDate, finding.entity_type]);
+
+  async function markReviewed() {
+    setSavingReview(true);
+
+    const reviewedByName =
+      typeof window !== "undefined"
+        ? localStorage.getItem("opscore_current_employee_name") || "OPSCORE User"
+        : "OPSCORE User";
+
+    const { error } = await supabase
+      .from("watcher_findings")
+      .update({
+        review_status: "REVIEWED",
+        reviewed_by_name: reviewedByName,
+        reviewed_at: new Date().toISOString(),
+        review_notes: reviewNotes || null,
+      })
+      .eq("id", finding.id);
+
+    setSavingReview(false);
+
+    if (error) {
+      console.error("[WATCHER REVIEW]", error);
+      alert("Failed to mark finding as reviewed.");
+      return;
+    }
+
+    onReviewed();
+  }
 
   const parsedExpected = extractNumberFromRemarks(
     String(evidence.remarks || ""),
@@ -262,7 +433,51 @@ function InvestigationDrawer({
   const variance = Number(evidence.variance ?? finding.financial_impact ?? 0);
   const openingFloat = Number(evidence.opening_float || 0);
 
+  const operationalCashInRows = groupMovements(
+    movements,
+    "Cash In",
+    isOperationalCashMovement
+  );
+  const operationalCashOutRows = groupMovements(
+    movements,
+    "Cash Out",
+    isOperationalCashMovement
+  );
+  const managementAdjustmentRows = groupMovements(
+    movements,
+    "Cash In",
+    isManagementAdjustmentMovement
+  );
+  const nonCashCollectionRows = groupMovements(
+    movements,
+    "Cash In",
+    isNonCashMovement
+  );
+
+  const operationalCashInTotal = sumMovementType(
+    movements,
+    "Cash In",
+    isOperationalCashMovement
+  );
+  const operationalCashOutTotal = sumMovementType(
+    movements,
+    "Cash Out",
+    isOperationalCashMovement
+  );
+  const managementAdjustmentTotal = sumMovementType(
+    movements,
+    "Cash In",
+    isManagementAdjustmentMovement
+  );
+  const nonCashCollectionTotal = sumMovementType(
+    movements,
+    "Cash In",
+    isNonCashMovement
+  );
+  const turnoverTotal = sumMovementType(movements, "Turnover");
+
   const recordedTurnover =
+    turnoverTotal ||
     extractNumberFromRemarks(String(evidence.remarks || ""), "Cash Turnover Out") ||
     extractNumberFromRemarks(String(evidence.remarks || ""), "Actual Cash") ||
     actual;
@@ -270,7 +485,13 @@ function InvestigationDrawer({
   const turnoverDifference =
     expected > 0 ? Math.abs(expected - Number(recordedTurnover || 0)) : Math.abs(variance);
 
-  const businessDate = formatDate(evidence.closed_at || evidence.opened_at);
+  const expectedFromMovements =
+    openingFloat + operationalCashInTotal - operationalCashOutTotal;
+
+  const formulaDifference =
+    expected > 0 ? expected - expectedFromMovements : 0;
+
+  const businessDate = formatDate(drawerBusinessDate || evidence.closed_at || evidence.opened_at);
   const drawerHolder = evidence.drawer_holder || "Drawer Holder";
 
   return (
@@ -344,12 +565,12 @@ function InvestigationDrawer({
                   />
                   <SummaryCard
                     label="Recorded Turnover / Actual"
-                    value={peso(recordedTurnover)}
+                    value={loadingMovements ? "Loading..." : peso(recordedTurnover)}
                     tone="warning"
                   />
                   <SummaryCard
                     label="Turnover Gap"
-                    value={peso(turnoverDifference)}
+                    value={loadingMovements ? "Loading..." : peso(turnoverDifference)}
                     tone="danger"
                   />
                 </div>
@@ -366,27 +587,72 @@ function InvestigationDrawer({
               </section>
 
               <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <CashSummaryPanel
-                  title="Cash In Summary"
-                  rows={[
-                    ["Opening Float", peso(openingFloat)],
-                    ["Cash Sales / Collections", "Pending source breakdown"],
-                    ["Cash Turnover Received", "Pending source breakdown"],
-                    ["Expense Returns", "Pending source breakdown"],
-                  ]}
-                  note="Detailed source breakdown will be generated from cash movements in the next Watcher rule."
+                <MovementSummaryPanel
+                  title="Operational Cash In"
+                  subtitle="Included in physical drawer cash position."
+                  loading={loadingMovements}
+                  emptyText="No operational cash-in movements found for this drawer."
+                  rows={operationalCashInRows}
+                  total={operationalCashInTotal}
                 />
 
-                <CashSummaryPanel
-                  title="Cash Out Summary"
-                  rows={[
-                    ["Cash Expenses / Releases", "Pending movement breakdown"],
-                    ["Cash Advances", "Pending movement breakdown"],
-                    ["Owner Withdrawal", "Pending movement breakdown"],
-                    ["Bank Deposit / Others", "Pending movement breakdown"],
-                  ]}
-                  note="Detailed cash-out breakdown will be generated from linked movements."
+                <MovementSummaryPanel
+                  title="Operational Cash Out"
+                  subtitle="Deducted from physical drawer cash position."
+                  loading={loadingMovements}
+                  emptyText="No operational cash-out movements found for this drawer."
+                  rows={operationalCashOutRows}
+                  total={operationalCashOutTotal}
                 />
+              </section>
+
+              <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <MovementSummaryPanel
+                  title="Management Adjustments"
+                  subtitle="Visible for reporting, excluded from physical drawer cash."
+                  loading={loadingMovements}
+                  emptyText="No management adjustments found for this drawer."
+                  rows={managementAdjustmentRows}
+                  total={managementAdjustmentTotal}
+                  infoTone
+                />
+
+                <MovementSummaryPanel
+                  title="Non-Cash Collections"
+                  subtitle="Collected through non-cash channels, not inside the drawer."
+                  loading={loadingMovements}
+                  emptyText="No non-cash collections found for this drawer."
+                  rows={nonCashCollectionRows}
+                  total={nonCashCollectionTotal}
+                  infoTone
+                />
+              </section>
+
+              <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  OPSCORE Cash Formula
+                </p>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <FormulaMetric label="Opening Float" value={peso(openingFloat)} />
+                  <FormulaMetric label="+ Operational In" value={peso(operationalCashInTotal)} />
+                  <FormulaMetric label="- Operational Out" value={peso(operationalCashOutTotal)} />
+                  <FormulaMetric
+                    label="Expected From Movements"
+                    value={peso(expectedFromMovements)}
+                  />
+                </div>
+
+                <p className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm font-bold leading-6 text-blue-700">
+                  Management adjustments and non-cash collections are displayed for transparency but excluded from physical drawer cash position.
+                </p>
+
+                {expected > 0 && Math.abs(formulaDifference) > 0.01 && (
+                  <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-bold leading-6 text-amber-700">
+                    Formula check: Drawer expected cash is {peso(expected)}, but movement formula shows {peso(expectedFromMovements)}.
+                    Difference: {peso(Math.abs(formulaDifference))}. Review opening float, backfilled movements, or drawer close computation.
+                  </p>
+                )}
               </section>
 
               <section className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-6">
@@ -394,7 +660,18 @@ function InvestigationDrawer({
                   Money Story
                 </p>
                 <p className="mt-4 text-base font-bold leading-8 text-slate-800">
-                  {buildMoneyStory(expected, actual, variance, recordedTurnover)}
+                  {buildMoneyStory(
+                    expected,
+                    actual,
+                    variance,
+                    recordedTurnover,
+                    operationalCashInTotal,
+                    operationalCashOutTotal,
+                    managementAdjustmentTotal,
+                    nonCashCollectionTotal,
+                    expectedFromMovements,
+                    formulaDifference
+                  )}
                 </p>
               </section>
             </>
@@ -416,6 +693,37 @@ function InvestigationDrawer({
             <p className="mt-3 text-sm font-bold leading-6 text-slate-800">
               {finding.recommendation || "Review finding details and supporting evidence."}
             </p>
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Manager Review
+                </p>
+                <h3 className="mt-2 text-xl font-black text-slate-950">
+                  Investigation Notes
+                </h3>
+                <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                  Add the manager conclusion before moving this finding to the Reviewed tab.
+                </p>
+              </div>
+
+              {(finding.review_status || "FOR_REVIEW") === "REVIEWED" && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                  Reviewed by {finding.reviewed_by_name || "OPSCORE User"}
+                  {finding.reviewed_at ? ` • ${formatDateTime(finding.reviewed_at)}` : ""}
+                </div>
+              )}
+            </div>
+
+            <textarea
+              value={reviewNotes}
+              onChange={(event) => setReviewNotes(event.target.value)}
+              disabled={(finding.review_status || "FOR_REVIEW") === "REVIEWED"}
+              placeholder="Example: Verified with drawer holder. Missing turnover was confirmed and will be settled."
+              className="mt-5 min-h-[120px] w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-50 disabled:text-slate-500"
+            />
           </section>
 
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -470,6 +778,17 @@ function InvestigationDrawer({
             >
               Close
             </button>
+            {(finding.review_status || "FOR_REVIEW") !== "REVIEWED" && (
+              <button
+                type="button"
+                onClick={markReviewed}
+                disabled={savingReview}
+                className="h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingReview ? "Saving..." : "Mark Reviewed"}
+              </button>
+            )}
+
             <button
               type="button"
               className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.98]"
@@ -487,7 +806,13 @@ function buildMoneyStory(
   expected: number,
   actual: number,
   variance: number,
-  turnover: number
+  turnover: number,
+  operationalCashInTotal: number,
+  operationalCashOutTotal: number,
+  managementAdjustmentTotal: number,
+  nonCashCollectionTotal: number,
+  expectedFromMovements: number,
+  formulaDifference: number
 ) {
   if (expected <= 0) {
     return `The drawer was closed with a variance of ${peso(
@@ -495,13 +820,82 @@ function buildMoneyStory(
     )}. Watcher could not compute the expected cash from stored drawer fields, so the drawer movements and closing remarks should be reviewed.`;
   }
 
-  return `This drawer was expected to contain ${peso(
+  const formulaNote =
+    Math.abs(formulaDifference) > 0.01
+      ? ` Formula check shows expected from movements of ${peso(
+          expectedFromMovements
+        )}, which differs from drawer expected cash by ${peso(
+          Math.abs(formulaDifference)
+        )}.`
+      : "";
+
+  return `This drawer had operational cash-in of ${peso(
+    operationalCashInTotal
+  )} and operational cash-out of ${peso(
+    operationalCashOutTotal
+  )}. Management adjustments of ${peso(
+    managementAdjustmentTotal
+  )} and non-cash collections of ${peso(
+    nonCashCollectionTotal
+  )} are shown for transparency but excluded from physical drawer cash. Expected from movements is ${peso(
+    expectedFromMovements
+  )}. The drawer was expected to contain ${peso(
     expected
-  )} at closing. Only ${peso(actual)} was counted. The recorded turnover or closing cash appears to be ${peso(
+  )} at closing. Only ${peso(actual)} was counted. The recorded turnover appears to be ${peso(
     turnover
   )}. OPSCORE Watcher detected a shortage of ${peso(
     Math.abs(variance)
-  )}. This suggests a possible missing turnover, unrecorded payout, or cash release that still needs management review.`;
+  )}.${formulaNote} This suggests a possible missing turnover, unrecorded payout, or cash release that still needs management review.`;
+}
+
+function groupMovements(
+  movements: CashMovement[],
+  movementType: string,
+  predicate?: (movement: CashMovement) => boolean
+): [string, string][] {
+  const grouped = new Map<string, number>();
+
+  movements
+    .filter((m) => String(m.movement_type || "") === movementType)
+    .filter((m) => (predicate ? predicate(m) : true))
+    .forEach((m) => {
+      const source = m.source || "Uncategorized";
+      grouped.set(source, (grouped.get(source) || 0) + Number(m.amount || 0));
+    });
+
+  return Array.from(grouped.entries()).map(([source, total]) => [
+    source,
+    peso(total),
+  ]);
+}
+
+function sumMovementType(
+  movements: CashMovement[],
+  movementType: string,
+  predicate?: (movement: CashMovement) => boolean
+) {
+  return movements
+    .filter((m) => String(m.movement_type || "") === movementType)
+    .filter((m) => (predicate ? predicate(m) : true))
+    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+}
+
+function normalizeValue(value: string | null | undefined) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isManagementAdjustmentMovement(movement: CashMovement) {
+  return MANAGEMENT_ADJUSTMENT_PAYMENT_TYPES.includes(
+    normalizeValue(movement.payment_type)
+  );
+}
+
+function isNonCashMovement(movement: CashMovement) {
+  return NON_CASH_PAYMENT_TYPES.includes(normalizeValue(movement.payment_type));
+}
+
+function isOperationalCashMovement(movement: CashMovement) {
+  return !isManagementAdjustmentMovement(movement) && !isNonCashMovement(movement);
 }
 
 function extractNumberFromRemarks(text: string, label: string) {
@@ -516,7 +910,27 @@ function extractNumberFromRemarks(text: string, label: string) {
   return Number(match[1].replaceAll(",", ""));
 }
 
-function formatDate(value: string | undefined) {
+function getBusinessDate(finding: WatcherFinding, evidence: any) {
+  const direct =
+    finding.business_date ||
+    evidence.business_date ||
+    evidence.drawer_business_date ||
+    "";
+
+  if (direct) {
+    return String(direct).slice(0, 10);
+  }
+
+  const fallback = evidence.closed_at || evidence.opened_at || finding.created_at;
+  if (!fallback) return "";
+
+  const date = new Date(fallback);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDate(value: string | undefined | null) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -524,6 +938,19 @@ function formatDate(value: string | undefined) {
     year: "numeric",
     month: "short",
     day: "2-digit",
+  });
+}
+
+function formatDateTime(value: string | undefined | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -669,36 +1096,87 @@ function BigMetric({
   );
 }
 
-function CashSummaryPanel({
+function FormulaMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function MovementSummaryPanel({
   title,
+  subtitle,
+  loading,
+  emptyText,
   rows,
-  note,
+  total,
+  infoTone,
 }: {
   title: string;
+  subtitle?: string;
+  loading: boolean;
+  emptyText: string;
   rows: [string, string][];
-  note: string;
+  total: number;
+  infoTone?: boolean;
 }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </p>
+      {subtitle && (
+        <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+          {subtitle}
+        </p>
+      )}
 
-      <div className="mt-4 space-y-3">
-        {rows.map(([label, value]) => (
-          <div
-            key={label}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-          >
-            <p className="text-sm font-bold text-slate-600">{label}</p>
-            <p className="text-sm font-black text-slate-950">{value}</p>
-          </div>
-        ))}
+      {loading ? (
+        <p className="mt-4 text-sm font-bold text-slate-500">
+          Loading movement summary...
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500">
+          {emptyText}
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {rows.map(([label, value]) => (
+            <div
+              key={label}
+              className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+            >
+              <p className="text-sm font-bold text-slate-600">{label}</p>
+              <p className="text-sm font-black text-slate-950">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        className={`mt-4 rounded-2xl border px-4 py-4 ${
+          infoTone
+            ? "border-blue-200 bg-blue-50"
+            : "border-slate-300 bg-white"
+        }`}
+      >
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          Total
+        </p>
+        <p className="mt-1 text-2xl font-black text-slate-950">
+          {loading ? "Loading..." : peso(total)}
+        </p>
       </div>
-
-      <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-blue-700">
-        {note}
-      </p>
     </div>
   );
 }

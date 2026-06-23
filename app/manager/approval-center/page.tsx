@@ -1066,6 +1066,32 @@ export default function ApprovalCenterPage() {
     );
   };
 
+  const verifyCashApprovalPosted = async (approvalRequestId: string) => {
+    const { data, error } = await supabase
+      .from("finance_cash_movements")
+      .select("id, approval_request_id, amount, movement_type, source, cash_drawer_id, status")
+      .eq("approval_request_id", approvalRequestId)
+      .neq("status", "VOIDED");
+
+    if (error) {
+      throw new Error(`Cash posting verification failed: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error(
+        "Cash approval posting failed. Approval was not allowed to finish because no finance_cash_movements row was linked.",
+      );
+    }
+
+    if (data.length > 1) {
+      throw new Error(
+        `Cash approval posting blocked. Approval has ${data.length} active linked cash movements.`,
+      );
+    }
+
+    return data[0];
+  };
+
   const getApprovalRequestMarker = (requestId: any) =>
     `Approval Request ID: ${String(requestId || "")}`;
 
@@ -2220,7 +2246,7 @@ export default function ApprovalCenterPage() {
 
     const { data: freshRequest, error: freshRequestError } = await supabase
       .from("approval_requests")
-      .select("id, status, approved_at, approved_by, rejected_at, rejected_by")
+      .select("*")
       .eq("id", approvalRequestId)
       .maybeSingle();
 
@@ -2244,39 +2270,50 @@ export default function ApprovalCenterPage() {
       return;
     }
 
-    if (isCashDrawerApprovalRequest(request)) {
-      let executed = false;
+    const requestForProcessing = {
+      ...request,
+      ...freshRequest,
+      request_payload: freshRequest.request_payload ?? request.request_payload,
+    };
 
+    if (isCashDrawerApprovalRequest(requestForProcessing)) {
       try {
         await executeCashDrawerApprovalAction({
-          request,
+          request: requestForProcessing,
           currentEmployeeName,
           currentEmployeeId,
           currentSystemUserId,
-          companyId: await getCompanyIdForRequest(request, getPayload(request) || {}),
+          companyId: await getCompanyIdForRequest(
+            requestForProcessing,
+            getPayload(requestForProcessing) || {},
+          ),
         });
 
-        executed = true;
+        await verifyCashApprovalPosted(approvalRequestId);
       } catch (error: any) {
-        alert(`Cash approval execution failed. Request was not approved. ${error?.message || error}`);
-        executed = false;
-      }
-
-      if (!executed) {
         setIsProcessing(false);
         processingRequestRef.current = null;
+        alert(`Cash approval execution failed. Request was not approved. ${error?.message || error}`);
         return;
       }
+
+      setIsProcessing(false);
+      processingRequestRef.current = null;
+
+      await refreshApprovalCenter();
+      setSelectedRequest(null);
+      setActiveTab("APPROVED");
+      return;
     }
 
-    if (request.request_type === "PAYROLL_ADJUSTMENT" && request.reference_id) {
+    if (requestForProcessing.request_type === "PAYROLL_ADJUSTMENT" && requestForProcessing.reference_id) {
       const { error: adjustmentError } = await supabase
         .from("payroll_adjustments")
         .update({
           status: "Approved",
           approved_at: new Date().toISOString(),
         })
-        .eq("id", request.reference_id);
+        .eq("id", requestForProcessing.reference_id);
 
       if (adjustmentError) {
         console.log(
@@ -2289,7 +2326,7 @@ export default function ApprovalCenterPage() {
         return;
       }
 
-      const payload = getPayload(request);
+      const payload = getPayload(requestForProcessing);
       if (payload?.period_id) {
         await supabase
           .from("payroll_periods")
@@ -2298,7 +2335,7 @@ export default function ApprovalCenterPage() {
       }
     }
 
-    if (request.request_type === "EXPENSE_REQUEST" && request.reference_id) {
+    if (requestForProcessing.request_type === "EXPENSE_REQUEST" && requestForProcessing.reference_id) {
       const { error: expenseRequestError } = await supabase
         .from("expense_requests")
         .update({
@@ -2307,7 +2344,7 @@ export default function ApprovalCenterPage() {
           approval_role: getApproverRoleForRequest(request),
           approved_date: new Date().toISOString(),
         })
-        .eq("id", request.reference_id);
+        .eq("id", requestForProcessing.reference_id);
 
       if (expenseRequestError) {
         console.log(
@@ -2321,8 +2358,8 @@ export default function ApprovalCenterPage() {
       }
     }
 
-    if (request.request_type === "LEAVE_REQUEST") {
-      const synced = await syncLeaveRequestApproval(request);
+    if (requestForProcessing.request_type === "LEAVE_REQUEST") {
+      const synced = await syncLeaveRequestApproval(requestForProcessing);
 
       if (!synced) {
         setIsProcessing(false);
@@ -2331,8 +2368,8 @@ export default function ApprovalCenterPage() {
       }
     }
 
-    if (request.request_type === "LEAVE_CANCELLATION") {
-      const synced = await syncLeaveCancellationApproval(request);
+    if (requestForProcessing.request_type === "LEAVE_CANCELLATION") {
+      const synced = await syncLeaveCancellationApproval(requestForProcessing);
 
       if (!synced) {
         setIsProcessing(false);
@@ -2341,8 +2378,8 @@ export default function ApprovalCenterPage() {
       }
     }
 
-    if (request.request_type === "PAYROLL_REOPEN") {
-      const synced = await syncPayrollReopenApproval(request);
+    if (requestForProcessing.request_type === "PAYROLL_REOPEN") {
+      const synced = await syncPayrollReopenApproval(requestForProcessing);
 
       if (!synced) {
         setIsProcessing(false);
@@ -2351,8 +2388,8 @@ export default function ApprovalCenterPage() {
       }
     }
 
-    if (request.request_type === "OVERTIME_APPROVAL") {
-      const synced = await syncOvertimeApproval(request);
+    if (requestForProcessing.request_type === "OVERTIME_APPROVAL") {
+      const synced = await syncOvertimeApproval(requestForProcessing);
 
       if (!synced) {
         setIsProcessing(false);
@@ -2361,8 +2398,8 @@ export default function ApprovalCenterPage() {
       }
     }
 
-    if (request.request_type === "POS_VOID") {
-      const synced = await syncPOSVoidApproval(request);
+    if (requestForProcessing.request_type === "POS_VOID") {
+      const synced = await syncPOSVoidApproval(requestForProcessing);
 
       if (!synced) {
         setIsProcessing(false);
@@ -2371,8 +2408,8 @@ export default function ApprovalCenterPage() {
       }
     }
 
-    if (request.request_type === "POS_REFUND") {
-      const synced = await syncPOSRefundApproval(request);
+    if (requestForProcessing.request_type === "POS_REFUND") {
+      const synced = await syncPOSRefundApproval(requestForProcessing);
 
       if (!synced) {
         setIsProcessing(false);
