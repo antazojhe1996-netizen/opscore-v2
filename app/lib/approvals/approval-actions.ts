@@ -242,12 +242,11 @@ export async function executeCashDrawerApprovalAction({
     createdExpenseData = expenseData;
 
     const { error: movementLinkError } = await supabase
-      .from("finance_cash_movements")
-      .update({
-        reference_id: expenseData.id,
-        approval_request_id: request.id,
-      })
-      .eq("id", movementData.id);
+  .from("finance_cash_movements")
+  .update({
+    approval_request_id: request.id,
+  })
+  .eq("id", movementData.id);
 
     if (movementLinkError) {
       throw new Error(`Expense created but movement link failed: ${movementLinkError.message}`);
