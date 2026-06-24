@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Bell, ChevronDown, LogOut, User } from "lucide-react";
 import { supabase } from "@/app/lib/supabase";

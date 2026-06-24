@@ -1058,7 +1058,7 @@ export default function ApprovalCenterPage() {
     const payload = getPayload(request) || {};
     const requestType = getWorkflowKeyForRequest(request);
     const movementType = String(payload.movement_type || "").trim().toUpperCase();
-    const hasCashPayload = Boolean(payload.cash_drawer_id || payload.should_create_expense || payload.source_action);
+    const hasCashPayload = Boolean(payload.cash_cash_drawer_id || payload.should_create_expense || payload.source_action);
 
     return (
       LEGACY_CASH_REQUEST_TYPES.includes(requestType) ||
@@ -1069,7 +1069,7 @@ export default function ApprovalCenterPage() {
   const verifyCashApprovalPosted = async (approvalRequestId: string) => {
     const { data, error } = await supabase
       .from("finance_cash_movements")
-      .select("id, approval_request_id, amount, movement_type, source, cash_drawer_id, status")
+      .select("id, approval_request_id, amount, movement_type, source, cash_cash_drawer_id, status")
       .eq("approval_request_id", approvalRequestId)
       .neq("status", "VOIDED");
 

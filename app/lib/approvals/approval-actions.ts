@@ -163,7 +163,7 @@ export async function executeCashDrawerApprovalAction({
         currentSystemUserId || currentEmployeeId || null,
       created_by_user_name: currentEmployeeName || "Approval Center",
 
-      cash_drawer_id: payload.cash_drawer_id || null,
+      cash_cash_drawer_id: payload.cash_cash_drawer_id || null,
     })
     .select()
     .single();

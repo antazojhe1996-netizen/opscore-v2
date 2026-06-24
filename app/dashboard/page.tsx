@@ -391,7 +391,7 @@ export default function ExecutiveDashboardPage() {
 
     return data.cashMovements
       .filter((row) => !isVoidedRow(row))
-      .filter((row) => String(getText(row, ["cash_drawer_id", "drawer_id"])) === String(activeOpenDrawerId));
+      .filter((row) => String(getText(row, ["cash_cash_drawer_id", "cash_drawer_id"])) === String(activeOpenDrawerId));
   }, [data.cashMovements, activeOpenDrawerId]);
 
   const historicalMovements = useMemo(

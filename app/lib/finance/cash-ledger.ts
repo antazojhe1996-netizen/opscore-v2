@@ -1,165 +1,170 @@
-export type CashLedgerMovement = {
-  id?: string;
-  cash_drawer_id?: string | null;
-  business_date?: string | null;
-  movement_type?: string | null;
-  source?: string | null;
-  payment_type?: string | null;
-  amount?: number | string | null;
-  status?: string | null;
-  movement_status?: string | null;
-  voided_at?: string | null;
-  void_reason?: string | null;
-};
+// lib/finance/cash-ledger.ts
 
-export type DrawerLedgerSummary = {
-  drawerId: string;
-  movements: CashLedgerMovement[];
+import { supabase } from "../supabase";
 
-  openingFloat: number;
-  cashIn: number;
-  cashOut: number;
-  remittance: number;
-  turnoverOut: number;
-  turnoverIn: number;
-  expectedCash: number;
+/**
+ * =========================
+ * TYPES
+ * =========================
+ */
 
-  gcash: number;
-  bank: number;
-  terminal: number;
-  reportOnly: number;
-  onlineBanking: number;
-};
+export type CashMovementType = "CASH_IN" | "CASH_OUT";
 
-const normalize = (value: any) =>
-  String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+export interface CashMovement {
+  id: string;
+  amount: number;
+  type: CashMovementType;
+  created_at: string;
+}
 
-const money = (value: any) => {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
+/**
+ * =========================
+ * GET DAILY LEDGER
+ * =========================
+ * This is your SINGLE SOURCE OF TRUTH
+ */
+export async function getDailyCashLedger(company_id: string, business_date: string) {
+  // 1. get daily cash record
+  const { data: daily, error: dailyErr } = await supabase
+    .from("finance_cash_management")
+    .select("*")
+    .eq("company_id", company_id)
+    .eq("business_date", business_date)
+    .single();
 
-const REPORT_ONLY_PAYMENT_TYPES = [
-  "owners abono",
-  "owner abono",
-  "pool bar expenses from sales",
-];
+  if (dailyErr && dailyErr.code !== "PGRST116") {
+    throw dailyErr;
+  }
 
-const isReportOnlyPayment = (movement: CashLedgerMovement) =>
-  REPORT_ONLY_PAYMENT_TYPES.includes(normalize(movement.payment_type));
+  // 2. get movements for that day
+  const { data: movements, error: movErr } = await supabase
+    .from("finance_cash_movements")
+    .select("*")
+    .eq("company_id", company_id)
+    .gte("created_at", `${business_date} 00:00:00`)
+    .lte("created_at", `${business_date} 23:59:59`);
 
-export const isActiveCashMovement = (movement: CashLedgerMovement) => {
-  const status = normalize(movement.status || movement.movement_status || "ACTIVE");
-  return status === "active" && !movement.voided_at && !movement.void_reason;
-};
+  if (movErr) throw movErr;
 
-export const isDrawerTurnoverIn = (movement: CashLedgerMovement) =>
-  normalize(movement.movement_type) === "cash in" &&
-  normalize(movement.source).includes("drawer turnover");
+  const safeMovements: CashMovement[] = movements || [];
 
-export const isDrawerTurnoverOut = (movement: CashLedgerMovement) =>
-  normalize(movement.movement_type) === "turnover" ||
-  normalize(movement.source) === "drawer turnover";
+  // 3. compute totals
+  const cashIn = safeMovements
+    .filter(m => m.type === "CASH_IN")
+    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 
-export const getSignedLedgerAmount = (movement: CashLedgerMovement) => {
-  const amount = Math.abs(money(movement.amount));
-  const type = normalize(movement.movement_type);
+  const cashOut = safeMovements
+    .filter(m => m.type === "CASH_OUT")
+    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 
-  if (type === "cash out") return -amount;
-  if (type === "remittance") return -amount;
-  if (type === "turnover") return -amount;
+  const net = cashIn - cashOut;
 
-  return amount;
-};
-
-export function calculateDrawerLedgerSummary(
-  drawerId: string | null | undefined,
-  movements: CashLedgerMovement[],
-): DrawerLedgerSummary {
-  const id = String(drawerId || "");
-
-  const rows = (movements || []).filter(
-    (movement) =>
-      String(movement.cash_drawer_id || "") === id &&
-      isActiveCashMovement(movement),
-  );
-
-  const reportOnlyRows = rows.filter(isReportOnlyPayment);
-
-  const cashRows = rows.filter(
-    (movement) =>
-      normalize(movement.payment_type || "Cash") === "cash" &&
-      !isReportOnlyPayment(movement),
-  );
-
-  const gcashRows = rows.filter((movement) => normalize(movement.payment_type) === "gcash");
-  const bankRows = rows.filter((movement) =>
-    ["bank", "bank transfer"].includes(normalize(movement.payment_type)),
-  );
-  const terminalRows = rows.filter((movement) =>
-    ["terminal", "terminal / card", "credit card", "card"].includes(normalize(movement.payment_type)),
-  );
-
-  const openingFloat = cashRows
-    .filter((movement) => normalize(movement.movement_type) === "opening float")
-    .reduce((sum, movement) => sum + Math.abs(money(movement.amount)), 0);
-
-  const cashIn = cashRows
-    .filter(
-      (movement) =>
-        normalize(movement.movement_type) === "cash in" &&
-        !isDrawerTurnoverIn(movement),
-    )
-    .reduce((sum, movement) => sum + Math.abs(money(movement.amount)), 0);
-
-  const turnoverIn = cashRows
-    .filter(isDrawerTurnoverIn)
-    .reduce((sum, movement) => sum + Math.abs(money(movement.amount)), 0);
-
-  const cashOut = cashRows
-    .filter((movement) => normalize(movement.movement_type) === "cash out")
-    .reduce((sum, movement) => sum + Math.abs(money(movement.amount)), 0);
-
-  const remittance = cashRows
-    .filter((movement) => normalize(movement.movement_type) === "remittance")
-    .reduce((sum, movement) => sum + Math.abs(money(movement.amount)), 0);
-
-  const turnoverOut = cashRows
-    .filter(isDrawerTurnoverOut)
-    .reduce((sum, movement) => sum + Math.abs(money(movement.amount)), 0);
-
-  const expectedCash =
-    openingFloat +
-    cashIn +
-    turnoverIn -
-    cashOut -
-    remittance -
-    turnoverOut;
-
-  const sumSigned = (items: CashLedgerMovement[]) =>
-    items.reduce((sum, movement) => sum + getSignedLedgerAmount(movement), 0);
-
-  const gcash = sumSigned(gcashRows);
-  const bank = sumSigned(bankRows);
-  const terminal = sumSigned(terminalRows);
-  const reportOnly = sumSigned(reportOnlyRows);
+  // 4. expected cash logic
+  const opening = Number(daily?.opening_float || 0);
+  const expected_cash = opening + net;
 
   return {
-    drawerId: id,
-    movements: rows,
-
-    openingFloat,
-    cashIn,
-    cashOut,
-    remittance,
-    turnoverOut,
-    turnoverIn,
-    expectedCash,
-
-    gcash,
-    bank,
-    terminal,
-    reportOnly,
-    onlineBanking: gcash + bank + terminal,
+    business_date,
+    opening_float: opening,
+    cash_in: cashIn,
+    cash_out: cashOut,
+    net,
+    expected_cash,
+    actual_cash: daily?.actual_cash ?? null,
+    variance: daily?.actual_cash != null
+      ? Number(daily.actual_cash) - expected_cash
+      : null,
+    movements: safeMovements,
+    raw: daily,
   };
+}
+
+/**
+ * =========================
+ * UPSERT DAILY RECORD
+ * =========================
+ * ensures 1 row per day per company
+ */
+export async function upsertDailyCashRecord({
+  company_id,
+  business_date,
+  opening_float = 0,
+}: {
+  company_id: string;
+  business_date: string;
+  opening_float?: number;
+}) {
+  const { data, error } = await supabase
+    .from("finance_cash_management")
+    .upsert({
+      company_id,
+      business_date,
+      opening_float,
+    }, {
+      onConflict: "company_id,business_date"
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * =========================
+ * FINALIZE DAY (RECONCILIATION)
+ * =========================
+ */
+export async function finalizeCashDay({
+  company_id,
+  business_date,
+  actual_cash,
+}: {
+  company_id: string;
+  business_date: string;
+  actual_cash: number;
+}) {
+  const ledger = await getDailyCashLedger(company_id, business_date);
+
+  const variance = Number(actual_cash) - Number(ledger.expected_cash);
+
+  const { data, error } = await supabase
+    .from("finance_cash_management")
+    .update({
+      actual_cash: Number(actual_cash),
+      expected_cash: ledger.expected_cash,
+      variance,
+    })
+    .eq("company_id", company_id)
+    .eq("business_date", business_date)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * =========================
+ * SUMMARY (FOR UI / WATCHER)
+ * =========================
+ */
+export async function getCashSummary(company_id: string, date_from: string, date_to: string) {
+  const { data, error } = await supabase
+    .from("finance_cash_management")
+    .select("*")
+    .eq("company_id", company_id)
+    .gte("business_date", date_from)
+    .lte("business_date", date_to)
+    .order("business_date", { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(d => ({
+    business_date: d.business_date,
+    opening_float: d.opening_float,
+    actual_cash: d.actual_cash,
+    expected_cash: d.expected_cash,
+    variance: d.variance,
+  }));
 }

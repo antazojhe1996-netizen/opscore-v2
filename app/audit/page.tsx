@@ -533,7 +533,7 @@ export default function AuditCenterPage() {
         normalize(movement.source),
         normalize(movement.payment_type || "Cash"),
         Number(movement.amount || 0).toFixed(2),
-        String(movement.cash_drawer_id || "NO_DRAWER"),
+        String(movement.cash_cash_drawer_id || "NO_DRAWER"),
       ].join("|");
 
       duplicateMap.set(key, [...(duplicateMap.get(key) || []), movement]);
@@ -544,7 +544,7 @@ export default function AuditCenterPage() {
       const first = rows[0];
 
       addFinancialIssue({
-        id: `duplicate-${getDateValue(first)}-${first.source}-${first.payment_type}-${first.amount}-${first.cash_drawer_id}`,
+        id: `duplicate-${getDateValue(first)}-${first.source}-${first.payment_type}-${first.amount}-${first.cash_cash_drawer_id}`,
         priority: "Action Required",
         type: "Duplicate Posting",
         title: `${String(first.source || "Cash Movement")} may be duplicated`,
@@ -606,7 +606,7 @@ export default function AuditCenterPage() {
         message: "Approved cash request found, but no linked active cash movement was detected.",
         action: "Verify if this approved request should create a cash movement.",
         recordIds: [approvalId],
-        isLegacy: !payload?.cash_drawer_id && !payload?.business_date,
+        isLegacy: !payload?.cash_cash_drawer_id && !payload?.business_date,
       });
     });
 
@@ -617,7 +617,7 @@ export default function AuditCenterPage() {
       const isOwnerAbono = normalize(movement.payment_type).includes("owner");
       const isLegacy = !isWithinLiveWindow(getDateValue(movement));
 
-      if (!movement.cash_drawer_id && !isOwnerAbono) {
+      if (!movement.cash_cash_drawer_id && !isOwnerAbono) {
         addFinancialIssue({
           id: `orphan-${movement.id || getMovementReferenceText(movement)}`,
           priority: "Review Required",

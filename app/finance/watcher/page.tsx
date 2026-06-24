@@ -36,7 +36,7 @@ type WatcherFinding = {
 
 type CashMovement = {
   id: string;
-  cash_drawer_id: string | null;
+  cash_cash_drawer_id: string | null;
   movement_type: string | null;
   source: string | null;
   amount: number | null;
@@ -362,9 +362,9 @@ function InvestigationDrawer({
       let query = supabase
         .from("finance_cash_movements")
         .select(
-          "id,cash_drawer_id,movement_type,source,amount,payment_type,business_date,status,created_at,remarks,from_person,to_person,encoded_by"
+          "id,cash_cash_drawer_id,movement_type,source,amount,payment_type,business_date,status,created_at,remarks,from_person,to_person,encoded_by"
         )
-        .eq("cash_drawer_id", drawerId)
+        .eq("cash_cash_drawer_id", drawerId)
         .eq("status", "ACTIVE");
 
       if (drawerBusinessDate) {
