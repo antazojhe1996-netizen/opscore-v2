@@ -16,6 +16,7 @@ export const normalizeCashMovementPayload = (payload: any) => ({
   status: payload.status || "ACTIVE",
   reference_type: payload.reference_type || null,
   reference_id: payload.reference_id || null,
+  approval_request_id: payload.approval_request_id || null,
   origin_type: payload.origin_type || "manual_cash_movement",
   origin_id: payload.origin_id || buildMovementOriginId(),
   created_by_module: payload.created_by_module || "Cash Management",
@@ -27,8 +28,6 @@ export const normalizeCashMovementPayload = (payload: any) => ({
   actual_spent_amount: Number(payload.actual_spent_amount || 0),
   returned_cash_amount: Number(payload.returned_cash_amount || 0),
   net_expense_amount: Number(payload.net_expense_amount || 0),
-  affects_cash_flow:
-    payload.affects_cash_flow === false ? false : true,
 });
 
 export const checkDuplicateCashMovement = async (payload: any) => {
@@ -71,29 +70,14 @@ export const checkDuplicateCashMovement = async (payload: any) => {
 export const createCashMovement = async (payload: any) => {
   const normalized = normalizeCashMovementPayload(payload);
 
-  if (!normalized.business_date) {
-    throw new Error("Cash movement blocked. Missing business_date.");
-  }
-
-  if (!normalized.movement_type) {
-    throw new Error("Cash movement blocked. Missing movement_type.");
-  }
-
-  if (!normalized.source) {
-    throw new Error("Cash movement blocked. Missing source.");
-  }
-
+  if (!normalized.business_date) throw new Error("Cash movement blocked. Missing business_date.");
+  if (!normalized.movement_type) throw new Error("Cash movement blocked. Missing movement_type.");
+  if (!normalized.source) throw new Error("Cash movement blocked. Missing source.");
   if (!Number.isFinite(normalized.amount) || normalized.amount <= 0) {
     throw new Error("Cash movement blocked. Invalid amount.");
   }
-
-  if (!normalized.origin_type) {
-    throw new Error("Cash movement blocked. Missing origin_type.");
-  }
-
-  if (!normalized.origin_id) {
-    throw new Error("Cash movement blocked. Missing origin_id.");
-  }
+  if (!normalized.origin_type) throw new Error("Cash movement blocked. Missing origin_type.");
+  if (!normalized.origin_id) throw new Error("Cash movement blocked. Missing origin_id.");
 
   const isDuplicate = await checkDuplicateCashMovement(normalized);
 
