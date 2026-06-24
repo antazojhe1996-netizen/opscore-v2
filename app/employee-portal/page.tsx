@@ -23,6 +23,7 @@ import { createAuditLog } from "@/app/lib/audit";
 import { executeCashDrawerApprovalAction } from "@/app/lib/approvals/approval-actions";
 
 const CASH_DRAWER_REQUEST_TYPES = [
+  "EXPENSE_RELEASE",
   "CASH_DRAWER_OUT",
   "CASH_EXPENSE_RELEASE",
   "CASH_ADVANCE_RELEASE",
@@ -2066,101 +2067,18 @@ export default function EmployeePortalPage() {
 
 
   const approveMobileApproval = async (request: ApprovalRequest) => {
-    if (!canUseManagerTools || !request?.id) return;
+  if (!canUseManagerTools || !request?.id) return;
 
-    const requestType = String(request.request_type || "").toUpperCase();
-    const payload = getApprovalPayload(request);
-    const referenceId = request.reference_id || payload.leave_id;
+  const requestType = String(request.request_type || "").toUpperCase();
+  const payload = getApprovalPayload(request);
+  const referenceId = request.reference_id || payload.leave_id;
 
-    setActionLoadingId(request.id as string | number);
+  setActionLoadingId(request.id as string | number);
 
-    if (CASH_DRAWER_REQUEST_TYPES.includes(requestType)) {
-      const executed = await executeMobileCashDrawerMovement(request);
+  if (CASH_DRAWER_REQUEST_TYPES.includes(requestType)) {
+    const executed = await executeMobileCashDrawerMovement(request);
 
-      if (!executed) {
-        setActionLoadingId(null);
-        return;
-      }
-    }
-
-    if (requestType === "LEAVE_REQUEST" && referenceId) {
-      const approvalCompanyId = String(request.company_id || payload.company_id || currentUser?.company_id || "").trim();
-      const approvalEmployeeId = String(payload.employee_id || "").trim();
-      const approvalStartDate = String(payload.start_date || "").trim();
-      const approvalEndDate = String(payload.end_date || "").trim();
-
-      if (!approvalCompanyId || !approvalEmployeeId || !approvalStartDate || !approvalEndDate) {
-        alert("Cannot approve leave. Missing company, employee, or date details in this approval request.");
-        setActionLoadingId(null);
-        return;
-      }
-
-      const { data: approvedOverlap, error: approvedOverlapError } = await findOverlappingLeave({
-        companyId: approvalCompanyId,
-        employeeId: approvalEmployeeId,
-        startDateValue: approvalStartDate,
-        endDateValue: approvalEndDate,
-        statuses: ["Approved"],
-        excludedLeaveId: referenceId,
-      });
-
-      if (approvedOverlapError) {
-        alert(approvedOverlapError.message);
-        setActionLoadingId(null);
-        return;
-      }
-
-      if ((approvedOverlap || []).length > 0) {
-        alert(`Cannot approve leave. This request overlaps with an already approved leave from ${formatDate(approvedOverlap?.[0]?.start_date)} to ${formatDate(approvedOverlap?.[0]?.end_date)}.`);
-        setActionLoadingId(null);
-        return;
-      }
-
-      const { error: leaveError } = await supabase
-        .from("leave_requests")
-        .update({
-          status: "Approved",
-          approved_by: getCurrentUserName(),
-          approved_at: new Date().toISOString(),
-        })
-        .eq("id", referenceId);
-
-      if (leaveError) {
-        alert(leaveError.message);
-        setActionLoadingId(null);
-        return;
-      }
-    }
-
-    if (requestType === "LEAVE_CANCELLATION" && referenceId) {
-      const { error: leaveError } = await supabase
-        .from("leave_requests")
-        .update({
-          status: "Cancelled",
-          cancellation_reason: payload.cancellation_reason || request.description || null,
-          cancelled_by: getCurrentUserName(),
-          cancelled_at: new Date().toISOString(),
-        })
-        .eq("id", referenceId);
-
-      if (leaveError) {
-        alert(leaveError.message);
-        setActionLoadingId(null);
-        return;
-      }
-    }
-
-    const { error } = await supabase
-      .from("approval_requests")
-      .update({
-        status: "APPROVED",
-        approved_by: getCurrentUserName(),
-        approved_at: new Date().toISOString(),
-      })
-      .eq("id", request.id);
-
-    if (error) {
-      alert(error.message);
+    if (!executed) {
       setActionLoadingId(null);
       return;
     }
@@ -2168,8 +2086,98 @@ export default function EmployeePortalPage() {
     await getManagerApprovals();
     if (currentUser?.id) await reloadEmployeeData(currentUser.id);
     setActionLoadingId(null);
-    alert("Approval completed.");
-  };
+    alert("Cash approval completed and posted to movements.");
+    return;
+  }
+
+  if (requestType === "LEAVE_REQUEST" && referenceId) {
+    const approvalCompanyId = String(request.company_id || payload.company_id || currentUser?.company_id || "").trim();
+    const approvalEmployeeId = String(payload.employee_id || "").trim();
+    const approvalStartDate = String(payload.start_date || "").trim();
+    const approvalEndDate = String(payload.end_date || "").trim();
+
+    if (!approvalCompanyId || !approvalEmployeeId || !approvalStartDate || !approvalEndDate) {
+      alert("Cannot approve leave. Missing company, employee, or date details in this approval request.");
+      setActionLoadingId(null);
+      return;
+    }
+
+    const { data: approvedOverlap, error: approvedOverlapError } = await findOverlappingLeave({
+      companyId: approvalCompanyId,
+      employeeId: approvalEmployeeId,
+      startDateValue: approvalStartDate,
+      endDateValue: approvalEndDate,
+      statuses: ["Approved"],
+      excludedLeaveId: referenceId,
+    });
+
+    if (approvedOverlapError) {
+      alert(approvedOverlapError.message);
+      setActionLoadingId(null);
+      return;
+    }
+
+    if ((approvedOverlap || []).length > 0) {
+      alert(`Cannot approve leave. This request overlaps with an already approved leave from ${formatDate(approvedOverlap?.[0]?.start_date)} to ${formatDate(approvedOverlap?.[0]?.end_date)}.`);
+      setActionLoadingId(null);
+      return;
+    }
+
+    const { error: leaveError } = await supabase
+      .from("leave_requests")
+      .update({
+        status: "Approved",
+        approved_by: getCurrentUserName(),
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", referenceId);
+
+    if (leaveError) {
+      alert(leaveError.message);
+      setActionLoadingId(null);
+      return;
+    }
+  }
+
+  if (requestType === "LEAVE_CANCELLATION" && referenceId) {
+    const { error: leaveError } = await supabase
+      .from("leave_requests")
+      .update({
+        status: "Cancelled",
+        cancellation_reason: payload.cancellation_reason || request.description || null,
+        cancelled_by: getCurrentUserName(),
+        cancelled_at: new Date().toISOString(),
+      })
+      .eq("id", referenceId);
+
+    if (leaveError) {
+      alert(leaveError.message);
+      setActionLoadingId(null);
+      return;
+    }
+  }
+
+  const { error } = await supabase
+    .from("approval_requests")
+    .update({
+      status: "APPROVED",
+      approved_by: getCurrentUserName(),
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", request.id);
+
+  if (error) {
+    alert(error.message);
+    setActionLoadingId(null);
+    return;
+  }
+
+  await getManagerApprovals();
+  if (currentUser?.id) await reloadEmployeeData(currentUser.id);
+  setActionLoadingId(null);
+  alert("Approval completed.");
+};
+
 
   const rejectMobileApproval = async (request: ApprovalRequest) => {
     if (!canUseManagerTools || !request?.id) return;
