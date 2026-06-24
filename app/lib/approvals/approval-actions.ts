@@ -29,6 +29,27 @@ export const appendApprovalRequestMarker = (remarks: any, requestId: any) => {
   return `${baseRemarks} | ${marker}`;
 };
 
+const markApprovalApproved = async ({
+  request,
+  currentEmployeeName,
+}: {
+  request: any;
+  currentEmployeeName: string;
+}) => {
+  const { error } = await supabase
+    .from("approval_requests")
+    .update({
+      status: "APPROVED",
+      approved_by: currentEmployeeName || "Approval Center",
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", request.id);
+
+  if (error) {
+    throw new Error(`Approval status update failed: ${error.message}`);
+  }
+};
+
 const getExistingApprovalMovement = async (request: any) => {
   const marker = getApprovalRequestMarker(request.id);
 
@@ -67,27 +88,6 @@ const getExistingApprovalMovement = async (request: any) => {
   if (markerRows?.[0]) return markerRows[0];
 
   return null;
-};
-
-const markApprovalApproved = async ({
-  request,
-  currentEmployeeName,
-}: {
-  request: any;
-  currentEmployeeName: string;
-}) => {
-  const { error } = await supabase
-    .from("approval_requests")
-    .update({
-      status: "APPROVED",
-      approved_by: currentEmployeeName || "Approval Center",
-      approved_at: new Date().toISOString(),
-    })
-    .eq("id", request.id);
-
-  if (error) {
-    throw new Error(`Approval status update failed: ${error.message}`);
-  }
 };
 
 export async function executeCashDrawerApprovalAction({
@@ -161,10 +161,8 @@ export async function executeCashDrawerApprovalAction({
       encoded_by: payload.encoded_by || currentEmployeeName || "Approval Center",
       remarks: movementRemarks,
       status: "ACTIVE",
-
       reference_type: payload.should_create_expense ? "expense" : "approval_request",
       reference_id: payload.should_create_expense ? null : request.id,
-
       approval_request_id: request.id,
       origin_type: "approval_request",
       origin_id: request.id,
@@ -220,9 +218,7 @@ export async function executeCashDrawerApprovalAction({
           ? payload.cash_advance_employee_name || null
           : payload.expense_released_to || null,
         deduct_to_payroll: Boolean(payload.is_cash_advance_cash_out),
-        payroll_period_id: payload.is_cash_advance_cash_out
-          ? payload.payroll_period_id || null
-          : null,
+        payroll_period_id: payload.is_cash_advance_cash_out ? payload.payroll_period_id || null : null,
         remarks: movementRemarks,
         source: payload.is_cash_advance_cash_out
           ? "Cash Drawer - Cash Advance"
@@ -242,11 +238,12 @@ export async function executeCashDrawerApprovalAction({
     createdExpenseData = expenseData;
 
     const { error: movementLinkError } = await supabase
-  .from("finance_cash_movements")
-  .update({
-    approval_request_id: request.id,
-  })
-  .eq("id", movementData.id);
+      .from("finance_cash_movements")
+      .update({
+        reference_id: expenseData.id,
+        approval_request_id: request.id,
+      })
+      .eq("id", movementData.id);
 
     if (movementLinkError) {
       throw new Error(`Expense created but movement link failed: ${movementLinkError.message}`);
