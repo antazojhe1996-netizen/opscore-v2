@@ -27,6 +27,7 @@ export type DrawerLedgerSummary = {
   gcash: number;
   bank: number;
   terminal: number;
+  reportOnly: number;
   onlineBanking: number;
 };
 
@@ -38,13 +39,18 @@ const money = (value: any) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const REPORT_ONLY_PAYMENT_TYPES = [
+  "owners abono",
+  "owner abono",
+  "pool bar expenses from sales",
+];
+
+const isReportOnlyPayment = (movement: CashLedgerMovement) =>
+  REPORT_ONLY_PAYMENT_TYPES.includes(normalize(movement.payment_type));
+
 export const isActiveCashMovement = (movement: CashLedgerMovement) => {
   const status = normalize(movement.status || movement.movement_status || "ACTIVE");
-  return (
-    status === "active" &&
-    !movement.voided_at &&
-    !movement.void_reason
-  );
+  return status === "active" && !movement.voided_at && !movement.void_reason;
 };
 
 export const isDrawerTurnoverIn = (movement: CashLedgerMovement) =>
@@ -78,10 +84,21 @@ export function calculateDrawerLedgerSummary(
       isActiveCashMovement(movement),
   );
 
-  const cashRows = rows.filter((movement) => normalize(movement.payment_type || "Cash") === "cash");
+  const reportOnlyRows = rows.filter(isReportOnlyPayment);
+
+  const cashRows = rows.filter(
+    (movement) =>
+      normalize(movement.payment_type || "Cash") === "cash" &&
+      !isReportOnlyPayment(movement),
+  );
+
   const gcashRows = rows.filter((movement) => normalize(movement.payment_type) === "gcash");
-  const bankRows = rows.filter((movement) => normalize(movement.payment_type) === "bank");
-  const terminalRows = rows.filter((movement) => normalize(movement.payment_type) === "terminal");
+  const bankRows = rows.filter((movement) =>
+    ["bank", "bank transfer"].includes(normalize(movement.payment_type)),
+  );
+  const terminalRows = rows.filter((movement) =>
+    ["terminal", "terminal / card", "credit card", "card"].includes(normalize(movement.payment_type)),
+  );
 
   const openingFloat = cashRows
     .filter((movement) => normalize(movement.movement_type) === "opening float")
@@ -125,6 +142,7 @@ export function calculateDrawerLedgerSummary(
   const gcash = sumSigned(gcashRows);
   const bank = sumSigned(bankRows);
   const terminal = sumSigned(terminalRows);
+  const reportOnly = sumSigned(reportOnlyRows);
 
   return {
     drawerId: id,
@@ -141,6 +159,7 @@ export function calculateDrawerLedgerSummary(
     gcash,
     bank,
     terminal,
+    reportOnly,
     onlineBanking: gcash + bank + terminal,
   };
 }

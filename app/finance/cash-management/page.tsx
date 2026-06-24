@@ -21,7 +21,9 @@ import { createAuditLog } from "@/app/lib/audit";
 import { calculateDrawerLedgerSummary } from "@/app/lib/finance/cash-ledger";
 import {
   buildMovementOriginId,
-  checkDuplicateCashMovement,
+  createCashMovement,
+  updateCashMovement,
+  voidCashMovement,
 } from "@/app/lib/finance/cash-actions";
 
 type Tone = "critical" | "warning" | "info" | "success" | "neutral";
@@ -1352,23 +1354,13 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       return;
     }
 
-    const isDuplicate = await checkDuplicateCashMovement(movementPayload);
-    if (isDuplicate) {
-      alert("Possible duplicate detected. This movement was not saved again.");
-      setIsSaving(false);
-      savingRef.current = false;
-      return;
-    }
+    let movementData: any = null;
 
-    const { data: movementData, error: movementError } = await supabase
-      .from("finance_cash_movements")
-      .insert(movementPayload)
-      .select()
-      .single();
-
-    if (movementError) {
-      console.log("SAVE CASH MOVEMENT ERROR:", movementError.message);
-      alert(`Failed to save cash movement. ${movementError.message}`);
+    try {
+      movementData = await createCashMovement(movementPayload);
+    } catch (movementError: any) {
+      console.log("SAVE CASH MOVEMENT ERROR:", movementError?.message || movementError);
+      alert(`Failed to save cash movement. ${movementError?.message || movementError}`);
       setIsSaving(false);
       savingRef.current = false;
       return;
@@ -1413,15 +1405,12 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         alert("Cash movement saved, but linked expense failed. Check expenses columns.");
       } else {
         linkedExpense = expenseData;
-        await supabase
-          .from("finance_cash_movements")
-          .update({
-            reference_id: expenseData.id,
-            origin_id: expenseData.id,
-            origin_type: isCashAdvanceCashOut ? "cash_advance_expense" : "expense_release",
-            source_action: isCashAdvanceCashOut ? "CREATE_CASH_ADVANCE_EXPENSE_AND_MOVEMENT" : "CREATE_EXPENSE_AND_MOVEMENT",
-          })
-          .eq("id", movementData.id);
+        await updateCashMovement(movementData.id, {
+          reference_id: expenseData.id,
+          origin_id: expenseData.id,
+          origin_type: isCashAdvanceCashOut ? "cash_advance_expense" : "expense_release",
+          source_action: isCashAdvanceCashOut ? "CREATE_CASH_ADVANCE_EXPENSE_AND_MOVEMENT" : "CREATE_EXPENSE_AND_MOVEMENT",
+        });
       }
     }
 
@@ -1524,12 +1513,12 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       liquidation_status: "NOT_REQUIRED",
     };
 
-    const isDuplicate = await checkDuplicateCashMovement(openingPayload);
-    if (!isDuplicate) {
-      const { error: openingMovementError } = await supabase.from("finance_cash_movements").insert(openingPayload);
-      if (openingMovementError) {
+    if (openingFloatValue > 0) {
+      try {
+        await createCashMovement(openingPayload);
+      } catch (openingMovementError: any) {
         setIsSaving(false);
-        alert(`Drawer opened, but opening float movement failed. ${openingMovementError.message}`);
+        alert(`Drawer opened, but opening float movement failed. ${openingMovementError?.message || openingMovementError}`);
         return;
       }
     }
@@ -1650,23 +1639,13 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const postedMovements: any[] = [];
 
     const insertMovement = async (payload: any) => {
-      const isDuplicate = await checkDuplicateCashMovement(payload);
-      if (isDuplicate) {
-        throw new Error(`Possible duplicate ${payload.payment_type} ${payload.source} movement detected. Close drawer was stopped.`);
+      try {
+        const data = await createCashMovement(payload);
+        postedMovements.push(data || payload);
+        return data;
+      } catch (error: any) {
+        throw new Error(`Failed to post ${payload.payment_type} ${payload.source}. ${error?.message || error}`);
       }
-
-      const { data, error } = await supabase
-        .from("finance_cash_movements")
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(`Failed to post ${payload.payment_type} ${payload.source}. ${error.message}`);
-      }
-
-      postedMovements.push(data || payload);
-      return data;
     };
 
     const buildBasePayload = ({
@@ -1949,19 +1928,15 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     if (!voidReason) return;
 
     const actor = getActor();
-    const { error: voidError } = await supabase
-      .from("finance_cash_movements")
-      .update({
-        status: "VOIDED",
-        void_reason: voidReason,
-        voided_at: new Date().toISOString(),
-        voided_by: actor.userName,
-      })
-      .eq("id", movement.id)
-      .eq("status", "ACTIVE");
 
-    if (voidError) {
-      alert(`Failed to void cash movement. ${voidError.message}`);
+    try {
+      await voidCashMovement({
+        movementId: movement.id,
+        reason: voidReason,
+        voidedBy: actor.userName,
+      });
+    } catch (voidError: any) {
+      alert(`Failed to void cash movement. ${voidError?.message || voidError}`);
       return;
     }
 
@@ -2077,9 +2052,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
     const liquidatedAt = new Date().toISOString();
     const liquidatedBy = actor.userName;
 
-    const { error: movementUpdateError } = await supabase
-      .from("finance_cash_movements")
-      .update({
+    try {
+      await updateCashMovement(selectedLiquidationMovement.id, {
         liquidation_status: "LIQUIDATED",
         actual_spent_amount: actualSpent,
         returned_cash_amount: cashReturned,
@@ -2089,13 +2063,10 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
         liquidation_remarks: finalLiquidationRemarks,
         receipt_count: receiptCount,
         return_destination: liquidationReturnDestination,
-      })
-      .eq("id", selectedLiquidationMovement.id)
-      .eq("status", "ACTIVE");
-
-    if (movementUpdateError) {
+      });
+    } catch (movementUpdateError: any) {
       setIsSaving(false);
-      alert(`Failed to liquidate movement. ${movementUpdateError.message}`);
+      alert(`Failed to liquidate movement. ${movementUpdateError?.message || movementUpdateError}`);
       return;
     }
 
@@ -2167,9 +2138,8 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
       );
 
       if (existingReturnMovement?.id) {
-        const { error: returnUpdateError } = await supabase
-          .from("finance_cash_movements")
-          .update({
+        try {
+          await updateCashMovement(existingReturnMovement.id, {
             business_date: returnPayload.business_date,
             movement_type: "Cash In",
             source: returnPayload.source,
@@ -2182,27 +2152,19 @@ const assistantReminders = useMemo<AssistantReminder[]>(() => {
             status: "ACTIVE",
             cash_drawer_id: returnPayload.cash_drawer_id,
             liquidation_status: "NOT_REQUIRED",
-          })
-          .eq("id", existingReturnMovement.id);
-
-        if (returnUpdateError) {
+          });
+        } catch (returnUpdateError: any) {
           setIsSaving(false);
-          alert(`Liquidation saved, but returned cash update failed. ${returnUpdateError.message}`);
+          alert(`Liquidation saved, but returned cash update failed. ${returnUpdateError?.message || returnUpdateError}`);
           return;
         }
       } else {
-        const isDuplicate = await checkDuplicateCashMovement(returnPayload);
-
-        if (!isDuplicate) {
-          const { error: returnInsertError } = await supabase
-            .from("finance_cash_movements")
-            .insert(returnPayload);
-
-          if (returnInsertError) {
-            setIsSaving(false);
-            alert(`Liquidation saved, but returned cash posting failed. ${returnInsertError.message}`);
-            return;
-          }
+        try {
+          await createCashMovement(returnPayload);
+        } catch (returnInsertError: any) {
+          setIsSaving(false);
+          alert(`Liquidation saved, but returned cash posting failed. ${returnInsertError?.message || returnInsertError}`);
+          return;
         }
       }
     }
