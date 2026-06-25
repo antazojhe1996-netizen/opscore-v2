@@ -10,7 +10,7 @@ import {
   Save,
   ShieldCheck,
 } from "lucide-react";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type SystemUser = {
   id: string;
@@ -322,3 +322,5 @@ function PasswordInput({
     </div>
   );
 }
+
+

@@ -18,7 +18,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 
 type Employee = {
@@ -2434,3 +2434,5 @@ function SummaryRow({ label, values, tableGridColumns }: any) {
     </div>
   );
 }
+
+

@@ -1,16 +1,19 @@
-import { supabase } from "../supabase";
+import { supabase } from "@/lib/supabase";;
 
 /**
  * =========================
  * CASH WATCHER (SINGLE SOURCE OF TRUTH)
  * =========================
  * RULE:
- * - NO UI CALCULATION
- * - NO DUPLICATE SUMS
- * - ONLY DB AGGREGATION
+ * - NO UI LOGIC
+ * - NO DEDUPE HERE
+ * - STRICT DB AGGREGATION ONLY
  */
 
-export async function getCashWatcher(company_id: string, business_date: string) {
+export async function getCashWatcher(
+  company_id: string,
+  business_date: string
+) {
   const { data: movements, error } = await supabase
     .from("finance_cash_movements")
     .select("*")
@@ -22,32 +25,34 @@ export async function getCashWatcher(company_id: string, business_date: string) 
 
   const safe = movements || [];
 
-  // 🧠 GROUP BY TYPE (STRICT SINGLE SOURCE CALC)
-  const cashIn = safe
-    .filter(m => m.type === "CASH_IN")
-    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  // =========================
+  // SAFE NORMALIZATION
+  // =========================
+  const normalized = safe.map((m) => ({
+    ...m,
+    amount: Number(m.amount || 0),
+  }));
 
-  const cashOut = safe
-    .filter(m => m.type === "CASH_OUT")
-    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  // =========================
+  // STRICT CASH FLOW CALCULATION
+  // =========================
+  const cashIn = normalized
+    .filter((m) => m.movement_type === "CASH_IN")
+    .reduce((sum, m) => sum + m.amount, 0);
+
+  const cashOut = normalized
+    .filter((m) => m.movement_type === "CASH_OUT")
+    .reduce((sum, m) => sum + m.amount, 0);
 
   const net = cashIn - cashOut;
-
-  // 🧠 REMOVE DUPLICATE VISUAL ENTRIES (SAFE DEDUPE)
-  const uniqueMap = new Map();
-
-  const deduped = safe.filter(m => {
-    const key = `${m.cash_drawer_id}-${m.type}-${m.amount}-${m.created_at}`;
-    if (uniqueMap.has(key)) return false;
-    uniqueMap.set(key, true);
-    return true;
-  });
 
   return {
     cash_in: cashIn,
     cash_out: cashOut,
     net,
-    movements: deduped,
-    count: deduped.length,
+    movements: normalized,
+    count: normalized.length,
   };
 }
+
+

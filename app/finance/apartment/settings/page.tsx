@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function ApartmentSettingsPage() {
   /// STATES
@@ -486,3 +486,5 @@ function Input({
     </div>
   );
 }
+
+

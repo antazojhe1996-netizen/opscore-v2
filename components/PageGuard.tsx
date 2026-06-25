@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import { canAccessPage } from "@/app/lib/pageAccess";
+import { canAccessPage } from "@/lib/pageAccess";
 
 type PageGuardProps = {
   moduleKey: string;
@@ -67,3 +67,5 @@ export default function PageGuard({ moduleKey, children }: PageGuardProps) {
 
   return <>{children}</>;
 }
+
+

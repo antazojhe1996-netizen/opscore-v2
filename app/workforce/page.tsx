@@ -11,7 +11,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function WorkforcePage() {
   /// STATES
@@ -1145,3 +1145,5 @@ function LeaveQueue({
     </div>
   );
 }
+
+

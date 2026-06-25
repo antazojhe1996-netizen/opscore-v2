@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { ShieldCheck, UserCheck } from "lucide-react";
 
 export default function CurrentUserPage() {
@@ -167,3 +167,5 @@ function InfoRow({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
+
+

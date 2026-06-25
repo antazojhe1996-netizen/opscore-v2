@@ -8,8 +8,8 @@ import { Eye, FileSpreadsheet, Pencil, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 import * as XLSX from "xlsx";
 
 type Employee = {
@@ -2006,3 +2006,5 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+

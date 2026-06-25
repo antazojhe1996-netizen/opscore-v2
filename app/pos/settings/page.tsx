@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   Building2,
   CheckCircle2,
@@ -4651,3 +4651,5 @@ function CheckOption({
     </label>
   );
 }
+
+

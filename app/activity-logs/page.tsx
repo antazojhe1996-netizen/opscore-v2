@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { ClipboardList, RefreshCcw, Search } from "lucide-react";
 
 const Sidebar = dynamic(() => import("@/components/Sidebar"), {
@@ -219,3 +219,5 @@ export default function ActivityLogsPage() {
     </PageGuard>
   );
 }
+
+

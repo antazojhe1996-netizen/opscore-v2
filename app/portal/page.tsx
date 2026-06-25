@@ -14,7 +14,7 @@ import {
   UserCheck,
   Wallet,
 } from "lucide-react";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type SystemUser = {
   id: string;
@@ -498,3 +498,5 @@ function Metric({ value, label }: { value: string; label: string }) {
     </div>
   );
 }
+
+

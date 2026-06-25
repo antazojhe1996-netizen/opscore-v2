@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 
 export default function EmploymentTypesPage() {
   /// STATES
@@ -250,3 +250,5 @@ export default function EmploymentTypesPage() {
     </PageGuard>
   );
 }
+
+

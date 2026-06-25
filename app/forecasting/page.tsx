@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function ForecastingPage() {
   /// STATES
@@ -822,3 +822,5 @@ export default function ForecastingPage() {
     </div>
   );
 }
+
+

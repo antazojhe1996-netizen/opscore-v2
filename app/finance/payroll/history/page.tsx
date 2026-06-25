@@ -17,7 +17,7 @@ import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function PayrollReleaseHistoryPage() {
   /// STATES
@@ -579,3 +579,5 @@ function StatusBadge({ value }: any) {
 
   return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${color}`}>{normalized}</span>;
 }
+
+

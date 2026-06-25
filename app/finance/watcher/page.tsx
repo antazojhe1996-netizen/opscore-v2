@@ -13,7 +13,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type WatcherFinding = {
   id: string;
@@ -1180,3 +1180,5 @@ function MovementSummaryPanel({
     </div>
   );
 }
+
+

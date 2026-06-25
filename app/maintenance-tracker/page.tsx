@@ -493,3 +493,5 @@ function getStatusClass(status: string) {
 
   return "rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700";
 }
+
+

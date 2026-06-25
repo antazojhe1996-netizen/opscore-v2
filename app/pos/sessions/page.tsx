@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   Banknote,
   CheckCircle2,
@@ -953,3 +953,5 @@ function MiniCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+

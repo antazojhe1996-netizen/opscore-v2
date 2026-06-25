@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 
 export default function ExpenseRequestsPage() {
   /// STATES - DATABASE DATA
@@ -937,3 +937,5 @@ function ActionModal({
     </div>
   );
 }
+
+

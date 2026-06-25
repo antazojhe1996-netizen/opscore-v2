@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type OccupancyRow = {
   id?: string;
@@ -651,3 +651,5 @@ export default function OccupancyImportPage() {
     </div>
   );
 }
+
+

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -1021,3 +1021,5 @@ export default function POSProductionQueuePage() {
     </PageGuard>
   );
 }
+
+

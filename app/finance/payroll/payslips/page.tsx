@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function PayslipsPage() {
   /// STATES
@@ -1140,3 +1140,5 @@ function StatusBadge({ value }: any) {
     </span>
   );
 }
+
+

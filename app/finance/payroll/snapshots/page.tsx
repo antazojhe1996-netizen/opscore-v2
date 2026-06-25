@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { Database, Search } from "lucide-react";
 import PageGuard from "@/components/PageGuard";
 
@@ -171,3 +171,5 @@ export default function PayrollSnapshotsPage() {
   </PageGuard>
 );
 }
+
+

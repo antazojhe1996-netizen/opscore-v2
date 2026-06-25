@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type AuditLevel = "Excellent" | "Good" | "Needs Attention" | "Critical";
 type IssueSeverity = "low" | "medium" | "high";
@@ -1215,3 +1215,5 @@ function SummaryRow({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
+
+

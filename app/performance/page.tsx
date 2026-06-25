@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type Employee = {
   id: string;
@@ -2109,3 +2109,5 @@ function EmployeeDrawer({
     </div>
   );
 }
+
+

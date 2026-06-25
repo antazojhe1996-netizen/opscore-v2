@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   AlertTriangle,
   Ban,
@@ -1383,3 +1383,5 @@ function TotalRow({
     </div>
   );
 }
+
+

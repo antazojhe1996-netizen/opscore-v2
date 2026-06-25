@@ -1,6 +1,6 @@
 "use client";
 
-import { logActivity } from "@/app/lib/activityLogger";
+import { logActivity } from "@/lib/activityLogger";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -19,8 +19,8 @@ import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 
 
 export default function PayrollRegisterPage() {
@@ -4390,3 +4390,5 @@ function Row({ label, value, strong = false }: any) {
     </div>
   );
 }
+
+

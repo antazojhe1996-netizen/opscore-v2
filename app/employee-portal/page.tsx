@@ -18,9 +18,9 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
-import { executeCashDrawerApprovalAction } from "@/app/lib/approvals/approval-actions";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
+import { executeCashDrawerApprovalAction } from "@/lib/approvals/approval-actions";
 
 const CASH_DRAWER_REQUEST_TYPES = [
   "EXPENSE_RELEASE",
@@ -3520,3 +3520,5 @@ function InfoTile({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
+
+

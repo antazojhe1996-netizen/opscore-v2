@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import RegisterServiceWorker from "@/components/RegisterServiceWorker";
+
+// 👉 DITO ILALAGAY
+import RegisterServiceWorker from "../components/RegisterServiceWorker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,3 +45,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+

@@ -4,8 +4,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 import * as XLSX from "xlsx";
 import TopNavbar from "@/components/TopNavbar";
 
@@ -1753,3 +1753,5 @@ function PayrollBadge({ expense }: any) {
     </span>
   );
 }
+
+

@@ -1,4 +1,4 @@
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export const logActivity = async (
   module: string,
@@ -25,3 +25,5 @@ export const logActivity = async (
     console.log("ACTIVITY LOGGER FAILED:", err);
   }
 };
+
+

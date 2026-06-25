@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   AlertCircle,
   ArrowRight,
@@ -776,3 +776,5 @@ function Select({
     </div>
   );
 }
+
+

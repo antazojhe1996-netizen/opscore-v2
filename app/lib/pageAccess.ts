@@ -1,4 +1,4 @@
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export type AccessResult = {
   allowed: boolean;
@@ -59,3 +59,5 @@ export async function canAccessPage(moduleKey: string): Promise<AccessResult> {
 
   return { allowed: true };
 }
+
+

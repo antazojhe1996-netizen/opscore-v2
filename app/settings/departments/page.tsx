@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function DepartmentsPage() {
   /// STATES
@@ -125,3 +125,5 @@ export default function DepartmentsPage() {
     </PageGuard>
   );
 }
+
+

@@ -6,9 +6,9 @@ import { CheckCircle2, Lock, Search, Send, Users, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
-import { canAccessPage } from "@/app/lib/pageAccess";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
+import { canAccessPage } from "@/lib/pageAccess";
 
 type ManagerTab = "review" | "locked" | "released" | "returned";
 type RecordStatus = "DRAFT" | "REGISTERED" | "MANAGER_REVIEW" | "RETURNED_FOR_CORRECTION" | "LOCKED" | "PARTIALLY_RELEASED" | "RELEASED";
@@ -1483,3 +1483,5 @@ export default function PayrollManagerPage() {
     </>,
   );
 }
+
+

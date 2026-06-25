@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   Activity,
   BarChart3,
@@ -32,12 +32,23 @@ import {
 
 const menuSections = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    moduleKey: "dashboard",
-    items: [],
-  },
+  title: "Dashboard",
+  icon: LayoutDashboard,
+  items: [
+    {
+      label: "Main Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      moduleKey: "dashboard",
+    },
+    {
+      label: "System Status",
+      href: "/maintenance",
+      icon: ShieldCheck,
+      moduleKey: "maintenance",
+    },
+  ],
+},
   {
     title: "Human Resources",
     icon: Users,
@@ -1100,3 +1111,5 @@ export default function Sidebar() {
     </>
   );
 }
+
+

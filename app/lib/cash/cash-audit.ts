@@ -1,8 +1,13 @@
-import { supabase } from "../supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 /**
  * =========================
- * CASH AUDIT LOGGING
+ * CASH AUDIT LOG (FIXED EXPORT)
  * =========================
  */
 
@@ -26,8 +31,16 @@ export async function logCashEvent({
       user_id,
       metadata,
       created_at: new Date().toISOString(),
-    });
+    })
+    .select()
+    .single();
 
-  if (error) throw error;
+  if (error) {
+    console.warn("Cash audit failed:", error.message);
+    return null;
+  }
+
   return data;
 }
+
+

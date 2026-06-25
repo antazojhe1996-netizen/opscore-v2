@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type RangeType = "daily" | "weekly" | "monthly" | "yearly";
 type Row = Record<string, any>;
@@ -1421,3 +1421,5 @@ function BriefLine({ text }: { text: string }) {
     </div>
   );
 }
+
+

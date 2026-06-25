@@ -1,4 +1,4 @@
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type AuditLogInput = {
   userId?: string | null;
@@ -39,3 +39,5 @@ export async function createAuditLog({
     console.log("CREATE AUDIT LOG ERROR:", error);
   }
 }
+
+

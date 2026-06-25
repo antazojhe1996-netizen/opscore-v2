@@ -15,8 +15,8 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "../lib/supabase";
-import { createAuditLog } from "../lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 import * as XLSX from "xlsx";
 
 export default function LeaveManagementPage() {
@@ -906,3 +906,5 @@ function InfoRow({ label, value }: any) {
     </div>
   );
 }
+
+

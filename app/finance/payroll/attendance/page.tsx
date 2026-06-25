@@ -3,7 +3,7 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
@@ -2713,3 +2713,5 @@ function SourceBadge({ source }: { source: any }) {
 
   return <StatusPill tone={tone}>{normalized}</StatusPill>;
 }
+
+

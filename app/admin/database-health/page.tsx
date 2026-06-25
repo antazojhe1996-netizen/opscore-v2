@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type HealthStatus = "Healthy" | "Warning" | "Critical";
 type Severity = "good" | "warning" | "critical";
@@ -1483,3 +1483,5 @@ function StandardBox({ title, values }: { title: string; values: string[] }) {
     </div>
   );
 }
+
+

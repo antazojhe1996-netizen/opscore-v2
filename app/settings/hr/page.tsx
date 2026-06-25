@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 
 type MasterKey = "departments" | "positions" | "employment_types";
 
@@ -958,3 +958,5 @@ function BooleanBadge({ value }: { value: boolean }) {
     </span>
   );
 }
+
+

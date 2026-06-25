@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   AlertCircle,
   CheckCircle2,
@@ -408,3 +408,5 @@ function StatusRow({
     </div>
   );
 }
+
+

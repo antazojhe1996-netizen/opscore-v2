@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   Banknote,
   ChefHat,
@@ -4925,3 +4925,5 @@ export default function POSTerminalPage() {
     </PageGuard>
   );
 }
+
+

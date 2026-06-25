@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
-import { canAccessPage } from "@/app/lib/pageAccess";
+import { supabase } from "@/lib/supabase";
+import { canAccessPage } from "@/lib/pageAccess";
 import {
   AlertTriangle,
   KeyRound,
@@ -877,3 +877,5 @@ function Badge({
     </span>
   );
 }
+
+

@@ -1,4 +1,4 @@
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type CurrentUserAccessResult = {
   systemUser: any | null;
@@ -119,3 +119,5 @@ export const hasPermission = (
       permission.module_key === moduleKey && permission[action] === true
   );
 };
+
+

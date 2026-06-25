@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import * as XLSX from "xlsx";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type ImportMode = "append" | "replace";
 
@@ -1094,3 +1094,5 @@ function MiniStat({
     </div>
   );
 }
+
+

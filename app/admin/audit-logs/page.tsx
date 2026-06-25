@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type Severity = "info" | "warning" | "critical";
 
@@ -481,3 +481,5 @@ function AuditStandardRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+

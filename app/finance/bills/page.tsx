@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type Bill = {
   id: string;
@@ -780,3 +780,5 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+

@@ -5,8 +5,8 @@ import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/app/lib/supabase";
-import { createAuditLog } from "@/app/lib/audit";
+import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 
 export default function ApartmentBillingPage() {
   /// STATES
@@ -561,3 +561,5 @@ function SummaryRow({ label, value, danger }: any) {
     </div>
   );
 }
+
+
