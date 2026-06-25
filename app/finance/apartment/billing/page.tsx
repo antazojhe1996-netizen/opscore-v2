@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,7 +9,6 @@ import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 
 export default function ApartmentBillingPage() {
@@ -27,7 +30,7 @@ export default function ApartmentBillingPage() {
 
   /// FUNCTIONS
   const formatMoney = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -561,5 +564,8 @@ function SummaryRow({ label, value, danger }: any) {
     </div>
   );
 }
+
+
+
 
 

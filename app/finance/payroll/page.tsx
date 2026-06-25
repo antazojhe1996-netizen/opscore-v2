@@ -1,9 +1,11 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
-
 type PayrollHoliday = {
   id?: number;
   holiday_name: string;
@@ -397,7 +399,7 @@ export default function PayrollSettingsPage() {
     {
       title: "Payslip Visibility",
       description:
-        "Controls which future compliance lines appear on the payslip. Disabled items are hidden completely, not shown as ₱0.00.",
+        "Controls which future compliance lines appear on the payslip. Disabled items are hidden completely, not shown as â‚±0.00.",
       fields: [
         {
           key: "show_sss_on_payslip",
@@ -1099,5 +1101,8 @@ function HolidayTable({
     </div>
   );
 }
+
+
+
 
 

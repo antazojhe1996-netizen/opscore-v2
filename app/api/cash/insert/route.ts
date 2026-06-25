@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import { NextResponse } from "next/server";
 import { insertCashMovement } from "@/lib/cash/cash-core";
 
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     /**
-     * ✅ FIX: ensure type is always passed
+     * âœ… FIX: ensure type is always passed
      * fallback to CASH_IN for safety
      */
     const result = await insertCashMovement(

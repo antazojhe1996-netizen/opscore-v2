@@ -1,11 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import * as XLSX from "xlsx";
-import { supabase } from "@/lib/supabase";
-
 type ImportMode = "append" | "replace";
 
 type RestaurantSale = {
@@ -48,7 +50,7 @@ export default function RestaurantImportPage() {
     return (
       Number(
         String(value)
-          .replaceAll("₱", "")
+          .replaceAll("â‚±", "")
           .replaceAll("PHP", "")
           .replace(/,/g, "")
           .trim()
@@ -57,7 +59,7 @@ export default function RestaurantImportPage() {
   };
 
   const formatMoney = (value: any) => {
-    return `₱${Number(value || 0).toLocaleString("en-PH", {
+    return `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -1094,5 +1096,8 @@ function MiniStat({
     </div>
   );
 }
+
+
+
 
 

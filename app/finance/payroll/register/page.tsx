@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { logActivity } from "@/lib/activityLogger";
@@ -19,7 +23,6 @@ import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 
 
@@ -67,7 +70,7 @@ export default function PayrollRegisterPage() {
   ];
 
   const formatMoney = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -771,7 +774,7 @@ ${error.message}`);
     const sourceId = balance.source_id ? `Source ID: ${balance.source_id}` : "";
     const periodId = balance.period_id ? `Period ID: ${balance.period_id}` : "";
 
-    return [source, balanceId, sourceId, periodId].filter(Boolean).join(" • ");
+    return [source, balanceId, sourceId, periodId].filter(Boolean).join(" â€¢ ");
   };
 
   const createPeriod = async () => {
@@ -1940,7 +1943,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
       }
       if (matchedHoliday) {
         issueParts.push(
-          `${holidayType} Holiday${holidayName ? ` • ${holidayName}` : ""} • ${holidayMultiplier.toFixed(2)}x • Holiday Pay ${formatMoney(holidayPayAmount)}`
+          `${holidayType} Holiday${holidayName ? ` â€¢ ${holidayName}` : ""} â€¢ ${holidayMultiplier.toFixed(2)}x â€¢ Holiday Pay ${formatMoney(holidayPayAmount)}`
         );
       }
       if (!restDay && !leaveDay && absent) issueParts.push("Absent from scheduled work day");
@@ -1948,11 +1951,11 @@ This will remove it from future payroll deductions but keep the audit trail.`
       if (undertimeMinutes > 0) issueParts.push(`${undertimeMinutes} mins undertime`);
       if (otMinutes > 0) {
         issueParts.push(
-          `${otMinutes} mins OT • Approved ${approvedOtMinutes} mins • ${otApprovalStatus.replace(/_/g, " ")}`
+          `${otMinutes} mins OT â€¢ Approved ${approvedOtMinutes} mins â€¢ ${otApprovalStatus.replace(/_/g, " ")}`
         );
       }
 
-      if (issueParts.length > 0) issue = issueParts.join(" • ");
+      if (issueParts.length > 0) issue = issueParts.join(" â€¢ ");
 
       return {
         date: attendanceDate,
@@ -1988,7 +1991,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
         schedule: "Manual",
         actual: "Manual adjustment",
         status: item.adjustment_direction,
-        issue: `${item.adjustment_type} • ${item.remarks || "No remarks"}`,
+        issue: `${item.adjustment_type} â€¢ ${item.remarks || "No remarks"}`,
         lateAmount: 0,
         undertimeAmount: 0,
         absentAmount: 0,
@@ -2008,7 +2011,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
       schedule: "Carry Forward",
       actual: "Employee balance",
       status: "Deduction",
-      issue: `${item.adjustment_type} • ${item.remarks || "Outstanding balance"}`,
+      issue: `${item.adjustment_type} â€¢ ${item.remarks || "Outstanding balance"}`,
       lateAmount: 0,
       undertimeAmount: 0,
       absentAmount: 0,
@@ -2717,7 +2720,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
       alerts.push({
         employee: record.employee_name,
         type: "Carry Forward Required",
-        message: `${formatMoney(netPay)} computed net pay. Release will be ₱0 and balance will carry forward.`,
+        message: `${formatMoney(netPay)} computed net pay. Release will be â‚±0 and balance will carry forward.`,
         severity: "Medium",
       });
     }
@@ -3159,7 +3162,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-700/80">
                 {managerAlerts.slice(0, 4).map((alert, index) => (
                   <span key={index}>
-                    • {alert.employee}: {alert.type}
+                    â€¢ {alert.employee}: {alert.type}
                   </span>
                 ))}
               </div>
@@ -3282,7 +3285,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
                               {record.employee_name}
                             </p>
                             <p className="truncate text-[11px] font-bold text-slate-500">
-                              {record.department} • {record.position}
+                              {record.department} â€¢ {record.position}
                             </p>
                           </button>
                         </td>
@@ -3315,7 +3318,7 @@ This will remove it from future payroll deductions but keep the audit trail.`
                                 {String(otApprovalStatus).replace(/_/g, " ")}
                               </span>
                               <p className="text-[10px] font-bold text-slate-500">
-                                Approved {approvedOtMinutes / 60}h • {formatMoney(record.ot_pay)}
+                                Approved {approvedOtMinutes / 60}h â€¢ {formatMoney(record.ot_pay)}
                               </p>
                             </div>
                           )}
@@ -3677,7 +3680,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
             </div>
 
             <div className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700">
-              {employeesWithBalances} employee(s) • {formatMoney(activeBalanceTotal)}
+              {employeesWithBalances} employee(s) â€¢ {formatMoney(activeBalanceTotal)}
             </div>
           </div>
 
@@ -3758,7 +3761,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                       {selectedAuditRecord.employee_name || "Selected Employee"}
                     </h2>
                     <p className="mt-1 truncate text-sm font-semibold text-slate-500">
-                      {selectedAuditRecord.department || "-"} • {selectedAuditRecord.position || "-"}
+                      {selectedAuditRecord.department || "-"} â€¢ {selectedAuditRecord.position || "-"}
                     </p>
                   </div>
 
@@ -3777,7 +3780,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                       className="h-10 w-10 rounded-xl border border-slate-200 bg-white text-lg font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                       aria-label="Close audit drawer"
                     >
-                      ×
+                      Ã—
                     </button>
                   </div>
                 </div>
@@ -3877,7 +3880,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                             }`}
                             title={checked ? "Marked as checked" : "Click to mark this audit item as checked"}
                           >
-                            {checked ? "✓ Checked" : "Mark Check"}
+                            {checked ? "âœ“ Checked" : "Mark Check"}
                           </button>
                         </div>
 
@@ -3885,7 +3888,7 @@ Active balances are deducted through payroll only. Cancel here only when the bal
                           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">Holiday Pay Evidence</p>
                             <p className="mt-1">
-                              {log.holidayName || "Holiday"} • {log.holidayType || "Holiday"} • Multiplier {Number(log.holidayMultiplier || 1).toFixed(2)}x • Payroll Holiday Pay {formatMoney(log.holidayPayAmount)}
+                              {log.holidayName || "Holiday"} â€¢ {log.holidayType || "Holiday"} â€¢ Multiplier {Number(log.holidayMultiplier || 1).toFixed(2)}x â€¢ Payroll Holiday Pay {formatMoney(log.holidayPayAmount)}
                             </p>
                           </div>
                         )}
@@ -4390,5 +4393,8 @@ function Row({ label, value, strong = false }: any) {
     </div>
   );
 }
+
+
+
 
 

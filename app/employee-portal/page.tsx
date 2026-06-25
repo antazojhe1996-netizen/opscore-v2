@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -18,7 +22,6 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import { executeCashDrawerApprovalAction } from "@/lib/approvals/approval-actions";
 
@@ -574,7 +577,7 @@ export default function EmployeePortalPage() {
               <div class="card">
                 <div class="label">Employee</div>
                 <div class="value">${employeeName}</div>
-                <div class="muted">${employeeDepartment} • Employee #${employeeNumber}</div>
+                <div class="muted">${employeeDepartment} â€¢ Employee #${employeeNumber}</div>
               </div>
               <div class="card">
                 <div class="label">Payroll Period</div>
@@ -2300,7 +2303,7 @@ export default function EmployeePortalPage() {
       const leaveType = payload.leave_type || "Leave";
       const start = payload.start_date ? formatDate(payload.start_date) : "-";
       const end = payload.end_date ? formatDate(payload.end_date) : "-";
-      return `${leaveType} • ${start} to ${end}`;
+      return `${leaveType} â€¢ ${start} to ${end}`;
     }
 
     const amountValue =
@@ -2316,7 +2319,7 @@ export default function EmployeePortalPage() {
     }
 
     if (payload.category || payload.payment_method || payload.source) {
-      return [payload.category, payload.payment_method, payload.source].filter(Boolean).join(" • ");
+      return [payload.category, payload.payment_method, payload.source].filter(Boolean).join(" â€¢ ");
     }
 
     if (payload.reason) return String(payload.reason);
@@ -2885,7 +2888,7 @@ export default function EmployeePortalPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold text-slate-950">{leave.leave_type}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-500">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} • {leave.days || leave.total_days} day(s)</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} â€¢ {leave.days || leave.total_days} day(s)</p>
                       </div>
                       <StatusBadge status={leave.status} />
                     </div>
@@ -3408,7 +3411,7 @@ function LeaveCreditMiniCard({
       : index === 1
       ? "border-blue-200 bg-blue-50 text-blue-700"
       : "border-amber-200 bg-amber-50 text-amber-700";
-  const icon = index === 0 ? "☘" : index === 1 ? "♥" : "⚡";
+  const icon = index === 0 ? "â˜˜" : index === 1 ? "â™¥" : "âš¡";
 
   return (
     <div className={`rounded-3xl border p-3 shadow-sm ${toneClass}`}>
@@ -3520,5 +3523,8 @@ function InfoTile({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
+
+
+
 
 

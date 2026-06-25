@@ -1,10 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from '@/lib/supabase';
 import { computeDrawerVariance } from "./variance-engine";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+
 
 /**
  * =========================
@@ -166,5 +163,6 @@ export async function getOpenCashDrawers(companyId: string) {
     data: result.data || [],
   };
 }
+
 
 

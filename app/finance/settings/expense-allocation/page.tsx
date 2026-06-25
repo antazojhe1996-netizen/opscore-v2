@@ -1,8 +1,11 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 
 export default function ExpenseRequestsPage() {
@@ -90,7 +93,7 @@ export default function ExpenseRequestsPage() {
 
   /// FUNCTIONS - FORMATTERS
   const formatMoney = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -899,7 +902,7 @@ function ActionModal({
       <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
         <div className="mb-5">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-400">{actionType}</p>
-          <h2 className="mt-2 text-2xl font-bold">{selectedRequest.category} — {formatMoney(selectedRequest.amount)}</h2>
+          <h2 className="mt-2 text-2xl font-bold">{selectedRequest.category} â€” {formatMoney(selectedRequest.amount)}</h2>
           <p className="mt-1 text-sm text-slate-400">Requested by {selectedRequest.requested_by} / {selectedRequest.department}</p>
         </div>
 
@@ -937,5 +940,8 @@ function ActionModal({
     </div>
   );
 }
+
+
+
 
 

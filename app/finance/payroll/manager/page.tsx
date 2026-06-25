@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
@@ -6,7 +10,6 @@ import { CheckCircle2, Lock, Search, Send, Users, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import { canAccessPage } from "@/lib/pageAccess";
 
@@ -69,7 +72,7 @@ export default function PayrollManagerPage() {
   }, [activeTab]);
 
   const formatPeso = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -981,7 +984,7 @@ export default function PayrollManagerPage() {
           <div className="rounded-3xl border border-slate-100 bg-white p-4">
             <p className="text-[11px] font-black uppercase tracking-[0.28em] text-slate-400">Payroll / Payroll Manager</p>
             <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Payroll Manager</h1>
-            <p className="mt-1 text-sm font-medium text-slate-600">Per-employee payroll workflow. Manager Review → Locked → Released. Returns affect one employee only.</p>
+            <p className="mt-1 text-sm font-medium text-slate-600">Per-employee payroll workflow. Manager Review â†’ Locked â†’ Released. Returns affect one employee only.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className={metricCard}><p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Review</p><p className="mt-2 text-xl font-black">{managerReviewRows.length}</p></div>
@@ -1107,7 +1110,7 @@ export default function PayrollManagerPage() {
                   return (
                     <tr key={record.id} className="hover:bg-slate-50/80">
                       <td className="px-4 py-4"><input type="checkbox" checked={isSelected} disabled={!isActionable} onChange={() => toggleSelect(record.id)} /></td>
-                      <td className="px-4 py-4"><div className="font-black text-slate-950">{getEmployeeName(record)}</div><div className="mt-1 text-[11px] font-semibold text-slate-500">{record.department || "Unassigned"} • {record.position || "Unassigned"}</div></td>
+                      <td className="px-4 py-4"><div className="font-black text-slate-950">{getEmployeeName(record)}</div><div className="mt-1 text-[11px] font-semibold text-slate-500">{record.department || "Unassigned"} â€¢ {record.position || "Unassigned"}</div></td>
                       <td className="px-4 py-4 font-bold text-slate-700">{getPeriodLabel(record)}</td>
                       <td className="px-4 py-4 font-black text-slate-950">{formatPeso(getRecordGross(record))}</td>
                       <td className="px-4 py-4 font-black text-rose-700">{formatPeso(getRecordDeduction(record))}</td>
@@ -1163,7 +1166,7 @@ export default function PayrollManagerPage() {
                     {getEmployeeName(partialReleaseRecord)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                    {partialReleaseRecord.department || "Unassigned"} • {partialReleaseRecord.position || "Unassigned"}
+                    {partialReleaseRecord.department || "Unassigned"} â€¢ {partialReleaseRecord.position || "Unassigned"}
                   </p>
                 </div>
 
@@ -1294,7 +1297,7 @@ export default function PayrollManagerPage() {
             </div>
 
             <div className="mt-5 rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">
-              Selected employees will return to the Locked tab as PARTIALLY RELEASED with ₱0.00 actual paid and full net pay remaining.
+              Selected employees will return to the Locked tab as PARTIALLY RELEASED with â‚±0.00 actual paid and full net pay remaining.
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -1304,7 +1307,7 @@ export default function PayrollManagerPage() {
               </div>
               <div className={metricCard}>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Actual Paid</p>
-                <p className="mt-2 text-lg font-black text-blue-700">₱0.00 each</p>
+                <p className="mt-2 text-lg font-black text-blue-700">â‚±0.00 each</p>
               </div>
               <div className={metricCard}>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Total Remaining</p>
@@ -1399,7 +1402,7 @@ export default function PayrollManagerPage() {
                     {getEmployeeName(reopenPaymentRecord)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                    {reopenPaymentRecord.department || "Unassigned"} • {reopenPaymentRecord.position || "Unassigned"}
+                    {reopenPaymentRecord.department || "Unassigned"} â€¢ {reopenPaymentRecord.position || "Unassigned"}
                   </p>
                 </div>
 
@@ -1483,5 +1486,8 @@ export default function PayrollManagerPage() {
     </>,
   );
 }
+
+
+
 
 

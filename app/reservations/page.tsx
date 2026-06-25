@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 import Link from "next/link";
@@ -34,8 +35,8 @@ export default function ReservationsDashboardPage() {
   const forecastRows = [
     ["Today", "82%", "18 arrivals", "12 departures"],
     ["Tomorrow", "76%", "11 arrivals", "9 departures"],
-    ["7 Days", "79%", "68 bookings", "₱248,500 forecast"],
-    ["30 Days", "72%", "214 bookings", "₱890,000 forecast"],
+    ["7 Days", "79%", "68 bookings", "â‚±248,500 forecast"],
+    ["30 Days", "72%", "214 bookings", "â‚±890,000 forecast"],
   ];
 
   return (
@@ -70,7 +71,7 @@ export default function ReservationsDashboardPage() {
                   Roadmap UI
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Front page only · Backend later
+                  Front page only Â· Backend later
                 </p>
               </div>
             </div>
@@ -255,7 +256,7 @@ export default function ReservationsDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <MiniInsight label="Expected Occupancy" value="82%" />
-                <MiniInsight label="Expected Revenue" value="₱248.5K" />
+                <MiniInsight label="Expected Revenue" value="â‚±248.5K" />
                 <MiniInsight label="Average Stay" value="2.4 Nights" />
                 <MiniInsight label="Top Room Type" value="Deluxe" />
               </div>
@@ -321,7 +322,7 @@ function ActionCard({
       <p className="mt-1 text-sm text-slate-400">{description}</p>
 
       <p className="mt-4 text-sm font-black text-blue-300 group-hover:text-blue-200">
-        {action} →
+        {action} â†’
       </p>
     </Link>
   );

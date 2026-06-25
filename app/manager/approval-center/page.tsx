@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -106,7 +107,7 @@ export default function ApprovalCenterPage() {
     <main style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Approval Center</h1>
       <p style={{ color: "#666", marginBottom: 24 }}>
-        Engine-based Approval Center — dynamic by module and request type.
+        Engine-based Approval Center â€” dynamic by module and request type.
       </p>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -193,7 +194,7 @@ export default function ApprovalCenterPage() {
                   <td>{r.module || "-"}</td>
                   <td>{r.request_type || "-"}</td>
                   <td>{r.title || r.category || "-"}</td>
-                  <td>₱{Number(r.amount || 0).toLocaleString()}</td>
+                  <td>â‚±{Number(r.amount || 0).toLocaleString()}</td>
                   <td>{r.payment_method || "-"}</td>
                   <td>{r.requested_by || "-"}</td>
                   <td>{r.status}</td>

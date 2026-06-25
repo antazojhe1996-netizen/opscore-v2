@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -18,8 +22,6 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-
 type AuditLevel = "Excellent" | "Good" | "Needs Attention" | "Critical";
 type IssueSeverity = "low" | "medium" | "high";
 type FinancialIssuePriority = "Action Required" | "Review Required" | "For Information";
@@ -86,7 +88,7 @@ export default function AuditCenterPage() {
   const todayKey = new Date().toISOString().slice(0, 10);
 
   const formatPeso = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -1215,5 +1217,8 @@ function SummaryRow({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
+
+
+
 
 

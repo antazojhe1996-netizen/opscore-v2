@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -381,7 +382,7 @@ export default function DataCleanupPage() {
                       key={rule}
                       className="text-xs font-bold leading-5 text-slate-600"
                     >
-                      • {rule}
+                      â€¢ {rule}
                     </p>
                   ))}
                 </div>

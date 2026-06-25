@@ -1,10 +1,12 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-
 export default function DepartmentsPage() {
   /// STATES
   const [departments, setDepartments] = useState<any[]>([]);
@@ -125,5 +127,8 @@ export default function DepartmentsPage() {
     </PageGuard>
   );
 }
+
+
+
 
 

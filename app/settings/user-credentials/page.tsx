@@ -1,9 +1,12 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import { canAccessPage } from "@/lib/pageAccess";
 import {
   AlertTriangle,
@@ -545,7 +548,7 @@ export default function UserCredentialsPage() {
 
                   {selectedEmployee && (
                     <p className="mt-1 text-sm font-semibold text-slate-600">
-                      {selectedEmployee.department || "No Dept"} •{" "}
+                      {selectedEmployee.department || "No Dept"} â€¢{" "}
                       {selectedEmployee.position || "No Position"}
                     </p>
                   )}
@@ -877,5 +880,8 @@ function Badge({
     </span>
   );
 }
+
+
+
 
 

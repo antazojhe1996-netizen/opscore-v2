@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import { NextResponse } from "next/server";
 import { approveApproval } from "@/lib/approvals/core";
 

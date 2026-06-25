@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
@@ -5,7 +9,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
 import {
   Banknote,
   ChefHat,
@@ -218,7 +221,7 @@ type PosTransactionItem = {
 };
 
 const peso = (value: number) =>
-  `₱${Number(value || 0).toLocaleString(undefined, {
+  `â‚±${Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -1008,7 +1011,7 @@ export default function POSTerminalPage() {
 
     if (group?.icon) return group.icon;
 
-    return "•";
+    return "â€¢";
   };
 
   const getProductModifierGroups = (product: Product) => {
@@ -1413,7 +1416,7 @@ export default function POSTerminalPage() {
                             .map(
                               (choice) => `
                                 <div class="modifier-option">
-                                  • ${escapeSlipText(choice.option_name)}
+                                  â€¢ ${escapeSlipText(choice.option_name)}
                                 </div>
                               `,
                             )
@@ -3262,7 +3265,7 @@ export default function POSTerminalPage() {
                         : "border-white/10 bg-[#202020] text-white shadow-black/30 hover:border-white/25 hover:bg-[#2b2b2b]"
                     }`}
                   >
-                    <span>{group.icon || "•"}</span>
+                    <span>{group.icon || "â€¢"}</span>
                     {group.name}
                   </button>
                 ))}
@@ -3325,7 +3328,7 @@ export default function POSTerminalPage() {
 
                           {product.is_best_seller && (
                             <div className="absolute left-0 top-0 rounded-br-md bg-amber-400 px-1.5 py-0.5 text-[8px] font-black uppercase text-black">
-                              ★ BEST
+                              â˜… BEST
                             </div>
                           )}
 
@@ -3372,7 +3375,7 @@ export default function POSTerminalPage() {
                   className="flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-400/45 bg-emerald-500/20 text-[13px] font-black text-white shadow-lg shadow-emerald-950/30 transition active:scale-[0.98] disabled:opacity-40"
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-base text-white ring-1 ring-white/15">
-                    ₱
+                    â‚±
                   </span>
                   Quick Cash
                 </button>
@@ -3489,7 +3492,7 @@ export default function POSTerminalPage() {
                                       key={`${modifier.group_id}-${choice.option_id}`}
                                       className="truncate text-[9px] font-bold leading-[11px] text-amber-200/90"
                                     >
-                                      • {modifier.group_name}: {choice.option_name}
+                                      â€¢ {modifier.group_name}: {choice.option_name}
                                       {Number(choice.price_adjustment || 0) !== 0
                                         ? ` (${peso(Number(choice.price_adjustment || 0))})`
                                         : ""}
@@ -3499,7 +3502,7 @@ export default function POSTerminalPage() {
                               </div>
                             )}
                             <p className="truncate text-[10px] font-semibold leading-[13px] text-slate-500">
-                              {item.qty} × {peso(Number(item.price || 0))}
+                              {item.qty} Ã— {peso(Number(item.price || 0))}
                             </p>
                           </div>
 
@@ -3802,7 +3805,7 @@ export default function POSTerminalPage() {
                               {getTransactionReference(order)}
                             </p>
                             <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
-                              {formatPosDateTime(order.created_at)} •{" "}
+                              {formatPosDateTime(order.created_at)} â€¢{" "}
                               {order.payment_method_name ||
                                 order.payment_method ||
                                 "-"}
@@ -3960,7 +3963,7 @@ export default function POSTerminalPage() {
                       Current Session
                     </p>
                     <p className="mt-1 text-sm font-black text-white">
-                      {cashierName} • {transactions.length} transaction(s)
+                      {cashierName} â€¢ {transactions.length} transaction(s)
                     </p>
                   </div>
 
@@ -4020,7 +4023,7 @@ export default function POSTerminalPage() {
                               </p>
                               <p className="mt-1 truncate text-[10px] font-bold uppercase text-slate-500">
                                 {order.order_type || "ORDER"}{" "}
-                                {order.table_no ? `• ${order.table_no}` : ""}
+                                {order.table_no ? `â€¢ ${order.table_no}` : ""}
                               </p>
                             </div>
 
@@ -4175,7 +4178,7 @@ export default function POSTerminalPage() {
                             <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
                               {item.qty || 0} x {peso(Number(item.price || 0))}
                               {item.production_status
-                                ? ` • ${item.production_status}`
+                                ? ` â€¢ ${item.production_status}`
                                 : ""}
                             </p>
                           </div>
@@ -4277,7 +4280,7 @@ export default function POSTerminalPage() {
                             selectedVoidOrder.id.slice(0, 8)}
                         </p>
                         <p className="mt-1 text-xs font-bold uppercase text-slate-500">
-                          {selectedVoidOrder.order_type || "ORDER"} • {" "}
+                          {selectedVoidOrder.order_type || "ORDER"} â€¢ {" "}
                           {selectedVoidOrder.payment_method_name ||
                             selectedVoidOrder.payment_method ||
                             "Payment"}
@@ -4440,7 +4443,7 @@ export default function POSTerminalPage() {
                                 >
                                   <div className="min-w-0">
                                     <p className="truncate text-sm font-black text-white">
-                                      ✓ {item.name}
+                                      âœ“ {item.name}
                                     </p>
                                     {Number(item.sentQty || 0) > 0 && (
                                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -4619,7 +4622,7 @@ export default function POSTerminalPage() {
                             {group.group_name}
                           </h3>
                           <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                            {isSingle ? "Single Select" : "Multiple Select"} • Min{" "}
+                            {isSingle ? "Single Select" : "Multiple Select"} â€¢ Min{" "}
                             {isSingle && group.is_required ? 1 : group.min_select || 0} / Max{" "}
                             {isSingle ? 1 : group.max_select || 1}
                           </p>
@@ -4739,7 +4742,7 @@ export default function POSTerminalPage() {
                             {item.name}
                           </p>
                           <p className="mt-0.5 text-[9px] font-semibold text-slate-500">
-                            {item.qty} × {peso(item.price)}
+                            {item.qty} Ã— {peso(item.price)}
                           </p>
                         </div>
 
@@ -4828,7 +4831,7 @@ export default function POSTerminalPage() {
                   </p>
 
                   <div className="mt-1.5 flex h-10 items-center justify-between rounded-xl bg-[#05080d] px-4 ring-1 ring-white/10">
-                    <span className="text-xl font-black text-slate-400">₱</span>
+                    <span className="text-xl font-black text-slate-400">â‚±</span>
                     <p className="text-right text-lg font-black tracking-tight text-white">
                       {Number(amountPaidValue || 0).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -4851,7 +4854,7 @@ export default function POSTerminalPage() {
                         onClick={() => addQuickAmount(amount)}
                         className="h-8 rounded-lg bg-white/5 text-xs font-black text-white ring-1 ring-white/10 transition hover:bg-white/10 active:scale-[0.98]"
                       >
-                        ₱{amount.toLocaleString()}
+                        â‚±{amount.toLocaleString()}
                       </button>
                     ))}
                   </div>
@@ -4882,7 +4885,7 @@ export default function POSTerminalPage() {
                               : "bg-[#151c26] text-white ring-white/10 hover:bg-[#1d2633]"
                         }`}
                       >
-                        {key === "BACK" ? "←" : key}
+                        {key === "BACK" ? "â†" : key}
                       </button>
                     ))}
                   </div>
@@ -4925,5 +4928,8 @@ export default function POSTerminalPage() {
     </PageGuard>
   );
 }
+
+
+
 
 

@@ -1,9 +1,12 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -86,7 +89,7 @@ type PosVoidRequest = {
 };
 
 const peso = (value: number | null | undefined) =>
-  `₱${Number(value || 0).toLocaleString(undefined, {
+  `â‚±${Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -734,7 +737,7 @@ const { data: sessionData, error: sessionError } = await sessionQuery
                           {getOrderReference(order)}
                         </p>
                         <p className="mt-0.5 truncate text-[11px] font-bold uppercase text-slate-500">
-                          {order.order_number || "NO ORDER NO"} • {getOrderItemCount(order.id)} ITEM(S)
+                          {order.order_number || "NO ORDER NO"} â€¢ {getOrderItemCount(order.id)} ITEM(S)
                         </p>
                       </div>
 
@@ -870,7 +873,7 @@ const { data: sessionData, error: sessionError } = await sessionQuery
                           <div>
                             <p className="font-black text-white">{item.item_name}</p>
                             <p className="mt-1 text-xs font-bold uppercase text-slate-500">
-                              {item.qty} × {peso(item.price)} • {item.production_area || "NO STATION"} • {" "}
+                              {item.qty} Ã— {peso(item.price)} â€¢ {item.production_area || "NO STATION"} â€¢ {" "}
                               {item.production_status || "-"}
                             </p>
                           </div>
@@ -1072,5 +1075,8 @@ function TotalRow({
     </div>
   );
 }
+
+
+
 
 

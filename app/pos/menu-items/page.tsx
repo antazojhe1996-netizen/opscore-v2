@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -5,7 +9,6 @@ import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import {
   CheckCircle2,
   Download,
@@ -81,7 +84,7 @@ const emptyForm: ItemForm = {
 };
 
 const peso = (value: number) =>
-  `₱${Number(value || 0).toLocaleString(undefined, {
+  `â‚±${Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -108,7 +111,7 @@ const getCell = (row: Record<string, any>, keys: string[]) => {
 const toNumber = (value: any) => {
   const cleaned = String(value ?? "")
     .replace(/,/g, "")
-    .replace(/[₱$]/g, "")
+    .replace(/[â‚±$]/g, "")
     .trim();
 
   const parsed = Number(cleaned);
@@ -1661,5 +1664,8 @@ function ToggleButton({
     </button>
   );
 }
+
+
+
 
 

@@ -1,10 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from '@/lib/supabase';
 import { cashIn, cashOut } from "../cash/cash-engine";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+
 
 /**
  * =========================
@@ -195,6 +192,7 @@ export async function rejectApproval(id: string, approvedBy?: string) {
     },
   };
 }
+
 
 
 

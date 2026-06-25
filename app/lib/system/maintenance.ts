@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 /**
  * OPSCORE MAINTENANCE SYSTEM
  * Simple global toggle via environment variable

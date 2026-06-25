@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 import Link from "next/link";
@@ -143,7 +144,7 @@ export default function POSDashboardPage() {
               </div>
 
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
-                93% Complete · Almost Lockable
+                93% Complete Â· Almost Lockable
               </div>
             </section>
 

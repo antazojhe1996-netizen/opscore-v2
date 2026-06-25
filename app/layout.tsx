@@ -1,8 +1,9 @@
+import { supabase } from '@/lib/supabase';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-// 👉 DITO ILALAGAY
+// ðŸ‘‰ DITO ILALAGAY
 import RegisterServiceWorker from "../components/RegisterServiceWorker";
 
 const geistSans = Geist({

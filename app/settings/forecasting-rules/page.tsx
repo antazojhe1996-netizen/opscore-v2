@@ -1,8 +1,11 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import PageGuard from "@/components/PageGuard";
 
@@ -342,5 +345,8 @@ export default function ForecastingRulesPage() {
   </PageGuard>
   );
 }
+
+
+
 
 

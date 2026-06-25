@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
@@ -6,7 +10,6 @@ import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import {
   Building2,
   CheckCircle2,
@@ -298,7 +301,7 @@ const generalSettings = [
 ];
 
 const peso = (value: number | string | null | undefined) =>
-  `₱${Number(value || 0).toLocaleString(undefined, {
+  `â‚±${Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -323,7 +326,7 @@ const normalizeText = (value: any) => String(value ?? "").trim();
 const toNumber = (value: any) => {
   const cleaned = String(value ?? "")
     .replace(/,/g, "")
-    .replace(/[₱$]/g, "")
+    .replace(/[â‚±$]/g, "")
     .trim();
 
   const parsed = Number(cleaned);
@@ -2214,7 +2217,7 @@ export default function POSSetupCenterPage() {
             )}
 
             <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="Categories" value={String(categories.length)} helper={`${routedCategories.length} queued • ${directCategories.length} direct`} />
+              <KpiCard label="Categories" value={String(categories.length)} helper={`${routedCategories.length} queued â€¢ ${directCategories.length} direct`} />
               <KpiCard label="Products" value={String(products.length)} helper={`${activeProducts.length} active menu items`} tone="success" />
               <KpiCard label="Stations" value={String(productionStations.length)} helper="Kitchen, bar, desk, service stations" tone="info" />
               <KpiCard label="Payments" value={String(paymentMethods.length)} helper="Active and inactive payment methods" tone="warning" />
@@ -2657,7 +2660,7 @@ function CategoriesTab({
                         {category.requires_production === false ? "DIRECT RELEASE" : "QUEUE REQUIRED"}
                       </Badge>
                     </td>
-                    <td className="px-5 py-4">{category.production_area || "—"}</td>
+                    <td className="px-5 py-4">{category.production_area || "â€”"}</td>
                     <td className="px-5 py-4">
                       <Badge tone={category.status === "active" ? "success" : "neutral"}>{category.status || "active"}</Badge>
                     </td>
@@ -2823,7 +2826,7 @@ function ProductsTab({
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4">{item.category?.name || "—"}</td>
+                    <td className="px-5 py-4">{item.category?.name || "â€”"}</td>
                     <td className="px-5 py-4">
                       {item.setup_pack_id && setupPackMap.get(item.setup_pack_id) ? (
                         <Badge tone="info">{setupPackMap.get(item.setup_pack_id)?.pack_name}</Badge>
@@ -2838,7 +2841,7 @@ function ProductsTab({
                         {item.is_best_seller && <Badge tone="success">BEST</Badge>}
                         {item.is_hot && <Badge tone="danger">HOT</Badge>}
                         {item.is_new && <Badge tone="info">NEW</Badge>}
-                        {!item.is_best_seller && !item.is_hot && !item.is_new && <span className="text-xs font-semibold text-slate-400">—</span>}
+                        {!item.is_best_seller && !item.is_hot && !item.is_new && <span className="text-xs font-semibold text-slate-400">â€”</span>}
                       </div>
                     </td>
                     <td className="px-5 py-4">
@@ -2974,7 +2977,7 @@ function ModifiersTab({
                       </Badge>
                     </div>
                     <p className="mt-3 text-sm font-medium text-slate-500">
-                      Min {group.min_select} • Max {group.max_select} • {activeGroupOptions.length} active options
+                      Min {group.min_select} â€¢ Max {group.max_select} â€¢ {activeGroupOptions.length} active options
                     </p>
                   </div>
 
@@ -3136,7 +3139,7 @@ function SetupPacksTab({
               OPSCORE Smart Setup Packs
             </p>
             <h2 className="mt-1 text-xl font-black text-slate-950">
-              Import Menu → Assign Setup Packs → Go Live
+              Import Menu â†’ Assign Setup Packs â†’ Go Live
             </h2>
             <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
               Setup Packs are templates made of Choice Groups. Products get assigned one pack. Beer and simple direct-sale items can stay as None.
@@ -3294,7 +3297,7 @@ function StationsTab({
       }
     >
       {productionStations.map((item) => (
-        <RowCard key={item.id} title={item.name} helper={`${item.code}${item.printer_name ? ` • ${item.printer_name}` : ""}`} isActive={item.is_active} onToggle={() => toggleActive("pos_production_stations", item.id, item.is_active)} onDelete={() => deleteRow("pos_production_stations", item.id)} />
+        <RowCard key={item.id} title={item.name} helper={`${item.code}${item.printer_name ? ` â€¢ ${item.printer_name}` : ""}`} isActive={item.is_active} onToggle={() => toggleActive("pos_production_stations", item.id, item.is_active)} onDelete={() => deleteRow("pos_production_stations", item.id)} />
       ))}
     </SettingsCollection>
   );
@@ -3467,7 +3470,7 @@ function TablesTab({
       }
     >
       {tables.map((table) => (
-        <RowCard key={table.id} title={table.table_name} helper={`Capacity: ${table.capacity || 0} • Status: ${table.status}`} isActive={table.is_active} onToggle={() => toggleActive("pos_tables", table.id, table.is_active)} onDelete={() => deleteRow("pos_tables", table.id)} />
+        <RowCard key={table.id} title={table.table_name} helper={`Capacity: ${table.capacity || 0} â€¢ Status: ${table.status}`} isActive={table.is_active} onToggle={() => toggleActive("pos_tables", table.id, table.is_active)} onDelete={() => deleteRow("pos_tables", table.id)} />
       ))}
     </SettingsCollection>
   );
@@ -4448,7 +4451,7 @@ function SetupPackGroupsModal({
                       <Badge tone="info">{group.selection_type}</Badge>
                     </div>
                     <p className="mt-1 text-xs font-semibold text-slate-500">
-                      {group.group_code || "No code"} • {optionCount} choice(s) • Min {group.min_select} / Max {group.max_select}
+                      {group.group_code || "No code"} â€¢ {optionCount} choice(s) â€¢ Min {group.min_select} / Max {group.max_select}
                     </p>
                   </div>
                 </label>
@@ -4651,5 +4654,8 @@ function CheckOption({
     </label>
   );
 }
+
+
+
 
 

@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 import Link from "next/link";
@@ -90,7 +91,7 @@ export default function FinancePage() {
             <FinanceKpiCard
               icon={<Banknote size={22} />}
               title="Cash Position"
-              value="₱0.00"
+              value="â‚±0.00"
               description="Available cash and accountable funds."
               status="Stable"
             />
@@ -98,7 +99,7 @@ export default function FinancePage() {
             <FinanceKpiCard
               icon={<BarChart3 size={22} />}
               title="Revenue Today"
-              value="₱0.00"
+              value="â‚±0.00"
               description="Rooms, restaurant, apartment, and other collections."
               status="Monitoring"
             />
@@ -106,7 +107,7 @@ export default function FinancePage() {
             <FinanceKpiCard
               icon={<Receipt size={22} />}
               title="Expenses Today"
-              value="₱0.00"
+              value="â‚±0.00"
               description="Approved, released, posted, and liquidated expenses."
               status="Controlled"
             />
@@ -114,7 +115,7 @@ export default function FinancePage() {
             <FinanceKpiCard
               icon={<AlertTriangle size={22} />}
               title="Financial Exposure"
-              value="₱0.00"
+              value="â‚±0.00"
               description="Variance, missing postings, and unresolved findings."
               status="Review"
               warning
@@ -213,7 +214,7 @@ export default function FinancePage() {
             <FinancePanel
               icon={<Wallet size={22} />}
               title="Cash Accountability"
-              value="₱0.00"
+              value="â‚±0.00"
               description="Released cash, drawer accountability, remittance, and liquidation exposure."
               items={[
                 "Cash drawer monitoring active",
@@ -225,7 +226,7 @@ export default function FinancePage() {
             <FinancePanel
               icon={<CreditCard size={22} />}
               title="Expense Control"
-              value="₱0.00"
+              value="â‚±0.00"
               description="Operational spending under approval and liquidation control."
               items={[
                 "Approved expenses monitored",
@@ -237,7 +238,7 @@ export default function FinancePage() {
             <FinancePanel
               icon={<Landmark size={22} />}
               title="Revenue Mix"
-              value="₱0.00"
+              value="â‚±0.00"
               description="Consolidated revenue monitoring by source."
               items={[
                 "Room sales",

@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
@@ -8,7 +12,6 @@ import { Eye, FileSpreadsheet, Pencil, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import * as XLSX from "xlsx";
 
@@ -154,7 +157,7 @@ export default function EmployeesPage() {
   ];
 
   const formatMoney = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -172,7 +175,7 @@ export default function EmployeesPage() {
   const cleanMoney = (value: any) =>
     Number(
       String(value || "")
-        .replace("₱", "")
+        .replace("â‚±", "")
         .replace(/,/g, "")
         .trim(),
     ) || 0;
@@ -2006,5 +2009,8 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+
+
 
 

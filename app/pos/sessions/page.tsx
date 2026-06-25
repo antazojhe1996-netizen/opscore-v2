@@ -1,10 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import {
   Banknote,
   CheckCircle2,
@@ -48,7 +51,7 @@ type PosOrder = {
 };
 
 const peso = (value: number | null | undefined) =>
-  `₱${Number(value || 0).toLocaleString("en-PH", {
+  `â‚±${Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -953,5 +956,8 @@ function MiniCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+
+
 
 

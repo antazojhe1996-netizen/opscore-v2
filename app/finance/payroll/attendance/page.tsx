@@ -1,9 +1,12 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
@@ -101,7 +104,7 @@ const parseFriendlyTimeInput = (value: any) => {
     .toLowerCase();
   if (!raw) return "";
 
-  let text = raw.replace(/\s+/g, "").replace(/\./g, ":").replace(/：/g, ":");
+  let text = raw.replace(/\s+/g, "").replace(/\./g, ":").replace(/ï¼š/g, ":");
 
   const isPm = /(pm|p)$/i.test(text);
   const isAm = /(am|a)$/i.test(text);
@@ -2257,13 +2260,13 @@ export default function AttendancePage() {
               <KpiCard
                 label="Payroll Issues"
                 value={payrollIssueRows.length}
-                helper={`${missingEntryRows.length} missing • ${missingOutRows.length} missing out`}
+                helper={`${missingEntryRows.length} missing â€¢ ${missingOutRows.length} missing out`}
                 tone={payrollIssueRows.length > 0 ? "danger" : "success"}
               />
               <KpiCard
                 label="Payroll Ready"
                 value={payrollReady ? "Yes" : "No"}
-                helper={`${lateCount} late • ${otHours.toFixed(2)} OT hour(s)`}
+                helper={`${lateCount} late â€¢ ${otHours.toFixed(2)} OT hour(s)`}
                 tone={payrollReady ? "success" : payrollIssueRows.length > 0 ? "warning" : "neutral"}
               />
             </section>
@@ -2293,8 +2296,8 @@ export default function AttendancePage() {
                       {payrollIssueRows.length} row(s) need review before payroll.
                     </h2>
                     <p className="mt-1 text-sm font-semibold leading-6 text-red-700">
-                      Missing: {missingEntryRows.length} • Missing out: {missingOutRows.length} •
-                      No schedule: {noScheduleRows.length} • Review: {reviewRequiredRows.length}
+                      Missing: {missingEntryRows.length} â€¢ Missing out: {missingOutRows.length} â€¢
+                      No schedule: {noScheduleRows.length} â€¢ Review: {reviewRequiredRows.length}
                     </p>
                   </div>
 
@@ -2327,7 +2330,7 @@ export default function AttendancePage() {
                               {row.employee.first_name} {row.employee.last_name}
                             </p>
                             <p className="text-xs font-medium text-slate-500">
-                              {row.employee.employee_no || "-"} • {row.employee.department}
+                              {row.employee.employee_no || "-"} â€¢ {row.employee.department}
                             </p>
                           </td>
                           <td className="px-5 py-4 font-black text-slate-950">
@@ -2366,7 +2369,7 @@ export default function AttendancePage() {
                       Import Preview
                     </h2>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                      Rows: {importPreview.length} • Matched: {matchedPreviewCount} • Missing: {missingPreviewCount}
+                      Rows: {importPreview.length} â€¢ Matched: {matchedPreviewCount} â€¢ Missing: {missingPreviewCount}
                     </p>
                   </div>
 
@@ -2421,7 +2424,7 @@ export default function AttendancePage() {
                               <option value="">Select match</option>
                               {employees.map((emp) => (
                                 <option key={emp.id} value={emp.id}>
-                                  {emp.employee_no ? `${emp.employee_no} • ` : ""}
+                                  {emp.employee_no ? `${emp.employee_no} â€¢ ` : ""}
                                   {emp.first_name} {emp.last_name}
                                 </option>
                               ))}
@@ -2492,7 +2495,7 @@ export default function AttendancePage() {
                               {row.employee.first_name} {row.employee.last_name}
                             </p>
                             <p className="text-xs font-medium text-slate-500">
-                              {row.employee.department} • {row.employee.employee_no || "-"}
+                              {row.employee.department} â€¢ {row.employee.employee_no || "-"}
                             </p>
                           </td>
                           <td className="px-6 py-4 font-black text-slate-950">{row.date}</td>
@@ -2510,12 +2513,12 @@ export default function AttendancePage() {
                                 !["OFF", "RD", "Leave", "LEAVE"].includes(String(row.scheduled_shift)) &&
                                 !shiftTemplates.some((shift) => shift.shift_name === row.scheduled_shift) && (
                                   <option value={row.scheduled_shift}>
-                                    {getShiftTimeLabel(row.scheduled_shift)} • From Scheduling
+                                    {getShiftTimeLabel(row.scheduled_shift)} â€¢ From Scheduling
                                   </option>
                                 )}
                               {shiftTemplates.map((shift) => (
                                 <option key={shift.id || shift.shift_name} value={shift.shift_name}>
-                                  {shift.shift_name} • {getShiftTimeLabel(shift.shift_name)}
+                                  {shift.shift_name} â€¢ {getShiftTimeLabel(shift.shift_name)}
                                 </option>
                               ))}
                             </select>
@@ -2713,5 +2716,8 @@ function SourceBadge({ source }: { source: any }) {
 
   return <StatusPill tone={tone}>{normalized}</StatusPill>;
 }
+
+
+
 
 

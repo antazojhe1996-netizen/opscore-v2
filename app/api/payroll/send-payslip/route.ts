@@ -1,9 +1,10 @@
+import { supabase } from '@/lib/supabase';
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 
 const money = (value: any) =>
-  `₱${Number(value || 0).toLocaleString("en-PH", {
+  `â‚±${Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;

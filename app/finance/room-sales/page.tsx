@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
@@ -7,8 +11,6 @@ import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-
 type Mode = "OTA" | "DIRECT";
 type Channel = "BOOKING_COM" | "AIRBNB";
 
@@ -434,7 +436,7 @@ export default function OtaAndDirectSalesPage() {
                         Manual Historical
                       </p>
                       <p className="mt-1 text-xs font-bold text-amber-800">
-                        Use for January → latest walk-in only.
+                        Use for January â†’ latest walk-in only.
                       </p>
                     </div>
                   )}
@@ -1083,7 +1085,7 @@ function cleanMoney(value: any) {
   if (!raw) return 0;
 
   const negative = raw.startsWith("(") && raw.endsWith(")");
-  const cleaned = raw.replace(/[₱,$,\s()]/g, "");
+  const cleaned = raw.replace(/[â‚±,$,\s()]/g, "");
   const number = Number(cleaned) || 0;
 
   return negative ? -number : number;
@@ -1132,7 +1134,7 @@ function n(value: any) {
 }
 
 function peso(value: number) {
-  return `₱${Number(value || 0).toLocaleString("en-PH", {
+  return `â‚±${Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -1156,5 +1158,8 @@ function hashKey(value: string) {
 
   return Math.abs(hash).toString(36);
 }
+
+
+
 
 

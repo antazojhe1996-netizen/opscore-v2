@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -27,8 +31,6 @@ import {
   X,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
-
 type Employee = {
   id: string;
   employee_no?: string | null;
@@ -815,7 +817,7 @@ export default function PerformanceMonitoringPage() {
           <h1>Employee Performance Report</h1>
           <p class="muted">Period: ${formatDate(startDate)} to ${formatDate(endDate)}</p>
           <h2>${getEmployeeName(item.employee)}</h2>
-          <p class="muted">${item.employee.employee_no || "No employee no"} • ${item.department} • ${item.employee.position || "No position"}</p>
+          <p class="muted">${item.employee.employee_no || "No employee no"} â€¢ ${item.department} â€¢ ${item.employee.position || "No position"}</p>
           <div class="score">${item.score} / 100 - ${item.label}</div>
           <div class="grid">
             <div class="card"><b>Late</b><br>${item.lateCount}</div>
@@ -948,7 +950,7 @@ export default function PerformanceMonitoringPage() {
             }
             helper={
               lowestScoreEmployee
-                ? `${lowestScoreEmployee.score} • ${lowestScoreEmployee.department}`
+                ? `${lowestScoreEmployee.score} â€¢ ${lowestScoreEmployee.department}`
                 : "no records"
             }
             danger={!!lowestScoreEmployee && lowestScoreEmployee.score < 75}
@@ -1341,7 +1343,7 @@ export default function PerformanceMonitoringPage() {
                       className={`px-4 py-4 text-center font-black ${getTrendClass(item.trendDelta)}`}
                     >
                       {item.previousHistoryScore === null
-                        ? "—"
+                        ? "â€”"
                         : `${item.trendDelta >= 0 ? "+" : ""}${item.trendDelta}`}
                     </td>
                     <td className="px-4 py-4 text-center">{item.lateCount}</td>
@@ -1380,7 +1382,7 @@ export default function PerformanceMonitoringPage() {
                                   : "text-slate-500"
                               }
                             >
-                              {row.count} × {row.deductionPoints} = -
+                              {row.count} Ã— {row.deductionPoints} = -
                               {row.totalDeduction}
                             </span>
                           </div>
@@ -1759,8 +1761,8 @@ function EmployeeDrawer({
                 {getEmployeeName(item.employee)}
               </h2>
               <p className="mt-1 text-sm text-slate-400">
-                {item.employee.employee_no || "No employee no"} •{" "}
-                {item.department} • {item.employee.position || "No position"}
+                {item.employee.employee_no || "No employee no"} â€¢{" "}
+                {item.department} â€¢ {item.employee.position || "No position"}
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 Review period: {formatDate(startDate)} to {formatDate(endDate)}
@@ -1917,8 +1919,8 @@ function EmployeeDrawer({
                             {row.metricLabel}
                           </p>
                           <p className="text-xs text-slate-500">
-                            Count: {row.count} • Deduction:{" "}
-                            {row.deductionPoints} point(s) each • Weight:{" "}
+                            Count: {row.count} â€¢ Deduction:{" "}
+                            {row.deductionPoints} point(s) each â€¢ Weight:{" "}
                             {row.weightPercent}%
                           </p>
                         </div>
@@ -1929,7 +1931,7 @@ function EmployeeDrawer({
                               : "font-black text-slate-500"
                           }
                         >
-                          {row.count} × {row.deductionPoints} = -
+                          {row.count} Ã— {row.deductionPoints} = -
                           {row.totalDeduction}
                         </p>
                       </div>
@@ -2109,5 +2111,8 @@ function EmployeeDrawer({
     </div>
   );
 }
+
+
+
 
 

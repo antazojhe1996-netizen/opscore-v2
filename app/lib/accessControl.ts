@@ -1,12 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
-
+import { supabase } from '@/lib/supabase';
 /**
  * SERVER CLIENT (SAFE)
  */
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+
 
 type CurrentUserAccessResult = {
   systemUser: any | null;

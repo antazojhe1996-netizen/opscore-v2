@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -5,7 +9,6 @@ import type { LucideIcon } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
 import {
   Building2,
   CalendarDays,
@@ -293,7 +296,7 @@ const buildManifest = ({
 };
 
 const formatFailedTables = (failedTables: FailedTable[]) =>
-  failedTables.map((item) => `• ${item.table}: ${item.error}`).join("\n");
+  failedTables.map((item) => `â€¢ ${item.table}: ${item.error}`).join("\n");
 
 const exportTable = async (tableName: string, fileName: string) => {
   const { rows, error } = await fetchAllRows(tableName);
@@ -747,7 +750,7 @@ function HealthCard({
       </p>
 
       <div className="mt-3 flex items-end justify-between gap-3">
-        <p className="text-3xl font-black text-slate-950">{loading ? "—" : value}</p>
+        <p className="text-3xl font-black text-slate-950">{loading ? "â€”" : value}</p>
         <CheckCircle2 className="text-emerald-600" size={20} />
       </div>
     </div>
@@ -829,5 +832,8 @@ function BackupRow({
     </div>
   );
 }
+
+
+
 
 

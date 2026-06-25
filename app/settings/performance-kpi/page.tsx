@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,7 +15,6 @@ import {
   Trash2,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import PageGuard from "@/components/PageGuard";
 
@@ -736,5 +739,8 @@ function SelectNative({ value, onChange, options }: any) {
     </select>
   );
 }
+
+
+
 
 

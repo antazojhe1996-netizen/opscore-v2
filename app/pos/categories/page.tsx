@@ -1,10 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import {
   CheckCircle2,
   ClipboardList,
@@ -793,8 +796,8 @@ export default function POSCategoriesPage() {
                       }
                     >
                       {form.requires_production
-                        ? "ON — Items enter Production Queue"
-                        : "OFF — Direct Release / Skip Queue"}
+                        ? "ON â€” Items enter Production Queue"
+                        : "OFF â€” Direct Release / Skip Queue"}
                     </button>
 
                     <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
@@ -883,5 +886,8 @@ function KpiCard({
     </div>
   );
 }
+
+
+
 
 

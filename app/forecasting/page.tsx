@@ -1,11 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-
 export default function ForecastingPage() {
   /// STATES
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
@@ -670,7 +672,7 @@ export default function ForecastingPage() {
                   onClick={() => setShowAlertPanel(false)}
                   className="h-11 w-11 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
                 >
-                  ×
+                  Ã—
                 </button>
               </div>
 
@@ -695,7 +697,7 @@ export default function ForecastingPage() {
                             <span>Gap {day.gap}</span>
                           </div>
                           <p className="mt-2 text-xs leading-5">
-                            Required HC: {day.required_hc} · Scheduled HC:{" "}
+                            Required HC: {day.required_hc} Â· Scheduled HC:{" "}
                             {day.scheduled_hc}
                           </p>
                         </div>
@@ -822,5 +824,8 @@ export default function ForecastingPage() {
     </div>
   );
 }
+
+
+
 
 

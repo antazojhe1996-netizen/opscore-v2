@@ -1,10 +1,12 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
-
 export default function ApartmentSettingsPage() {
   /// STATES
   const [units, setUnits] = useState<any[]>([]);
@@ -29,7 +31,7 @@ export default function ApartmentSettingsPage() {
 
   /// FUNCTIONS
   const formatMoney = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -486,5 +488,8 @@ function Input({
     </div>
   );
 }
+
+
+
 
 

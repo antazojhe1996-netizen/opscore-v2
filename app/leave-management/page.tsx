@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
@@ -15,7 +19,6 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import * as XLSX from "xlsx";
 
@@ -690,7 +693,7 @@ export default function LeaveManagementPage() {
                           </p>
                         </div>
                         <p className="mt-2 text-xs font-bold text-slate-500">
-                          Used: {credit.used_credits || 0} • Total: {credit.total_credits || credit.credits || "-"}
+                          Used: {credit.used_credits || 0} â€¢ Total: {credit.total_credits || credit.credits || "-"}
                         </p>
                       </div>
                     ))
@@ -712,7 +715,7 @@ export default function LeaveManagementPage() {
                       <button key={leave.id} onClick={() => setSelectedLeave(leave)} className="block w-full rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all duration-200 hover:border-slate-300 hover:shadow-md">
                         <p className="font-black text-slate-950">{getEmployeeName(leave.employee_id)}</p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
-                          {leave.leave_type || "Leave"} • {leave.start_date} to {leave.end_date}
+                          {leave.leave_type || "Leave"} â€¢ {leave.start_date} to {leave.end_date}
                         </p>
                       </button>
                     ))
@@ -906,5 +909,8 @@ function InfoRow({ label, value }: any) {
     </div>
   );
 }
+
+
+
 
 

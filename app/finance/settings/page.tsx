@@ -1,11 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-
 export default function FinanceSettingsPage() {
   /// STATES
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
@@ -455,7 +457,7 @@ function PaymentMethodRulesPanel({
         }
       >
         <span className="block">
-          {checked ? "YES" : "NO"} · {label}
+          {checked ? "YES" : "NO"} Â· {label}
         </span>
         <span className="mt-1 block text-[10px] font-bold normal-case leading-4 opacity-80">
           {helpText}
@@ -486,8 +488,8 @@ function PaymentMethodRulesPanel({
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
-            Total: <span className="text-slate-950">{items.length}</span> · Active:{" "}
-            <span className="text-emerald-700">{activeCount}</span> · Inactive:{" "}
+            Total: <span className="text-slate-950">{items.length}</span> Â· Active:{" "}
+            <span className="text-emerald-700">{activeCount}</span> Â· Inactive:{" "}
             <span className="text-red-700">{inactiveCount}</span>
           </div>
         </div>
@@ -676,8 +678,8 @@ function SettingsPanel({
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
-            Total: <span className="text-slate-950">{items.length}</span> · Active:{" "}
-            <span className="text-emerald-700">{activeCount}</span> · Inactive:{" "}
+            Total: <span className="text-slate-950">{items.length}</span> Â· Active:{" "}
+            <span className="text-emerald-700">{activeCount}</span> Â· Inactive:{" "}
             <span className="text-red-700">{inactiveCount}</span>
           </div>
         </div>
@@ -804,5 +806,8 @@ function SettingsPanel({
     </section>
   );
 }
+
+
+
 
 

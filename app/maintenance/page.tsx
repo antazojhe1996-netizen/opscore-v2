@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 export default function MaintenancePage() {
@@ -6,16 +7,16 @@ export default function MaintenancePage() {
 
   return (
     <div style={{ padding: 40, textAlign: "center" }}>
-      <h1>🚧 SYSTEM UNDER MAINTENANCE</h1>
+      <h1>ðŸš§ SYSTEM UNDER MAINTENANCE</h1>
 
       <p>OPSCORE is currently stabilizing core modules.</p>
 
       <div style={{ marginTop: 20 }}>
-        <p>Cash Engine: 🟡</p>
-        <p>Approval System: 🟡</p>
-        <p>Watcher: 🔴</p>
-        <p>Variance Engine: 🟡</p>
-        <p>UI System: 🟢</p>
+        <p>Cash Engine: ðŸŸ¡</p>
+        <p>Approval System: ðŸŸ¡</p>
+        <p>Watcher: ðŸ”´</p>
+        <p>Variance Engine: ðŸŸ¡</p>
+        <p>UI System: ðŸŸ¢</p>
       </div>
 
       <p style={{ marginTop: 20, opacity: 0.6 }}>

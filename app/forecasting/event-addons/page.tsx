@@ -1,9 +1,11 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
-
 type EventAddon = {
   id: string;
   event_date: string;
@@ -503,5 +505,8 @@ export default function EventAddonsPage() {
     </div>
   );
 }
+
+
+
 
 

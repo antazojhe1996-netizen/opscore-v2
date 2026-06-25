@@ -1,10 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 // @ts-nocheck
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import * as XLSX from "xlsx";
 import TopNavbar from "@/components/TopNavbar";
@@ -89,7 +92,7 @@ export default function ExpensesPage() {
 
   /// FUNCTIONS - FORMATTERS
   const formatCurrency = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -112,7 +115,7 @@ export default function ExpensesPage() {
 
     return Number(
       String(value)
-        .replace("₱", "")
+        .replace("â‚±", "")
         .replace(/,/g, "")
         .trim()
     );
@@ -208,7 +211,7 @@ export default function ExpensesPage() {
     if (expense.cash_movement_id) references.push(`Cash Movement ID: ${expense.cash_movement_id}`);
     if (expense.employee_balance_id) references.push(`Employee Balance ID: ${expense.employee_balance_id}`);
 
-    return references.join(" • ");
+    return references.join(" â€¢ ");
   };
 
   const isExpenseVoided = (expense: any) => {
@@ -382,8 +385,8 @@ export default function ExpensesPage() {
   };
 
   const sortIcon = (key: string) => {
-    if (sortConfig.key !== key) return "↕";
-    return sortConfig.direction === "asc" ? "↑" : "↓";
+    if (sortConfig.key !== key) return "â†•";
+    return sortConfig.direction === "asc" ? "â†‘" : "â†“";
   };
 
   /// PERMISSIONS
@@ -1257,7 +1260,7 @@ export default function ExpensesPage() {
                     <FieldLabel label="Amount">
                       <div className="relative">
                         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
-                          ₱
+                          â‚±
                         </span>
                         <input
                           type="number"
@@ -1753,5 +1756,8 @@ function PayrollBadge({ expense }: any) {
     </span>
   );
 }
+
+
+
 
 

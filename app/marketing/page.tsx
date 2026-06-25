@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 import {
@@ -26,7 +27,7 @@ const campaigns = [
     title: "Rainy Day Room Promo",
     channel: "Facebook Ads",
     status: "Active",
-    budget: "₱5,000",
+    budget: "â‚±5,000",
     reach: "18,420",
     leads: "64",
   },
@@ -34,7 +35,7 @@ const campaigns = [
     title: "Pool Day Tour Boost",
     channel: "Organic Social",
     status: "Scheduled",
-    budget: "₱0",
+    budget: "â‚±0",
     reach: "8,250",
     leads: "31",
   },
@@ -42,7 +43,7 @@ const campaigns = [
     title: "Sports Bar Weekend Promo",
     channel: "Facebook Page",
     status: "Draft",
-    budget: "₱2,000",
+    budget: "â‚±2,000",
     reach: "4,900",
     leads: "18",
   },
@@ -292,7 +293,7 @@ export default function MarketingPage() {
                         <div>
                           <p className="text-sm font-black text-slate-900">{lead.name}</p>
                           <p className="mt-1 text-xs font-bold text-slate-400">
-                            {lead.source} • {lead.interest}
+                            {lead.source} â€¢ {lead.interest}
                           </p>
                         </div>
                         <span className={getStatusClass(lead.status)}>

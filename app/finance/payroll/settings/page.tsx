@@ -1,11 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-
 type PayrollHoliday = {
   id?: number;
   holiday_name: string;
@@ -966,5 +968,8 @@ function HolidayTable({
     </div>
   );
 }
+
+
+
 
 

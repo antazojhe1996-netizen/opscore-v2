@@ -1,10 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import {
   AlertTriangle,
   Ban,
@@ -77,7 +80,7 @@ type PosApprovalAction = "POS_VOID" | "POS_REFUND";
 type DateFilter = "today" | "week" | "month" | "all";
 
 const peso = (value: number | null | undefined) =>
-  `₱${Number(value || 0).toLocaleString(undefined, {
+  `â‚±${Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -376,7 +379,7 @@ export default function POSTransactionsPage() {
       {
         label: "Order Status",
         value: order.status || "-",
-        helper: `Payment: ${order.payment_status || "-"} • Production: ${order.production_status || "-"}`,
+        helper: `Payment: ${order.payment_status || "-"} â€¢ Production: ${order.production_status || "-"}`,
       },
     ];
 
@@ -912,7 +915,7 @@ export default function POSTransactionsPage() {
                               {getOrderReference(order)}
                             </p>
                             <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                              Order No: {order.order_number || "-"} • Receipt: {order.receipt_no || "-"}
+                              Order No: {order.order_number || "-"} â€¢ Receipt: {order.receipt_no || "-"}
                             </p>
                           </td>
 
@@ -1192,7 +1195,7 @@ export default function POSTransactionsPage() {
                                     {item.item_name}
                                   </p>
                                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                                    {item.qty} × {peso(item.price)} •{" "}
+                                    {item.qty} Ã— {peso(item.price)} â€¢{" "}
                                     {item.production_status || "-"}
                                   </p>
                                 </div>
@@ -1383,5 +1386,8 @@ function TotalRow({
     </div>
   );
 }
+
+
+
 
 

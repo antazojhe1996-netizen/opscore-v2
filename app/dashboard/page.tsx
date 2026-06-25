@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
 
@@ -18,7 +22,6 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 
 type RangeType = "daily" | "weekly" | "monthly" | "yearly";
 type Row = Record<string, any>;
@@ -87,7 +90,7 @@ export default function ExecutiveDashboardPage() {
   const todayKey = new Date().toISOString().slice(0, 10);
 
   const formatPeso = (value: number) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })}`;
@@ -1045,7 +1048,7 @@ export default function ExecutiveDashboardPage() {
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-                Realtime Money • Current Open Drawer
+                Realtime Money â€¢ Current Open Drawer
               </p>
               <h2 className="mt-2 text-2xl font-black text-slate-950">
                 Available Money
@@ -1083,7 +1086,7 @@ export default function ExecutiveDashboardPage() {
         <section className="mb-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-5">
             <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
-              Historical Performance • {getActiveRangeLabel()}
+              Historical Performance â€¢ {getActiveRangeLabel()}
             </p>
             <h2 className="mt-1 text-xl font-black text-slate-950">
               Cash-Based Income and Outflows
@@ -1264,7 +1267,7 @@ function ReadyForPaymentsPanel({
       <div className="flex items-center justify-end gap-2">
         <span className={`h-3 w-3 rounded-full ${dotClass}`} />
         <p className="text-[11px] font-black uppercase tracking-[0.24em]">
-          Ready For Payments • {statusLabel}
+          Ready For Payments â€¢ {statusLabel}
         </p>
       </div>
 
@@ -1421,5 +1424,8 @@ function BriefLine({ text }: { text: string }) {
     </div>
   );
 }
+
+
+
 
 

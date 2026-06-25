@@ -1,6 +1,5 @@
+import { supabase } from '@/lib/supabase';
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
 function generateTemporaryPassword() {
   return "Welcome123!";
 }
@@ -233,6 +232,7 @@ export async function POST(req: Request) {
     );
   }
 }
+
 
 
 

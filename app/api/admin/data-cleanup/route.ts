@@ -1,8 +1,7 @@
+import { supabase } from '@/lib/supabase';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
 type CleanupTable = {
   key: string;
   label: string;
@@ -350,6 +349,7 @@ export async function POST(req: Request) {
     );
   }
 }
+
 
 
 

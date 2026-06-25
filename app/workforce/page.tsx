@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
@@ -11,8 +15,6 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
-
 export default function WorkforcePage() {
   /// STATES
   const [employees, setEmployees] = useState<any[]>([]);
@@ -431,7 +433,7 @@ export default function WorkforcePage() {
       ? ["Check overstaffed departments for possible reassignment."]
       : []),
     ...(!hasPublishedSchedule
-      ? ["Publish today’s weekly schedule so Workforce uses final locked data."]
+      ? ["Publish todayâ€™s weekly schedule so Workforce uses final locked data."]
       : []),
   ];
 
@@ -588,7 +590,7 @@ const assistantReminders: Reminder[] = [
                         : "Immediate manpower attention is recommended."}
                 </h2>
                 <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-                  OPSCORE summarized today’s staffing position based on required
+                  OPSCORE summarized todayâ€™s staffing position based on required
                   headcount, scheduled manpower, leave impact, unpublished
                   schedule data, and no-schedule alerts.
                 </p>
@@ -790,7 +792,7 @@ const assistantReminders: Reminder[] = [
 
             <StaffList
               title="On Leave Today"
-              subtitle="Approved leave that affects today’s manpower."
+              subtitle="Approved leave that affects todayâ€™s manpower."
               employees={approvedLeavesToday.map((leave) => {
                 const emp = employees.find((employee) =>
                   isSameEmployee(employee.id, leave.employee_id),
@@ -983,7 +985,7 @@ function DepartmentCoverageCard({
         <div>
           <h3 className="font-black text-slate-950">{dept.department}</h3>
           <p className="mt-1 text-xs font-medium text-slate-500">
-            Required {dept.required} • Scheduled {dept.scheduled} • Available{" "}
+            Required {dept.required} â€¢ Scheduled {dept.scheduled} â€¢ Available{" "}
             {dept.available}
           </p>
         </div>
@@ -1018,7 +1020,7 @@ function DepartmentCoverageCard({
               key={item.shiftName}
               className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700"
             >
-              {getShiftTimeLabel(item.shiftName)} × {item.count}
+              {getShiftTimeLabel(item.shiftName)} Ã— {item.count}
             </span>
           ))}
         </div>
@@ -1078,7 +1080,7 @@ function StaffList({
           >
             <p className="font-black text-slate-950">{getName(emp)}</p>
             <p className="text-xs font-medium text-slate-500">
-              {emp.department || "Unassigned"} • {emp.position || "No position"}
+              {emp.department || "Unassigned"} â€¢ {emp.position || "No position"}
             </p>
           </div>
         ))}
@@ -1145,5 +1147,8 @@ function LeaveQueue({
     </div>
   );
 }
+
+
+
 
 

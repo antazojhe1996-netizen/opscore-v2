@@ -1,9 +1,12 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
 import PageGuard from "@/components/PageGuard";
 
 type ApartmentUnit = {
@@ -46,7 +49,7 @@ export default function PropertySettingsPage() {
 
   /// HELPERS
   const formatMoney = (value: any) => {
-    return `₱${Number(value || 0).toLocaleString("en-PH", {
+    return `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -536,5 +539,8 @@ function SummaryRow({
     </div>
   );
 }
+
+
+
 
 

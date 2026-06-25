@@ -1,11 +1,13 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-
 type Bill = {
   id: string;
   company_id: string | null;
@@ -60,7 +62,7 @@ export default function BillsPage() {
   const [paymentMethod, setPaymentMethod] = useState("Cash");
 
   const formatMoney = (value: number | string | null | undefined) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -632,7 +634,7 @@ export default function BillsPage() {
                       <AlertCard
                         key={bill.id}
                         type={status === "Overdue" ? "OVERDUE" : "DUE SOON"}
-                        title={`${bill.category} • ${MONTHS[bill.bill_month - 1]}`}
+                        title={`${bill.category} â€¢ ${MONTHS[bill.bill_month - 1]}`}
                         amount={formatMoney(bill.amount)}
                         message={
                           daysLeft === null
@@ -780,5 +782,8 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+
+
 
 

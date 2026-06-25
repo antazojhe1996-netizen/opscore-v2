@@ -1,9 +1,11 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
-
 type OccupancyRow = {
   id?: string;
   business_date: string;
@@ -149,7 +151,7 @@ export default function OccupancyImportPage() {
 
     return Number(
       String(value)
-        .replace("₱", "")
+        .replace("â‚±", "")
         .replace("%", "")
         .replace(/,/g, "")
         .trim()
@@ -467,7 +469,7 @@ export default function OccupancyImportPage() {
               <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                 <p className="text-xs text-slate-500">Revenue</p>
                 <p className="mt-1 text-xl font-black">
-                  ₱{previewSummary.totalRevenue.toLocaleString()}
+                  â‚±{previewSummary.totalRevenue.toLocaleString()}
                 </p>
               </div>
             </div>
@@ -537,13 +539,13 @@ export default function OccupancyImportPage() {
                           <td className="px-4 py-4">{row.available_rooms}</td>
                           <td className="px-4 py-4">{row.occupancy}%</td>
                           <td className="px-4 py-4">
-                            ₱{row.room_revenue.toLocaleString()}
+                            â‚±{row.room_revenue.toLocaleString()}
                           </td>
                           <td className="px-4 py-4">
-                            ₱{row.total_revenue.toLocaleString()}
+                            â‚±{row.total_revenue.toLocaleString()}
                           </td>
                           <td className="px-4 py-4">
-                            ₱{row.adr.toLocaleString()}
+                            â‚±{row.adr.toLocaleString()}
                           </td>
                         </tr>
                       ))
@@ -623,13 +625,13 @@ export default function OccupancyImportPage() {
                         <td className="px-4 py-4">{row.available_rooms}</td>
                         <td className="px-4 py-4">{row.occupancy}%</td>
                         <td className="px-4 py-4">
-                          ₱{Number(row.room_revenue || 0).toLocaleString()}
+                          â‚±{Number(row.room_revenue || 0).toLocaleString()}
                         </td>
                         <td className="px-4 py-4">
-                          ₱{Number(row.total_revenue || 0).toLocaleString()}
+                          â‚±{Number(row.total_revenue || 0).toLocaleString()}
                         </td>
                         <td className="px-4 py-4">
-                          ₱{Number(row.adr || 0).toLocaleString()}
+                          â‚±{Number(row.adr || 0).toLocaleString()}
                         </td>
                         <td className="px-4 py-4 text-right">
                           <button
@@ -651,5 +653,8 @@ export default function OccupancyImportPage() {
     </div>
   );
 }
+
+
+
 
 

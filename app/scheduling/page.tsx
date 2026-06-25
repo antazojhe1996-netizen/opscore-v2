@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
@@ -18,7 +22,6 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 
 type Employee = {
@@ -1697,7 +1700,7 @@ export default function SchedulingPage() {
                 onClick={() => moveDate("prev")}
                 className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
-                ‹
+                â€¹
               </button>
 
               <button
@@ -1711,7 +1714,7 @@ export default function SchedulingPage() {
                 onClick={() => moveDate("next")}
                 className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
               >
-                ›
+                â€º
               </button>
 
               <div className="flex h-11 rounded-xl border border-slate-300 bg-white p-1">
@@ -1910,7 +1913,7 @@ export default function SchedulingPage() {
               <div>
                 <h2 className="text-lg font-black">Import Preview</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Rows: {scheduleImportPreview.length} • Ready: {importReadyCount} • Issues: {importIssueCount}
+                  Rows: {scheduleImportPreview.length} â€¢ Ready: {importReadyCount} â€¢ Issues: {importIssueCount}
                 </p>
               </div>
 
@@ -2045,7 +2048,7 @@ export default function SchedulingPage() {
                         {employee.first_name} {employee.last_name}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {employee.position || "-"} • {employee.employee_no || "-"}
+                        {employee.position || "-"} â€¢ {employee.employee_no || "-"}
                       </p>
                     </div>
 
@@ -2119,7 +2122,7 @@ export default function SchedulingPage() {
                               {override && (
                                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center">
                                   <p className="text-[10px] font-black text-amber-700">
-                                    {effectiveShift} • Override
+                                    {effectiveShift} â€¢ Override
                                   </p>
                                   <p className="mt-0.5 truncate text-[9px] font-semibold text-amber-700" title={override.reason}>
                                     {override.reason}
@@ -2434,5 +2437,8 @@ function SummaryRow({ label, values, tableGridColumns }: any) {
     </div>
   );
 }
+
+
+
 
 

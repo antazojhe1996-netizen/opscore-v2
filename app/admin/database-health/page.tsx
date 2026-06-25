@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -18,8 +22,6 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-
 type HealthStatus = "Healthy" | "Warning" | "Critical";
 type Severity = "good" | "warning" | "critical";
 
@@ -168,7 +170,7 @@ export default function DatabaseHealthPage() {
   };
 
   const formatMoney = (value: any) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
+    `â‚±${Number(value || 0).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -1483,5 +1485,8 @@ function StandardBox({ title, values }: { title: string; values: string[] }) {
     </div>
   );
 }
+
+
+
 
 

@@ -1,3 +1,7 @@
+import { supabase } from '@/lib/supabase';
+"use client";
+
+
 "use client";
 
 import type React from "react";
@@ -5,7 +9,6 @@ import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import {
   CheckCircle2,
@@ -661,7 +664,7 @@ export default function ApprovalAssignmentsPage() {
                     <option value="">Select approver</option>
                     {activeEmployees.map((employee) => (
                       <option key={employee.id} value={employee.id}>
-                        {getEmployeeName(employee)} — {employee.department || "No Department"}
+                        {getEmployeeName(employee)} â€” {employee.department || "No Department"}
                       </option>
                     ))}
                   </select>
@@ -716,7 +719,7 @@ export default function ApprovalAssignmentsPage() {
                             </h2>
 
                             <p className="mt-1 text-sm font-semibold text-slate-500">
-                              {employee?.department || "No Department"} • {employee?.position || "No Position"}
+                              {employee?.department || "No Department"} â€¢ {employee?.position || "No Position"}
                             </p>
 
                             <div className="mt-5 space-y-4">
@@ -860,7 +863,7 @@ export default function ApprovalAssignmentsPage() {
                                         <span className="min-w-0">
                                           <span className="block truncate">{workflow.displayName}</span>
                                           <span className="mt-1 block truncate text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
-                                            {workflow.module || "Workflow"} • {workflow.normalizedKey}
+                                            {workflow.module || "Workflow"} â€¢ {workflow.normalizedKey}
                                           </span>
                                         </span>
                                       </label>
@@ -883,7 +886,7 @@ export default function ApprovalAssignmentsPage() {
                                       >
                                         <div>
                                           <p className="text-sm font-black text-slate-950">
-                                            {assignment.approval_role} • {assignment.assignment_type || "BACKUP"}
+                                            {assignment.approval_role} â€¢ {assignment.assignment_type || "BACKUP"}
                                           </p>
                                           <p className="mt-1 text-xs font-bold text-slate-500">
                                             {safeParseWorkflowKeys(assignment).length} workflow key(s)
@@ -1043,5 +1046,8 @@ function EmptyState({ title }: { title: string }) {
     </div>
   );
 }
+
+
+
 
 

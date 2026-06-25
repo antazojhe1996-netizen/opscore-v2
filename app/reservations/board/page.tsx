@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 "use client";
 
 import Link from "next/link";
@@ -130,7 +131,7 @@ export default function ReservationBoardPage() {
             <Metric icon={<BedDouble size={22} />} title="Occupancy" value="72%" note="46 / 64 Rooms" />
             <Metric icon={<LogIn size={22} />} title="Check-ins" value="12" note="Today" />
             <Metric icon={<LogOut size={22} />} title="Check-outs" value="8" note="Today" />
-            <Metric icon={<Wallet size={22} />} title="Revenue Today" value="₱189,450" note="Room Revenue" />
+            <Metric icon={<Wallet size={22} />} title="Revenue Today" value="â‚±189,450" note="Room Revenue" />
           </section>
 
           <section className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
