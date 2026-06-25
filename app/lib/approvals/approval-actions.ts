@@ -1,5 +1,17 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
+
+/**
+ * =========================
+ * SERVER SUPABASE CLIENT (SAFE)
+ * =========================
+ */
+function getSupabaseServer() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * =========================
@@ -30,10 +42,10 @@ const cleanRemarks = (remarks: any) =>
 
 /**
  * =========================
- * LOCK CHECK (STEP 3)
+ * LOCK CHECK
  * =========================
  */
-async function checkLock(requestId: string) {
+async function checkLock(supabase: any, requestId: string) {
   const { data, error } = await supabase
     .from("cash_execution_locks")
     .select("*")
@@ -47,10 +59,10 @@ async function checkLock(requestId: string) {
 
 /**
  * =========================
- * CREATE LOCK (STEP 3)
+ * CREATE LOCK
  * =========================
  */
-async function createLock(requestId: string, companyId: string) {
+async function createLock(supabase: any, requestId: string, companyId: string) {
   const { error } = await supabase
     .from("cash_execution_locks")
     .insert({
@@ -65,10 +77,14 @@ async function createLock(requestId: string, companyId: string) {
 
 /**
  * =========================
- * MARK APPROVED (STEP 4)
+ * MARK APPROVED
  * =========================
  */
-async function markApprovalApproved(request: any, employeeName: string) {
+async function markApprovalApproved(
+  supabase: any,
+  request: any,
+  employeeName: string
+) {
   const { error } = await supabase
     .from("approval_requests")
     .update({
@@ -83,7 +99,7 @@ async function markApprovalApproved(request: any, employeeName: string) {
 
 /**
  * =========================
- * MAIN EXECUTION (FINAL)
+ * MAIN EXECUTION
  * =========================
  */
 export async function executeCashDrawerApprovalAction({
@@ -99,6 +115,8 @@ export async function executeCashDrawerApprovalAction({
   currentSystemUserId?: string | null;
   companyId?: string | null;
 }) {
+  const supabase = getSupabaseServer();
+
   const payload = getApprovalPayload(request);
   const amount = Number(payload.amount || 0);
 
@@ -114,7 +132,7 @@ export async function executeCashDrawerApprovalAction({
    * STEP 1: CHECK LOCK
    * =========================
    */
-  const lock = await checkLock(request.id);
+  const lock = await checkLock(supabase, request.id);
 
   if (lock) {
     await createAuditLog({
@@ -134,10 +152,10 @@ export async function executeCashDrawerApprovalAction({
 
   /**
    * =========================
-   * STEP 2: PRE-LOCK (ANTI DOUBLE CLICK)
+   * STEP 2: CREATE LOCK
    * =========================
    */
-  await createLock(request.id, finalCompanyId);
+  await createLock(supabase, request.id, finalCompanyId);
 
   /**
    * =========================
@@ -181,7 +199,6 @@ export async function executeCashDrawerApprovalAction({
     .single();
 
   if (movementError) {
-    // rollback lock if failed
     await supabase
       .from("cash_execution_locks")
       .delete()
@@ -224,7 +241,7 @@ export async function executeCashDrawerApprovalAction({
    * STEP 5: APPROVE REQUEST
    * =========================
    */
-  await markApprovalApproved(request, currentEmployeeName);
+  await markApprovalApproved(supabase, request, currentEmployeeName);
 
   /**
    * =========================
@@ -246,5 +263,3 @@ export async function executeCashDrawerApprovalAction({
     reusedExistingMovement: false,
   };
 }
-
-
