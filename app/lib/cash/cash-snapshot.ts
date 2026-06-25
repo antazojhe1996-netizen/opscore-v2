@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase-server";
 
 /**
  * =========================
@@ -69,5 +69,7 @@ export async function getCashSnapshot(
     },
   };
 }
+
+
 
 

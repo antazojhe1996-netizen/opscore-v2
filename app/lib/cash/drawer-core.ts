@@ -166,3 +166,5 @@ export async function getOpenCashDrawers(companyId: string) {
     data: result.data || [],
   };
 }
+
+

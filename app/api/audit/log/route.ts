@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase-server";
 
 export async function POST(request: Request) {
   try {
@@ -17,17 +17,19 @@ export async function POST(request: Request) {
       newValue,
     } = body;
 
-    const { error } = await supabase.from("audit_logs").insert({
-      user_id: userId ?? null,
-      user_name: userName ?? null,
-      module,
-      action,
-      description,
-      severity,
-      record_id: recordId ?? null,
-      old_value: oldValue ?? null,
-      new_value: newValue ?? null,
-    });
+    const { error } = await supabaseServer
+      .from("audit_logs")
+      .insert({
+        user_id: userId ?? null,
+        user_name: userName ?? null,
+        module,
+        action,
+        description,
+        severity,
+        record_id: recordId ?? null,
+        old_value: oldValue ?? null,
+        new_value: newValue ?? null,
+      });
 
     if (error) {
       return NextResponse.json(
@@ -44,5 +46,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
-

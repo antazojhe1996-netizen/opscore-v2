@@ -3,7 +3,7 @@ import { createAuditLog } from "@/lib/audit";
 
 /**
  * =========================
- * SERVER SUPABASE CLIENT (SAFE)
+ * SERVER SUPABASE CLIENT
  * =========================
  */
 function getSupabaseServer() {
@@ -62,7 +62,11 @@ async function checkLock(supabase: any, requestId: string) {
  * CREATE LOCK
  * =========================
  */
-async function createLock(supabase: any, requestId: string, companyId: string) {
+async function createLock(
+  supabase: any,
+  requestId: string,
+  companyId: string
+) {
   const { error } = await supabase
     .from("cash_execution_locks")
     .insert({

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase-server";
 
 export type PermissionAction =
   | "view"
@@ -127,5 +127,7 @@ export async function canApprove(moduleKey: string, roleId?: string | null) {
 export async function canRelease(moduleKey: string, roleId?: string | null) {
   return hasPermission(moduleKey, "release", roleId);
 }
+
+
 
 

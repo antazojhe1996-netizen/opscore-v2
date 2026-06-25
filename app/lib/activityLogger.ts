@@ -1,4 +1,12 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+/**
+ * SERVER SUPABASE CLIENT
+ */
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export const logActivity = async (
   module: string,
@@ -25,5 +33,3 @@ export const logActivity = async (
     console.log("ACTIVITY LOGGER FAILED:", err);
   }
 };
-
-
