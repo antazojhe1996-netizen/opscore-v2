@@ -28,22 +28,25 @@ class Orchestrator:
         print(f"Columns : {schema.total_columns}")
         print("Status  : PASS")
 
-    def run_supabase_connection_test(self):
+    def run_database_discovery(self):
         print()
-        print("[Supabase Connection Test]")
+        print("[Database Discovery]")
 
         adapter = SupabaseAdapter()
-        rows = adapter.test_connection()
+        tables = adapter.discover_tables()
 
-        print("Connection    : OK")
-        print(f"Rows Returned : {len(rows)}")
-        print("Status        : PASS")
+        for table in tables[:20]:
+            print(f'{table["table_schema"]}.{table["table_name"]}')
+
+        print()
+        print(f"Tables Found : {len(tables)}")
+        print("Status       : PASS")
 
     def run(self):
         self.banner()
 
         self.run_dummy_pipeline()
-        self.run_supabase_connection_test()
+        self.run_database_discovery()
 
         print()
         print("Engineering Status : PASS")

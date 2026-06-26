@@ -24,13 +24,7 @@ class SupabaseAdapter(DatabaseAdapter):
     def load(self):
         raise NotImplementedError("Supabase schema load not implemented yet")
 
-    def test_connection(self):
-        response = (
-            self.client
-            .table("employees")
-            .select("id")
-            .limit(1)
-            .execute()
-        )
+    def discover_tables(self):
+        response = self.client.rpc("oke_discover_tables").execute()
 
         return response.data
