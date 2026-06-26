@@ -3,10 +3,11 @@ from datetime import datetime
 from OKE.adapters.dummy_adapter import DummyAdapter
 from OKE.adapters.supabase_adapter import SupabaseAdapter
 from OKE.extractors.database_extractor import DatabaseExtractor
+from OKE.generators.generate_database_book import DatabaseBookGenerator
 
 
 class Orchestrator:
-    VERSION = "0.1 Alpha"
+    VERSION = "0.2 Alpha"
 
     def banner(self):
         print("=" * 60)
@@ -41,6 +42,12 @@ class Orchestrator:
         print()
         print(f"Tables Found : {len(tables)}")
         print("Status       : PASS")
+
+        generator = DatabaseBookGenerator()
+        book = generator.generate(tables)
+
+        print()
+        print(f"Database Book : {book}")
 
     def run(self):
         self.banner()
