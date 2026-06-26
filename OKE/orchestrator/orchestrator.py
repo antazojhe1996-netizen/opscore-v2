@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from OKE.adapters.dummy_adapter import DummyAdapter
+from OKE.adapters.supabase_adapter import SupabaseAdapter
 from OKE.extractors.database_extractor import DatabaseExtractor
 
 
@@ -15,11 +16,9 @@ class Orchestrator:
         print(f"Started : {datetime.now()}")
         print("=" * 60)
 
-    def run(self):
-        self.banner()
-
+    def run_dummy_pipeline(self):
         print()
-        print("[Database Specialist]")
+        print("[Database Specialist - Dummy]")
 
         adapter = DummyAdapter()
         extractor = DatabaseExtractor(adapter)
@@ -27,6 +26,24 @@ class Orchestrator:
 
         print(f"Tables  : {schema.total_tables}")
         print(f"Columns : {schema.total_columns}")
+        print("Status  : PASS")
+
+    def run_supabase_connection_test(self):
+        print()
+        print("[Supabase Connection Test]")
+
+        adapter = SupabaseAdapter()
+        rows = adapter.test_connection()
+
+        print("Connection    : OK")
+        print(f"Rows Returned : {len(rows)}")
+        print("Status        : PASS")
+
+    def run(self):
+        self.banner()
+
+        self.run_dummy_pipeline()
+        self.run_supabase_connection_test()
 
         print()
         print("Engineering Status : PASS")
