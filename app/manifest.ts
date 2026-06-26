@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {

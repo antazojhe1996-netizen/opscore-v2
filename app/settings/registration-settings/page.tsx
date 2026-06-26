@@ -1,10 +1,9 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-import {
+import TopNavbar from "@/components/TopNavbar";import {
   AlertCircle,
   CheckCircle2,
   Lock,

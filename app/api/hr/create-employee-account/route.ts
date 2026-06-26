@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 function generateTemporaryPassword() {
   return "Welcome123!";

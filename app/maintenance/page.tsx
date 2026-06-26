@@ -1,6 +1,6 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 export default function MaintenancePage() {
   const isMaintenance =
     process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true";

@@ -1,5 +1,6 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -15,10 +16,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-
-type Employee = {
+import TopNavbar from "@/components/TopNavbar";type Employee = {
   id: string;
   company_id?: string;
   system_role_id?: string | null;

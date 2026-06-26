@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import { cashIn, cashOut } from "@/lib/cash/cash-engine";
 import { logCashEvent } from "@/lib/cash/cash-audit";
 

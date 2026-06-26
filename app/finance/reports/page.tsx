@@ -1,11 +1,9 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-
-type ReportRow = {
+import PageGuard from "@/components/PageGuard";type ReportRow = {
   transactionDate: string;
   referenceNo: string;
   source: string;

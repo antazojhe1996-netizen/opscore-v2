@@ -1,5 +1,6 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -9,10 +10,7 @@ import {
   LockKeyhole,
   Save,
   ShieldCheck,
-} from "lucide-react";
-import { supabase } from "@/lib/supabase";
-
-type SystemUser = {
+} from "lucide-react";type SystemUser = {
   id: string;
   auth_user_id: string | null;
   employee_id: string | null;

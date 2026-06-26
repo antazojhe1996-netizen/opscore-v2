@@ -1,6 +1,6 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 
 const COMPANY_ID = "e68414f1-ecfc-419a-8081-d1a0b894106c";

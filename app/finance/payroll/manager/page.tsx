@@ -1,9 +1,6 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
-
-"use client";
-
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Lock, Search, Send, Users, X } from "lucide-react";

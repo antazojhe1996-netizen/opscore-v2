@@ -1,11 +1,7 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
-
-// @ts-nocheck
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
+import { supabaseClient as supabase } from "@/lib/supabase-client";
+// @ts-nocheckimport { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
 import { createAuditLog } from "@/lib/audit";

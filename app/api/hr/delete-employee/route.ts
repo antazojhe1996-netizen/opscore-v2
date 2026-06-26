@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

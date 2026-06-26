@@ -1,6 +1,6 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";

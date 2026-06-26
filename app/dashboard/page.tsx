@@ -1,13 +1,8 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
-
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react-hooks/set-state-in-effect */
-
-"use client";
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Banknote,

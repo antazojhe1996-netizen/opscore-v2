@@ -1,9 +1,6 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
-
-"use client";
-
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import { Eye, Mail, Printer, Search, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";

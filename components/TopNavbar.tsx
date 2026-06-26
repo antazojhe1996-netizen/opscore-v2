@@ -1,11 +1,9 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Bell, ChevronDown, LogOut, User } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-
-type TopNavbarProps = {
+import { Bell, ChevronDown, LogOut, User } from "lucide-react";type TopNavbarProps = {
   breadcrumb?: string;
 };
 

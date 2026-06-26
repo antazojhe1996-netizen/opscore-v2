@@ -1,11 +1,10 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import PageGuard from "@/components/PageGuard";
-import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-import { ClipboardList, RefreshCcw, Search } from "lucide-react";
+import TopNavbar from "@/components/TopNavbar";import { ClipboardList, RefreshCcw, Search } from "lucide-react";
 
 const Sidebar = dynamic(() => import("@/components/Sidebar"), {
   ssr: false,

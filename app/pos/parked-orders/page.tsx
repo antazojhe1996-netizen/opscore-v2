@@ -1,10 +1,9 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-import {
+import PageGuard from "@/components/PageGuard";import {
   AlertTriangle,
   ArrowRight,
   Banknote,

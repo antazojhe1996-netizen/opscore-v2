@@ -1,5 +1,6 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -16,10 +17,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import PageGuard from "@/components/PageGuard";
-import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
-
-export default function PayrollReleaseHistoryPage() {
+import OpscoreAssistant from "@/components/OpscoreAssistant";export default function PayrollReleaseHistoryPage() {
   /// STATES
   const [releaseRows, setReleaseRows] = useState<any[]>([]);
   const [releaseItems, setReleaseItems] = useState<any[]>([]);

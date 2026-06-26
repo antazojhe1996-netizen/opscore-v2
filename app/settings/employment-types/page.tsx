@@ -1,10 +1,9 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-import { createAuditLog } from "@/lib/audit";
+import PageGuard from "@/components/PageGuard";import { createAuditLog } from "@/lib/audit";
 
 export default function EmploymentTypesPage() {
   /// STATES

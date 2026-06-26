@@ -1,12 +1,8 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
-
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/exhaustive-deps */
-"use client";
-
-import type React from "react";
+/* eslint-disable react-hooks/exhaustive-deps */import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,

@@ -1,9 +1,6 @@
-import { supabase } from '@/lib/supabase';
 "use client";
 
-
-"use client";
-
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import Sidebar from "@/components/Sidebar";

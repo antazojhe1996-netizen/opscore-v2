@@ -1,10 +1,9 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-import { ShieldCheck, UserCheck } from "lucide-react";
+import TopNavbar from "@/components/TopNavbar";import { ShieldCheck, UserCheck } from "lucide-react";
 
 export default function CurrentUserPage() {
   const [session, setSession] = useState<any>(null);

@@ -1,11 +1,10 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import PageGuard from "@/components/PageGuard";
-import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-import { RefreshCw, Save, ShieldCheck, UserCheck, Users } from "lucide-react";
+import TopNavbar from "@/components/TopNavbar";import { RefreshCw, Save, ShieldCheck, UserCheck, Users } from "lucide-react";
 
 type Employee = {
   id: string;

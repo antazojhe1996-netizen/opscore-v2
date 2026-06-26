@@ -1,9 +1,8 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
-import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
-import { createAuditLog } from "@/lib/audit";
+import Sidebar from "@/components/Sidebar";import { createAuditLog } from "@/lib/audit";
 import PageGuard from "@/components/PageGuard";
 
 export default function PositionsPage() {

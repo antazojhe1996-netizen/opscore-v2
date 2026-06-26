@@ -1,6 +1,5 @@
-import { supabase } from '@/lib/supabase';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 type CleanupTable = {
   key: string;

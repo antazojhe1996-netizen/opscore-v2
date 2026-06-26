@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
 import { NextResponse } from "next/server";
+import { supabaseServer as supabase } from "@/lib/supabase-server";
 /**
  * SERVER SUPABASE CLIENT
  */

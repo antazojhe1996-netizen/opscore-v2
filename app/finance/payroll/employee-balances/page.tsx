@@ -1,5 +1,6 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import {
   Eye,
@@ -10,9 +11,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import OpscoreAssistant from "@/components/OpscoreAssistant";
-import { supabase } from "@/lib/supabase";
-import { createAuditLog } from "@/lib/audit";
+import OpscoreAssistant from "@/components/OpscoreAssistant";import { createAuditLog } from "@/lib/audit";
 import PageGuard from "@/components/PageGuard";
 
 type PermissionSet = {

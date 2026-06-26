@@ -1,5 +1,6 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -10,10 +11,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import TopNavbar from "@/components/TopNavbar";
-import { supabase } from "@/lib/supabase";
-
-type Severity = "info" | "warning" | "critical";
+import TopNavbar from "@/components/TopNavbar";type Severity = "info" | "warning" | "critical";
 
 export default function AuditLogsPage() {
   /// STATES

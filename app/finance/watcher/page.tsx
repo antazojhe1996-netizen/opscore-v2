@@ -1,5 +1,6 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -12,10 +13,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import PageGuard from "@/components/PageGuard";
-import { supabase } from "@/lib/supabase";
-
-type WatcherFinding = {
+import PageGuard from "@/components/PageGuard";type WatcherFinding = {
   id: string;
   severity: string;
   status: string;

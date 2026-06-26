@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import { NextResponse } from "next/server";
 import { insertCashMovement } from "@/lib/cash/cash-core";
 

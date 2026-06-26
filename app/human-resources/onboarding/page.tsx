@@ -1,9 +1,8 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import {
+import { useEffect, useMemo, useState } from "react";import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,

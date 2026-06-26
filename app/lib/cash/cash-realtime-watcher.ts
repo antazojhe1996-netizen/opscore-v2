@@ -1,6 +1,4 @@
-import { supabase } from '@/lib/supabase';
-
-
+import { supabaseServer as supabase } from "@/lib/supabase-server";
 /**
  * =========================
  * REALTIME CASH WATCHER (PRODUCTION SAFE)

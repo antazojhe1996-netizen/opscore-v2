@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 export function calculateDistanceMeters(
   lat1: number,
   lon1: number,

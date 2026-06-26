@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 /**
  * PURE CASH VARIANCE ENGINE
  * No DB, no supabase, pure computation only

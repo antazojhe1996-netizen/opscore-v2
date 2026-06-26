@@ -1,9 +1,8 @@
 "use client";
 
+import { supabaseClient as supabase } from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
-import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
-import { Database, Search } from "lucide-react";
+import Sidebar from "@/components/Sidebar";import { Database, Search } from "lucide-react";
 import PageGuard from "@/components/PageGuard";
 
 export default function PayrollSnapshotsPage() {
