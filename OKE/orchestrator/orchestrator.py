@@ -2,12 +2,14 @@ from datetime import datetime
 
 from OKE.adapters.dummy_adapter import DummyAdapter
 from OKE.adapters.supabase_adapter import SupabaseAdapter
+from OKE.builders.dependency_builder import DependencyBuilder
+from OKE.builders.relationship_builder import RelationshipBuilder
 from OKE.extractors.database_extractor import DatabaseExtractor
 from OKE.generators.generate_database_book import DatabaseBookGenerator
 
 
 class Orchestrator:
-    VERSION = "0.4 Alpha"
+    VERSION = "0.7 Alpha"
 
     def banner(self):
         print("=" * 60)
@@ -38,18 +40,34 @@ class Orchestrator:
         tables = adapter.discover_tables()
         columns = adapter.discover_columns()
         primary_keys = adapter.discover_primary_keys()
+        foreign_keys = adapter.discover_foreign_keys()
+
+        relationship_builder = RelationshipBuilder()
+        relationships = relationship_builder.build(foreign_keys)
+
+        dependency_builder = DependencyBuilder()
+        dependency_graph = dependency_builder.build(relationships)
 
         for table in tables[:20]:
             print(f'{table["table_schema"]}.{table["table_name"]}')
 
         print()
-        print(f"Tables Found       : {len(tables)}")
-        print(f"Columns Found      : {len(columns)}")
-        print(f"Primary Keys Found : {len(primary_keys)}")
-        print("Status             : PASS")
+        print(f"Tables Found           : {len(tables)}")
+        print(f"Columns Found          : {len(columns)}")
+        print(f"Primary Keys Found     : {len(primary_keys)}")
+        print(f"Foreign Keys Found     : {len(foreign_keys)}")
+        print(f"Relationships Found    : {len(relationships)}")
+        print(f"Dependency Graph Nodes : {len(dependency_graph)}")
+        print("Status                 : PASS")
 
         generator = DatabaseBookGenerator()
-        book = generator.generate(tables, columns, primary_keys)
+        book = generator.generate(
+            tables,
+            columns,
+            primary_keys,
+            foreign_keys,
+            relationships,
+        )
 
         print()
         print(f"Database Book : {book}")

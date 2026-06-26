@@ -35,3 +35,7 @@ class SupabaseAdapter(DatabaseAdapter):
     def discover_primary_keys(self):
         response = self.client.rpc("oke_discover_primary_keys").execute()
         return response.data
+
+    def discover_foreign_keys(self):
+        response = self.client.rpc("oke_discover_foreign_keys").execute()
+        return response.data
