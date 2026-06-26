@@ -26,5 +26,12 @@ class SupabaseAdapter(DatabaseAdapter):
 
     def discover_tables(self):
         response = self.client.rpc("oke_discover_tables").execute()
+        return response.data
 
+    def discover_columns(self):
+        response = self.client.rpc("oke_discover_columns").execute()
+        return response.data
+
+    def discover_primary_keys(self):
+        response = self.client.rpc("oke_discover_primary_keys").execute()
         return response.data
