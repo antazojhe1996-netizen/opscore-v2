@@ -1,28 +1,30 @@
-import { supabaseServer as supabase } from "@/lib/supabase-server";
+import { supabaseClient as supabase } from "@/lib/supabase-client";
+
 /**
  * =========================
- * REALTIME CASH WATCHER (PRODUCTION SAFE)
+ * CASH REALTIME WATCHER V3
  * =========================
- * - listens cash movements
- * - listens approval updates
- * - prevents duplicate triggers
- * - auto cleanup supported
+ * Client-side watcher listener only.
+ *
+ * Rules:
+ * - Read/listen only
+ * - No inserts
+ * - No updates
+ * - No business logic
+ * - Company-wide refresh trigger for Watcher UI
  */
 
 export function subscribeCashWatcher(
   company_id: string,
-  callback: () => void
+  callback: () => void,
 ) {
   if (!company_id) {
-    console.warn("Missing company_id for watcher");
+    console.warn("[CASH WATCHER] Missing company_id");
     return () => {};
   }
 
   const channel = supabase.channel(`cash-watch-${company_id}`);
 
-  // =========================
-  // CASH MOVEMENTS
-  // =========================
   channel.on(
     "postgres_changes",
     {
@@ -33,12 +35,9 @@ export function subscribeCashWatcher(
     },
     () => {
       callback();
-    }
+    },
   );
 
-  // =========================
-  // APPROVAL REQUESTS
-  // =========================
   channel.on(
     "postgres_changes",
     {
@@ -49,7 +48,7 @@ export function subscribeCashWatcher(
     },
     () => {
       callback();
-    }
+    },
   );
 
   channel.subscribe();
@@ -58,8 +57,3 @@ export function subscribeCashWatcher(
     supabase.removeChannel(channel);
   };
 }
-
-
-
-
-

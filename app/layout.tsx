@@ -1,9 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-// ðŸ‘‰ DITO ILALAGAY
-import RegisterServiceWorker from "../components/RegisterServiceWorker";
+import RegisterServiceWorker from "@/components/RegisterServiceWorker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,12 +18,15 @@ export const metadata: Metadata = {
   title: "OPSCORE V3",
   description: "Operations Management System",
   manifest: "/manifest.webmanifest",
-  themeColor: "#0f172a",
   appleWebApp: {
     capable: true,
     title: "OPSCORE",
     statusBarStyle: "black-translucent",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({
@@ -38,12 +40,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="h-full" suppressHydrationWarning>
+      <body className="h-full bg-slate-50" suppressHydrationWarning>
         <RegisterServiceWorker />
         {children}
       </body>
     </html>
   );
 }
-
-

@@ -1,23 +1,43 @@
-import { supabaseServer as supabase } from "@/lib/supabase-server";
+import { supabaseClient as supabase } from "@/lib/supabase-client";
+
 /**
  * =========================
- * CASH LIVE SYNC (OPTIMIZED)
+ * CASH REALTIME V3
  * =========================
+ * Client-side realtime listener only.
+ *
+ * Rules:
+ * - Read/listen only
+ * - No inserts
+ * - No updates
+ * - No business logic
+ * - Compatible with legacy + V3 drawer fields
  */
+
+type CashRealtimeSource = "MOVEMENT" | "APPROVAL";
+
+type CashRealtimeEvent = {
+  source: CashRealtimeSource;
+  event_type?: "INSERT" | "UPDATE" | "DELETE" | "*";
+  drawer_id?: string | null;
+  row?: any;
+};
+
+const getDrawerId = (row: any) =>
+  row?.cash_cash_drawer_id || row?.cash_drawer_id || null;
 
 export function subscribeCashUpdates(
   company_id: string,
   drawer_id: string | null,
-  callback: (event: {
-    source: "MOVEMENT" | "APPROVAL";
-    drawer_id?: string;
-  }) => void
+  callback: (event: CashRealtimeEvent) => void,
 ) {
-  const channel = supabase.channel("cash-live-sync");
+  if (!company_id) {
+    console.warn("[CASH REALTIME] Missing company_id");
+    return () => {};
+  }
 
-  /**
-   * CASH MOVEMENTS
-   */
+  const channel = supabase.channel(`cash-live-sync-${company_id}-${drawer_id || "all"}`);
+
   channel.on(
     "postgres_changes",
     {
@@ -26,21 +46,21 @@ export function subscribeCashUpdates(
       table: "finance_cash_movements",
       filter: `company_id=eq.${company_id}`,
     },
-    (payload) => {
-      const row = (payload as any)?.new;
+    (payload: any) => {
+      const row = payload?.new || payload?.old || null;
+      const rowDrawerId = getDrawerId(row);
 
-      if (!drawer_id || row?.cash_drawer_id === drawer_id) {
+      if (!drawer_id || rowDrawerId === drawer_id) {
         callback({
           source: "MOVEMENT",
-          drawer_id: row?.cash_drawer_id,
+          event_type: payload?.eventType || "*",
+          drawer_id: rowDrawerId,
+          row,
         });
       }
-    }
+    },
   );
 
-  /**
-   * APPROVALS
-   */
   channel.on(
     "postgres_changes",
     {
@@ -49,11 +69,13 @@ export function subscribeCashUpdates(
       table: "approval_requests",
       filter: `company_id=eq.${company_id}`,
     },
-    (payload) => {
+    (payload: any) => {
       callback({
         source: "APPROVAL",
+        event_type: payload?.eventType || "*",
+        row: payload?.new || payload?.old || null,
       });
-    }
+    },
   );
 
   channel.subscribe();
@@ -62,8 +84,3 @@ export function subscribeCashUpdates(
     supabase.removeChannel(channel);
   };
 }
-
-
-
-
-

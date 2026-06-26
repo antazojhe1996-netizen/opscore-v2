@@ -1,9 +1,11 @@
 "use client";
 
 import { supabaseClient as supabase } from "@/lib/supabase-client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell, ChevronDown, LogOut, User } from "lucide-react";type TopNavbarProps = {
+import { Bell, ChevronDown, LogOut, User } from "lucide-react";
+
+type TopNavbarProps = {
   breadcrumb?: string;
 };
 
@@ -18,34 +20,39 @@ export default function TopNavbar({
     if (typeof window === "undefined") return;
 
     setEmployeeName(
-      localStorage.getItem("opscore_current_employee_name") ||
-        "OPSCORE User"
+      localStorage.getItem("opscore_current_employee_name") || "OPSCORE User",
     );
 
     setCompanyName(
       localStorage.getItem("opscore_current_company_name") ||
-        "Vincent Resort"
+        "Vincent Resort",
     );
   }, []);
 
-  const initials =
-    employeeName
-      .split(" ")
-      .filter(Boolean)
-      .map((word) => word[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "OP";
+  const initials = useMemo(() => {
+    return (
+      employeeName
+        .split(" ")
+        .filter(Boolean)
+        .map((word) => word[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "OP"
+    );
+  }, [employeeName]);
 
   const logout = async () => {
     await supabase.auth.signOut();
-    localStorage.clear();
-    window.location.href = "/login";
+
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
   };
 
   return (
-    <header className="fixed left-[220px] right-0 top-0 z-[99999] flex h-16 items-center justify-between border-b border-slate-200 bg-white px-5 shadow-sm">
-      <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+    <header className="fixed left-0 right-0 top-0 z-[9999] flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm lg:left-[220px] lg:px-5">
+      <p className="ml-12 truncate text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500 lg:ml-0">
         {breadcrumb}
       </p>
 
@@ -53,6 +60,7 @@ export default function TopNavbar({
         <button
           type="button"
           className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+          aria-label="Notifications"
         >
           <Bell size={17} />
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white" />
@@ -84,6 +92,7 @@ export default function TopNavbar({
             <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
               <Link
                 href="/employee-portal"
+                onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 transition-all duration-200 hover:bg-slate-50"
               >
                 <User size={15} /> My Portal
@@ -103,5 +112,3 @@ export default function TopNavbar({
     </header>
   );
 }
-
-

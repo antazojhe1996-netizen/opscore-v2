@@ -1,13 +1,21 @@
 import { supabaseServer as supabase } from "@/lib/supabase-server";
-import { cashIn, cashOut } from "../cash/cash-engine";
-
-
+import { executeCashDrawerApprovalAction } from "./approval-actions";
 
 /**
  * =========================
- * SAFE PAYLOAD PARSER
+ * APPROVAL CORE
  * =========================
+ * Compatibility layer for older imports.
+ *
+ * Source of truth for execution:
+ * approval-actions.ts
+ *
+ * Rules:
+ * - PENDING = no movement
+ * - APPROVED = exactly one execution
+ * - REJECTED = no execution
  */
+
 function getPayload(approval: any) {
   if (!approval?.request_payload) return {};
 
@@ -19,7 +27,27 @@ function getPayload(approval: any) {
     }
   }
 
-  return approval.request_payload;
+  return approval.request_payload || {};
+}
+
+function normalizeApprovalType(value: any) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+}
+
+function isCashExecutableApproval(approval: any) {
+  const requestType = normalizeApprovalType(approval?.request_type);
+  const moduleName = normalizeApprovalType(approval?.module);
+
+  return (
+    moduleName === "CASH" ||
+    requestType.includes("CASH") ||
+    requestType.includes("EXPENSE") ||
+    requestType.includes("REFUND") ||
+    requestType.includes("ADJUSTMENT")
+  );
 }
 
 /**
@@ -28,21 +56,31 @@ function getPayload(approval: any) {
  * =========================
  */
 export async function createApproval(data: any) {
+  const payload = {
+    ...data,
+    request_payload: undefined,
+  };
+
   const { data: approval, error } = await supabase
     .from("approval_requests")
     .insert({
-      request_type: data.type,
+      request_type: data.type || data.request_type,
       module: data.module || "CASH",
-      title: data.title || `${data.type} - ${data.category}`,
+      title:
+        data.title ||
+        `${data.type || data.request_type || "APPROVAL"} - ${
+          data.category || data.source || "Request"
+        }`,
       company_id: data.company_id,
 
-      category: data.category,
-      amount: data.amount,
-      payment_method: data.payment_method,
-      requested_by: data.requested_by,
+      category: data.category || data.source || null,
+      amount: Number(data.amount || 0),
+      payment_method: data.payment_method || data.payment_type || "Cash",
+      requested_by: data.requested_by || data.created_by || null,
       status: "PENDING",
 
-      request_payload: data,
+      request_payload: data.request_payload || payload,
+      created_at: new Date().toISOString(),
     })
     .select()
     .single();
@@ -62,7 +100,7 @@ export async function createApproval(data: any) {
 
 /**
  * =========================
- * APPROVE APPROVAL (CASH SYNC)
+ * APPROVE APPROVAL
  * =========================
  */
 export async function approveApproval(id: string, approvedBy?: string) {
@@ -88,59 +126,67 @@ export async function approveApproval(id: string, approvedBy?: string) {
 
   const payload = getPayload(approval);
 
-  let movement;
-
   try {
-    if (approval.request_type === "CASH_IN") {
-      movement = await cashIn({
-        company_id: approval.company_id,
-        cash_drawer_id: payload.cash_drawer_id,
-        amount: approval.amount,
-        category: approval.category,
-        payment_method: approval.payment_method,
-        reference_no: approval.id,
-        created_by: approval.requested_by,
+    if (isCashExecutableApproval(approval)) {
+      const result = await executeCashDrawerApprovalAction({
+        request: approval,
+        currentEmployeeName:
+          approvedBy ||
+          payload.approved_by ||
+          payload.current_employee_name ||
+          "Approval Center",
+        currentEmployeeId:
+          payload.current_employee_id ||
+          payload.employee_id ||
+          null,
+        currentSystemUserId:
+          payload.current_system_user_id ||
+          payload.system_user_id ||
+          null,
+        companyId:
+          approval.company_id ||
+          payload.company_id ||
+          null,
       });
-    } else {
-      movement = await cashOut({
-        company_id: approval.company_id,
-        cash_drawer_id: payload.cash_drawer_id,
-        amount: approval.amount,
-        category: approval.category,
-        payment_method: approval.payment_method,
-        reference_no: approval.id,
-        created_by: approval.requested_by,
-      });
+
+      return {
+        success: true,
+        data: {
+          approval_id: id,
+          ...result,
+        },
+      };
     }
+
+    const { error: updateError } = await supabase
+      .from("approval_requests")
+      .update({
+        status: "APPROVED",
+        approved_by: approvedBy || "Approval Center",
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    if (updateError) {
+      return {
+        success: false,
+        error: updateError.message,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        approval_id: id,
+        status: "APPROVED",
+      },
+    };
   } catch (err: any) {
     return {
       success: false,
-      error: err?.message || "Cash engine failed",
+      error: err?.message || "Approval execution failed",
     };
   }
-
-  const { error: updateError } = await supabase
-    .from("approval_requests")
-    .update({
-      status: "APPROVED",
-      approved_by: approvedBy || null,
-    })
-    .eq("id", id);
-
-  if (updateError) {
-    return {
-      success: false,
-      error: updateError.message,
-    };
-  }
-
-  return {
-    success: true,
-    data: {
-      approval_id: id,
-      movement,
-    },
-  };
 }
 
 /**
@@ -173,7 +219,9 @@ export async function rejectApproval(id: string, approvedBy?: string) {
     .from("approval_requests")
     .update({
       status: "REJECTED",
-      approved_by: approvedBy || null,
+      approved_by: approvedBy || "Approval Center",
+      rejected_by: approvedBy || "Approval Center",
+      rejected_at: new Date().toISOString(),
     })
     .eq("id", id);
 
@@ -192,8 +240,3 @@ export async function rejectApproval(id: string, approvedBy?: string) {
     },
   };
 }
-
-
-
-
-
