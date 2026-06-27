@@ -1,11 +1,7 @@
 import sys
 
 from OKE.adapters.supabase_adapter import SupabaseAdapter
-from OKE.analyzers.impact_analyzer import ImpactAnalyzer
-from OKE.analyzers.module_analyzer import ModuleAnalyzer
-from OKE.analyzers.recommendation_analyzer import RecommendationAnalyzer
-from OKE.analyzers.regression_analyzer import RegressionAnalyzer
-from OKE.services.engineering_report_service import EngineeringReportService
+from OKE.pipelines.engineering_pipeline import EngineeringPipeline
 
 
 def print_table_report(table_name):
@@ -25,7 +21,7 @@ def print_table_report(table_name):
         print(f"Table not found: {table_name}")
         return
 
-    report = EngineeringReportService().build(
+    result = EngineeringPipeline().run(
         tables=tables,
         columns=columns,
         primary_keys=primary_keys,
@@ -33,15 +29,11 @@ def print_table_report(table_name):
         table_name=table_name,
     )
 
-    impact = ImpactAnalyzer().analyze(report)
-    module_impact = ModuleAnalyzer().analyze(report)
-    regression_plan = RegressionAnalyzer().analyze(module_impact)
-    recommendation = RecommendationAnalyzer().analyze(
-        report,
-        impact,
-        module_impact,
-        regression_plan,
-    )
+    report = result["report"]
+    impact = result["impact"]
+    modules = result["modules"]
+    regression = result["regression"]
+    recommendation = result["recommendation"]
 
     print("=" * 60)
     print("OKE ENGINEERING TABLE REPORT")
@@ -59,37 +51,6 @@ def print_table_report(table_name):
     print(f"Dependencies  : {report.metrics.dependency_count}")
     print()
 
-    if report.primary_keys:
-        print("Primary Key")
-        print("-----------")
-        for pk in report.primary_keys:
-            print(f"- {pk['column_name']} ({pk['constraint_name']})")
-        print()
-
-    if report.foreign_keys:
-        print("Foreign Keys")
-        print("------------")
-        for fk in report.foreign_keys:
-            print(
-                f"- {fk['column_name']} -> "
-                f"{fk['foreign_table_name']}.{fk['foreign_column_name']}"
-            )
-        print()
-
-    if report.referenced_by:
-        print("Referenced By")
-        print("-------------")
-        for ref in report.referenced_by:
-            print(f"- {ref['table_name']}.{ref['column_name']}")
-        print()
-
-    if report.dependencies:
-        print("Dependency Graph")
-        print("----------------")
-        for dependency in report.dependencies:
-            print(f"- {dependency}")
-        print()
-
     print("=" * 60)
     print("OKE IMPACT REPORT")
     print("=" * 60)
@@ -97,8 +58,8 @@ def print_table_report(table_name):
     print(f"Target Table        : {impact.table}")
     print(f"Risk Level          : {impact.risk}")
     print(f"Affected Tables     : {len(impact.affected_tables)}")
-    print(f"Affected Modules    : {len(module_impact.modules)}")
-    print(f"Regression Checks   : {len(regression_plan.checklist)}")
+    print(f"Affected Modules    : {len(modules.modules)}")
+    print(f"Regression Checks   : {len(regression.checklist)}")
     print()
 
     if impact.affected_tables:
@@ -108,17 +69,17 @@ def print_table_report(table_name):
             print(f"- {table}")
         print()
 
-    if module_impact.modules:
+    if modules.modules:
         print("Business Impact")
         print("---------------")
-        for module in module_impact.modules:
+        for module in modules.modules:
             print(f"- {module}")
         print()
 
-    if regression_plan.checklist:
+    if regression.checklist:
         print("Regression Checklist")
         print("--------------------")
-        for item in regression_plan.checklist:
+        for item in regression.checklist:
             print(f"- {item}")
         print()
 
