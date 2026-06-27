@@ -1,7 +1,7 @@
 import sys
 
 from OKE.adapters.supabase_adapter import SupabaseAdapter
-from OKE.pipelines.engineering_pipeline import EngineeringPipeline
+from OKE.specialists.database.specialist import DatabaseSpecialist
 
 
 def print_table_report(table_name):
@@ -21,7 +21,7 @@ def print_table_report(table_name):
         print(f"Table not found: {table_name}")
         return
 
-    result = EngineeringPipeline().run(
+    result = DatabaseSpecialist().analyze(
         tables=tables,
         columns=columns,
         primary_keys=primary_keys,

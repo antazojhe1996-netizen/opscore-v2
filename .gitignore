@@ -1,5 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# ==========================================
+# Node / Next.js
+# ==========================================
+
 # dependencies
 /node_modules
 /.pnp
@@ -39,3 +43,29 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+# ==========================================
+# Python
+# ==========================================
+
+__pycache__/
+*.py[c]
+*.pyo
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Python logs
+*.log
+
+# Bytecode
+*$py.class
