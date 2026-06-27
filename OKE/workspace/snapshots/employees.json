@@ -1,0 +1,10 @@
+{
+  "name": "employees",
+  "captured_at": "2026-06-27T23:31:08.404352",
+  "snapshot": {
+    "columns": [
+      "id",
+      "name"
+    ]
+  }
+}

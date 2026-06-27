@@ -1,0 +1,66 @@
+{
+  "name": "employees",
+  "generated_at": "2026-06-27T23:19:45.483212",
+  "data": {
+    "task": "analyze employees table",
+    "table": "employees",
+    "risk": "HIGH",
+    "metrics": {
+      "columns": 42,
+      "primary_keys": 1,
+      "foreign_keys": 2,
+      "referenced_by": 9,
+      "dependencies": 9
+    },
+    "impact": {
+      "affected_tables": [
+        "attendance_entries",
+        "biometric_mappings",
+        "cash_advance_requests",
+        "employee_balances",
+        "leave_requests",
+        "payroll_records",
+        "pos_sessions",
+        "pos_sessions",
+        "system_users"
+      ],
+      "affected_table_count": 9,
+      "affected_modules": [
+        "Attendance",
+        "Finance",
+        "Leave",
+        "POS",
+        "Payroll",
+        "Security",
+        "Workforce"
+      ],
+      "affected_module_count": 7
+    },
+    "regression": {
+      "checklist": [
+        "Attendance Import",
+        "Cash Drawer",
+        "Cash In",
+        "Cash Out",
+        "Close Session",
+        "Create Employee",
+        "Deactivate Employee",
+        "Edit Employee",
+        "Generate Payroll",
+        "Leave Approval",
+        "Leave Balance",
+        "Leave Request",
+        "Open Session",
+        "POS Login",
+        "Payslip Generation",
+        "Release Payroll",
+        "Role Permission",
+        "Time In",
+        "Time Out",
+        "User Login"
+      ],
+      "check_count": 20
+    },
+    "recommendation": "High impact change detected. Run the full regression checklist before deployment."
+  }
+}

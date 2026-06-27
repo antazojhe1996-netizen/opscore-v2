@@ -1,0 +1,198 @@
+{
+  "project": {
+    "name": "OKE",
+    "full_name": "OPSCORE Knowledge Engine",
+    "type": "Engineering Operating System",
+    "primary_language": "Python"
+  },
+  "generated_at": "2026-06-28T04:44:50.171256",
+  "status": {
+    "foundation": "IN_PROGRESS",
+    "architecture": "STABLE",
+    "export_system": "IN_PROGRESS"
+  },
+  "counts": {
+    "commands": 2,
+    "specialists": 14,
+    "pipelines": 1,
+    "services": 1,
+    "builders": 3,
+    "analyzers": 4,
+    "handbook_chapters": 12
+  },
+  "inventory": {
+    "commands": [
+      {
+        "name": "analyze",
+        "class": "AnalyzeCommand",
+        "file": "analyze_command.py"
+      },
+      {
+        "name": "create",
+        "class": "CreateCommand",
+        "file": "create_command.py"
+      }
+    ],
+    "specialists": [
+      {
+        "name": "api",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "billing",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "database",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "deployment",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "docs",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "inventory",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "payments",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "reports",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "reservation",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "security",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "source",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "template",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "testing",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "ui",
+        "status": "ACTIVE"
+      }
+    ],
+    "builders": [
+      {
+        "name": "database_schema_builder",
+        "type": "builder",
+        "file": "database_schema_builder.py"
+      },
+      {
+        "name": "dependency_builder",
+        "type": "builder",
+        "file": "dependency_builder.py"
+      },
+      {
+        "name": "relationship_builder",
+        "type": "builder",
+        "file": "relationship_builder.py"
+      }
+    ],
+    "analyzers": [
+      {
+        "name": "impact_analyzer",
+        "type": "analyzer",
+        "file": "impact_analyzer.py"
+      },
+      {
+        "name": "module_analyzer",
+        "type": "analyzer",
+        "file": "module_analyzer.py"
+      },
+      {
+        "name": "recommendation_analyzer",
+        "type": "analyzer",
+        "file": "recommendation_analyzer.py"
+      },
+      {
+        "name": "regression_analyzer",
+        "type": "analyzer",
+        "file": "regression_analyzer.py"
+      }
+    ],
+    "pipelines": [
+      {
+        "name": "engineering_pipeline",
+        "type": "pipeline",
+        "file": "engineering_pipeline.py"
+      }
+    ],
+    "services": [
+      {
+        "name": "engineering_report_service",
+        "type": "service",
+        "file": "engineering_report_service.py"
+      }
+    ],
+    "handbook": [
+      {
+        "title": "01_MISSION",
+        "file": "01_MISSION.md"
+      },
+      {
+        "title": "02_ARCHITECTURE",
+        "file": "02_ARCHITECTURE.md"
+      },
+      {
+        "title": "03_ENGINEERING_PRINCIPLES",
+        "file": "03_ENGINEERING_PRINCIPLES.md"
+      },
+      {
+        "title": "04_HOW_TO_CREATE_SPECIALIST",
+        "file": "04_HOW_TO_CREATE_SPECIALIST.md"
+      },
+      {
+        "title": "05_HOW_TO_CREATE_ANALYZER",
+        "file": "05_HOW_TO_CREATE_ANALYZER.md"
+      },
+      {
+        "title": "06_HOW_PIPELINES_WORK",
+        "file": "06_HOW_PIPELINES_WORK.md"
+      },
+      {
+        "title": "07_CONTRIBUTING",
+        "file": "07_CONTRIBUTING.md"
+      },
+      {
+        "title": "08_GLOSSARY",
+        "file": "08_GLOSSARY.md"
+      },
+      {
+        "title": "09_ENGINEERING_CONSTITUTION",
+        "file": "09_ENGINEERING_CONSTITUTION.md"
+      },
+      {
+        "title": "10_FOLDER_RESPONSIBILITIES",
+        "file": "10_FOLDER_RESPONSIBILITIES.md"
+      },
+      {
+        "title": "11_AI_ONBOARDING",
+        "file": "11_AI_ONBOARDING.md"
+      },
+      {
+        "title": "12_FOUNDATION_CHECKLIST",
+        "file": "12_FOUNDATION_CHECKLIST.md"
+      }
+    ]
+  }
+}

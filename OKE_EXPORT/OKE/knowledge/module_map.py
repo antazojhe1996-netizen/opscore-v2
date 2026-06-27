@@ -1,0 +1,15 @@
+TABLE_MODULES = {
+    "employees": ["Workforce"],
+    "attendance_entries": ["Attendance", "Workforce"],
+    "biometric_mappings": ["Attendance"],
+    "cash_advance_requests": ["Finance", "Payroll"],
+    "employee_balances": ["Payroll"],
+    "leave_requests": ["Leave", "Workforce"],
+    "payroll_records": ["Payroll"],
+    "pos_sessions": ["POS"],
+    "system_users": ["Security"],
+    "cash_drawers": ["Cash Management"],
+    "cash_movements": ["Cash Management", "Finance"],
+    "companies": ["Core"],
+    "approval_requests": ["Approval Center"],
+}

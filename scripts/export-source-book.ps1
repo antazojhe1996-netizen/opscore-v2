@@ -1,10 +1,24 @@
 $ProjectName = "OPSCORE V3"
-$DateStamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
-$OutputDir = "docs\source-books"
-$LatestFile = Join-Path $OutputDir "OPSCORE_SOURCE_BOOK_LATEST.md"
-$VersionedFile = Join-Path $OutputDir "OPSCORE_SOURCE_BOOK_$DateStamp.md"
+$OutputDir = "OKE_EXPORT"
+$LatestFile = Join-Path $OutputDir "OPSCORE_SOURCE_BOOK.md"
 
-$IncludeExtensions = @(".ts", ".tsx", ".js", ".jsx", ".css", ".json", ".sql", ".md", ".cjs", ".mjs")
+$IncludeExtensions = @(
+  ".py",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".css",
+  ".json",
+  ".sql",
+  ".md",
+  ".cjs",
+  ".mjs"
+)
+
+$ExcludeExtensions = @(
+  ".pyc"
+)
 
 $ExcludeFolders = @(
   "node_modules",
@@ -13,7 +27,9 @@ $ExcludeFolders = @(
   "dist",
   "build",
   ".vercel",
-  "docs\source-books"
+  "__pycache__",
+  "docs\source-books",
+  "OKE_EXPORT"
 )
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
@@ -21,16 +37,19 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $files = Get-ChildItem -Recurse -File |
   Where-Object {
     $file = $_
-    $include = $IncludeExtensions -contains $file.Extension.ToLower()
-    $excluded = $false
+    $extension = $file.Extension.ToLower()
+
+    $include = $IncludeExtensions -contains $extension
+    $excludedExt = $ExcludeExtensions -contains $extension
+    $excludedFolder = $false
 
     foreach ($folder in $ExcludeFolders) {
       if ($file.FullName -like "*\$folder\*") {
-        $excluded = $true
+        $excludedFolder = $true
       }
     }
 
-    $include -and -not $excluded
+    $include -and -not $excludedExt -and -not $excludedFolder
   } |
   Sort-Object FullName
 
@@ -55,7 +74,7 @@ Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
 ## Purpose
 
-This file is the full source snapshot of OPSCORE V3 for audit, refactor planning, architecture review, and regression tracking.
+This file is the full source snapshot of OPSCORE V3 and OKE for audit, refactor planning, architecture review, and regression tracking.
 
 ## Rules
 
@@ -65,6 +84,9 @@ This file is the full source snapshot of OPSCORE V3 for audit, refactor planning
 - UI must not contain business logic.
 - API routes must be gateways only.
 - Source Book must be regenerated after major architecture changes.
+- Python OKE files must be included.
+- Runtime/cache/generated export folders must be excluded.
+- This file is overwritten on every run.
 
 ---
 
@@ -76,13 +98,24 @@ Set-Content -Path $LatestFile -Value $header -Encoding UTF8
 
 foreach ($file in $files) {
   $relative = Resolve-Path -Relative $file.FullName
-  Add-Content -Path $LatestFile -Value "- [$relative](#$($relative.ToLower().Replace('\','').Replace('/','').Replace('.','').Replace(' ','-')))"
+
+  if ([string]::IsNullOrWhiteSpace($relative)) {
+    continue
+  }
+
+  $anchor = $relative.ToLower().Replace('\','').Replace('/','').Replace('.','').Replace(' ','-')
+  Add-Content -Path $LatestFile -Value "- [$relative](#$anchor)"
 }
 
 Add-Content -Path $LatestFile -Value "`n---`n"
 
 foreach ($file in $files) {
   $relative = Resolve-Path -Relative $file.FullName
+
+  if ([string]::IsNullOrWhiteSpace($relative)) {
+    continue
+  }
+
   $ext = $file.Extension.TrimStart(".")
   $lineCount = 0
 
@@ -100,11 +133,8 @@ foreach ($file in $files) {
   Add-Content -Path $LatestFile -Value "````"
 }
 
-Copy-Item $LatestFile $VersionedFile -Force
-
 Write-Host ""
 Write-Host "Source Book generated successfully." -ForegroundColor Green
-Write-Host "Latest: $LatestFile" -ForegroundColor Cyan
-Write-Host "Versioned: $VersionedFile" -ForegroundColor Cyan
+Write-Host "Output: $LatestFile" -ForegroundColor Cyan
 Write-Host "Files: $totalFiles"
 Write-Host "Lines: $totalLines"
