@@ -1,9 +1,11 @@
 from OKE.pipelines.engineering_pipeline import EngineeringPipeline
+from OKE.specialists.base import BaseSpecialist
 
 
-class DatabaseSpecialist:
+class DatabaseSpecialist(BaseSpecialist):
 
-    name = "Database Specialist"
+    name = "database"
+    display_name = "Database Specialist"
     version = "1.0"
 
     def analyze(
@@ -27,6 +29,7 @@ class DatabaseSpecialist:
 
         return {
             "name": self.name,
+            "display_name": self.display_name,
             "version": self.version,
             "responsibility": [
                 "Database Discovery",

@@ -1,7 +1,7 @@
 import sys
 
 from OKE.adapters.supabase_adapter import SupabaseAdapter
-from OKE.specialists.database.specialist import DatabaseSpecialist
+from OKE.commander.commander import Commander
 
 
 def print_table_report(table_name):
@@ -21,7 +21,9 @@ def print_table_report(table_name):
         print(f"Table not found: {table_name}")
         return
 
-    result = DatabaseSpecialist().analyze(
+    result = Commander().dispatch(
+        specialist_name="database",
+        action="analyze",
         tables=tables,
         columns=columns,
         primary_keys=primary_keys,
