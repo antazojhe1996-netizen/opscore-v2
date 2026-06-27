@@ -1,6 +1,10 @@
 import sys
 
 from OKE.adapters.supabase_adapter import SupabaseAdapter
+from OKE.analyzers.impact_analyzer import ImpactAnalyzer
+from OKE.analyzers.module_analyzer import ModuleAnalyzer
+from OKE.analyzers.recommendation_analyzer import RecommendationAnalyzer
+from OKE.analyzers.regression_analyzer import RegressionAnalyzer
 from OKE.services.engineering_report_service import EngineeringReportService
 
 
@@ -29,6 +33,16 @@ def print_table_report(table_name):
         table_name=table_name,
     )
 
+    impact = ImpactAnalyzer().analyze(report)
+    module_impact = ModuleAnalyzer().analyze(report)
+    regression_plan = RegressionAnalyzer().analyze(module_impact)
+    recommendation = RecommendationAnalyzer().analyze(
+        report,
+        impact,
+        module_impact,
+        regression_plan,
+    )
+
     print("=" * 60)
     print("OKE ENGINEERING TABLE REPORT")
     print("=" * 60)
@@ -38,11 +52,11 @@ def print_table_report(table_name):
     print()
     print("Summary")
     print("-------")
-    print(f"Columns       : {len(report.columns)}")
-    print(f"Primary Keys  : {len(report.primary_keys)}")
-    print(f"Foreign Keys  : {len(report.foreign_keys)}")
-    print(f"Referenced By : {len(report.referenced_by)}")
-    print(f"Dependencies  : {len(report.dependencies)}")
+    print(f"Columns       : {report.metrics.column_count}")
+    print(f"Primary Keys  : {report.metrics.primary_key_count}")
+    print(f"Foreign Keys  : {report.metrics.foreign_key_count}")
+    print(f"Referenced By : {report.metrics.referenced_by_count}")
+    print(f"Dependencies  : {report.metrics.dependency_count}")
     print()
 
     if report.primary_keys:
@@ -75,6 +89,43 @@ def print_table_report(table_name):
         for dependency in report.dependencies:
             print(f"- {dependency}")
         print()
+
+    print("=" * 60)
+    print("OKE IMPACT REPORT")
+    print("=" * 60)
+    print()
+    print(f"Target Table        : {impact.table}")
+    print(f"Risk Level          : {impact.risk}")
+    print(f"Affected Tables     : {len(impact.affected_tables)}")
+    print(f"Affected Modules    : {len(module_impact.modules)}")
+    print(f"Regression Checks   : {len(regression_plan.checklist)}")
+    print()
+
+    if impact.affected_tables:
+        print("Affected Tables")
+        print("---------------")
+        for table in impact.affected_tables:
+            print(f"- {table}")
+        print()
+
+    if module_impact.modules:
+        print("Business Impact")
+        print("---------------")
+        for module in module_impact.modules:
+            print(f"- {module}")
+        print()
+
+    if regression_plan.checklist:
+        print("Regression Checklist")
+        print("--------------------")
+        for item in regression_plan.checklist:
+            print(f"- {item}")
+        print()
+
+    print("Engineering Recommendation")
+    print("--------------------------")
+    print(recommendation.message)
+    print()
 
     print("Engineering Status: PASS")
 

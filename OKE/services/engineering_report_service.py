@@ -1,5 +1,6 @@
 from OKE.builders.dependency_builder import DependencyBuilder
 from OKE.builders.relationship_builder import RelationshipBuilder
+from OKE.models.engineering_metrics import EngineeringMetrics
 from OKE.models.engineering_report import EngineeringReport
 from OKE.rules.engineering_rules import EngineeringRules
 
@@ -36,12 +37,21 @@ class EngineeringReportService:
         referenced_by = relationships.get(table_name, [])
         dependencies = dependency_graph.get(table_name, [])
 
+        metrics = EngineeringMetrics(
+            column_count=len(table_columns),
+            primary_key_count=len(table_primary_keys),
+            foreign_key_count=len(table_foreign_keys),
+            referenced_by_count=len(referenced_by),
+            dependency_count=len(dependencies),
+        )
+
         rules = EngineeringRules()
-        risk = rules.calculate_risk(len(dependencies))
+        risk = rules.calculate_risk(metrics.dependency_count)
 
         return EngineeringReport(
             subject=table_name,
             risk=risk,
+            metrics=metrics,
             columns=table_columns,
             primary_keys=table_primary_keys,
             foreign_keys=table_foreign_keys,
