@@ -1,408 +1,27 @@
-﻿# OPSCORE V3 Source Book
+﻿# OPSCORE V3 + OKE Source Book
 
-Generated: 2026-06-28 04:19:32
+Generated: 2026-06-28 14:51:58
 
-## Summary
+Files: 423
+Lines: 105657
 
-- Files: 371
-- Lines: 92167
+Purpose
 
-## Purpose
+This Source Book contains the complete engineering source snapshot
+of OPSCORE and OKE.
 
-This file is the full source snapshot of OPSCORE V3 and OKE for audit, refactor planning, architecture review, and regression tracking.
+Rules
 
-## Rules
-
-- No guessing.
-- Audit first.
-- Engine first.
-- UI must not contain business logic.
-- API routes must be gateways only.
-- Source Book must be regenerated after major architecture changes.
-- Python OKE files must be included.
-- Runtime/cache/generated export folders must be excluded.
-- This file is overwritten on every run.
+- Audit before coding.
+- Never assume architecture.
+- UI must remain thin.
+- Engine owns business logic.
+- API should remain gateways.
+- Regenerate after significant changes.
 
 ---
-
-## Table of Contents
-
-- [.\app\(app)\activity-logs\page.tsx](#app(app)activity-logspagetsx)
-- [.\app\(app)\admin\audit-logs\page.tsx](#app(app)adminaudit-logspagetsx)
-- [.\app\(app)\admin\database-health\page.tsx](#app(app)admindatabase-healthpagetsx)
-- [.\app\(app)\admin\data-cleanup\page.tsx](#app(app)admindata-cleanuppagetsx)
-- [.\app\(app)\audit\page.tsx](#app(app)auditpagetsx)
-- [.\app\(app)\backup\page.tsx](#app(app)backuppagetsx)
-- [.\app\(app)\change-password\page.tsx](#app(app)change-passwordpagetsx)
-- [.\app\(app)\dashboard\page.tsx](#app(app)dashboardpagetsx)
-- [.\app\(app)\finance\apartment\billing\page.tsx](#app(app)financeapartmentbillingpagetsx)
-- [.\app\(app)\finance\apartment\page.tsx](#app(app)financeapartmentpagetsx)
-- [.\app\(app)\finance\apartment\payments\page.tsx](#app(app)financeapartmentpaymentspagetsx)
-- [.\app\(app)\finance\apartment\settings\page.tsx](#app(app)financeapartmentsettingspagetsx)
-- [.\app\(app)\finance\bills\page.tsx](#app(app)financebillspagetsx)
-- [.\app\(app)\finance\cash-management\page.tsx](#app(app)financecash-managementpagetsx)
-- [.\app\(app)\finance\expense-requests\page.tsx](#app(app)financeexpense-requestspagetsx)
-- [.\app\(app)\finance\expenses\page.tsx](#app(app)financeexpensespagetsx)
-- [.\app\(app)\finance\page.tsx](#app(app)financepagetsx)
-- [.\app\(app)\finance\payroll\attendance\page.tsx](#app(app)financepayrollattendancepagetsx)
-- [.\app\(app)\finance\payroll\employee-balances\page.tsx](#app(app)financepayrollemployee-balancespagetsx)
-- [.\app\(app)\finance\payroll\history\page.tsx](#app(app)financepayrollhistorypagetsx)
-- [.\app\(app)\finance\payroll\manager\page.tsx](#app(app)financepayrollmanagerpagetsx)
-- [.\app\(app)\finance\payroll\page.tsx](#app(app)financepayrollpagetsx)
-- [.\app\(app)\finance\payroll\payslips\page.tsx](#app(app)financepayrollpayslipspagetsx)
-- [.\app\(app)\finance\payroll\register\page.tsx](#app(app)financepayrollregisterpagetsx)
-- [.\app\(app)\finance\payroll\settings\page.tsx](#app(app)financepayrollsettingspagetsx)
-- [.\app\(app)\finance\payroll\snapshots\page.tsx](#app(app)financepayrollsnapshotspagetsx)
-- [.\app\(app)\finance\reports\page.tsx](#app(app)financereportspagetsx)
-- [.\app\(app)\finance\restaurant-import\page.tsx](#app(app)financerestaurant-importpagetsx)
-- [.\app\(app)\finance\room-sales\page.tsx](#app(app)financeroom-salespagetsx)
-- [.\app\(app)\finance\settings\expense-allocation\page.tsx](#app(app)financesettingsexpense-allocationpagetsx)
-- [.\app\(app)\finance\settings\page.tsx](#app(app)financesettingspagetsx)
-- [.\app\(app)\finance\watcher\page.tsx](#app(app)financewatcherpagetsx)
-- [.\app\(app)\forecasting\event-addons\page.tsx](#app(app)forecastingevent-addonspagetsx)
-- [.\app\(app)\forecasting\occupancy-import\page.tsx](#app(app)forecastingoccupancy-importpagetsx)
-- [.\app\(app)\forecasting\page.tsx](#app(app)forecastingpagetsx)
-- [.\app\(app)\human-resources\employees\page.tsx](#app(app)human-resourcesemployeespagetsx)
-- [.\app\(app)\human-resources\onboarding\page.tsx](#app(app)human-resourcesonboardingpagetsx)
-- [.\app\(app)\human-resources\pending-registration\page.tsx](#app(app)human-resourcespending-registrationpagetsx)
-- [.\app\(app)\layout.tsx](#app(app)layouttsx)
-- [.\app\(app)\leave-management\leave-requests\page.tsx](#app(app)leave-managementleave-requestspagetsx)
-- [.\app\(app)\leave-management\page.tsx](#app(app)leave-managementpagetsx)
-- [.\app\(app)\maintenance-tracker\page.tsx](#app(app)maintenance-trackerpagetsx)
-- [.\app\(app)\manager\approval-center\page.tsx](#app(app)managerapproval-centerpagetsx)
-- [.\app\(app)\marketing\page.tsx](#app(app)marketingpagetsx)
-- [.\app\(app)\onboarding\page.tsx](#app(app)onboardingpagetsx)
-- [.\app\(app)\performance\page.tsx](#app(app)performancepagetsx)
-- [.\app\(app)\portal\page.tsx](#app(app)portalpagetsx)
-- [.\app\(app)\pos\cashiers\page.tsx](#app(app)poscashierspagetsx)
-- [.\app\(app)\pos\categories\page.tsx](#app(app)poscategoriespagetsx)
-- [.\app\(app)\pos\menu-items\page.tsx](#app(app)posmenu-itemspagetsx)
-- [.\app\(app)\pos\page.tsx](#app(app)pospagetsx)
-- [.\app\(app)\pos\parked-orders\page.tsx](#app(app)posparked-orderspagetsx)
-- [.\app\(app)\pos\production\page.tsx](#app(app)posproductionpagetsx)
-- [.\app\(app)\pos\sessions\page.tsx](#app(app)possessionspagetsx)
-- [.\app\(app)\pos\settings\page.tsx](#app(app)possettingspagetsx)
-- [.\app\(app)\pos\terminal\page.tsx](#app(app)posterminalpagetsx)
-- [.\app\(app)\pos\terminal\transactions\page.tsx](#app(app)posterminaltransactionspagetsx)
-- [.\app\(app)\pos\transactions\page.tsx](#app(app)postransactionspagetsx)
-- [.\app\(app)\reservations\board\page.tsx](#app(app)reservationsboardpagetsx)
-- [.\app\(app)\reservations\page.tsx](#app(app)reservationspagetsx)
-- [.\app\(app)\scheduling\page.tsx](#app(app)schedulingpagetsx)
-- [.\app\(app)\settings\approval-assignments\page.tsx](#app(app)settingsapproval-assignmentspagetsx)
-- [.\app\(app)\settings\approval-controls\page.tsx](#app(app)settingsapproval-controlspagetsx)
-- [.\app\(app)\settings\current-user\page.tsx](#app(app)settingscurrent-userpagetsx)
-- [.\app\(app)\settings\departments\page.tsx](#app(app)settingsdepartmentspagetsx)
-- [.\app\(app)\settings\employment-statuses\page.tsx](#app(app)settingsemployment-statusespagetsx)
-- [.\app\(app)\settings\employment-types\page.tsx](#app(app)settingsemployment-typespagetsx)
-- [.\app\(app)\settings\forecasting-rules\page.tsx](#app(app)settingsforecasting-rulespagetsx)
-- [.\app\(app)\settings\hc-rules\page.tsx](#app(app)settingshc-rulespagetsx)
-- [.\app\(app)\settings\hr\page.tsx](#app(app)settingshrpagetsx)
-- [.\app\(app)\settings\leave-credits\page.tsx](#app(app)settingsleave-creditspagetsx)
-- [.\app\(app)\settings\leave-settings\page.tsx](#app(app)settingsleave-settingspagetsx)
-- [.\app\(app)\settings\page.tsx](#app(app)settingspagetsx)
-- [.\app\(app)\settings\performance-kpi\page.tsx](#app(app)settingsperformance-kpipagetsx)
-- [.\app\(app)\settings\positions\page.tsx](#app(app)settingspositionspagetsx)
-- [.\app\(app)\settings\property\page.tsx](#app(app)settingspropertypagetsx)
-- [.\app\(app)\settings\registration-settings\page.tsx](#app(app)settingsregistration-settingspagetsx)
-- [.\app\(app)\settings\shifts\page.tsx](#app(app)settingsshiftspagetsx)
-- [.\app\(app)\settings\user-credentials\page.tsx](#app(app)settingsuser-credentialspagetsx)
-- [.\app\(app)\settings\user-roles\page.tsx](#app(app)settingsuser-rolespagetsx)
-- [.\app\(app)\workforce\page.tsx](#app(app)workforcepagetsx)
-- [.\app\api\admin\data-cleanup\route.ts](#appapiadmindata-cleanuproutets)
-- [.\app\api\approval\approve\route.ts](#appapiapprovalapproveroutets)
-- [.\app\api\approval\create\route.ts](#appapiapprovalcreateroutets)
-- [.\app\api\approval\list\route.ts](#appapiapprovallistroutets)
-- [.\app\api\approval\pending\route.ts](#appapiapprovalpendingroutets)
-- [.\app\api\approval\reject\route.ts](#appapiapprovalrejectroutets)
-- [.\app\api\audit\log\route.ts](#appapiauditlogroutets)
-- [.\app\api\cash\drawer\close\route.ts](#appapicashdrawercloseroutets)
-- [.\app\api\cash\drawer\list\route.ts](#appapicashdrawerlistroutets)
-- [.\app\api\cash\drawer\open\route.ts](#appapicashdraweropenroutets)
-- [.\app\api\cash\insert\route.ts](#appapicashinsertroutets)
-- [.\app\api\cash\movements\route.ts](#appapicashmovementsroutets)
-- [.\app\api\hr\approve-registration\route.ts](#appapihrapprove-registrationroutets)
-- [.\app\api\hr\create-employee-account\route.ts](#appapihrcreate-employee-accountroutets)
-- [.\app\api\hr\delete-employee\route.ts](#appapihrdelete-employeeroutets)
-- [.\app\api\payroll\send-payslip\route.ts](#appapipayrollsend-paysliproutets)
-- [.\app\employee-portal\page.tsx](#appemployee-portalpagetsx)
-- [.\app\globals.css](#appglobalscss)
-- [.\app\layout.tsx](#applayouttsx)
-- [.\app\lib\accessControl.ts](#applibaccesscontrolts)
-- [.\app\lib\activityLogger.ts](#applibactivityloggerts)
-- [.\app\lib\approvals\approval-actions.ts](#applibapprovalsapproval-actionsts)
-- [.\app\lib\approvals\approval-engine.ts](#applibapprovalsapproval-enginets)
-- [.\app\lib\approvals\core.ts](#applibapprovalscorets)
-- [.\app\lib\approvals\index.ts](#applibapprovalsindexts)
-- [.\app\lib\audit.ts](#applibauditts)
-- [.\app\lib\cash\cash-audit.ts](#applibcashcash-auditts)
-- [.\app\lib\cash\cash-core.ts](#applibcashcash-corets)
-- [.\app\lib\cash\cash-engine.ts](#applibcashcash-enginets)
-- [.\app\lib\cash\cash-realtime.ts](#applibcashcash-realtimets)
-- [.\app\lib\cash\cash-realtime-watcher.ts](#applibcashcash-realtime-watcherts)
-- [.\app\lib\cash\cash-snapshot.ts](#applibcashcash-snapshotts)
-- [.\app\lib\cash\drawer-core.ts](#applibcashdrawer-corets)
-- [.\app\lib\cash\index.ts](#applibcashindexts)
-- [.\app\lib\cash\variance-engine.ts](#applibcashvariance-enginets)
-- [.\app\lib\geofence.ts](#applibgeofencets)
-- [.\app\lib\pageAccess.ts](#applibpageaccessts)
-- [.\app\lib\permissions.ts](#applibpermissionsts)
-- [.\app\lib\system\maintenance.ts](#applibsystemmaintenancets)
-- [.\app\lib\system\middleware.ts](#applibsystemmiddlewarets)
-- [.\app\lib\watcher\financial-watcher.ts](#applibwatcherfinancial-watcherts)
-- [.\app\login\page.tsx](#apploginpagetsx)
-- [.\app\maintenance\page.tsx](#appmaintenancepagetsx)
-- [.\app\manifest.ts](#appmanifestts)
-- [.\app\page.tsx](#apppagetsx)
-- [.\components\AccessDenied.tsx](#componentsaccessdeniedtsx)
-- [.\components\OpscoreAssistant.tsx](#componentsopscoreassistanttsx)
-- [.\components\PageGuard.tsx](#componentspageguardtsx)
-- [.\components\RegisterServiceWorker.tsx](#componentsregisterserviceworkertsx)
-- [.\components\Sidebar.tsx](#componentssidebartsx)
-- [.\components\TopNavbar.tsx](#componentstopnavbartsx)
-- [.\docs\database-books\OPSCORE_DATABASE_BOOK.md](#docsdatabase-booksopscore_database_bookmd)
-- [.\eslint.config.mjs](#eslintconfigmjs)
-- [.\fix-api-routes.cjs](#fix-api-routescjs)
-- [.\fix-app-lib-supabase.cjs](#fix-app-lib-supabasecjs)
-- [.\fix-client-order.cjs](#fix-client-ordercjs)
-- [.\fix-create-client-import.cjs](#fix-create-client-importcjs)
-- [.\fix-supabase-alias.cjs](#fix-supabase-aliascjs)
-- [.\lib\supabase.ts](#libsupabasets)
-- [.\lib\supabase-client.ts](#libsupabase-clientts)
-- [.\lib\supabase-server.ts](#libsupabase-serverts)
-- [.\next.config.ts](#nextconfigts)
-- [.\next-env.d.ts](#next-envdts)
-- [.\OKE\__init__.py](#oke__init__py)
-- [.\OKE\__main__.py](#oke__main__py)
-- [.\OKE\adapters\__init__.py](#okeadapters__init__py)
-- [.\OKE\adapters\database_adapter.py](#okeadaptersdatabase_adapterpy)
-- [.\OKE\adapters\dummy_adapter.py](#okeadaptersdummy_adapterpy)
-- [.\OKE\adapters\supabase_adapter.py](#okeadapterssupabase_adapterpy)
-- [.\OKE\aggregators\__init__.py](#okeaggregators__init__py)
-- [.\OKE\aggregators\result_aggregator.py](#okeaggregatorsresult_aggregatorpy)
-- [.\OKE\analyzers\__init__.py](#okeanalyzers__init__py)
-- [.\OKE\analyzers\impact_analyzer.py](#okeanalyzersimpact_analyzerpy)
-- [.\OKE\analyzers\module_analyzer.py](#okeanalyzersmodule_analyzerpy)
-- [.\OKE\analyzers\recommendation_analyzer.py](#okeanalyzersrecommendation_analyzerpy)
-- [.\OKE\analyzers\regression_analyzer.py](#okeanalyzersregression_analyzerpy)
-- [.\OKE\builders\__init__.py](#okebuilders__init__py)
-- [.\OKE\builders\database_schema_builder.py](#okebuildersdatabase_schema_builderpy)
-- [.\OKE\builders\dependency_builder.py](#okebuildersdependency_builderpy)
-- [.\OKE\builders\relationship_builder.py](#okebuildersrelationship_builderpy)
-- [.\OKE\cli.py](#okeclipy)
-- [.\OKE\cli\__init__.py](#okecli__init__py)
-- [.\OKE\cli\__main__.py](#okecli__main__py)
-- [.\OKE\cli\commands.py](#okeclicommandspy)
-- [.\OKE\cli\main.py](#okeclimainpy)
-- [.\OKE\commander\__init__.py](#okecommander__init__py)
-- [.\OKE\commander\commander.py](#okecommandercommanderpy)
-- [.\OKE\commander\registry.py](#okecommanderregistrypy)
-- [.\OKE\commands\__init__.py](#okecommands__init__py)
-- [.\OKE\commands\analyze_command.py](#okecommandsanalyze_commandpy)
-- [.\OKE\commands\base_command.py](#okecommandsbase_commandpy)
-- [.\OKE\commands\create_command.py](#okecommandscreate_commandpy)
-- [.\OKE\commands\registry.py](#okecommandsregistrypy)
-- [.\OKE\context\__init__.py](#okecontext__init__py)
-- [.\OKE\context\database_context.py](#okecontextdatabase_contextpy)
-- [.\OKE\context\engineering_context.py](#okecontextengineering_contextpy)
-- [.\OKE\contracts\builder.py](#okecontractsbuilderpy)
-- [.\OKE\contracts\database_book.md](#okecontractsdatabase_bookmd)
-- [.\OKE\coordinator\__init__.py](#okecoordinator__init__py)
-- [.\OKE\coordinator\coordinator.py](#okecoordinatorcoordinatorpy)
-- [.\OKE\docs\COMPASS.md](#okedocscompassmd)
-- [.\OKE\docs\CURRENT_MISSION.md](#okedocscurrent_missionmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\01_MISSION.md](#okedocsengineering_handbook01_missionmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\02_ARCHITECTURE.md](#okedocsengineering_handbook02_architecturemd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\03_ENGINEERING_PRINCIPLES.md](#okedocsengineering_handbook03_engineering_principlesmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\04_HOW_TO_CREATE_SPECIALIST.md](#okedocsengineering_handbook04_how_to_create_specialistmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\05_HOW_TO_CREATE_ANALYZER.md](#okedocsengineering_handbook05_how_to_create_analyzermd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\06_HOW_PIPELINES_WORK.md](#okedocsengineering_handbook06_how_pipelines_workmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\07_CONTRIBUTING.md](#okedocsengineering_handbook07_contributingmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\08_GLOSSARY.md](#okedocsengineering_handbook08_glossarymd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\09_ENGINEERING_CONSTITUTION.md](#okedocsengineering_handbook09_engineering_constitutionmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\10_FOLDER_RESPONSIBILITIES.md](#okedocsengineering_handbook10_folder_responsibilitiesmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\11_AI_ONBOARDING.md](#okedocsengineering_handbook11_ai_onboardingmd)
-- [.\OKE\docs\ENGINEERING_HANDBOOK\12_FOUNDATION_CHECKLIST.md](#okedocsengineering_handbook12_foundation_checklistmd)
-- [.\OKE\docs\EXPORT_V1.md](#okedocsexport_v1md)
-- [.\OKE\docs\PROJECT_HISTORY.md](#okedocsproject_historymd)
-- [.\OKE\docs\START_HERE.md](#okedocsstart_heremd)
-- [.\OKE\events\__init__.py](#okeevents__init__py)
-- [.\OKE\events\event_bus.py](#okeeventsevent_buspy)
-- [.\OKE\events\events.py](#okeeventseventspy)
-- [.\OKE\export\__init__.py](#okeexport__init__py)
-- [.\OKE\export\collector.py](#okeexportcollectorpy)
-- [.\OKE\export\copy_manager.py](#okeexportcopy_managerpy)
-- [.\OKE\export\export_manager.py](#okeexportexport_managerpy)
-- [.\OKE\export\file_locator.py](#okeexportfile_locatorpy)
-- [.\OKE\export\manifest.py](#okeexportmanifestpy)
-- [.\OKE\export\manifest_builder.py](#okeexportmanifest_builderpy)
-- [.\OKE\export\packager.py](#okeexportpackagerpy)
-- [.\OKE\export\profiles.py](#okeexportprofilespy)
-- [.\OKE\export\project_inventory.py](#okeexportproject_inventorypy)
-- [.\OKE\export\readme_generator.py](#okeexportreadme_generatorpy)
-- [.\OKE\export\review_package_generator.py](#okeexportreview_package_generatorpy)
-- [.\OKE\export\templates\MANIFEST_TEMPLATE.json](#okeexporttemplatesmanifest_templatejson)
-- [.\OKE\export\templates\OKE_TO_OPSCORE_MAP.md](#okeexporttemplatesoke_to_opscore_mapmd)
-- [.\OKE\export\templates\PROJECT_SUMMARY.md](#okeexporttemplatesproject_summarymd)
-- [.\OKE\export\templates\README.md](#okeexporttemplatesreadmemd)
-- [.\OKE\export\zip_packager.py](#okeexportzip_packagerpy)
-- [.\OKE\extractors\__init__.py](#okeextractors__init__py)
-- [.\OKE\extractors\database_extractor.py](#okeextractorsdatabase_extractorpy)
-- [.\OKE\generators\generate_database_book.py](#okegeneratorsgenerate_database_bookpy)
-- [.\OKE\generators\specialist_generator.py](#okegeneratorsspecialist_generatorpy)
-- [.\OKE\governance\__init__.py](#okegovernance__init__py)
-- [.\OKE\governance\auditor.py](#okegovernanceauditorpy)
-- [.\OKE\governance\report.py](#okegovernancereportpy)
-- [.\OKE\governance\rules.py](#okegovernancerulespy)
-- [.\OKE\governance\rules\__init__.py](#okegovernancerules__init__py)
-- [.\OKE\governance\rules\analyzer_rule.py](#okegovernancerulesanalyzer_rulepy)
-- [.\OKE\governance\rules\architecture_rule.py](#okegovernancerulesarchitecture_rulepy)
-- [.\OKE\governance\rules\base_rule.py](#okegovernancerulesbase_rulepy)
-- [.\OKE\governance\rules\pipeline_rule.py](#okegovernancerulespipeline_rulepy)
-- [.\OKE\governance\rules\specialist_rule.py](#okegovernancerulesspecialist_rulepy)
-- [.\OKE\governance\validator.py](#okegovernancevalidatorpy)
-- [.\OKE\knowledge\__init__.py](#okeknowledge__init__py)
-- [.\OKE\knowledge\module_map.py](#okeknowledgemodule_mappy)
-- [.\OKE\knowledge\regression_map.py](#okeknowledgeregression_mappy)
-- [.\OKE\models\__init__.py](#okemodels__init__py)
-- [.\OKE\models\database_schema.py](#okemodelsdatabase_schemapy)
-- [.\OKE\models\engineering_metrics.py](#okemodelsengineering_metricspy)
-- [.\OKE\models\engineering_report.py](#okemodelsengineering_reportpy)
-- [.\OKE\orchestrator\__init__.py](#okeorchestrator__init__py)
-- [.\OKE\orchestrator\orchestrator.py](#okeorchestratororchestratorpy)
-- [.\OKE\pipelines\__init__.py](#okepipelines__init__py)
-- [.\OKE\pipelines\engineering_pipeline.py](#okepipelinesengineering_pipelinepy)
-- [.\OKE\README.md](#okereadmemd)
-- [.\OKE\registry\__init__.py](#okeregistry__init__py)
-- [.\OKE\registry\command_registry.py](#okeregistrycommand_registrypy)
-- [.\OKE\registry\registry.py](#okeregistryregistrypy)
-- [.\OKE\results\__init__.py](#okeresults__init__py)
-- [.\OKE\results\specialist_result.py](#okeresultsspecialist_resultpy)
-- [.\OKE\rules\__init__.py](#okerules__init__py)
-- [.\OKE\rules\engineering_metrics.py](#okerulesengineering_metricspy)
-- [.\OKE\rules\engineering_rules.py](#okerulesengineering_rulespy)
-- [.\OKE\services\engineering_report_service.py](#okeservicesengineering_report_servicepy)
-- [.\OKE\specialists\__init__.py](#okespecialists__init__py)
-- [.\OKE\specialists\api\__init__.py](#okespecialistsapi__init__py)
-- [.\OKE\specialists\api\specialist.py](#okespecialistsapispecialistpy)
-- [.\OKE\specialists\base.py](#okespecialistsbasepy)
-- [.\OKE\specialists\billing\__init__.py](#okespecialistsbilling__init__py)
-- [.\OKE\specialists\billing\analyzer.py](#okespecialistsbillinganalyzerpy)
-- [.\OKE\specialists\billing\builder.py](#okespecialistsbillingbuilderpy)
-- [.\OKE\specialists\billing\knowledge.py](#okespecialistsbillingknowledgepy)
-- [.\OKE\specialists\billing\model.py](#okespecialistsbillingmodelpy)
-- [.\OKE\specialists\billing\pipeline.py](#okespecialistsbillingpipelinepy)
-- [.\OKE\specialists\billing\README.md](#okespecialistsbillingreadmemd)
-- [.\OKE\specialists\billing\rule.py](#okespecialistsbillingrulepy)
-- [.\OKE\specialists\billing\service.py](#okespecialistsbillingservicepy)
-- [.\OKE\specialists\billing\specialist.py](#okespecialistsbillingspecialistpy)
-- [.\OKE\specialists\database\__init__.py](#okespecialistsdatabase__init__py)
-- [.\OKE\specialists\database\analyzers\__init__.py](#okespecialistsdatabaseanalyzers__init__py)
-- [.\OKE\specialists\database\builders\__init__.py](#okespecialistsdatabasebuilders__init__py)
-- [.\OKE\specialists\database\knowledge\__init__.py](#okespecialistsdatabaseknowledge__init__py)
-- [.\OKE\specialists\database\models\__init__.py](#okespecialistsdatabasemodels__init__py)
-- [.\OKE\specialists\database\pipelines\__init__.py](#okespecialistsdatabasepipelines__init__py)
-- [.\OKE\specialists\database\rules\__init__.py](#okespecialistsdatabaserules__init__py)
-- [.\OKE\specialists\database\services\__init__.py](#okespecialistsdatabaseservices__init__py)
-- [.\OKE\specialists\database\specialist.py](#okespecialistsdatabasespecialistpy)
-- [.\OKE\specialists\deployment\__init__.py](#okespecialistsdeployment__init__py)
-- [.\OKE\specialists\deployment\specialist.py](#okespecialistsdeploymentspecialistpy)
-- [.\OKE\specialists\docs\__init__.py](#okespecialistsdocs__init__py)
-- [.\OKE\specialists\docs\specialist.py](#okespecialistsdocsspecialistpy)
-- [.\OKE\specialists\inventory\__init__.py](#okespecialistsinventory__init__py)
-- [.\OKE\specialists\inventory\analyzer.py](#okespecialistsinventoryanalyzerpy)
-- [.\OKE\specialists\inventory\builder.py](#okespecialistsinventorybuilderpy)
-- [.\OKE\specialists\inventory\knowledge.py](#okespecialistsinventoryknowledgepy)
-- [.\OKE\specialists\inventory\model.py](#okespecialistsinventorymodelpy)
-- [.\OKE\specialists\inventory\pipeline.py](#okespecialistsinventorypipelinepy)
-- [.\OKE\specialists\inventory\README.md](#okespecialistsinventoryreadmemd)
-- [.\OKE\specialists\inventory\rule.py](#okespecialistsinventoryrulepy)
-- [.\OKE\specialists\inventory\service.py](#okespecialistsinventoryservicepy)
-- [.\OKE\specialists\inventory\specialist.py](#okespecialistsinventoryspecialistpy)
-- [.\OKE\specialists\payments\__init__.py](#okespecialistspayments__init__py)
-- [.\OKE\specialists\payments\analyzer.py](#okespecialistspaymentsanalyzerpy)
-- [.\OKE\specialists\payments\builder.py](#okespecialistspaymentsbuilderpy)
-- [.\OKE\specialists\payments\knowledge.py](#okespecialistspaymentsknowledgepy)
-- [.\OKE\specialists\payments\model.py](#okespecialistspaymentsmodelpy)
-- [.\OKE\specialists\payments\pipeline.py](#okespecialistspaymentspipelinepy)
-- [.\OKE\specialists\payments\README.md](#okespecialistspaymentsreadmemd)
-- [.\OKE\specialists\payments\rule.py](#okespecialistspaymentsrulepy)
-- [.\OKE\specialists\payments\service.py](#okespecialistspaymentsservicepy)
-- [.\OKE\specialists\payments\specialist.py](#okespecialistspaymentsspecialistpy)
-- [.\OKE\specialists\reports\__init__.py](#okespecialistsreports__init__py)
-- [.\OKE\specialists\reports\analyzer.py](#okespecialistsreportsanalyzerpy)
-- [.\OKE\specialists\reports\builder.py](#okespecialistsreportsbuilderpy)
-- [.\OKE\specialists\reports\knowledge.py](#okespecialistsreportsknowledgepy)
-- [.\OKE\specialists\reports\model.py](#okespecialistsreportsmodelpy)
-- [.\OKE\specialists\reports\pipeline.py](#okespecialistsreportspipelinepy)
-- [.\OKE\specialists\reports\README.md](#okespecialistsreportsreadmemd)
-- [.\OKE\specialists\reports\rule.py](#okespecialistsreportsrulepy)
-- [.\OKE\specialists\reports\service.py](#okespecialistsreportsservicepy)
-- [.\OKE\specialists\reports\specialist.py](#okespecialistsreportsspecialistpy)
-- [.\OKE\specialists\reservation\__init__.py](#okespecialistsreservation__init__py)
-- [.\OKE\specialists\reservation\analyzer.py](#okespecialistsreservationanalyzerpy)
-- [.\OKE\specialists\reservation\builder.py](#okespecialistsreservationbuilderpy)
-- [.\OKE\specialists\reservation\knowledge.py](#okespecialistsreservationknowledgepy)
-- [.\OKE\specialists\reservation\model.py](#okespecialistsreservationmodelpy)
-- [.\OKE\specialists\reservation\pipeline.py](#okespecialistsreservationpipelinepy)
-- [.\OKE\specialists\reservation\README.md](#okespecialistsreservationreadmemd)
-- [.\OKE\specialists\reservation\rule.py](#okespecialistsreservationrulepy)
-- [.\OKE\specialists\reservation\service.py](#okespecialistsreservationservicepy)
-- [.\OKE\specialists\reservation\specialist.py](#okespecialistsreservationspecialistpy)
-- [.\OKE\specialists\security\__init__.py](#okespecialistssecurity__init__py)
-- [.\OKE\specialists\security\specialist.py](#okespecialistssecurityspecialistpy)
-- [.\OKE\specialists\source\__init__.py](#okespecialistssource__init__py)
-- [.\OKE\specialists\source\specialist.py](#okespecialistssourcespecialistpy)
-- [.\OKE\specialists\template\__init__.py](#okespecialiststemplate__init__py)
-- [.\OKE\specialists\template\specialist.py](#okespecialiststemplatespecialistpy)
-- [.\OKE\specialists\testing\__init__.py](#okespecialiststesting__init__py)
-- [.\OKE\specialists\testing\specialist.py](#okespecialiststestingspecialistpy)
-- [.\OKE\specialists\ui\__init__.py](#okespecialistsui__init__py)
-- [.\OKE\specialists\ui\specialist.py](#okespecialistsuispecialistpy)
-- [.\OKE\specs\database_schema_spec.md](#okespecsdatabase_schema_specmd)
-- [.\OKE\standards\__init__.py](#okestandards__init__py)
-- [.\OKE\standards\analyzer_standard.py](#okestandardsanalyzer_standardpy)
-- [.\OKE\standards\pipeline_standard.py](#okestandardspipeline_standardpy)
-- [.\OKE\standards\report_standard.py](#okestandardsreport_standardpy)
-- [.\OKE\standards\specialist_standard.py](#okestandardsspecialist_standardpy)
-- [.\OKE\templates\database_book_template.md](#oketemplatesdatabase_book_templatemd)
-- [.\OKE\templates\specialist\__init__.py](#oketemplatesspecialist__init__py)
-- [.\OKE\templates\specialist\analyzer.py](#oketemplatesspecialistanalyzerpy)
-- [.\OKE\templates\specialist\builder.py](#oketemplatesspecialistbuilderpy)
-- [.\OKE\templates\specialist\knowledge.py](#oketemplatesspecialistknowledgepy)
-- [.\OKE\templates\specialist\model.py](#oketemplatesspecialistmodelpy)
-- [.\OKE\templates\specialist\pipeline.py](#oketemplatesspecialistpipelinepy)
-- [.\OKE\templates\specialist\README.md](#oketemplatesspecialistreadmemd)
-- [.\OKE\templates\specialist\rule.py](#oketemplatesspecialistrulepy)
-- [.\OKE\templates\specialist\service.py](#oketemplatesspecialistservicepy)
-- [.\OKE\templates\specialist\specialist.py](#oketemplatesspecialistspecialistpy)
-- [.\OKE\timeline\__init__.py](#oketimeline__init__py)
-- [.\OKE\timeline\event.py](#oketimelineeventpy)
-- [.\OKE\timeline\timeline.py](#oketimelinetimelinepy)
-- [.\OKE\VERSION.md](#okeversionmd)
-- [.\OKE\workspace\__init__.py](#okeworkspace__init__py)
-- [.\OKE\workspace\comparator.py](#okeworkspacecomparatorpy)
-- [.\OKE\workspace\reports\employees.json](#okeworkspacereportsemployeesjson)
-- [.\OKE\workspace\reports\manager_test.json](#okeworkspacereportsmanager_testjson)
-- [.\OKE\workspace\reports\repo_test.json](#okeworkspacereportsrepo_testjson)
-- [.\OKE\workspace\reports\test.json](#okeworkspacereportstestjson)
-- [.\OKE\workspace\repository.py](#okeworkspacerepositorypy)
-- [.\OKE\workspace\snapshot_manager.py](#okeworkspacesnapshot_managerpy)
-- [.\OKE\workspace\snapshots\employees.json](#okeworkspacesnapshotsemployeesjson)
-- [.\OKE\workspace\workspace_manager.py](#okeworkspaceworkspace_managerpy)
-- [.\OKE_FULL_AUDIT_SOURCE.md](#oke_full_audit_sourcemd)
-- [.\package.json](#packagejson)
-- [.\package-lock.json](#package-lockjson)
-- [.\postcss.config.mjs](#postcssconfigmjs)
-- [.\public\sw.js](#publicswjs)
-- [.\README.md](#readmemd)
-- [.\scripts\export-database-book.sql](#scriptsexport-database-booksql)
-- [.\tsconfig.json](#tsconfigjson)
-
----
-
 
 # .\app\(app)\activity-logs\page.tsx
-
 
 Lines: 220
 
@@ -630,7 +249,6 @@ export default function ActivityLogsPage() {
 ``
 
 # .\app\(app)\admin\audit-logs\page.tsx
-
 
 Lines: 480
 
@@ -1118,7 +736,6 @@ function AuditStandardRow({ label, value }: { label: string; value: string }) {
 ``
 
 # .\app\(app)\admin\database-health\page.tsx
-
 
 Lines: 1485
 
@@ -2612,7 +2229,6 @@ function StandardBox({ title, values }: { title: string; values: string[] }) {
 
 # .\app\(app)\admin\data-cleanup\page.tsx
 
-
 Lines: 503
 
 ``tsx
@@ -3122,7 +2738,6 @@ function SummaryCard({
 ``
 
 # .\app\(app)\audit\page.tsx
-
 
 Lines: 1217
 
@@ -4348,7 +3963,6 @@ function SummaryRow({ label, value }: { label: string; value: any }) {
 
 # .\app\(app)\backup\page.tsx
 
-
 Lines: 832
 
 ``tsx
@@ -5188,7 +4802,6 @@ function BackupRow({
 
 # .\app\(app)\change-password\page.tsx
 
-
 Lines: 326
 
 ``tsx
@@ -5521,7 +5134,6 @@ function PasswordInput({
 ``
 
 # .\app\(app)\dashboard\page.tsx
-
 
 Lines: 1416
 
@@ -6946,7 +6558,6 @@ function BriefLine({ text }: { text: string }) {
 
 # .\app\(app)\finance\apartment\billing\page.tsx
 
-
 Lines: 564
 
 ``tsx
@@ -7517,7 +7128,6 @@ function SummaryRow({ label, value, danger }: any) {
 ``
 
 # .\app\(app)\finance\apartment\page.tsx
-
 
 Lines: 732
 
@@ -8257,7 +7867,6 @@ function SummaryMetric({ label, value }: any) {
 ``
 
 # .\app\(app)\finance\apartment\payments\page.tsx
-
 
 Lines: 859
 
@@ -9125,7 +8734,6 @@ function TableCard({ label, title, subtitle, children, className = "" }: any) {
 
 # .\app\(app)\finance\apartment\settings\page.tsx
 
-
 Lines: 491
 
 ``tsx
@@ -9623,7 +9231,6 @@ function Input({
 ``
 
 # .\app\(app)\finance\bills\page.tsx
-
 
 Lines: 782
 
@@ -10414,7 +10021,6 @@ function StatusBadge({ status }: { status: string }) {
 
 # .\app\(app)\finance\cash-management\page.tsx
 
-
 Lines: 490
 
 ``tsx
@@ -10911,7 +10517,6 @@ export default function CashManagementPage() {
 ``
 
 # .\app\(app)\finance\expense-requests\page.tsx
-
 
 Lines: 1487
 
@@ -12406,7 +12011,6 @@ function MiniDetail({ label, value }: any) {
 ``
 
 # .\app\(app)\finance\expenses\page.tsx
-
 
 Lines: 1755
 
@@ -14170,7 +13774,6 @@ function PayrollBadge({ expense }: any) {
 
 # .\app\(app)\finance\page.tsx
 
-
 Lines: 378
 
 ``tsx
@@ -14555,7 +14158,6 @@ function FinancePanel({
 ``
 
 # .\app\(app)\finance\payroll\attendance\page.tsx
-
 
 Lines: 2716
 
@@ -17280,7 +16882,6 @@ function SourceBadge({ source }: { source: any }) {
 
 # .\app\(app)\finance\payroll\employee-balances\page.tsx
 
-
 Lines: 1878
 
 ``tsx
@@ -19166,7 +18767,6 @@ function BalanceDrawer({
 
 # .\app\(app)\finance\payroll\history\page.tsx
 
-
 Lines: 578
 
 ``tsx
@@ -19751,7 +19351,6 @@ function StatusBadge({ value }: any) {
 ``
 
 # .\app\(app)\finance\payroll\manager\page.tsx
-
 
 Lines: 1488
 
@@ -21248,7 +20847,6 @@ export default function PayrollManagerPage() {
 
 # .\app\(app)\finance\payroll\page.tsx
 
-
 Lines: 1104
 
 ``tsx
@@ -22359,7 +21957,6 @@ function HolidayTable({
 ``
 
 # .\app\(app)\finance\payroll\payslips\page.tsx
-
 
 Lines: 1143
 
@@ -23510,7 +23107,6 @@ function StatusBadge({ value }: any) {
 ``
 
 # .\app\(app)\finance\payroll\register\page.tsx
-
 
 Lines: 4394
 
@@ -27913,7 +27509,6 @@ function Row({ label, value, strong = false }: any) {
 
 # .\app\(app)\finance\payroll\settings\page.tsx
 
-
 Lines: 968
 
 ``tsx
@@ -28889,7 +28484,6 @@ function HolidayTable({
 
 # .\app\(app)\finance\payroll\snapshots\page.tsx
 
-
 Lines: 174
 
 ``tsx
@@ -29070,7 +28664,6 @@ export default function PayrollSnapshotsPage() {
 ``
 
 # .\app\(app)\finance\reports\page.tsx
-
 
 Lines: 478
 
@@ -29556,7 +29149,6 @@ function formatDateTime(value: string) {
 ``
 
 # .\app\(app)\finance\restaurant-import\page.tsx
-
 
 Lines: 1096
 
@@ -30660,7 +30252,6 @@ function MiniStat({
 ``
 
 # .\app\(app)\finance\room-sales\page.tsx
-
 
 Lines: 1158
 
@@ -31827,7 +31418,6 @@ function hashKey(value: string) {
 
 # .\app\(app)\finance\settings\expense-allocation\page.tsx
 
-
 Lines: 943
 
 ``tsx
@@ -32778,7 +32368,6 @@ function ActionModal({
 
 # .\app\(app)\finance\settings\page.tsx
 
-
 Lines: 806
 
 ``tsx
@@ -33591,7 +33180,6 @@ function SettingsPanel({
 ``
 
 # .\app\(app)\finance\watcher\page.tsx
-
 
 Lines: 1179
 
@@ -34779,7 +34367,6 @@ function MovementSummaryPanel({
 
 # .\app\(app)\forecasting\event-addons\page.tsx
 
-
 Lines: 508
 
 ``tsx
@@ -35294,7 +34881,6 @@ export default function EventAddonsPage() {
 ``
 
 # .\app\(app)\forecasting\occupancy-import\page.tsx
-
 
 Lines: 656
 
@@ -35958,7 +35544,6 @@ export default function OccupancyImportPage() {
 ``
 
 # .\app\(app)\forecasting\page.tsx
-
 
 Lines: 824
 
@@ -36790,7 +36375,6 @@ export default function ForecastingPage() {
 ``
 
 # .\app\(app)\human-resources\employees\page.tsx
-
 
 Lines: 2009
 
@@ -38808,7 +38392,6 @@ function StatusBadge({ status }: { status: string }) {
 
 # .\app\(app)\human-resources\onboarding\page.tsx
 
-
 Lines: 781
 
 ``tsx
@@ -39597,7 +39180,6 @@ function Select({
 
 # .\app\(app)\human-resources\pending-registration\page.tsx
 
-
 Lines: 710
 
 ``tsx
@@ -40315,7 +39897,6 @@ function formatStaticDateTime(value?: string | null) {
 
 # .\app\(app)\layout.tsx
 
-
 Lines: 19
 
 ``tsx
@@ -40341,7 +39922,6 @@ export default function AppShellLayout({
 ``
 
 # .\app\(app)\leave-management\leave-requests\page.tsx
-
 
 Lines: 25
 
@@ -40374,7 +39954,6 @@ export default function LeaveRequestsRedirectPage() {
 ``
 
 # .\app\(app)\leave-management\page.tsx
-
 
 Lines: 909
 
@@ -41292,7 +40871,6 @@ function InfoRow({ label, value }: any) {
 
 # .\app\(app)\maintenance-tracker\page.tsx
 
-
 Lines: 497
 
 ``tsx
@@ -41797,7 +41375,6 @@ function getStatusClass(status: string) {
 
 # .\app\(app)\manager\approval-center\page.tsx
 
-
 Lines: 245
 
 ``tsx
@@ -42049,7 +41626,6 @@ export default function ApprovalCenterPage() {
 ``
 
 # .\app\(app)\marketing\page.tsx
-
 
 Lines: 412
 
@@ -42470,7 +42046,6 @@ function getStatusClass(status: string) {
 
 # .\app\(app)\onboarding\page.tsx
 
-
 Lines: 33
 
 ``tsx
@@ -42510,7 +42085,6 @@ export default function PublicOnboardingRedirectPage() {
 ``
 
 # .\app\(app)\performance\page.tsx
-
 
 Lines: 2114
 
@@ -44633,7 +44207,6 @@ function EmployeeDrawer({
 
 # .\app\(app)\portal\page.tsx
 
-
 Lines: 502
 
 ``tsx
@@ -45143,7 +44716,6 @@ function Metric({ value, label }: { value: string; label: string }) {
 
 # .\app\(app)\pos\cashiers\page.tsx
 
-
 Lines: 368
 
 ``tsx
@@ -45518,7 +45090,6 @@ export default function POSCashiersPage() {
 ``
 
 # .\app\(app)\pos\categories\page.tsx
-
 
 Lines: 886
 
@@ -46412,7 +45983,6 @@ function KpiCard({
 ``
 
 # .\app\(app)\pos\menu-items\page.tsx
-
 
 Lines: 1664
 
@@ -48085,7 +47655,6 @@ function ToggleButton({
 
 # .\app\(app)\pos\page.tsx
 
-
 Lines: 287
 
 ``tsx
@@ -48379,7 +47948,6 @@ export default function POSDashboardPage() {
 ``
 
 # .\app\(app)\pos\parked-orders\page.tsx
-
 
 Lines: 531
 
@@ -48918,7 +48486,6 @@ export default function POSParkedOrdersPage() {
 ``
 
 # .\app\(app)\pos\production\page.tsx
-
 
 Lines: 1026
 
@@ -49953,7 +49520,6 @@ export default function POSProductionQueuePage() {
 
 # .\app\(app)\pos\sessions\page.tsx
 
-
 Lines: 956
 
 ``tsx
@@ -50916,7 +50482,6 @@ function MiniCard({ label, value }: { label: string; value: string }) {
 ``
 
 # .\app\(app)\pos\settings\page.tsx
-
 
 Lines: 4654
 
@@ -55578,7 +55143,6 @@ function CheckOption({
 ``
 
 # .\app\(app)\pos\terminal\page.tsx
-
 
 Lines: 4930
 
@@ -60517,7 +60081,6 @@ export default function POSTerminalPage() {
 
 # .\app\(app)\pos\terminal\transactions\page.tsx
 
-
 Lines: 1081
 
 ``tsx
@@ -61605,7 +61168,6 @@ function TotalRow({
 ``
 
 # .\app\(app)\pos\transactions\page.tsx
-
 
 Lines: 1386
 
@@ -63000,7 +62562,6 @@ function TotalRow({
 
 # .\app\(app)\reservations\board\page.tsx
 
-
 Lines: 419
 
 ``tsx
@@ -63427,7 +62988,6 @@ function getStatusText(status: string) {
 
 # .\app\(app)\reservations\page.tsx
 
-
 Lines: 384
 
 ``tsx
@@ -63818,7 +63378,6 @@ function MiniInsight({ label, value }: { label: string; value: string }) {
 ``
 
 # .\app\(app)\scheduling\page.tsx
-
 
 Lines: 2437
 
@@ -66264,7 +65823,6 @@ function SummaryRow({ label, values, tableGridColumns }: any) {
 
 # .\app\(app)\settings\approval-assignments\page.tsx
 
-
 Lines: 1046
 
 ``tsx
@@ -67318,7 +66876,6 @@ function EmptyState({ title }: { title: string }) {
 
 # .\app\(app)\settings\approval-controls\page.tsx
 
-
 Lines: 605
 
 ``tsx
@@ -67931,7 +67488,6 @@ function SummaryCard({
 
 # .\app\(app)\settings\current-user\page.tsx
 
-
 Lines: 167
 
 ``tsx
@@ -68106,7 +67662,6 @@ function InfoRow({ label, value }: { label: string; value: any }) {
 
 # .\app\(app)\settings\departments\page.tsx
 
-
 Lines: 130
 
 ``tsx
@@ -68243,7 +67798,6 @@ export default function DepartmentsPage() {
 ``
 
 # .\app\(app)\settings\employment-statuses\page.tsx
-
 
 Lines: 351
 
@@ -68603,7 +68157,6 @@ export default function EmploymentStatusPage() {
 
 # .\app\(app)\settings\employment-types\page.tsx
 
-
 Lines: 252
 
 ``tsx
@@ -68862,7 +68415,6 @@ export default function EmploymentTypesPage() {
 ``
 
 # .\app\(app)\settings\forecasting-rules\page.tsx
-
 
 Lines: 348
 
@@ -69218,7 +68770,6 @@ export default function ForecastingRulesPage() {
 ``
 
 # .\app\(app)\settings\hc-rules\page.tsx
-
 
 Lines: 1187
 
@@ -70414,7 +69965,6 @@ function Counter({
 
 # .\app\(app)\settings\hr\page.tsx
 
-
 Lines: 961
 
 ``tsx
@@ -71383,7 +70933,6 @@ function BooleanBadge({ value }: { value: boolean }) {
 
 # .\app\(app)\settings\leave-credits\page.tsx
 
-
 Lines: 784
 
 ``tsx
@@ -72175,7 +71724,6 @@ export default function LeaveCreditsPage() {
 
 # .\app\(app)\settings\leave-settings\page.tsx
 
-
 Lines: 183
 
 ``tsx
@@ -72365,7 +71913,6 @@ export default function LeaveSettingsPage() {
 ``
 
 # .\app\(app)\settings\page.tsx
-
 
 Lines: 251
 
@@ -72624,7 +72171,6 @@ export default function SettingsPage() {
 ``
 
 # .\app\(app)\settings\performance-kpi\page.tsx
-
 
 Lines: 742
 
@@ -73375,7 +72921,6 @@ function SelectNative({ value, onChange, options }: any) {
 
 # .\app\(app)\settings\positions\page.tsx
 
-
 Lines: 271
 
 ``tsx
@@ -73653,7 +73198,6 @@ return (
 ``
 
 # .\app\(app)\settings\property\page.tsx
-
 
 Lines: 539
 
@@ -74201,7 +73745,6 @@ function SummaryRow({
 
 # .\app\(app)\settings\registration-settings\page.tsx
 
-
 Lines: 409
 
 ``tsx
@@ -74617,7 +74160,6 @@ function StatusRow({
 ``
 
 # .\app\(app)\settings\shifts\page.tsx
-
 
 Lines: 422
 
@@ -75047,7 +74589,6 @@ return (
 ``
 
 # .\app\(app)\settings\user-credentials\page.tsx
-
 
 Lines: 872
 
@@ -75927,7 +75468,6 @@ function Badge({
 ``
 
 # .\app\(app)\settings\user-roles\page.tsx
-
 
 Lines: 1025
 
@@ -76960,7 +76500,6 @@ function SummaryCard({
 ``
 
 # .\app\(app)\workforce\page.tsx
-
 
 Lines: 1147
 
@@ -78116,7 +77655,6 @@ function LeaveQueue({
 
 # .\app\api\admin\data-cleanup\route.ts
 
-
 Lines: 356
 
 ``ts
@@ -78480,7 +78018,6 @@ export async function POST(req: Request) {
 
 # .\app\api\approval\approve\route.ts
 
-
 Lines: 26
 
 ``ts
@@ -78513,7 +78050,6 @@ export async function POST(req: Request) {
 ``
 
 # .\app\api\approval\create\route.ts
-
 
 Lines: 32
 
@@ -78554,7 +78090,6 @@ export async function POST(req: Request) {
 
 # .\app\api\approval\list\route.ts
 
-
 Lines: 32
 
 ``ts
@@ -78593,7 +78128,6 @@ export async function GET(req: Request) {
 ``
 
 # .\app\api\approval\pending\route.ts
-
 
 Lines: 37
 
@@ -78639,7 +78173,6 @@ export async function GET() {
 
 # .\app\api\approval\reject\route.ts
 
-
 Lines: 26
 
 ``ts
@@ -78672,7 +78205,6 @@ export async function POST(req: Request) {
 ``
 
 # .\app\api\audit\log\route.ts
-
 
 Lines: 48
 
@@ -78729,7 +78261,6 @@ export async function POST(request: Request) {
 
 # .\app\api\cash\drawer\close\route.ts
 
-
 Lines: 26
 
 ``ts
@@ -78762,7 +78293,6 @@ export async function POST(req: Request) {
 ``
 
 # .\app\api\cash\drawer\list\route.ts
-
 
 Lines: 32
 
@@ -78802,7 +78332,6 @@ export async function GET(req: Request) {
 ``
 
 # .\app\api\cash\drawer\open\route.ts
-
 
 Lines: 39
 
@@ -78849,7 +78378,6 @@ export async function POST(req: Request) {
 ``
 
 # .\app\api\cash\insert\route.ts
-
 
 Lines: 56
 
@@ -78914,7 +78442,6 @@ export async function POST(req: Request) {
 
 # .\app\api\cash\movements\route.ts
 
-
 Lines: 34
 
 ``ts
@@ -78955,7 +78482,6 @@ export async function GET(req: Request) {
 ``
 
 # .\app\api\hr\approve-registration\route.ts
-
 
 Lines: 218
 
@@ -79181,7 +78707,6 @@ export async function POST(req: Request) {
 ``
 
 # .\app\api\hr\create-employee-account\route.ts
-
 
 Lines: 240
 
@@ -79430,7 +78955,6 @@ export async function POST(req: Request) {
 
 # .\app\api\hr\delete-employee\route.ts
 
-
 Lines: 214
 
 ``ts
@@ -79652,7 +79176,6 @@ export async function POST(req: Request) {
 
 # .\app\api\payroll\send-payslip\route.ts
 
-
 Lines: 77
 
 ``ts
@@ -79736,7 +79259,6 @@ const resend = new Resend(apiKey);
 ``
 
 # .\app\employee-portal\page.tsx
-
 
 Lines: 3528
 
@@ -83273,7 +82795,6 @@ function InfoTile({ label, value }: { label: string; value: any }) {
 
 # .\app\globals.css
 
-
 Lines: 34
 
 ``css
@@ -83314,7 +82835,6 @@ body {
 ``
 
 # .\app\layout.tsx
-
 
 Lines: 49
 
@@ -83371,7 +82891,6 @@ export default function RootLayout({
 ``
 
 # .\app\lib\accessControl.ts
-
 
 Lines: 126
 
@@ -83506,7 +83025,6 @@ export const hasPermission = (
 
 # .\app\lib\activityLogger.ts
 
-
 Lines: 32
 
 ``ts
@@ -83545,7 +83063,6 @@ export const logActivity = async (
 ``
 
 # .\app\lib\approvals\approval-actions.ts
-
 
 Lines: 433
 
@@ -83987,7 +83504,6 @@ export async function executeCashDrawerApprovalAction({
 
 # .\app\lib\approvals\approval-engine.ts
 
-
 Lines: 402
 
 ``ts
@@ -84397,7 +83913,6 @@ export async function executeCashDrawerApprovalAction(
 
 # .\app\lib\approvals\core.ts
 
-
 Lines: 242
 
 ``ts
@@ -84647,7 +84162,6 @@ export async function rejectApproval(id: string, approvedBy?: string) {
 
 # .\app\lib\approvals\index.ts
 
-
 Lines: 28
 
 ``ts
@@ -84682,7 +84196,6 @@ export {
 ``
 
 # .\app\lib\audit.ts
-
 
 Lines: 45
 
@@ -84736,7 +84249,6 @@ export async function createAuditLog({
 
 # .\app\lib\cash\cash-audit.ts
 
-
 Lines: 44
 
 ``ts
@@ -84787,7 +84299,6 @@ export async function logCashEvent({
 ``
 
 # .\app\lib\cash\cash-core.ts
-
 
 Lines: 271
 
@@ -85067,7 +84578,6 @@ export async function cashOutEntry(payload: CashPayload) {
 
 # .\app\lib\cash\cash-engine.ts
 
-
 Lines: 167
 
 ``ts
@@ -85242,7 +84752,6 @@ async function insertMovement(payload: any, fallbackType: CashMovementType) {
 
 # .\app\lib\cash\cash-realtime.ts
 
-
 Lines: 86
 
 ``ts
@@ -85336,7 +84845,6 @@ export function subscribeCashUpdates(
 
 # .\app\lib\cash\cash-realtime-watcher.ts
 
-
 Lines: 59
 
 ``ts
@@ -85402,7 +84910,6 @@ export function subscribeCashWatcher(
 ``
 
 # .\app\lib\cash\cash-snapshot.ts
-
 
 Lines: 111
 
@@ -85521,7 +85028,6 @@ export async function getCashSnapshot(
 ``
 
 # .\app\lib\cash\drawer-core.ts
-
 
 Lines: 266
 
@@ -85796,7 +85302,6 @@ export async function getOpenCashDrawers(companyId: string): Promise<DrawerCoreR
 
 # .\app\lib\cash\index.ts
 
-
 Lines: 18
 
 ``ts
@@ -85821,7 +85326,6 @@ export * from "./variance-engine";
 ``
 
 # .\app\lib\cash\variance-engine.ts
-
 
 Lines: 42
 
@@ -85872,7 +85376,6 @@ export function computeDrawerVariance({
 
 # .\app\lib\geofence.ts
 
-
 Lines: 27
 
 ``ts
@@ -85906,7 +85409,6 @@ export function calculateDistanceMeters(
 ``
 
 # .\app\lib\pageAccess.ts
-
 
 Lines: 67
 
@@ -85981,7 +85483,6 @@ export async function canAccessPage(moduleKey: string): Promise<AccessResult> {
 ``
 
 # .\app\lib\permissions.ts
-
 
 Lines: 135
 
@@ -86125,7 +85626,6 @@ export async function canRelease(moduleKey: string, roleId?: string | null) {
 
 # .\app\lib\system\maintenance.ts
 
-
 Lines: 17
 
 ``ts
@@ -86149,7 +85649,6 @@ export const isMaintenanceActive = () => MAINTENANCE_MODE;
 ``
 
 # .\app\lib\system\middleware.ts
-
 
 Lines: 34
 
@@ -86191,7 +85690,6 @@ export function middleware(req: any) {
 ``
 
 # .\app\lib\watcher\financial-watcher.ts
-
 
 Lines: 62
 
@@ -86261,7 +85759,6 @@ export async function getCashWatcher(
 ``
 
 # .\app\login\page.tsx
-
 
 Lines: 221
 
@@ -86491,7 +85988,6 @@ export default function LoginPage() {
 
 # .\app\maintenance\page.tsx
 
-
 Lines: 30
 
 ``tsx
@@ -86528,7 +86024,6 @@ export default function MaintenancePage() {
 ``
 
 # .\app\manifest.ts
-
 
 Lines: 37
 
@@ -86574,7 +86069,6 @@ export default function manifest(): MetadataRoute.Manifest {
 
 # .\app\page.tsx
 
-
 Lines: 5
 
 ``tsx
@@ -86586,7 +86080,6 @@ export default function Home() {
 ``
 
 # .\components\AccessDenied.tsx
-
 
 Lines: 18
 
@@ -86612,7 +86105,6 @@ export default function AccessDenied() {
 ``
 
 # .\components\OpscoreAssistant.tsx
-
 
 Lines: 175
 
@@ -86796,7 +86288,6 @@ function getReminderClass(status: ReminderStatus) {
 
 # .\components\PageGuard.tsx
 
-
 Lines: 72
 
 ``tsx
@@ -86876,7 +86367,6 @@ export default function PageGuard({ moduleKey, children }: PageGuardProps) {
 
 # .\components\RegisterServiceWorker.tsx
 
-
 Lines: 21
 
 ``tsx
@@ -86904,7 +86394,6 @@ export default function RegisterServiceWorker() {
 ``
 
 # .\components\Sidebar.tsx
-
 
 Lines: 1115
 
@@ -88028,7 +87517,6 @@ export default function Sidebar() {
 
 # .\components\TopNavbar.tsx
 
-
 Lines: 114
 
 ``tsx
@@ -88149,7 +87637,6 @@ export default function TopNavbar({
 ``
 
 # .\docs\database-books\OPSCORE_DATABASE_BOOK.md
-
 
 Lines: 2950
 
@@ -91108,7 +90595,6 @@ Schema: `public`
 
 # .\eslint.config.mjs
 
-
 Lines: 19
 
 ``mjs
@@ -91134,7 +90620,6 @@ export default eslintConfig;
 ``
 
 # .\fix-api-routes.cjs
-
 
 Lines: 42
 
@@ -91185,7 +90670,6 @@ walk("./app/api");
 
 # .\fix-app-lib-supabase.cjs
 
-
 Lines: 33
 
 ``cjs
@@ -91225,7 +90709,6 @@ walk("./app/lib");
 ``
 
 # .\fix-client-order.cjs
-
 
 Lines: 53
 
@@ -91287,7 +90770,6 @@ walk("./components");
 
 # .\fix-create-client-import.cjs
 
-
 Lines: 31
 
 ``cjs
@@ -91325,7 +90807,6 @@ walk("./lib");
 ``
 
 # .\fix-supabase-alias.cjs
-
 
 Lines: 37
 
@@ -91371,7 +90852,6 @@ walk("./lib");
 
 # .\lib\supabase.ts
 
-
 Lines: 2
 
 ``ts
@@ -91380,7 +90860,6 @@ export { supabaseClient } from "./supabase-client";
 ``
 
 # .\lib\supabase-client.ts
-
 
 Lines: 6
 
@@ -91394,7 +90873,6 @@ export const supabaseClient = createClient(
 ``
 
 # .\lib\supabase-server.ts
-
 
 Lines: 28
 
@@ -91431,7 +90909,6 @@ export const supabaseServer = createClient(supabaseUrl, supabaseKey, {
 
 # .\next.config.ts
 
-
 Lines: 10
 
 ``ts
@@ -91449,7 +90926,6 @@ export default nextConfig;
 
 # .\next-env.d.ts
 
-
 Lines: 7
 
 ``ts
@@ -91464,7 +90940,6 @@ import "./.next/dev/types/routes.d.ts";
 
 # .\OKE\__init__.py
 
-
 Lines: 0
 
 ``py
@@ -91472,19 +90947,25 @@ Lines: 0
 
 # .\OKE\__main__.py
 
-
-Lines: 22
+Lines: 29
 
 ``py
 import sys
 
 from OKE.registry.command_registry import CommandRegistry
 
-def main():
 
+def main():
     if len(sys.argv) < 2:
         print("Usage:")
-        print("py -m OKE create specialist <name>")
+        print("py -m OKE <command> [args]")
+        print()
+        print("Examples:")
+        print("py -m OKE create specialist cash")
+        print("py -m OKE analyze employees")
+        print("py -m OKE database all")
+        print("py -m OKE relation employees")
+        print("py -m OKE source finance_cash_movements")
         return
 
     command_name = sys.argv[1]
@@ -91502,14 +90983,12 @@ if __name__ == "__main__":
 
 # .\OKE\adapters\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\adapters\database_adapter.py
-
 
 Lines: 18
 
@@ -91535,7 +91014,6 @@ class DatabaseAdapter(ABC):
 ``
 
 # .\OKE\adapters\dummy_adapter.py
-
 
 Lines: 50
 
@@ -91594,7 +91072,6 @@ class DummyAdapter(DatabaseAdapter):
 
 # .\OKE\adapters\supabase_adapter.py
 
-
 Lines: 41
 
 ``py
@@ -91643,14 +91120,12 @@ class SupabaseAdapter(DatabaseAdapter):
 
 # .\OKE\aggregators\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\aggregators\result_aggregator.py
-
 
 Lines: 17
 
@@ -91676,14 +91151,12 @@ class ResultAggregator:
 
 # .\OKE\analyzers\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\analyzers\impact_analyzer.py
-
 
 Lines: 19
 
@@ -91710,7 +91183,6 @@ class ImpactAnalyzer:
 ``
 
 # .\OKE\analyzers\module_analyzer.py
-
 
 Lines: 30
 
@@ -91748,7 +91220,6 @@ class ModuleAnalyzer:
 ``
 
 # .\OKE\analyzers\recommendation_analyzer.py
-
 
 Lines: 31
 
@@ -91788,7 +91259,6 @@ class RecommendationAnalyzer:
 
 # .\OKE\analyzers\regression_analyzer.py
 
-
 Lines: 24
 
 ``py
@@ -91818,93 +91288,7 @@ class RegressionAnalyzer:
         )
 ``
 
-# .\OKE\builders\__init__.py
-
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\builders\database_schema_builder.py
-
-
-Lines: 16
-
-``py
-from OKE.models.database_schema import DatabaseSchema
-
-
-class DatabaseSchemaBuilder:
-    """
-    Converts raw database metadata
-    into the internal DatabaseSchema model.
-    """
-
-    def build(self, metadata) -> DatabaseSchema:
-        schema = DatabaseSchema()
-
-        # TODO:
-        # Convert metadata into DatabaseSchema
-
-        return schema
-``
-
-# .\OKE\builders\dependency_builder.py
-
-
-Lines: 16
-
-``py
-from OKE.contracts.builder import Builder
-
-
-class DependencyBuilder(Builder):
-
-    def build(self, relationships):
-        dependency_graph = {}
-
-        for parent_table, children in relationships.items():
-
-            dependency_graph[parent_table] = sorted(
-                child["table_name"]
-                for child in children
-            )
-
-        return dependency_graph
-``
-
-# .\OKE\builders\relationship_builder.py
-
-
-Lines: 21
-
-``py
-from OKE.contracts.builder import Builder
-
-
-class RelationshipBuilder(Builder):
-
-    def build(self, foreign_keys):
-        relationships = {}
-
-        for fk in foreign_keys:
-
-            parent = fk["foreign_table_name"]
-
-            child = {
-                "table_name": fk["table_name"],
-                "column_name": fk["column_name"],
-                "foreign_column_name": fk["foreign_column_name"],
-            }
-
-            relationships.setdefault(parent, []).append(child)
-
-        return relationships
-``
-
 # .\OKE\cli.py
-
 
 Lines: 107
 
@@ -92020,7 +91404,6 @@ if __name__ == "__main__":
 
 # .\OKE\cli\__init__.py
 
-
 Lines: 2
 
 ``py
@@ -92029,7 +91412,6 @@ from .main import main
 ``
 
 # .\OKE\cli\__main__.py
-
 
 Lines: 4
 
@@ -92041,7 +91423,6 @@ main()
 ``
 
 # .\OKE\cli\commands.py
-
 
 Lines: 13
 
@@ -92062,7 +91443,6 @@ class CLICommands:
 ``
 
 # .\OKE\cli\main.py
-
 
 Lines: 28
 
@@ -92099,14 +91479,12 @@ if __name__ == "__main__":
 
 # .\OKE\commander\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\commander\commander.py
-
 
 Lines: 24
 
@@ -92139,7 +91517,6 @@ class Commander:
 
 # .\OKE\commander\registry.py
 
-
 Lines: 23
 
 ``py
@@ -92170,14 +91547,12 @@ class SpecialistRegistry:
 
 # .\OKE\commands\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\commands\analyze_command.py
-
 
 Lines: 102
 
@@ -92286,8 +91661,127 @@ class AnalyzeCommand(BaseCommand):
         print(f"Saved Report : {saved_path}")
 ``
 
-# .\OKE\commands\base_command.py
+# .\OKE\commands\audit_command.py
 
+Lines: 113
+
+``py
+from pathlib import Path
+from OKE.commands.base_command import BaseCommand
+from OKE.workspace import WorkspaceManager
+
+
+class AuditCommand(BaseCommand):
+    name = "audit"
+
+    def execute(self, args):
+        if len(args) < 1:
+            print("Usage: py -m OKE audit <module_keyword>")
+            return
+
+        module = args[0]
+        root = Path.cwd()
+        source_book = root / "OKE_EXPORT" / "OPSCORE_SOURCE_BOOK.md"
+
+        if not source_book.exists():
+            print("OPSCORE_SOURCE_BOOK.md not found in OKE_EXPORT.")
+            return
+
+        text = source_book.read_text(encoding="utf-8", errors="ignore")
+        lines = text.splitlines()
+
+        findings = {
+            "direct_supabase_usage": [],
+            "hardcoded_business_terms": [],
+            "large_file_signals": [],
+            "todo_fixme": [],
+        }
+
+        business_terms = [
+            "Vincent",
+            "Restaurant Sales",
+            "Room Sales",
+            "Cash Advance",
+            "GCash",
+            "Owner Abono",
+            "Pool Bar",
+            "e68414f1",
+        ]
+
+        current_file = None
+
+        for line_no, line in enumerate(lines, start=1):
+            if line.startswith("## .\\") or line.startswith("## ./"):
+                current_file = line.replace("## ", "").strip()
+
+            if module.lower() not in (current_file or "").lower() and module.lower() not in line.lower():
+                continue
+
+            lower = line.lower()
+
+            if "supabase.from" in lower or ".from(" in lower:
+                findings["direct_supabase_usage"].append(self.item(current_file, line_no, line))
+
+            for term in business_terms:
+                if term.lower() in lower:
+                    findings["hardcoded_business_terms"].append(self.item(current_file, line_no, line))
+
+            if "todo" in lower or "fixme" in lower:
+                findings["todo_fixme"].append(self.item(current_file, line_no, line))
+
+        score = {
+            "architecture": self.score(len(findings["direct_supabase_usage"])),
+            "maintainability": self.score(len(findings["hardcoded_business_terms"])),
+            "consistency": self.score(len(findings["todo_fixme"])),
+            "documentation": 6,
+            "technical_debt": "HIGH" if len(findings["direct_supabase_usage"]) > 20 else "MEDIUM",
+        }
+
+        report = {
+            "module": module,
+            "score": score,
+            "findings": findings,
+        }
+
+        saved_path = WorkspaceManager().save_report(f"audit_{module}", report)
+
+        print("=" * 60)
+        print("OKE AUDIT REPORT")
+        print("=" * 60)
+        print()
+        print(f"Module : {module}")
+        print()
+        print(f"Direct Supabase Usage : {len(findings['direct_supabase_usage'])}")
+        print(f"Hardcoded Terms       : {len(findings['hardcoded_business_terms'])}")
+        print(f"TODO/FIXME            : {len(findings['todo_fixme'])}")
+        print()
+        print("Score")
+        print("-----")
+        for key, value in score.items():
+            print(f"{key}: {value}")
+        print()
+        print("Saved Report")
+        print("------------")
+        print(saved_path)
+
+    def item(self, file, line, text):
+        return {
+            "file": file,
+            "line": line,
+            "text": text.strip(),
+        }
+
+    def score(self, count):
+        if count == 0:
+            return 9
+        if count <= 5:
+            return 7
+        if count <= 15:
+            return 5
+        return 3
+``
+
+# .\OKE\commands\base_command.py
 
 Lines: 22
 
@@ -92318,7 +91812,6 @@ class BaseCommand(ABC):
 
 # .\OKE\commands\create_command.py
 
-
 Lines: 23
 
 ``py
@@ -92347,17 +91840,247 @@ class CreateCommand(BaseCommand):
         print(f"Unknown create target: {target}")
 ``
 
-# .\OKE\commands\registry.py
+# .\OKE\commands\database_command.py
+
+Lines: 66
+
+``py
+from OKE.adapters.supabase_adapter import SupabaseAdapter
+from OKE.commands.base_command import BaseCommand
+from OKE.workspace import WorkspaceManager
 
 
-Lines: 22
+class DatabaseCommand(BaseCommand):
+
+    name = "database"
+
+    def execute(self, args):
+
+        if len(args) < 1:
+            print("Usage:")
+            print("py -m OKE database all")
+            return
+
+        mode = args[0]
+
+        if mode != "all":
+            print("Unknown database command.")
+            print("Usage:")
+            print("py -m OKE database all")
+            return
+
+        adapter = SupabaseAdapter()
+
+        tables = adapter.discover_tables()
+        columns = adapter.discover_columns()
+        primary_keys = adapter.discover_primary_keys()
+        foreign_keys = adapter.discover_foreign_keys()
+
+        table_names = sorted([
+            table["table_name"]
+            for table in tables
+        ])
+
+        report = {
+            "summary": {
+                "table_count": len(table_names),
+                "column_count": len(columns),
+                "primary_key_count": len(primary_keys),
+                "foreign_key_count": len(foreign_keys),
+            },
+            "tables": table_names,
+            "columns": columns,
+            "primary_keys": primary_keys,
+            "foreign_keys": foreign_keys,
+        }
+
+        saved_path = WorkspaceManager().save_report(
+            "database_all",
+            report,
+        )
+
+        print("=" * 60)
+        print("OKE DATABASE REPORT")
+        print("=" * 60)
+        print()
+        print(f"Tables       : {len(table_names)}")
+        print(f"Columns      : {len(columns)}")
+        print(f"Primary Keys : {len(primary_keys)}")
+        print(f"Foreign Keys : {len(foreign_keys)}")
+        print()
+        print("Saved Report")
+        print("------------")
+        print(saved_path)
+``
+
+# .\OKE\commands\impact_command.py
+
+Lines: 62
 
 ``py
 from OKE.commands.base_command import BaseCommand
-from OKE.commands.analyze_command import AnalyzeCommand
+from OKE.workspace import WorkspaceManager
+from OKE.adapters.supabase_adapter import SupabaseAdapter
+
+
+class ImpactCommand(BaseCommand):
+    name = "impact"
+
+    def execute(self, args):
+        if len(args) < 1:
+            print("Usage: py -m OKE impact <table_name>")
+            return
+
+        table_name = args[0]
+        adapter = SupabaseAdapter()
+        foreign_keys = adapter.discover_foreign_keys()
+
+        depends_on = []
+        referenced_by = []
+
+        for fk in foreign_keys:
+            if fk["table_name"] == table_name:
+                depends_on.append(fk)
+            if fk["foreign_table_name"] == table_name:
+                referenced_by.append(fk)
+
+        risk = "LOW"
+        total = len(depends_on) + len(referenced_by)
+
+        if total >= 8:
+            risk = "HIGH"
+        elif total >= 3:
+            risk = "MEDIUM"
+
+        report = {
+            "table": table_name,
+            "risk": risk,
+            "depends_on": depends_on,
+            "referenced_by": referenced_by,
+            "regression_checklist": [
+                "Check UI pages that read/write this table",
+                "Check API routes that insert/update/delete this table",
+                "Check engines/services that compute values from this table",
+                "Check reports/dashboard totals",
+                "Check multi-company company_id filtering",
+                "Check foreign key and orphan records",
+            ],
+        }
+
+        saved_path = WorkspaceManager().save_report(f"impact_{table_name}", report)
+
+        print("=" * 60)
+        print("OKE IMPACT REPORT")
+        print("=" * 60)
+        print()
+        print(f"Table : {table_name}")
+        print(f"Risk  : {risk}")
+        print(f"Relations : {total}")
+        print()
+        print("Saved Report")
+        print("------------")
+        print(saved_path)
+``
+
+# .\OKE\commands\map_command.py
+
+Lines: 79
+
+``py
+from OKE.commands.base_command import BaseCommand
+from OKE.workspace import WorkspaceManager
+from OKE.parsers.sourcebook_parser import SourceBookParser
+
+
+class MapCommand(BaseCommand):
+    name = "map"
+
+    def execute(self, args):
+        if len(args) < 1:
+            print("Usage: py -m OKE map <module_keyword>")
+            return
+
+        module = args[0]
+        parser = SourceBookParser()
+
+        if not parser.exists():
+            print("OPSCORE_SOURCE_BOOK.md not found.")
+            return
+
+        files = parser.module_files(module)
+
+        buckets = {
+            "UI": [],
+            "API": [],
+            "ENGINE_OR_SERVICE": [],
+            "SHARED_LIB": [],
+            "COMPONENT": [],
+            "REPORT": [],
+            "OKE": [],
+            "OTHER": [],
+        }
+
+        for file in files:
+            area = file["area"]
+            buckets.setdefault(area, []).append({
+                "file": file["path"],
+                "start_line": file["start_line"],
+                "end_line": file["end_line"],
+                "module": file["module"],
+            })
+
+        report = {
+            "module": module,
+            "source_book": str(parser.source_book),
+            "file_count": len(files),
+            "flow": ["UI", "API", "ENGINE_OR_SERVICE", "DATABASE", "REPORT"],
+            "buckets": buckets,
+        }
+
+        saved_path = WorkspaceManager().save_report(f"map_{module}", report)
+
+        print("=" * 60)
+        print("OKE MODULE MAP")
+        print("=" * 60)
+        print()
+        print(f"Module      : {module}")
+        print(f"Source Book : {parser.source_book}")
+        print(f"Files       : {len(files)}")
+        print()
+        print("UI")
+        print("â†“")
+        print("API")
+        print("â†“")
+        print("ENGINE_OR_SERVICE")
+        print("â†“")
+        print("DATABASE")
+        print("â†“")
+        print("REPORT")
+        print()
+
+        for key, items in buckets.items():
+            if items:
+                print(f"{key}: {len(items)} files")
+
+        print()
+        print("Saved Report")
+        print("------------")
+        print(saved_path)
+``
+
+# .\OKE\commands\registry.py
+
+Lines: 29
+
+``py
+from OKE.commands.base_command import BaseCommand
 
 # Import all commands here so they register automatically
 from OKE.commands.create_command import CreateCommand
+from OKE.commands.analyze_command import AnalyzeCommand
+from OKE.commands.database_command import DatabaseCommand
+from OKE.commands.relation_command import RelationCommand
+from OKE.commands.source_command import SourceCommand
 
 
 class CommandRegistry:
@@ -92370,6 +92093,10 @@ class CommandRegistry:
 
         if command_class is None:
             print(f"Unknown command: {command_name}")
+            print()
+            print("Available commands:")
+            for name in sorted(registry.keys()):
+                print(f"- {name}")
             return
 
         command = command_class()
@@ -92377,8 +92104,185 @@ class CommandRegistry:
         return command.execute(args)
 ``
 
-# .\OKE\context\__init__.py
+# .\OKE\commands\relation_command.py
 
+Lines: 62
+
+``py
+from OKE.adapters.supabase_adapter import SupabaseAdapter
+from OKE.commands.base_command import BaseCommand
+from OKE.workspace import WorkspaceManager
+
+
+class RelationCommand(BaseCommand):
+
+    name = "relation"
+
+    def execute(self, args):
+
+        if len(args) < 1:
+            print("Usage:")
+            print("py -m OKE relation <table_name>")
+            return
+
+        table_name = args[0]
+
+        adapter = SupabaseAdapter()
+
+        foreign_keys = adapter.discover_foreign_keys()
+
+        outgoing = []
+        incoming = []
+
+        for fk in foreign_keys:
+            child_table = fk["table_name"]
+            parent_table = fk["foreign_table_name"]
+
+            if child_table == table_name:
+                outgoing.append(fk)
+
+            if parent_table == table_name:
+                incoming.append(fk)
+
+        report = {
+            "table": table_name,
+            "outgoing_foreign_keys": outgoing,
+            "incoming_references": incoming,
+            "summary": {
+                "depends_on_count": len(outgoing),
+                "referenced_by_count": len(incoming),
+            },
+        }
+
+        saved_path = WorkspaceManager().save_report(
+            f"relation_{table_name}",
+            report,
+        )
+
+        print("=" * 60)
+        print("OKE RELATION REPORT")
+        print("=" * 60)
+        print()
+        print(f"Table : {table_name}")
+        print()
+        print(f"Depends On    : {len(outgoing)}")
+        print(f"Referenced By : {len(incoming)}")
+        print()
+        print("Saved Report")
+        print("------------")
+        print(saved_path)
+``
+
+# .\OKE\commands\source_command.py
+
+Lines: 45
+
+``py
+from OKE.commands.base_command import BaseCommand
+from OKE.workspace import WorkspaceManager
+from OKE.parsers.sourcebook_parser import SourceBookParser
+
+
+class SourceCommand(BaseCommand):
+    name = "source"
+
+    def execute(self, args):
+        if len(args) < 1:
+            print("Usage: py -m OKE source <search_text>")
+            return
+
+        search_text = args[0]
+        parser = SourceBookParser()
+
+        if not parser.exists():
+            print("OPSCORE_SOURCE_BOOK.md not found.")
+            return
+
+        matches = parser.search(search_text)
+
+        report = {
+            "search_text": search_text,
+            "source_book": str(parser.source_book),
+            "match_count": len(matches),
+            "matches": matches,
+        }
+
+        saved_path = WorkspaceManager().save_report(
+            f"source_{search_text}",
+            report,
+        )
+
+        print("=" * 60)
+        print("OKE SOURCE REPORT")
+        print("=" * 60)
+        print()
+        print(f"Search      : {search_text}")
+        print(f"Matches     : {len(matches)}")
+        print(f"Source Book : {parser.source_book}")
+        print()
+        print("Saved Report")
+        print("------------")
+        print(saved_path)
+``
+
+# .\OKE\commands\trace_command.py
+
+Lines: 50
+
+``py
+from OKE.commands.base_command import BaseCommand
+from OKE.workspace import WorkspaceManager
+from OKE.parsers.sourcebook_parser import SourceBookParser
+
+
+class TraceCommand(BaseCommand):
+    name = "trace"
+
+    def execute(self, args):
+        if len(args) < 1:
+            print("Usage: py -m OKE trace <keyword>")
+            return
+
+        keyword = args[0]
+        parser = SourceBookParser()
+
+        if not parser.exists():
+            print("OPSCORE_SOURCE_BOOK.md not found.")
+            return
+
+        matches = parser.search(keyword)
+        grouped = parser.group_matches(matches)
+
+        report = {
+            "keyword": keyword,
+            "source_book": str(parser.source_book),
+            "match_count": len(matches),
+            "grouped": grouped,
+            "matches": matches,
+        }
+
+        saved_path = WorkspaceManager().save_report(f"trace_{keyword}", report)
+
+        print("=" * 60)
+        print("OKE TRACE REPORT")
+        print("=" * 60)
+        print()
+        print(f"Keyword     : {keyword}")
+        print(f"Matches     : {len(matches)}")
+        print(f"Source Book : {parser.source_book}")
+        print()
+
+        for area, items in sorted(grouped.items()):
+            unique_files = sorted(set(item["file"] for item in items))
+            print(f"{area}: {len(items)} matches / {len(unique_files)} files")
+
+        print()
+        print("Saved Report")
+        print("------------")
+        print(saved_path)
+``
+
+# .\OKE\context\__init__.py
 
 Lines: 2
 
@@ -92388,7 +92292,6 @@ from .engineering_context import EngineeringContext
 ``
 
 # .\OKE\context\database_context.py
-
 
 Lines: 10
 
@@ -92407,7 +92310,6 @@ class DatabaseContext:
 
 # .\OKE\context\engineering_context.py
 
-
 Lines: 9
 
 ``py
@@ -92422,25 +92324,7 @@ class EngineeringContext:
     database: DatabaseContext | None = None
 ``
 
-# .\OKE\contracts\builder.py
-
-
-Lines: 9
-
-``py
-from abc import ABC, abstractmethod
-
-
-class Builder(ABC):
-
-    @abstractmethod
-    def build(self, *args, **kwargs):
-        """Build engineering knowledge."""
-        pass
-``
-
 # .\OKE\contracts\database_book.md
-
 
 Lines: 118
 
@@ -92567,14 +92451,12 @@ Never manually edited.
 
 # .\OKE\coordinator\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\coordinator\coordinator.py
-
 
 Lines: 54
 
@@ -92635,8 +92517,14 @@ class Coordinator:
         }
 ``
 
-# .\OKE\docs\COMPASS.md
+# .\OKE\core\classifier.py
 
+Lines: 0
+
+``py
+``
+
+# .\OKE\docs\COMPASS.md
 
 Lines: 257
 
@@ -92902,7 +92790,6 @@ This document should be reviewed whenever the long-term direction of OPSCORE cha
 
 # .\OKE\docs\CURRENT_MISSION.md
 
-
 Lines: 189
 
 ``md
@@ -93099,7 +92986,6 @@ Then build.
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\01_MISSION.md
 
-
 Lines: 150
 
 ``md
@@ -93257,14 +93143,12 @@ Knowledge is our legacy.
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\02_ARCHITECTURE.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\03_ENGINEERING_PRINCIPLES.md
-
 
 Lines: 0
 
@@ -93273,14 +93157,12 @@ Lines: 0
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\04_HOW_TO_CREATE_SPECIALIST.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\05_HOW_TO_CREATE_ANALYZER.md
-
 
 Lines: 0
 
@@ -93289,14 +93171,12 @@ Lines: 0
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\06_HOW_PIPELINES_WORK.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\07_CONTRIBUTING.md
-
 
 Lines: 0
 
@@ -93305,14 +93185,12 @@ Lines: 0
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\08_GLOSSARY.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\09_ENGINEERING_CONSTITUTION.md
-
 
 Lines: 55
 
@@ -93375,7 +93253,6 @@ Engineering Artifact
 ``
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\10_FOLDER_RESPONSIBILITIES.md
-
 
 Lines: 197
 
@@ -93581,7 +93458,6 @@ do not create a new folder.
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\11_AI_ONBOARDING.md
 
-
 Lines: 126
 
 ``md
@@ -93715,7 +93591,6 @@ Never in reverse.
 
 # .\OKE\docs\ENGINEERING_HANDBOOK\12_FOUNDATION_CHECKLIST.md
 
-
 Lines: 77
 
 ``md
@@ -93799,7 +93674,6 @@ OKE can assist OPSCORE without requiring repeated explanations.
 ``
 
 # .\OKE\docs\EXPORT_V1.md
-
 
 Lines: 192
 
@@ -94000,7 +93874,6 @@ Status: FROZEN
 
 # .\OKE\docs\PROJECT_HISTORY.md
 
-
 Lines: 208
 
 ``md
@@ -94189,7 +94062,7 @@ Avoid business-specific assumptions.
 ## Engineering
 
 Understanding the system saves more time than writing code quickly.
-
+AJA 
 ---
 
 # Future Milestones
@@ -94216,14 +94089,209 @@ History explains architecture.
 
 # .\OKE\docs\START_HERE.md
 
-
-Lines: 0
+Lines: 197
 
 ``md
+# START HERE
+
+Welcome to the OPSCORE Engineering Review Package.
+
+If this is your first time working with OPSCORE or OKE, **start here before reading any source code.**
+
+---
+
+# What is OPSCORE?
+
+OPSCORE is a Hospitality Operating System built specifically to manage hotel and resort operations.
+
+Its long-term goal is to become a complete operating platform for hospitality businesses.
+
+Current pilot implementation:
+
+Vincent Resort Hotel
+
+---
+
+# What is OKE?
+
+OKE (OPSCORE Knowledge Engine) is the Engineering Operating System behind OPSCORE.
+
+OKE is NOT part of the business application.
+
+OKE exists to:
+
+- Understand the project
+- Preserve engineering knowledge
+- Audit architecture
+- Prevent regressions
+- Generate engineering documentation
+- Export engineering review packages
+- Help future engineers and AI understand the system quickly
+
+Think of OPSCORE as the product.
+
+Think of OKE as the engineering brain.
+
+---
+
+# Read These Documents First
+
+Follow this order.
+
+1. COMPASS.md
+
+Understand where the project is going.
+
+â†“
+
+2. README.md
+
+Understand the engineering overview.
+
+â†“
+
+3. AI_CONTEXT.md
+
+Understand how AI should work with the project.
+
+â†“
+
+4. PROJECT_SUMMARY.md
+
+Understand the current engineering inventory.
+
+â†“
+
+5. ENGINEERING_STATUS.md
+
+Understand the current engineering phase.
+
+â†“
+
+6. OPSCORE_SOURCE_BOOK.md
+
+Review the complete source snapshot.
+
+â†“
+
+7. OKE Engineering Handbook
+
+Read the engineering standards.
+
+---
+
+# Current Goal
+
+Current priority is NOT SaaS.
+
+Current priority is NOT expansion.
+
+Current priority is:
+
+Stabilize Vincent Resort Hotel.
+
+Everything we build should move OPSCORE closer to becoming a trusted production system.
+
+---
+
+# Engineering Workflow
+
+Every engineering task follows the same process.
+
+Understand
+
+â†“
+
+Audit
+
+â†“
+
+Analyze
+
+â†“
+
+Plan
+
+â†“
+
+Implement
+
+â†“
+
+Review
+
+â†“
+
+Export
+
+â†“
+
+Document
+
+Never skip understanding.
+
+Never guess.
+
+---
+
+# Engineering Rules
+
+Always preserve architecture.
+
+Avoid hardcoding.
+
+Keep responsibilities clear.
+
+Managers orchestrate.
+
+Builders build.
+
+Commands execute.
+
+Documentation is part of the product.
+
+---
+
+# If You Are an AI
+
+Read all documentation before suggesting changes.
+
+Prefer understanding over speed.
+
+Never redesign stable systems without evidence.
+
+When uncertain, inspect the exported knowledge before modifying source code.
+
+---
+
+# If You Have Only 15 Minutes
+
+Read these files only:
+
+COMPASS.md
+
+README.md
+
+AI_CONTEXT.md
+
+PROJECT_SUMMARY.md
+
+ENGINEERING_STATUS.md
+
+These five files should provide enough context to begin assisting the project.
+
+---
+
+# Final Message
+
+OPSCORE is more than source code.
+
+OKE exists to preserve the engineering knowledge behind OPSCORE.
+
+Every improvement should make the project easier to understand, easier to maintain, and more reliable for the future.
 ``
 
 # .\OKE\events\__init__.py
-
 
 Lines: 8
 
@@ -94239,7 +94307,6 @@ from .events import (
 ``
 
 # .\OKE\events\event_bus.py
-
 
 Lines: 24
 
@@ -94271,7 +94338,6 @@ class EventBus:
 ``
 
 # .\OKE\events\events.py
-
 
 Lines: 58
 
@@ -94338,7 +94404,6 @@ class SpecialistFinished(Event):
 
 # .\OKE\export\__init__.py
 
-
 Lines: 3
 
 ``py
@@ -94348,7 +94413,6 @@ from .project_inventory import ProjectInventory
 ``
 
 # .\OKE\export\collector.py
-
 
 Lines: 86
 
@@ -94443,8 +94507,7 @@ class ExportCollector:
 
 # .\OKE\export\copy_manager.py
 
-
-Lines: 71
+Lines: 104
 
 ``py
 from pathlib import Path
@@ -94460,7 +94523,7 @@ class CopyManager:
 
         self.copy_targets = [
             {
-                "source": self.project_root / "docs" / "source-books" / "OPSCORE_SOURCE_BOOK_LATEST.md",
+                "source": self.output_dir / "OPSCORE_SOURCE_BOOK.md",
                 "destination": self.output_dir / "OPSCORE_SOURCE_BOOK.md",
                 "required": True,
             },
@@ -94469,6 +94532,30 @@ class CopyManager:
                 "destination": self.output_dir / "OPSCORE_DATABASE_BOOK.md",
                 "required": False,
             },
+
+            # OKE Knowledge Layer
+            {
+                "source": self.project_root / "OKE" / "docs" / "START_HERE.md",
+                "destination": self.output_dir / "START_HERE.md",
+                "required": True,
+            },
+            {
+                "source": self.project_root / "OKE" / "docs" / "COMPASS.md",
+                "destination": self.output_dir / "COMPASS.md",
+                "required": True,
+            },
+            {
+                "source": self.project_root / "OKE" / "docs" / "CURRENT_MISSION.md",
+                "destination": self.output_dir / "CURRENT_MISSION.md",
+                "required": True,
+            },
+            {
+                "source": self.project_root / "OKE" / "docs" / "PROJECT_HISTORY.md",
+                "destination": self.output_dir / "PROJECT_HISTORY.md",
+                "required": True,
+            },
+
+            # Future optional books
             {
                 "source": self.project_root / "docs" / "relation-books" / "OPSCORE_RELATION_BOOK.md",
                 "destination": self.output_dir / "OPSCORE_RELATION_BOOK.md",
@@ -94486,6 +94573,7 @@ class CopyManager:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         copied = []
+        skipped = []
         missing = []
 
         for item in self.copy_targets:
@@ -94497,6 +94585,13 @@ class CopyManager:
                 missing.append({
                     "source": str(source),
                     "required": item["required"],
+                })
+                continue
+
+            if source.resolve() == destination.resolve():
+                skipped.append({
+                    "source": str(source),
+                    "reason": "source and destination are the same",
                 })
                 continue
 
@@ -94515,13 +94610,13 @@ class CopyManager:
 
         return {
             "copied": copied,
+            "skipped": skipped,
             "missing": missing,
             "passed": len(required_missing) == 0,
         }
 ``
 
 # .\OKE\export\export_manager.py
-
 
 Lines: 39
 
@@ -94569,7 +94664,6 @@ class ExportManager:
 
 # .\OKE\export\file_locator.py
 
-
 Lines: 33
 
 ``py
@@ -94610,7 +94704,6 @@ class FileLocator:
 
 # .\OKE\export\manifest.py
 
-
 Lines: 13
 
 ``py
@@ -94629,55 +94722,7 @@ class ExportManifest:
         }
 ``
 
-# .\OKE\export\manifest_builder.py
-
-
-Lines: 39
-
-``py
-from datetime import datetime
-
-from OKE.export.project_inventory import ProjectInventory
-
-
-class ManifestBuilder:
-
-    def __init__(self):
-
-        self.inventory = ProjectInventory()
-
-    def build(self):
-
-        inventory = self.inventory.build()
-
-        return {
-            "project": {
-                "name": "OKE",
-                "full_name": "OPSCORE Knowledge Engine",
-                "type": "Engineering Operating System",
-                "primary_language": "Python",
-            },
-            "generated_at": datetime.now().isoformat(),
-            "status": {
-                "foundation": "IN_PROGRESS",
-                "architecture": "STABLE",
-                "export_system": "IN_PROGRESS",
-            },
-            "counts": {
-                "commands": len(inventory.get("commands", [])),
-                "specialists": len(inventory.get("specialists", [])),
-                "pipelines": len(inventory.get("pipelines", [])),
-                "services": len(inventory.get("services", [])),
-                "builders": len(inventory.get("builders", [])),
-                "analyzers": len(inventory.get("analyzers", [])),
-                "handbook_chapters": len(inventory.get("handbook", [])),
-            },
-            "inventory": inventory,
-        }
-``
-
 # .\OKE\export\packager.py
-
 
 Lines: 29
 
@@ -94715,8 +94760,7 @@ class ExportPackager:
 
 # .\OKE\export\profiles.py
 
-
-Lines: 65
+Lines: 99
 
 ``py
 class ExportProfiles:
@@ -94724,8 +94768,10 @@ class ExportProfiles:
     REVIEW = "review"
     SNAPSHOT = "snapshot"
     HANDBOOK = "handbook"
+    FULL = "full"
 
     PROFILES = {
+
         REVIEW: {
             "name": "OPSCORE Review Package",
             "description": "Engineering review package for AI and engineer onboarding.",
@@ -94770,10 +94816,37 @@ class ExportProfiles:
                 "README.md",
             ],
         },
+
+        FULL: {
+            "name": "OPSCORE Complete Engineering Package",
+            "description": "Complete engineering package including source, knowledge, documentation, and review artifacts.",
+            "output_zip": "OPSCORE_FULL_ENGINEERING_PACKAGE.zip",
+            "artifacts": [
+                "README.md",
+                "manifest.json",
+                "PROJECT_SUMMARY.md",
+                "AI_CONTEXT.md",
+                "ENGINEERING_STATUS.md",
+                "OPSCORE_SOURCE_BOOK.md",
+                "OPSCORE_DATABASE_BOOK.md",
+
+                # Knowledge
+                "START_HERE.md",
+                "COMPASS.md",
+                "CURRENT_MISSION.md",
+                "PROJECT_HISTORY.md",
+
+                # Source
+                "OKE",
+            ],
+        },
+
     }
 
     @classmethod
     def get(cls, profile):
+
+        profile = profile.lower()
 
         if profile not in cls.PROFILES:
             raise ValueError(f"Unknown export profile: {profile}")
@@ -94784,10 +94857,14 @@ class ExportProfiles:
     def all(cls):
 
         return cls.PROFILES
+
+    @classmethod
+    def names(cls):
+
+        return list(cls.PROFILES.keys())
 ``
 
 # .\OKE\export\project_inventory.py
-
 
 Lines: 113
 
@@ -94909,7 +94986,6 @@ class ProjectInventory:
 
 # .\OKE\export\readme_generator.py
 
-
 Lines: 84
 
 ``py
@@ -95000,7 +95076,6 @@ class ReadmeGenerator:
 ``
 
 # .\OKE\export\review_package_generator.py
-
 
 Lines: 158
 
@@ -95167,7 +95242,6 @@ class ReviewPackageGenerator:
 
 # .\OKE\export\templates\MANIFEST_TEMPLATE.json
 
-
 Lines: 35
 
 ``json
@@ -95209,7 +95283,6 @@ Lines: 35
 ``
 
 # .\OKE\export\templates\OKE_TO_OPSCORE_MAP.md
-
 
 Lines: 142
 
@@ -95360,7 +95433,6 @@ The goal is to preserve engineering knowledge across engineers, AI assistants, d
 
 # .\OKE\export\templates\PROJECT_SUMMARY.md
 
-
 Lines: 141
 
 ``md
@@ -95509,14 +95581,12 @@ OKE should become a self-documenting engineering platform capable of:
 
 # .\OKE\export\templates\README.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\export\zip_packager.py
-
 
 Lines: 63
 
@@ -95588,14 +95658,12 @@ class ZipPackager:
 
 # .\OKE\extractors\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\extractors\database_extractor.py
-
 
 Lines: 11
 
@@ -95614,7 +95682,6 @@ class DatabaseExtractor:
 ``
 
 # .\OKE\generators\generate_database_book.py
-
 
 Lines: 153
 
@@ -95776,7 +95843,6 @@ class DatabaseBookGenerator:
 
 # .\OKE\generators\specialist_generator.py
 
-
 Lines: 31
 
 ``py
@@ -95815,7 +95881,6 @@ class SpecialistGenerator:
 
 # .\OKE\governance\__init__.py
 
-
 Lines: 0
 
 ``py
@@ -95823,14 +95888,12 @@ Lines: 0
 
 # .\OKE\governance\auditor.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\governance\report.py
-
 
 Lines: 19
 
@@ -95858,7 +95921,6 @@ class GovernanceReport:
 
 # .\OKE\governance\rules.py
 
-
 Lines: 11
 
 ``py
@@ -95877,14 +95939,12 @@ class BaseGovernanceRule(ABC):
 
 # .\OKE\governance\rules\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\governance\rules\analyzer_rule.py
-
 
 Lines: 0
 
@@ -95893,14 +95953,12 @@ Lines: 0
 
 # .\OKE\governance\rules\architecture_rule.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\governance\rules\base_rule.py
-
 
 Lines: 11
 
@@ -95920,14 +95978,12 @@ class BaseGovernanceRule(ABC):
 
 # .\OKE\governance\rules\pipeline_rule.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\governance\rules\specialist_rule.py
-
 
 Lines: 57
 
@@ -95993,7 +96049,6 @@ class SpecialistRule(BaseGovernanceRule):
 
 # .\OKE\governance\validator.py
 
-
 Lines: 56
 
 ``py
@@ -96057,6 +96112,19 @@ if __name__ == "__main__":
 
 # .\OKE\knowledge\__init__.py
 
+Lines: 0
+
+``py
+``
+
+# .\OKE\knowledge\knowledge_graph.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\knowledge\module_graph.py
 
 Lines: 0
 
@@ -96064,7 +96132,6 @@ Lines: 0
 ``
 
 # .\OKE\knowledge\module_map.py
-
 
 Lines: 15
 
@@ -96087,7 +96154,6 @@ TABLE_MODULES = {
 ``
 
 # .\OKE\knowledge\regression_map.py
-
 
 Lines: 51
 
@@ -96147,14 +96213,12 @@ REGRESSION_MAP = {
 
 # .\OKE\models\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\models\database_schema.py
-
 
 Lines: 31
 
@@ -96194,7 +96258,6 @@ class DatabaseSchema:
 
 # .\OKE\models\engineering_metrics.py
 
-
 Lines: 10
 
 ``py
@@ -96211,7 +96274,6 @@ class EngineeringMetrics:
 ``
 
 # .\OKE\models\engineering_report.py
-
 
 Lines: 17
 
@@ -96237,14 +96299,12 @@ class EngineeringReport:
 
 # .\OKE\orchestrator\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\orchestrator\orchestrator.py
-
 
 Lines: 52
 
@@ -96303,8 +96363,187 @@ class Orchestrator:
         )
 ``
 
-# .\OKE\pipelines\__init__.py
+# .\OKE\parsers\database_parser.py
 
+Lines: 0
+
+``py
+``
+
+# .\OKE\parsers\sourcebook_parser.py
+
+Lines: 166
+
+``py
+from pathlib import Path
+
+
+class SourceBookParser:
+
+    def __init__(self, root=None):
+        self.root = Path(root or Path.cwd())
+        self.source_book = self.find_source_book()
+
+    def find_source_book(self):
+        candidates = [
+            self.root / "OPSCORE_SOURCE_BOOK.md",
+            self.root / "OKE_EXPORT" / "OPSCORE_SOURCE_BOOK.md",
+            self.root / "docs" / "OPSCORE_SOURCE_BOOK.md",
+            self.root / "OKE" / "docs" / "OPSCORE_SOURCE_BOOK.md",
+        ]
+
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        return None
+
+    def exists(self):
+        return self.source_book is not None and self.source_book.exists()
+
+    def read_lines(self):
+        if not self.exists():
+            return []
+
+        return self.source_book.read_text(
+            encoding="utf-8",
+            errors="ignore",
+        ).splitlines()
+
+    def parse_files(self):
+        lines = self.read_lines()
+        files = []
+        current = None
+
+        for line_number, line in enumerate(lines, start=1):
+
+            # Actual Source Book file header format:
+            # # .\app\(app)\finance\page.tsx
+            if line.startswith("# .\\") or line.startswith("# ./"):
+                if current:
+                    files.append(current)
+
+                current = {
+                    "path": line.replace("# ", "").strip(),
+                    "start_line": line_number,
+                    "end_line": line_number,
+                    "lines": [],
+                    "area": self.classify_path(line),
+                    "module": self.detect_module(line),
+                }
+                continue
+
+            if current:
+                current["lines"].append({
+                    "line": line_number,
+                    "text": line,
+                })
+                current["end_line"] = line_number
+
+        if current:
+            files.append(current)
+
+        return files
+
+    def search(self, keyword):
+        keyword_lower = keyword.lower()
+        matches = []
+
+        for file in self.parse_files():
+            for item in file["lines"]:
+                text = item["text"]
+                if keyword_lower in text.lower() or keyword_lower in file["path"].lower():
+                    matches.append({
+                        "file": file["path"],
+                        "area": file["area"],
+                        "module": file["module"],
+                        "line": item["line"],
+                        "text": text.strip(),
+                    })
+
+        return matches
+
+    def module_files(self, module_keyword):
+        key = module_keyword.lower()
+        result = []
+
+        for file in self.parse_files():
+            path = file["path"].lower()
+            module = (file["module"] or "").lower()
+
+            if key in path or key in module:
+                result.append(file)
+
+        return result
+
+    def classify_path(self, raw_path):
+        value = raw_path.lower().replace("\\", "/")
+
+        if "/app/api/" in value:
+            return "API"
+
+        if "/app/lib/" in value or value.startswith("# ./app/lib") or value.startswith("# .\\app\\lib"):
+            return "ENGINE_OR_SERVICE"
+
+        if "/lib/" in value and "/app/" not in value:
+            return "SHARED_LIB"
+
+        if "/components/" in value:
+            return "COMPONENT"
+
+        if "watcher" in value or "report" in value or "dashboard" in value:
+            return "REPORT"
+
+        if "page.tsx" in value or "layout.tsx" in value:
+            return "UI"
+
+        if "/oke/" in value:
+            return "OKE"
+
+        return "OTHER"
+
+    def detect_module(self, raw_path):
+        value = raw_path.lower().replace("\\", "/")
+        value = value.replace("# ./", "").replace("# .\\", "")
+
+        if "/finance/" in value:
+            return "finance"
+        if "/pos/" in value:
+            return "pos"
+        if "/payroll/" in value:
+            return "payroll"
+        if "/human-resources/" in value:
+            return "human_resources"
+        if "/leave-management/" in value:
+            return "leave_management"
+        if "/manager/approval" in value or "approval" in value:
+            return "approval"
+        if "cash" in value:
+            return "cash"
+        if "employee" in value:
+            return "employees"
+        if "schedule" in value or "attendance" in value:
+            return "workforce"
+        if "reservation" in value or "forecasting" in value:
+            return "reservations"
+        if "/settings/" in value:
+            return "settings"
+        if "/oke/" in value:
+            return "oke"
+
+        return "general"
+
+    def group_matches(self, matches):
+        grouped = {}
+
+        for match in matches:
+            area = match.get("area", "UNKNOWN")
+            grouped.setdefault(area, []).append(match)
+
+        return grouped
+``
+
+# .\OKE\pipelines\__init__.py
 
 Lines: 0
 
@@ -96312,7 +96551,6 @@ Lines: 0
 ``
 
 # .\OKE\pipelines\engineering_pipeline.py
-
 
 Lines: 46
 
@@ -96366,7 +96604,6 @@ class EngineeringPipeline:
 ``
 
 # .\OKE\README.md
-
 
 Lines: 137
 
@@ -96512,7 +96749,6 @@ OKE exists to preserve engineering knowledge across time.
 
 # .\OKE\registry\__init__.py
 
-
 Lines: 2
 
 ``py
@@ -96522,15 +96758,20 @@ from .command_registry import CommandRegistry
 
 # .\OKE\registry\command_registry.py
 
-
-Lines: 22
+Lines: 31
 
 ``py
 from OKE.commands.base_command import BaseCommand
-from OKE.commands.analyze_command import AnalyzeCommand
 
-# Import all commands here so they register automatically
 from OKE.commands.create_command import CreateCommand
+from OKE.commands.analyze_command import AnalyzeCommand
+from OKE.commands.database_command import DatabaseCommand
+from OKE.commands.relation_command import RelationCommand
+from OKE.commands.source_command import SourceCommand
+from OKE.commands.trace_command import TraceCommand
+from OKE.commands.map_command import MapCommand
+from OKE.commands.impact_command import ImpactCommand
+from OKE.commands.audit_command import AuditCommand
 
 
 class CommandRegistry:
@@ -96543,15 +96784,17 @@ class CommandRegistry:
 
         if command_class is None:
             print(f"Unknown command: {command_name}")
+            print()
+            print("Available commands:")
+            for name in sorted(registry.keys()):
+                print(f"- {name}")
             return
 
         command = command_class()
-
         return command.execute(args)
 ``
 
 # .\OKE\registry\registry.py
-
 
 Lines: 37
 
@@ -96597,14 +96840,12 @@ class Registry:
 
 # .\OKE\results\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\results\specialist_result.py
-
 
 Lines: 12
 
@@ -96625,14 +96866,12 @@ class SpecialistResult:
 
 # .\OKE\rules\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\rules\engineering_metrics.py
-
 
 Lines: 20
 
@@ -96661,7 +96900,6 @@ class EngineeringMetricsCalculator:
 
 # .\OKE\rules\engineering_rules.py
 
-
 Lines: 14
 
 ``py
@@ -96682,7 +96920,6 @@ class EngineeringRules:
 ``
 
 # .\OKE\services\engineering_report_service.py
-
 
 Lines: 60
 
@@ -96751,14 +96988,12 @@ class EngineeringReportService:
 
 # .\OKE\specialists\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\api\__init__.py
-
 
 Lines: 0
 
@@ -96767,14 +97002,106 @@ Lines: 0
 
 # .\OKE\specialists\api\specialist.py
 
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\approval\__init__.py
 
 Lines: 0
 
 ``py
 ``
 
-# .\OKE\specialists\base.py
+# .\OKE\specialists\approval\analyzer.py
 
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\approval\knowledge.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\approval\model.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\approval\pipeline.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\approval\README.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\specialists\approval\rule.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\approval\service.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\approval\specialist.py
+
+Lines: 31
+
+``py
+from pathlib import Path
+import shutil
+
+
+class SpecialistGenerator:
+
+    def __init__(self):
+
+        self.root = Path(__file__).resolve().parents[1]
+
+        self.template = self.root / "templates" / "specialist"
+
+        self.output = self.root / "specialists"
+
+    def create(self, name):
+
+        name = name.lower()
+
+        destination = self.output / name
+
+        if destination.exists():
+            raise FileExistsError(
+                f"Specialist '{name}' already exists."
+            )
+
+        shutil.copytree(
+            self.template,
+            destination,
+        )
+
+        return destination
+``
+
+# .\OKE\specialists\base.py
 
 Lines: 22
 
@@ -96805,22 +97132,12 @@ class BaseSpecialist(ABC):
 
 # .\OKE\specialists\billing\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\billing\analyzer.py
-
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\specialists\billing\builder.py
-
 
 Lines: 0
 
@@ -96829,14 +97146,12 @@ Lines: 0
 
 # .\OKE\specialists\billing\knowledge.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\billing\model.py
-
 
 Lines: 0
 
@@ -96845,14 +97160,12 @@ Lines: 0
 
 # .\OKE\specialists\billing\pipeline.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\billing\README.md
-
 
 Lines: 0
 
@@ -96861,14 +97174,12 @@ Lines: 0
 
 # .\OKE\specialists\billing\rule.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\billing\service.py
-
 
 Lines: 0
 
@@ -96877,6 +97188,99 @@ Lines: 0
 
 # .\OKE\specialists\billing\specialist.py
 
+Lines: 31
+
+``py
+from pathlib import Path
+import shutil
+
+
+class SpecialistGenerator:
+
+    def __init__(self):
+
+        self.root = Path(__file__).resolve().parents[1]
+
+        self.template = self.root / "templates" / "specialist"
+
+        self.output = self.root / "specialists"
+
+    def create(self, name):
+
+        name = name.lower()
+
+        destination = self.output / name
+
+        if destination.exists():
+            raise FileExistsError(
+                f"Specialist '{name}' already exists."
+            )
+
+        shutil.copytree(
+            self.template,
+            destination,
+        )
+
+        return destination
+``
+
+# .\OKE\specialists\cash\__init__.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\cash\analyzer.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\cash\knowledge.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\cash\model.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\cash\pipeline.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\cash\README.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\specialists\cash\rule.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\cash\service.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\cash\specialist.py
 
 Lines: 31
 
@@ -96916,22 +97320,12 @@ class SpecialistGenerator:
 
 # .\OKE\specialists\database\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\database\analyzers\__init__.py
-
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\specialists\database\builders\__init__.py
-
 
 Lines: 0
 
@@ -96940,14 +97334,12 @@ Lines: 0
 
 # .\OKE\specialists\database\knowledge\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\database\models\__init__.py
-
 
 Lines: 0
 
@@ -96956,14 +97348,12 @@ Lines: 0
 
 # .\OKE\specialists\database\pipelines\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\database\rules\__init__.py
-
 
 Lines: 0
 
@@ -96972,14 +97362,12 @@ Lines: 0
 
 # .\OKE\specialists\database\services\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\database\specialist.py
-
 
 Lines: 52
 
@@ -97040,14 +97428,12 @@ class DatabaseSpecialist(BaseSpecialist):
 
 # .\OKE\specialists\deployment\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\deployment\specialist.py
-
 
 Lines: 0
 
@@ -97056,14 +97442,12 @@ Lines: 0
 
 # .\OKE\specialists\docs\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\docs\specialist.py
-
 
 Lines: 0
 
@@ -97072,22 +97456,12 @@ Lines: 0
 
 # .\OKE\specialists\inventory\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\inventory\analyzer.py
-
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\specialists\inventory\builder.py
-
 
 Lines: 0
 
@@ -97096,14 +97470,12 @@ Lines: 0
 
 # .\OKE\specialists\inventory\knowledge.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\inventory\model.py
-
 
 Lines: 0
 
@@ -97112,14 +97484,12 @@ Lines: 0
 
 # .\OKE\specialists\inventory\pipeline.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\inventory\README.md
-
 
 Lines: 0
 
@@ -97128,7 +97498,6 @@ Lines: 0
 
 # .\OKE\specialists\inventory\rule.py
 
-
 Lines: 0
 
 ``py
@@ -97136,14 +97505,12 @@ Lines: 0
 
 # .\OKE\specialists\inventory\service.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\inventory\specialist.py
-
 
 Lines: 31
 
@@ -97183,22 +97550,12 @@ class SpecialistGenerator:
 
 # .\OKE\specialists\payments\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\payments\analyzer.py
-
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\specialists\payments\builder.py
-
 
 Lines: 0
 
@@ -97207,14 +97564,12 @@ Lines: 0
 
 # .\OKE\specialists\payments\knowledge.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\payments\model.py
-
 
 Lines: 0
 
@@ -97223,14 +97578,12 @@ Lines: 0
 
 # .\OKE\specialists\payments\pipeline.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\payments\README.md
-
 
 Lines: 0
 
@@ -97239,14 +97592,12 @@ Lines: 0
 
 # .\OKE\specialists\payments\rule.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\payments\service.py
-
 
 Lines: 0
 
@@ -97255,6 +97606,99 @@ Lines: 0
 
 # .\OKE\specialists\payments\specialist.py
 
+Lines: 31
+
+``py
+from pathlib import Path
+import shutil
+
+
+class SpecialistGenerator:
+
+    def __init__(self):
+
+        self.root = Path(__file__).resolve().parents[1]
+
+        self.template = self.root / "templates" / "specialist"
+
+        self.output = self.root / "specialists"
+
+    def create(self, name):
+
+        name = name.lower()
+
+        destination = self.output / name
+
+        if destination.exists():
+            raise FileExistsError(
+                f"Specialist '{name}' already exists."
+            )
+
+        shutil.copytree(
+            self.template,
+            destination,
+        )
+
+        return destination
+``
+
+# .\OKE\specialists\payroll\__init__.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\payroll\analyzer.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\payroll\knowledge.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\payroll\model.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\payroll\pipeline.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\payroll\README.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\specialists\payroll\rule.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\payroll\service.py
+
+Lines: 0
+
+``py
+``
+
+# .\OKE\specialists\payroll\specialist.py
 
 Lines: 31
 
@@ -97294,22 +97738,12 @@ class SpecialistGenerator:
 
 # .\OKE\specialists\reports\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reports\analyzer.py
-
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\specialists\reports\builder.py
-
 
 Lines: 0
 
@@ -97318,14 +97752,12 @@ Lines: 0
 
 # .\OKE\specialists\reports\knowledge.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reports\model.py
-
 
 Lines: 0
 
@@ -97334,14 +97766,12 @@ Lines: 0
 
 # .\OKE\specialists\reports\pipeline.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reports\README.md
-
 
 Lines: 0
 
@@ -97350,7 +97780,6 @@ Lines: 0
 
 # .\OKE\specialists\reports\rule.py
 
-
 Lines: 0
 
 ``py
@@ -97358,14 +97787,12 @@ Lines: 0
 
 # .\OKE\specialists\reports\service.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reports\specialist.py
-
 
 Lines: 31
 
@@ -97405,22 +97832,12 @@ class SpecialistGenerator:
 
 # .\OKE\specialists\reservation\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reservation\analyzer.py
-
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\specialists\reservation\builder.py
-
 
 Lines: 0
 
@@ -97429,14 +97846,12 @@ Lines: 0
 
 # .\OKE\specialists\reservation\knowledge.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reservation\model.py
-
 
 Lines: 0
 
@@ -97445,14 +97860,12 @@ Lines: 0
 
 # .\OKE\specialists\reservation\pipeline.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reservation\README.md
-
 
 Lines: 0
 
@@ -97461,7 +97874,6 @@ Lines: 0
 
 # .\OKE\specialists\reservation\rule.py
 
-
 Lines: 0
 
 ``py
@@ -97469,14 +97881,12 @@ Lines: 0
 
 # .\OKE\specialists\reservation\service.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\reservation\specialist.py
-
 
 Lines: 31
 
@@ -97516,14 +97926,12 @@ class SpecialistGenerator:
 
 # .\OKE\specialists\security\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\security\specialist.py
-
 
 Lines: 0
 
@@ -97532,14 +97940,12 @@ Lines: 0
 
 # .\OKE\specialists\source\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\source\specialist.py
-
 
 Lines: 32
 
@@ -97580,14 +97986,12 @@ class SourceSpecialist:
 
 # .\OKE\specialists\template\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\template\specialist.py
-
 
 Lines: 30
 
@@ -97626,14 +98030,12 @@ class TemplateSpecialist(BaseSpecialist):
 
 # .\OKE\specialists\testing\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\testing\specialist.py
-
 
 Lines: 0
 
@@ -97642,14 +98044,12 @@ Lines: 0
 
 # .\OKE\specialists\ui\__init__.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\specialists\ui\specialist.py
-
 
 Lines: 0
 
@@ -97658,14 +98058,12 @@ Lines: 0
 
 # .\OKE\specs\database_schema_spec.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\standards\__init__.py
-
 
 Lines: 0
 
@@ -97674,14 +98072,12 @@ Lines: 0
 
 # .\OKE\standards\analyzer_standard.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\standards\pipeline_standard.py
-
 
 Lines: 0
 
@@ -97690,7 +98086,6 @@ Lines: 0
 
 # .\OKE\standards\report_standard.py
 
-
 Lines: 0
 
 ``py
@@ -97698,14 +98093,12 @@ Lines: 0
 
 # .\OKE\standards\specialist_standard.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\templates\database_book_template.md
-
 
 Lines: 53
 
@@ -97765,8 +98158,77 @@ Template
 database_book_template.md
 ``
 
-# .\OKE\templates\specialist\__init__.py
+# .\OKE\templates\export\00_START_HERE.md
 
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\01_ENGINEERING_CONSTITUTION.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\02_CURRENT_PROJECT_STATE.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\03_OKE_COMMAND_REFERENCE.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\04_ENGINEERING_WORKFLOW.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\05_RECOVERY_GUIDE.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\06_ARCHITECTURE.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\07_KNOWLEDGE_BASE.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\08_NEXT_ROADMAP.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\export\09_CHAT_BOOTSTRAP_PROMPT.md
+
+Lines: 0
+
+``md
+``
+
+# .\OKE\templates\specialist\__init__.py
 
 Lines: 0
 
@@ -97775,22 +98237,12 @@ Lines: 0
 
 # .\OKE\templates\specialist\analyzer.py
 
-
-Lines: 0
-
-``py
-``
-
-# .\OKE\templates\specialist\builder.py
-
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\templates\specialist\knowledge.py
-
 
 Lines: 0
 
@@ -97799,14 +98251,12 @@ Lines: 0
 
 # .\OKE\templates\specialist\model.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\templates\specialist\pipeline.py
-
 
 Lines: 0
 
@@ -97815,14 +98265,12 @@ Lines: 0
 
 # .\OKE\templates\specialist\README.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\templates\specialist\rule.py
-
 
 Lines: 0
 
@@ -97831,14 +98279,12 @@ Lines: 0
 
 # .\OKE\templates\specialist\service.py
 
-
 Lines: 0
 
 ``py
 ``
 
 # .\OKE\templates\specialist\specialist.py
-
 
 Lines: 31
 
@@ -97878,7 +98324,6 @@ class SpecialistGenerator:
 
 # .\OKE\timeline\__init__.py
 
-
 Lines: 2
 
 ``py
@@ -97887,7 +98332,6 @@ from .timeline import EngineeringTimeline
 ``
 
 # .\OKE\timeline\event.py
-
 
 Lines: 15
 
@@ -97910,7 +98354,6 @@ class EngineeringEvent:
 ``
 
 # .\OKE\timeline\timeline.py
-
 
 Lines: 23
 
@@ -97942,14 +98385,12 @@ class EngineeringTimeline:
 
 # .\OKE\VERSION.md
 
-
 Lines: 0
 
 ``md
 ``
 
 # .\OKE\workspace\__init__.py
-
 
 Lines: 4
 
@@ -97961,7 +98402,6 @@ from .repository import WorkspaceRepository
 ``
 
 # .\OKE\workspace\comparator.py
-
 
 Lines: 28
 
@@ -97996,15 +98436,10714 @@ class SnapshotComparator:
         }
 ``
 
-# .\OKE\workspace\reports\employees.json
+# .\OKE\workspace\reports\approval_requests.json
 
+Lines: 32
+
+``json
+{
+  "name": "approval_requests",
+  "generated_at": "2026-06-28T13:45:40.621258",
+  "data": {
+    "task": "analyze approval_requests table",
+    "table": "approval_requests",
+    "risk": "LOW",
+    "metrics": {
+      "columns": 24,
+      "primary_keys": 1,
+      "foreign_keys": 1,
+      "referenced_by": 0,
+      "dependencies": 0
+    },
+    "impact": {
+      "affected_tables": [],
+      "affected_table_count": 0,
+      "affected_modules": [
+        "Approval Center"
+      ],
+      "affected_module_count": 1
+    },
+    "regression": {
+      "checklist": [
+        "Approval Decision",
+        "Approval Routing"
+      ],
+      "check_count": 2
+    },
+    "recommendation": "Moderate impact change. Run the listed regression checks before deployment."
+  }
+}
+``
+
+# .\OKE\workspace\reports\audit_finance.json
+
+Lines: 212
+
+``json
+{
+  "name": "audit_finance",
+  "generated_at": "2026-06-28T14:07:07.802558",
+  "data": {
+    "module": "finance",
+    "score": {
+      "architecture": 3,
+      "maintainability": 7,
+      "consistency": 9,
+      "documentation": 6,
+      "technical_debt": "HIGH"
+    },
+    "findings": {
+      "direct_supabase_usage": [
+        {
+          "file": null,
+          "line": 9704,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9767,
+          "text": "const { error } = await supabase.from(\"finance_bills\").insert({"
+        },
+        {
+          "file": null,
+          "line": 9799,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9822,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9869,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9940,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 11161,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 11169,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 11180,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 11242,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 11252,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 12889,
+          "text": ".from(\"finance_payment_methods\")"
+        },
+        {
+          "file": null,
+          "line": 12895,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 12901,
+          "text": ".from(\"finance_expense_sources\")"
+        },
+        {
+          "file": null,
+          "line": 29151,
+          "text": ".from(\"finance_hotel_reservations\")"
+        },
+        {
+          "file": null,
+          "line": 31966,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 31974,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 31983,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 32037,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 32047,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 32825,
+          "text": ".from(\"finance_payment_methods\")"
+        },
+        {
+          "file": null,
+          "line": 32830,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 32835,
+          "text": ".from(\"finance_expense_sources\")"
+        },
+        {
+          "file": null,
+          "line": 32840,
+          "text": ".from(\"finance_revenue_sources\")"
+        },
+        {
+          "file": null,
+          "line": 32846,
+          "text": ".from(\"finance_cash_sources\")"
+        },
+        {
+          "file": null,
+          "line": 32931,
+          "text": ".from(\"finance_payment_methods\")"
+        },
+        {
+          "file": null,
+          "line": 33963,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 36009,
+          "text": ".from(\"finance_hotel_reservations\")"
+        },
+        {
+          "file": null,
+          "line": 83765,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 84188,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 84777,
+          "text": ".from(\"finance_cash_audit_logs\")"
+        },
+        {
+          "file": null,
+          "line": 85195,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 85504,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 85633,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 86234,
+          "text": ".from(\"finance_cash_movements\")"
+        }
+      ],
+      "hardcoded_business_terms": [
+        {
+          "file": null,
+          "line": 4461,
+          "text": "{ title: \"Cash Advance Requests\", description: \"Export cash advance request records.\", table: \"cash_advance_requests\", fileName: \"cash_advance_requests_backup\", group: \"Finance\" },"
+        },
+        {
+          "file": null,
+          "line": 4468,
+          "text": "{ title: \"Hotel Reservations\", description: \"Export hotel reservations / room sales records.\", table: \"finance_hotel_reservations\", fileName: \"finance_hotel_reservations_backup\", group: \"Finance\" },"
+        },
+        {
+          "file": null,
+          "line": 78181,
+          "text": "{ key: \"cash_advance_requests\", label: \"Cash Advance Requests\", table: \"cash_advance_requests\", group: \"Finance\", mode: \"delete\" },"
+        }
+      ],
+      "large_file_signals": [],
+      "todo_fixme": []
+    }
+  }
+}
+``
+
+# .\OKE\workspace\reports\cash_drawers.json
+
+Lines: 36
+
+``json
+{
+  "name": "cash_drawers",
+  "generated_at": "2026-06-28T13:45:42.616857",
+  "data": {
+    "task": "analyze cash_drawers table",
+    "table": "cash_drawers",
+    "risk": "LOW",
+    "metrics": {
+      "columns": 9,
+      "primary_keys": 1,
+      "foreign_keys": 1,
+      "referenced_by": 1,
+      "dependencies": 1
+    },
+    "impact": {
+      "affected_tables": [
+        "cash_movements"
+      ],
+      "affected_table_count": 1,
+      "affected_modules": [
+        "Cash Management",
+        "Finance"
+      ],
+      "affected_module_count": 2
+    },
+    "regression": {
+      "checklist": [
+        "Cash Drawer",
+        "Cash In",
+        "Cash Out"
+      ],
+      "check_count": 3
+    },
+    "recommendation": "Moderate impact change. Run the listed regression checks before deployment."
+  }
+}
+``
+
+# .\OKE\workspace\reports\database_all.json
+
+Lines: 10392
+
+``json
+{
+  "name": "database_all",
+  "generated_at": "2026-06-28T13:56:18.629887",
+  "data": {
+    "summary": {
+      "table_count": 118,
+      "column_count": 1000,
+      "primary_key_count": 110,
+      "foreign_key_count": 66
+    },
+    "tables": [
+      "activity_logs",
+      "announcements",
+      "apartment_bills",
+      "apartment_payments",
+      "apartment_units",
+      "approval_assignments",
+      "approval_requests",
+      "approval_workflows",
+      "archive_cash_advance_requests_20260617",
+      "archive_employee_balances_20260617",
+      "archive_finance_cash_drawers_20260617",
+      "attendance_entries",
+      "attendance_geofence_settings",
+      "audit_logs",
+      "biometric_mappings",
+      "cash_advance_requests",
+      "cash_drawers",
+      "cash_execution_locks",
+      "cash_movements",
+      "companies",
+      "company_users",
+      "departments",
+      "direct_sales_import_lines",
+      "document_sequences",
+      "employee_balances",
+      "employee_coaching_logs",
+      "employee_leave_credits",
+      "employee_registration_requests",
+      "employees",
+      "employees_backup_before_vrh_renumber",
+      "employment_statuses",
+      "employment_types",
+      "event_addons",
+      "expense_allocation_rules",
+      "expense_categories",
+      "expense_requests",
+      "expense_subcategories",
+      "expenses",
+      "finance_bills",
+      "finance_cash_counts",
+      "finance_cash_drawer_state",
+      "finance_cash_drawers",
+      "finance_cash_management",
+      "finance_cash_movements",
+      "finance_cash_release_types",
+      "finance_cash_settings",
+      "finance_cash_sources",
+      "finance_departments",
+      "finance_expense_areas",
+      "finance_expense_categories",
+      "finance_expense_sources",
+      "finance_hotel_reservations",
+      "finance_hotel_revenue",
+      "finance_payment_methods",
+      "finance_payment_sources",
+      "finance_revenue_sources",
+      "finance_settings",
+      "finance_workflow_settings",
+      "forecasting_settings",
+      "hc_rule_settings",
+      "hc_rules",
+      "leave_requests",
+      "leave_settings",
+      "occupancy_data",
+      "onboarding_settings",
+      "ota_statement_lines",
+      "payment_sources",
+      "payroll_adjustments",
+      "payroll_deduction_types",
+      "payroll_holidays",
+      "payroll_periods",
+      "payroll_records",
+      "payroll_release_history",
+      "payroll_release_transactions",
+      "payroll_settings",
+      "payroll_snapshot_items",
+      "payroll_snapshots",
+      "payroll_snapshots_old_wrong",
+      "peak_day_rules",
+      "performance_history",
+      "performance_kpi_settings",
+      "pos_categories",
+      "pos_categories_backup_20260620",
+      "pos_menu_groups",
+      "pos_menu_items",
+      "pos_menu_items_backup_20260620",
+      "pos_modifier_groups",
+      "pos_modifier_options",
+      "pos_modifier_templates",
+      "pos_order_item_modifiers",
+      "pos_order_items",
+      "pos_order_types",
+      "pos_orders",
+      "pos_payment_methods",
+      "pos_payments",
+      "pos_product_modifier_templates",
+      "pos_production_stations",
+      "pos_production_stations_backup_20260620",
+      "pos_sessions",
+      "pos_settings",
+      "pos_setup_pack_groups",
+      "pos_setup_packs",
+      "pos_tables",
+      "pos_template_modifier_groups",
+      "pos_voids",
+      "positions",
+      "released_payroll_items",
+      "released_payrolls",
+      "restaurant_sales",
+      "role_permissions",
+      "schedule_overrides",
+      "schedule_publications",
+      "schedules",
+      "shift_templates",
+      "system_roles",
+      "system_users",
+      "watcher_findings",
+      "watcher_request_type_mapping"
+    ],
+    "columns": [
+      {
+        "table_schema": "public",
+        "table_name": "activity_logs",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "activity_logs",
+        "column_name": "module",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "activity_logs",
+        "column_name": "action",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "activity_logs",
+        "column_name": "user_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "activity_logs",
+        "column_name": "details",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "activity_logs",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "title",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "body",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "priority",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Normal'::text",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "audience",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'All Employees'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "posted_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "created_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "unit_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "bill_month",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "due_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "rent_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "electric_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "water_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "internet_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "other_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "bill_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "payment_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'ACTIVE'::text",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "void_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "voided_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "voided_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "unit_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "tenant_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "monthly_rent",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "internet_fee",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Occupied'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "due_day",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "5",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "notes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "approval_role",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "assignment_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'PRIMARY'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "department_scope",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "is_default",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "department_scopes",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'[]'::jsonb",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "workflow_keys",
+        "data_type": "ARRAY",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "request_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "module",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "reference_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "title",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "requested_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "requested_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'PENDING'::text",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "approved_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "approved_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "rejected_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "rejected_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "rejection_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "request_payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "source_document_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "source_document_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "category",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "workflow_key",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "workflow_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "module",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "approval_required",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "approver_role",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'MANAGER'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "purpose",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "approved_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "approved_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "released_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "payroll_period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_cash_advance_requests_20260617",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "balance_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "original_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "remaining_balance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "source_module",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "source_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "cancel_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "cancelled_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "void_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "voided_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_employee_balances_20260617",
+        "column_name": "voided_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "holder_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "opening_float",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "opened_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "closed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "expected_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "actual_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "variance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "archive_finance_cash_drawers_20260617",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "attendance_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "scheduled_shift",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "scheduled_in",
+        "data_type": "time without time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "scheduled_out",
+        "data_type": "time without time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_in",
+        "data_type": "time without time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_out",
+        "data_type": "time without time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "late_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "undertime_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Present'::text",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "worked_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "attendance_source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Manual'::text",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_in_latitude",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_in_longitude",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_out_latitude",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_out_longitude",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_in_accuracy",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_out_accuracy",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_in_location_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "time_out_location_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "geofence_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "geofence_distance_meters",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "geofence_property_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "approved_ot_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 28
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_approval_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'NOT_REQUIRED'::text",
+        "ordinal_position": 29
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_approval_request_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 30
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_approved_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 31
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_approved_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 32
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_rejected_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 33
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_rejected_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 34
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "ot_rejection_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 35
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "property_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "latitude",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "longitude",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "allowed_radius_meters",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "100",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "gps_required",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "user_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "module",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "action",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "severity",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'info'::text",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "record_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "old_value",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "new_value",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "ip_address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "user_agent",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "biometric_employee_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "biometric_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "purpose",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'PENDING'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "approved_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "approved_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "released_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "payroll_period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "uuid_generate_v4()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "holder_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "opening_float",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "actual_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'OPEN'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "opened_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "closed_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_execution_locks",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_execution_locks",
+        "column_name": "source_document_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_execution_locks",
+        "column_name": "type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_execution_locks",
+        "column_name": "company_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_execution_locks",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "uuid_generate_v4()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "category",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "drawer_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "holder_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "slug",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "company_code",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "industry_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'hotel'::text",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'active'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "contact_person",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "contact_email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "contact_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "subscription_plan",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'starter'::text",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "subscription_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'active'::text",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "role_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "departments",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "departments",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "departments",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "sales_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "guest_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "room",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "room_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Cash'::text",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Walk-in / Direct'::text",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "gross_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "collected_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "import_key",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "document_sequences",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "document_sequences",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "document_sequences",
+        "column_name": "document_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "document_sequences",
+        "column_name": "current_number",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "document_sequences",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "balance_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "original_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "remaining_balance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Active'::text",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "source_module",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "source_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "cancel_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "cancelled_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "void_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "voided_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "voided_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "coach_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "action_plan",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "followup_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "employee_no",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "leave_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "credits",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "used_credits",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "remaining_credits",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "first_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "middle_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "last_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "suffix",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "birth_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "gender",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "civil_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "nationality",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "mobile_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "sss_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "philhealth_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "pagibig_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "tin_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "emergency_contact_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "emergency_contact_relationship",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "emergency_contact_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "emergency_contact_address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'PENDING'::text",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "reviewed_by",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "reviewed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "rejection_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "submitted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 28
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "employee_no",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "first_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "last_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "position",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "employment_status",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "daily_rate",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "hire_date",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "contact_number",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "employment_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "rate_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Daily'::text",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "basic_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "payroll_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "payroll_notes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "biometric_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "sss_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "philhealth_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "pagibig_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "tin_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "birth_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "gender",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "civil_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "emergency_contact_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "emergency_contact_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 28
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "emergency_contact_relationship",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 29
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "has_resume",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 30
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "has_valid_id",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 31
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "has_contract",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 32
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "has_nbi_clearance",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 33
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "has_medical",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 34
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "has_training_records",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 35
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "system_role_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 36
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "portal_enabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 37
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "attendance_source_preference",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Biometrics'::text",
+        "ordinal_position": 38
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 39
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "pos_pin",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 40
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "can_access_pos",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 41
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "admin_access_enabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 42
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "employee_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "first_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "last_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "position",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "employment_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "daily_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "hire_date",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "contact_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "employment_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "rate_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "basic_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "payroll_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "payroll_notes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "biometric_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "sss_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "philhealth_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "pagibig_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "tin_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "birth_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "gender",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "civil_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "emergency_contact_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "emergency_contact_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 28
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "emergency_contact_relationship",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 29
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "has_resume",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 30
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "has_valid_id",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 31
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "has_contract",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 32
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "has_nbi_clearance",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 33
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "has_medical",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 34
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "has_training_records",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 35
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "system_role_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 36
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "portal_enabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 37
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "attendance_source_preference",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 38
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 39
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "pos_pin",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 40
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "can_access_pos",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 41
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees_backup_before_vrh_renumber",
+        "column_name": "admin_access_enabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 42
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_statuses",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_statuses",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_statuses",
+        "column_name": "count_in_workforce",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_statuses",
+        "column_name": "allow_scheduling",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_statuses",
+        "column_name": "show_in_reports",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_statuses",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_types",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_types",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_types",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "event_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "event_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "additional_hc",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "expected_pax",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "expense_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "rooms_percent",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "restaurant_percent",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "sports_bar_percent",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "apartment_percent",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "shared_percent",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "category_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "group_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Operating Expenses'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "default_business_unit",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Shared'::text",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "is_employee_related",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "is_payroll_deductible",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "request_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "CURRENT_DATE",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "requested_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "category",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "expense_area",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "expense_source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "urgency",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'PENDING'::text",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "approved_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "approved_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "released_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "liquidated_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "liquidated_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "approval_role",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "posted_to_expenses",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "posted_expense_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "posted_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "requestor_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Employee'::text",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "category_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "category",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "expense_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "category",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "posted_to_cash_movements",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "cash_movement_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "cash_posted_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "encoded_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "deduct_to_payroll",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "payroll_adjustment_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "source_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Manual'::text",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "source_bill_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "payroll_period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "subcategory",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "employee_balance_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "void_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "voided_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 28
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "voided_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 29
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'ACTIVE'::text",
+        "ordinal_position": 30
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "released_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 31
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "actual_spent_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 32
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "returned_cash_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 33
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "net_expense_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 34
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "liquidation_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'FOR_LIQUIDATION'::text",
+        "ordinal_position": 35
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "liquidated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 36
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "liquidation_remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 37
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "receipt_count",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 38
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "return_cash_movement_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 39
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "liquidation_category",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 40
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "liquidated_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 41
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "approval_request_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 42
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "return_destination",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'CASH_DRAWER'::text",
+        "ordinal_position": 43
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "bill_year",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "bill_month",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "category",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'Pending'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "due_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "paid_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "expense_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "report_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "opening_float",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "actual_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "prepared_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_clean",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_clean",
+        "column_name": "company_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_clean",
+        "column_name": "cash_drawer_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_clean",
+        "column_name": "expected_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_clean",
+        "column_name": "actual_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_clean",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_clean",
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_state",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_state",
+        "column_name": "company_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_state",
+        "column_name": "cash_drawer_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_state",
+        "column_name": "expected_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_state",
+        "column_name": "actual_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_state",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawer_state",
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "holder_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "opening_float",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "opened_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "closed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "expected_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "actual_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "variance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'OPEN'::text",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "closing_remittance_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "closing_gcash_remittance_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "closing_remittance_received_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "closing_remittance_remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "business_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "opening_float",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "actual_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "expected_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "variance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "room_sales_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "restaurant_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "apartment_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "other_cash",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "holder_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'OPEN'::text",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "business_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "CURRENT_DATE",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "movement_time",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "movement_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "source",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "from_person",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "to_person",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "encoded_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "payment_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Cash'::text",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "reference_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "cash_drawer_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'ACTIVE'::text",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "void_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "voided_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "voided_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "liquidation_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'NOT_REQUIRED'::text",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "actual_spent_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "returned_cash_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "net_expense_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "liquidation_category",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "liquidated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "liquidated_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "receipt_count",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 28
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "liquidation_return_movement_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 29
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "liquidation_remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 30
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "origin_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 31
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "origin_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 32
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "created_by_module",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 33
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "source_action",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 34
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "created_by_user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 35
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "created_by_user_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 36
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "return_destination",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'CASH_DRAWER'::text",
+        "ordinal_position": 38
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "source_document_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 39
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "idempotency_key",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 40
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "is_employee_related",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "is_payroll_deductible",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "track_cash_on_hand",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "require_daily_cash_count",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "include_room_sales",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "include_restaurant_sales",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "include_apartment_sales",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "include_expenses",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "require_expense_approval",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "movement_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'Cash In'::text",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "category",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'Revenue'::text",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_departments",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_departments",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_departments",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_departments",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_areas",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_areas",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_areas",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_areas",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_categories",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_categories",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_categories",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_categories",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_sources",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_sources",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_sources",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_sources",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "nextval('finance_hotel_reservations_id_seq'::regclass)",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "reservation_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "guest_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "room",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "room_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "check_in",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "check_out",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "nights",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "booking_source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "accommodation_total",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "grand_total",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "amount_paid",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "balance_due",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "import_key",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "total_sales",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "unpaid_balance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "nextval('finance_hotel_revenue_id_seq'::regclass)",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "transaction_datetime",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "service_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "room",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "room_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "guest_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "reservation_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "transaction_code",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "check_in",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "check_out",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "note",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "debit",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "credit",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "source_file",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "import_key",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "deduct_from_cash_flow",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "requires_approval",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "requires_liquidation",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "requires_drawer",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "return_destination_enabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "code",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "deduct_from_cash_flow",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "creates_expense_record",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "requires_approval",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "requires_liquidation",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "sort_order",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_revenue_sources",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_revenue_sources",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_revenue_sources",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_revenue_sources",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_settings",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_settings",
+        "column_name": "setting_key",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_settings",
+        "column_name": "setting_value",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "''::text",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_settings",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_settings",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_workflow_settings",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_workflow_settings",
+        "column_name": "require_expense_approval",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_workflow_settings",
+        "column_name": "enable_liquidation_tracking",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_workflow_settings",
+        "column_name": "allow_direct_cash_release",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_workflow_settings",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_workflow_settings",
+        "column_name": "enable_cash_management",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "forecasting_settings",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "forecasting_settings",
+        "column_name": "setting_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "forecasting_settings",
+        "column_name": "setting_data",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "forecasting_settings",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rule_settings",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rule_settings",
+        "column_name": "setting_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rule_settings",
+        "column_name": "setting_data",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rule_settings",
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rules",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rules",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rules",
+        "column_name": "min_occupancy",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rules",
+        "column_name": "max_occupancy",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rules",
+        "column_name": "required_hc",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rules",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "leave_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "start_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "end_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "days",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Pending'::text",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "approved_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "position",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "approved_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "rejected_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "rejected_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "rejection_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "employee_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "total_days",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "requested_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "requested_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "cancelled_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "cancelled_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "cancellation_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_settings",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_settings",
+        "column_name": "leave_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_settings",
+        "column_name": "default_credits",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_settings",
+        "column_name": "is_enabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_settings",
+        "column_name": "requires_credits",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_settings",
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "business_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "rooms_sold",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "capacity",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "blocked_rooms",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "out_of_service_rooms",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "available_rooms",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "adjusted_occupancy",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "occupancy",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "room_revenue",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "other_revenue",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "total_revenue",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "adr",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "revpar",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "taxes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "fees",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Cloudbeds CSV'::text",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "uploaded_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "is_registration_open",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "closed_message",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'Employee onboarding is currently closed. Please contact HR.'::text",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "channel",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "line_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "statement_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "payout_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "payout_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "reference_code",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "confirmation_code",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "booking_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "guest_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "check_in",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "check_out",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "nights",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "currency",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'PHP'::text",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "gross_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "commission_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "service_fee",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "vat_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "cleaning_fee",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "tax_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "net_payout",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "paid_out",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "details",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "import_key",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payment_sources",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payment_sources",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payment_sources",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payment_sources",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "period_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "adjustment_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "adjustment_direction",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "source_module",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "source_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "payroll_deducted",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Pending'::text",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "approved_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "rejected_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "is_employee_related",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "is_payroll_deductible",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "holiday_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "holiday_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "holiday_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'Regular'::text",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "multiplier",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "1",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "period_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "start_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "end_date",
+        "data_type": "date",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Draft'::text",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "released_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "reopened_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "reopen_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "needs_regeneration",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "last_generated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "attendance_locked",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "attendance_locked_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "snapshot_created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "reference_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "employee_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "position",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "rate_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "basic_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "days_worked",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "weeks_worked",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "late_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "undertime_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "absent_days",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "basic_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "holiday_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "ot_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "allowance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "late_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 19
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "undertime_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 20
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "absent_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 21
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "manual_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 22
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "total_deductions",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 23
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "gross_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 24
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "net_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 25
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 26
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 27
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "ot_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 28
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "scheduled_days",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 29
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "rest_days",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 30
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "holiday_worked_dates",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'[]'::jsonb",
+        "ordinal_position": 31
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "payslip_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Not Released'::text",
+        "ordinal_position": 32
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "payslip_email_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Not Sent'::text",
+        "ordinal_position": 33
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "payslip_released_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 34
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Draft'::text",
+        "ordinal_position": 35
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "period_label",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 36
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "reopen_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 37
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "released_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 38
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "reopened_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 39
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 40
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "paid_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 41
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "carry_forward_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 42
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "balance_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 43
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "release_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 44
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "sss_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 45
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "philhealth_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 46
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "pagibig_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 47
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "tax_deduction",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 48
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "sss_mode",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Manual'::text",
+        "ordinal_position": 49
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "philhealth_mode",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Manual'::text",
+        "ordinal_position": 50
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "pagibig_mode",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Manual'::text",
+        "ordinal_position": 51
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "tax_mode",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Manual'::text",
+        "ordinal_position": 52
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "snapshot_created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 53
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "remaining_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 54
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "release_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Pending'::text",
+        "ordinal_position": 55
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "remaining_payroll_balance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 56
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 57
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "detected_ot_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 58
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "approved_ot_minutes",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 59
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "ot_approval_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'NOT_REQUIRED'::text",
+        "ordinal_position": 60
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "record_status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'DRAFT'::text",
+        "ordinal_position": 61
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "return_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 62
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "returned_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 63
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "returned_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 64
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "resubmitted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 65
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "resubmitted_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 66
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "locked_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 67
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "locked_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 68
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "payroll_record_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "employee_no",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "department",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "cutoff_label",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "gross_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "total_deductions",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "net_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "released_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "carry_forward_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "released_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 16
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 17
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 18
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "payroll_record_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 2
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "payroll_period_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 3
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "employee_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 4
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "employee_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 5
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "net_pay",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 6
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "release_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 7
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "remaining_balance",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "ordinal_position": 8
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "release_batch",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 9
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "released_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 10
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "remarks",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 11
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "ordinal_position": 12
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "company_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "",
+        "ordinal_position": 13
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "released_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 14
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "payment_method",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "",
+        "ordinal_position": 15
+      }
+    ],
+    "primary_keys": [
+      {
+        "table_schema": "public",
+        "table_name": "activity_logs",
+        "column_name": "id",
+        "constraint_name": "activity_logs_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "announcements",
+        "column_name": "id",
+        "constraint_name": "announcements_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "id",
+        "constraint_name": "apartment_bills_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "id",
+        "constraint_name": "apartment_payments_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_units",
+        "column_name": "id",
+        "constraint_name": "apartment_units_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_assignments",
+        "column_name": "id",
+        "constraint_name": "approval_assignments_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "id",
+        "constraint_name": "approval_requests_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "id",
+        "constraint_name": "approval_workflows_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "id",
+        "constraint_name": "attendance_entries_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_geofence_settings",
+        "column_name": "id",
+        "constraint_name": "attendance_geofence_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "audit_logs",
+        "column_name": "id",
+        "constraint_name": "audit_logs_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "id",
+        "constraint_name": "biometric_mappings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "id",
+        "constraint_name": "cash_advance_requests_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "id",
+        "constraint_name": "cash_drawers_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_execution_locks",
+        "column_name": "id",
+        "constraint_name": "cash_execution_locks_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "id",
+        "constraint_name": "cash_movements_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "companies",
+        "column_name": "id",
+        "constraint_name": "companies_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "id",
+        "constraint_name": "company_users_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "departments",
+        "column_name": "id",
+        "constraint_name": "departments_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "direct_sales_import_lines",
+        "column_name": "id",
+        "constraint_name": "direct_sales_import_lines_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "document_sequences",
+        "column_name": "id",
+        "constraint_name": "document_sequences_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "id",
+        "constraint_name": "employee_balances_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_coaching_logs",
+        "column_name": "id",
+        "constraint_name": "employee_coaching_logs_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_leave_credits",
+        "column_name": "id",
+        "constraint_name": "employee_leave_credits_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_registration_requests",
+        "column_name": "id",
+        "constraint_name": "employee_registration_requests_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "id",
+        "constraint_name": "employees_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_statuses",
+        "column_name": "id",
+        "constraint_name": "employment_statuses_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employment_types",
+        "column_name": "id",
+        "constraint_name": "employment_types_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "event_addons",
+        "column_name": "id",
+        "constraint_name": "event_addons_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_allocation_rules",
+        "column_name": "id",
+        "constraint_name": "expense_allocation_rules_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_categories",
+        "column_name": "id",
+        "constraint_name": "expense_categories_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "id",
+        "constraint_name": "expense_requests_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "id",
+        "constraint_name": "expense_subcategories_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "id",
+        "constraint_name": "expenses_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "id",
+        "constraint_name": "finance_bills_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_counts",
+        "column_name": "id",
+        "constraint_name": "finance_cash_counts_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_drawers",
+        "column_name": "id",
+        "constraint_name": "finance_cash_drawers_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_management",
+        "column_name": "id",
+        "constraint_name": "finance_cash_management_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "id",
+        "constraint_name": "finance_cash_movements_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_release_types",
+        "column_name": "id",
+        "constraint_name": "finance_cash_release_types_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_settings",
+        "column_name": "id",
+        "constraint_name": "finance_cash_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_sources",
+        "column_name": "id",
+        "constraint_name": "finance_cash_sources_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_departments",
+        "column_name": "id",
+        "constraint_name": "finance_departments_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_areas",
+        "column_name": "id",
+        "constraint_name": "finance_expense_areas_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_categories",
+        "column_name": "id",
+        "constraint_name": "finance_expense_categories_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_expense_sources",
+        "column_name": "id",
+        "constraint_name": "finance_expense_sources_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_reservations",
+        "column_name": "id",
+        "constraint_name": "finance_hotel_reservations_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_hotel_revenue",
+        "column_name": "id",
+        "constraint_name": "finance_hotel_revenue_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_methods",
+        "column_name": "id",
+        "constraint_name": "finance_payment_methods_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_payment_sources",
+        "column_name": "id",
+        "constraint_name": "finance_payment_sources_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_revenue_sources",
+        "column_name": "id",
+        "constraint_name": "finance_revenue_sources_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_settings",
+        "column_name": "id",
+        "constraint_name": "finance_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_workflow_settings",
+        "column_name": "id",
+        "constraint_name": "finance_workflow_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "forecasting_settings",
+        "column_name": "id",
+        "constraint_name": "forecasting_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rule_settings",
+        "column_name": "id",
+        "constraint_name": "hc_rule_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "hc_rules",
+        "column_name": "id",
+        "constraint_name": "hc_rules_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "id",
+        "constraint_name": "leave_requests_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_settings",
+        "column_name": "id",
+        "constraint_name": "leave_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "occupancy_data",
+        "column_name": "id",
+        "constraint_name": "occupancy_data_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "id",
+        "constraint_name": "onboarding_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "ota_statement_lines",
+        "column_name": "id",
+        "constraint_name": "ota_statement_lines_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payment_sources",
+        "column_name": "id",
+        "constraint_name": "payment_sources_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_adjustments",
+        "column_name": "id",
+        "constraint_name": "payroll_adjustments_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_deduction_types",
+        "column_name": "id",
+        "constraint_name": "payroll_deduction_types_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_holidays",
+        "column_name": "id",
+        "constraint_name": "payroll_holidays_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "id",
+        "constraint_name": "payroll_periods_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "id",
+        "constraint_name": "payroll_records_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "id",
+        "constraint_name": "payroll_release_history_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "id",
+        "constraint_name": "payroll_release_transactions_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_settings",
+        "column_name": "id",
+        "constraint_name": "payroll_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_snapshot_items",
+        "column_name": "id",
+        "constraint_name": "payroll_snapshot_items_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_snapshots",
+        "column_name": "id",
+        "constraint_name": "payroll_snapshots_pkey1"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_snapshots_old_wrong",
+        "column_name": "id",
+        "constraint_name": "payroll_snapshots_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "peak_day_rules",
+        "column_name": "id",
+        "constraint_name": "peak_day_rules_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "performance_history",
+        "column_name": "id",
+        "constraint_name": "performance_history_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "performance_kpi_settings",
+        "column_name": "id",
+        "constraint_name": "performance_kpi_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_categories",
+        "column_name": "id",
+        "constraint_name": "pos_categories_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_menu_groups",
+        "column_name": "id",
+        "constraint_name": "pos_menu_groups_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_menu_items",
+        "column_name": "id",
+        "constraint_name": "pos_menu_items_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_modifier_groups",
+        "column_name": "id",
+        "constraint_name": "pos_modifier_groups_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_modifier_options",
+        "column_name": "id",
+        "constraint_name": "pos_modifier_options_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_modifier_templates",
+        "column_name": "id",
+        "constraint_name": "pos_modifier_templates_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_order_item_modifiers",
+        "column_name": "id",
+        "constraint_name": "pos_order_item_modifiers_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_order_items",
+        "column_name": "id",
+        "constraint_name": "pos_order_items_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_order_types",
+        "column_name": "id",
+        "constraint_name": "pos_order_types_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_orders",
+        "column_name": "id",
+        "constraint_name": "pos_orders_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_payment_methods",
+        "column_name": "id",
+        "constraint_name": "pos_payment_methods_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_payments",
+        "column_name": "id",
+        "constraint_name": "pos_payments_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_product_modifier_templates",
+        "column_name": "id",
+        "constraint_name": "pos_product_modifier_templates_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_production_stations",
+        "column_name": "id",
+        "constraint_name": "pos_production_stations_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "id",
+        "constraint_name": "pos_sessions_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_settings",
+        "column_name": "id",
+        "constraint_name": "pos_settings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_setup_pack_groups",
+        "column_name": "id",
+        "constraint_name": "pos_setup_pack_groups_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_setup_packs",
+        "column_name": "id",
+        "constraint_name": "pos_setup_packs_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_tables",
+        "column_name": "id",
+        "constraint_name": "pos_tables_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_template_modifier_groups",
+        "column_name": "id",
+        "constraint_name": "pos_template_modifier_groups_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_voids",
+        "column_name": "id",
+        "constraint_name": "pos_voids_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "positions",
+        "column_name": "id",
+        "constraint_name": "positions_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "released_payroll_items",
+        "column_name": "id",
+        "constraint_name": "released_payroll_items_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "released_payrolls",
+        "column_name": "id",
+        "constraint_name": "released_payrolls_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "restaurant_sales",
+        "column_name": "id",
+        "constraint_name": "restaurant_sales_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "role_permissions",
+        "column_name": "id",
+        "constraint_name": "role_permissions_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "schedule_overrides",
+        "column_name": "id",
+        "constraint_name": "schedule_overrides_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "schedule_publications",
+        "column_name": "id",
+        "constraint_name": "schedule_publications_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "schedules",
+        "column_name": "id",
+        "constraint_name": "schedules_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "shift_templates",
+        "column_name": "id",
+        "constraint_name": "shift_templates_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "system_roles",
+        "column_name": "id",
+        "constraint_name": "system_roles_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "system_users",
+        "column_name": "id",
+        "constraint_name": "system_users_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "watcher_findings",
+        "column_name": "id",
+        "constraint_name": "watcher_findings_pkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "watcher_request_type_mapping",
+        "column_name": "request_type",
+        "constraint_name": "watcher_request_type_mapping_pkey"
+      }
+    ],
+    "foreign_keys": [
+      {
+        "table_schema": "public",
+        "table_name": "apartment_bills",
+        "column_name": "unit_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "apartment_units",
+        "foreign_column_name": "id",
+        "constraint_name": "apartment_bills_unit_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "apartment_payments",
+        "column_name": "bill_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "apartment_bills",
+        "foreign_column_name": "id",
+        "constraint_name": "apartment_payments_bill_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_requests",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_approval_requests_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "approval_workflows",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_approval_workflows_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "attendance_entries_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "biometric_mappings_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_cash_advance_requests_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_cash_advance_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_drawers",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "cash_drawers_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_movements",
+        "column_name": "drawer_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "cash_drawers",
+        "foreign_column_name": "id",
+        "constraint_name": "cash_movements_drawer_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "company_users_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "role_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_roles",
+        "foreign_column_name": "id",
+        "constraint_name": "company_users_role_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_users",
+        "column_name": "user_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_users",
+        "foreign_column_name": "id",
+        "constraint_name": "company_users_user_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "employees_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "system_role_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_roles",
+        "foreign_column_name": "id",
+        "constraint_name": "employees_system_role_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_requests",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_expense_requests_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expense_subcategories",
+        "column_name": "category_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "expense_categories",
+        "foreign_column_name": "id",
+        "constraint_name": "expense_subcategories_category_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expenses",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_expenses_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_bills",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_finance_bills_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "finance_cash_movements",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_finance_cash_movements_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_leave_requests_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_leave_requests_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_settings",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "onboarding_settings_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_periods",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_payroll_periods_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_payroll_records_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "payroll_records_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "period_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "payroll_periods",
+        "foreign_column_name": "id",
+        "constraint_name": "payroll_records_period_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_history",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_payroll_release_history_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_release_transactions",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_payroll_release_transactions_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_snapshot_items",
+        "column_name": "snapshot_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "payroll_snapshots",
+        "foreign_column_name": "id",
+        "constraint_name": "payroll_snapshot_items_snapshot_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_snapshots_old_wrong",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_payroll_snapshots_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_categories",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_categories_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_categories",
+        "column_name": "created_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_users",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_categories_created_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_menu_items",
+        "column_name": "category_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_categories",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_menu_items_category_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_menu_items",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_menu_items_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_menu_items",
+        "column_name": "created_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_users",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_menu_items_created_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_menu_items",
+        "column_name": "setup_pack_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_setup_packs",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_menu_items_setup_pack_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_modifier_options",
+        "column_name": "modifier_group_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_modifier_groups",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_modifier_options_modifier_group_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_order_items",
+        "column_name": "menu_item_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_menu_items",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_order_items_menu_item_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_order_items",
+        "column_name": "order_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_orders",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_order_items_order_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_orders",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_orders_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_orders",
+        "column_name": "created_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_users",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_orders_created_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_orders",
+        "column_name": "session_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_sessions",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_orders_session_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_payments",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_payments_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_payments",
+        "column_name": "order_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_orders",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_payments_order_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_payments",
+        "column_name": "received_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_users",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_payments_received_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_product_modifier_templates",
+        "column_name": "product_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_menu_items",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_product_modifier_templates_product_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_product_modifier_templates",
+        "column_name": "template_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_modifier_templates",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_product_modifier_templates_template_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "closed_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_sessions_closed_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_sessions_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "opened_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_sessions_opened_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_setup_pack_groups",
+        "column_name": "group_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_modifier_groups",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_setup_pack_groups_group_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_setup_pack_groups",
+        "column_name": "pack_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_setup_packs",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_setup_pack_groups_pack_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_template_modifier_groups",
+        "column_name": "modifier_group_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_modifier_groups",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_template_modifier_groups_modifier_group_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_template_modifier_groups",
+        "column_name": "template_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_modifier_templates",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_template_modifier_groups_template_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_voids",
+        "column_name": "approved_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_users",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_voids_approved_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_voids",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_voids_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_voids",
+        "column_name": "order_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "pos_orders",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_voids_order_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_voids",
+        "column_name": "voided_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_users",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_voids_voided_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "released_payroll_items",
+        "column_name": "release_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "released_payrolls",
+        "foreign_column_name": "id",
+        "constraint_name": "released_payroll_items_release_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "released_payrolls",
+        "column_name": "snapshot_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "payroll_snapshots",
+        "foreign_column_name": "id",
+        "constraint_name": "released_payrolls_snapshot_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "role_permissions",
+        "column_name": "role_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_roles",
+        "foreign_column_name": "id",
+        "constraint_name": "role_permissions_role_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "system_users",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "system_users_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "system_users",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "system_users_employee_id_fkey"
+      }
+    ]
+  }
+}
+``
+
+# .\OKE\workspace\reports\employees.json
 
 Lines: 66
 
 ``json
 {
   "name": "employees",
-  "generated_at": "2026-06-28T02:21:28.456027",
+  "generated_at": "2026-06-28T13:45:36.171306",
   "data": {
     "task": "analyze employees table",
     "table": "employees",
@@ -98070,8 +109209,85 @@ Lines: 66
 }
 ``
 
-# .\OKE\workspace\reports\manager_test.json
+# .\OKE\workspace\reports\finance_cash_movements.json
 
+Lines: 27
+
+``json
+{
+  "name": "finance_cash_movements",
+  "generated_at": "2026-06-28T13:45:38.248723",
+  "data": {
+    "task": "analyze finance_cash_movements table",
+    "table": "finance_cash_movements",
+    "risk": "LOW",
+    "metrics": {
+      "columns": 38,
+      "primary_keys": 1,
+      "foreign_keys": 1,
+      "referenced_by": 0,
+      "dependencies": 0
+    },
+    "impact": {
+      "affected_tables": [],
+      "affected_table_count": 0,
+      "affected_modules": [],
+      "affected_module_count": 0
+    },
+    "regression": {
+      "checklist": [],
+      "check_count": 0
+    },
+    "recommendation": "Low impact change. Basic smoke test is enough."
+  }
+}
+``
+
+# .\OKE\workspace\reports\impact_employee_balances.json
+
+Lines: 37
+
+``json
+{
+  "name": "impact_employee_balances",
+  "generated_at": "2026-06-28T14:06:57.206994",
+  "data": {
+    "table": "employee_balances",
+    "risk": "LOW",
+    "depends_on": [
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_employee"
+      }
+    ],
+    "referenced_by": [],
+    "regression_checklist": [
+      "Check UI pages that read/write this table",
+      "Check API routes that insert/update/delete this table",
+      "Check engines/services that compute values from this table",
+      "Check reports/dashboard totals",
+      "Check multi-company company_id filtering",
+      "Check foreign key and orphan records"
+    ]
+  }
+}
+``
+
+# .\OKE\workspace\reports\manager_test.json
 
 Lines: 7
 
@@ -98085,8 +109301,1650 @@ Lines: 7
 }
 ``
 
-# .\OKE\workspace\reports\repo_test.json
+# .\OKE\workspace\reports\map_cash.json
 
+Lines: 125
+
+``json
+{
+  "name": "map_cash",
+  "generated_at": "2026-06-28T14:23:10.704524",
+  "data": {
+    "module": "cash",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "file_count": 16,
+    "flow": [
+      "UI",
+      "API",
+      "ENGINE_OR_SERVICE",
+      "DATABASE",
+      "REPORT"
+    ],
+    "buckets": {
+      "UI": [
+        {
+          "file": ".\\app\\(app)\\finance\\cash-management\\page.tsx",
+          "start_line": 10418,
+          "end_line": 10915,
+          "module": "finance"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\cashiers\\page.tsx",
+          "start_line": 45156,
+          "end_line": 45531,
+          "module": "pos"
+        }
+      ],
+      "API": [
+        {
+          "file": ".\\app\\api\\cash\\drawer\\close\\route.ts",
+          "start_line": 78747,
+          "end_line": 78780,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\drawer\\list\\route.ts",
+          "start_line": 78781,
+          "end_line": 78820,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\drawer\\open\\route.ts",
+          "start_line": 78821,
+          "end_line": 78867,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\insert\\route.ts",
+          "start_line": 78868,
+          "end_line": 78931,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\movements\\route.ts",
+          "start_line": 78932,
+          "end_line": 78973,
+          "module": "cash"
+        }
+      ],
+      "ENGINE_OR_SERVICE": [
+        {
+          "file": ".\\app\\lib\\cash\\cash-audit.ts",
+          "start_line": 84754,
+          "end_line": 84805,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-core.ts",
+          "start_line": 84806,
+          "end_line": 85084,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-engine.ts",
+          "start_line": 85085,
+          "end_line": 85259,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+          "start_line": 85260,
+          "end_line": 85353,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+          "start_line": 85354,
+          "end_line": 85420,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-snapshot.ts",
+          "start_line": 85421,
+          "end_line": 85539,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\drawer-core.ts",
+          "start_line": 85540,
+          "end_line": 85813,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\index.ts",
+          "start_line": 85814,
+          "end_line": 85839,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\variance-engine.ts",
+          "start_line": 85840,
+          "end_line": 85889,
+          "module": "cash"
+        }
+      ],
+      "SHARED_LIB": [],
+      "COMPONENT": [],
+      "REPORT": [],
+      "OKE": [],
+      "OTHER": []
+    }
+  }
+}
+``
+
+# .\OKE\workspace\reports\map_oke.json
+
+Lines: 1343
+
+``json
+{
+  "name": "map_oke",
+  "generated_at": "2026-06-28T14:44:12.973981",
+  "data": {
+    "module": "oke",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "file_count": 219,
+    "flow": [
+      "UI",
+      "API",
+      "ENGINE_OR_SERVICE",
+      "DATABASE",
+      "REPORT"
+    ],
+    "buckets": {
+      "UI": [],
+      "API": [],
+      "ENGINE_OR_SERVICE": [],
+      "SHARED_LIB": [],
+      "COMPONENT": [],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\governance\\report.py",
+          "start_line": 95917,
+          "end_line": 95943,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\engineering_report.py",
+          "start_line": 96298,
+          "end_line": 96322,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\services\\engineering_report_service.py",
+          "start_line": 96769,
+          "end_line": 96836,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\__init__.py",
+          "start_line": 97380,
+          "end_line": 97387,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\analyzer.py",
+          "start_line": 97388,
+          "end_line": 97395,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\builder.py",
+          "start_line": 97396,
+          "end_line": 97403,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\knowledge.py",
+          "start_line": 97404,
+          "end_line": 97411,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\model.py",
+          "start_line": 97412,
+          "end_line": 97419,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\pipeline.py",
+          "start_line": 97420,
+          "end_line": 97427,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\README.md",
+          "start_line": 97428,
+          "end_line": 97435,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\rule.py",
+          "start_line": 97436,
+          "end_line": 97443,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\service.py",
+          "start_line": 97444,
+          "end_line": 97451,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\specialist.py",
+          "start_line": 97452,
+          "end_line": 97490,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\report_standard.py",
+          "start_line": 97776,
+          "end_line": 97783,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\employees.json",
+          "start_line": 98084,
+          "end_line": 98157,
+          "module": "employees"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\manager_test.json",
+          "start_line": 98158,
+          "end_line": 98172,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\repo_test.json",
+          "start_line": 98173,
+          "end_line": 98183,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\test.json",
+          "start_line": 98184,
+          "end_line": 98198,
+          "module": "general"
+        }
+      ],
+      "OKE": [
+        {
+          "file": ".\\OKE\\__init__.py",
+          "start_line": 91483,
+          "end_line": 91490,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\__main__.py",
+          "start_line": 91491,
+          "end_line": 91520,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\__init__.py",
+          "start_line": 91521,
+          "end_line": 91528,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\database_adapter.py",
+          "start_line": 91529,
+          "end_line": 91554,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\dummy_adapter.py",
+          "start_line": 91555,
+          "end_line": 91612,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\supabase_adapter.py",
+          "start_line": 91613,
+          "end_line": 91661,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\aggregators\\__init__.py",
+          "start_line": 91662,
+          "end_line": 91669,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\aggregators\\result_aggregator.py",
+          "start_line": 91670,
+          "end_line": 91694,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\__init__.py",
+          "start_line": 91695,
+          "end_line": 91702,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\impact_analyzer.py",
+          "start_line": 91703,
+          "end_line": 91729,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\module_analyzer.py",
+          "start_line": 91730,
+          "end_line": 91767,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\recommendation_analyzer.py",
+          "start_line": 91768,
+          "end_line": 91806,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+          "start_line": 91807,
+          "end_line": 91838,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\__init__.py",
+          "start_line": 91839,
+          "end_line": 91846,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\database_schema_builder.py",
+          "start_line": 91847,
+          "end_line": 91870,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\dependency_builder.py",
+          "start_line": 91871,
+          "end_line": 91894,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\relationship_builder.py",
+          "start_line": 91895,
+          "end_line": 91923,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli.py",
+          "start_line": 91924,
+          "end_line": 92038,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\__init__.py",
+          "start_line": 92039,
+          "end_line": 92048,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\__main__.py",
+          "start_line": 92049,
+          "end_line": 92060,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\commands.py",
+          "start_line": 92061,
+          "end_line": 92081,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\main.py",
+          "start_line": 92082,
+          "end_line": 92117,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commander\\__init__.py",
+          "start_line": 92118,
+          "end_line": 92125,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commander\\commander.py",
+          "start_line": 92126,
+          "end_line": 92157,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "start_line": 92158,
+          "end_line": 92188,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\__init__.py",
+          "start_line": 92189,
+          "end_line": 92196,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "start_line": 92197,
+          "end_line": 92306,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\base_command.py",
+          "start_line": 92307,
+          "end_line": 92336,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\create_command.py",
+          "start_line": 92337,
+          "end_line": 92367,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "start_line": 92368,
+          "end_line": 92397,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\context\\__init__.py",
+          "start_line": 92398,
+          "end_line": 92407,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\context\\database_context.py",
+          "start_line": 92408,
+          "end_line": 92425,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\context\\engineering_context.py",
+          "start_line": 92426,
+          "end_line": 92442,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\contracts\\builder.py",
+          "start_line": 92443,
+          "end_line": 92459,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\contracts\\database_book.md",
+          "start_line": 92460,
+          "end_line": 92585,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "start_line": 92586,
+          "end_line": 92593,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "start_line": 92594,
+          "end_line": 92655,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\COMPASS.md",
+          "start_line": 92656,
+          "end_line": 92920,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\CURRENT_MISSION.md",
+          "start_line": 92921,
+          "end_line": 93117,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\01_MISSION.md",
+          "start_line": 93118,
+          "end_line": 93275,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\02_ARCHITECTURE.md",
+          "start_line": 93276,
+          "end_line": 93283,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\03_ENGINEERING_PRINCIPLES.md",
+          "start_line": 93284,
+          "end_line": 93291,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\04_HOW_TO_CREATE_SPECIALIST.md",
+          "start_line": 93292,
+          "end_line": 93299,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\05_HOW_TO_CREATE_ANALYZER.md",
+          "start_line": 93300,
+          "end_line": 93307,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\06_HOW_PIPELINES_WORK.md",
+          "start_line": 93308,
+          "end_line": 93315,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\07_CONTRIBUTING.md",
+          "start_line": 93316,
+          "end_line": 93323,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\08_GLOSSARY.md",
+          "start_line": 93324,
+          "end_line": 93331,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\09_ENGINEERING_CONSTITUTION.md",
+          "start_line": 93332,
+          "end_line": 93394,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\10_FOLDER_RESPONSIBILITIES.md",
+          "start_line": 93395,
+          "end_line": 93599,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\11_AI_ONBOARDING.md",
+          "start_line": 93600,
+          "end_line": 93733,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\12_FOUNDATION_CHECKLIST.md",
+          "start_line": 93734,
+          "end_line": 93818,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\EXPORT_V1.md",
+          "start_line": 93819,
+          "end_line": 94018,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\PROJECT_HISTORY.md",
+          "start_line": 94019,
+          "end_line": 94234,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\START_HERE.md",
+          "start_line": 94235,
+          "end_line": 94242,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\events\\__init__.py",
+          "start_line": 94243,
+          "end_line": 94258,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\events\\event_bus.py",
+          "start_line": 94259,
+          "end_line": 94290,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\events\\events.py",
+          "start_line": 94291,
+          "end_line": 94356,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\__init__.py",
+          "start_line": 94357,
+          "end_line": 94367,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\collector.py",
+          "start_line": 94368,
+          "end_line": 94461,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\copy_manager.py",
+          "start_line": 94462,
+          "end_line": 94573,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "start_line": 94574,
+          "end_line": 94620,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\file_locator.py",
+          "start_line": 94621,
+          "end_line": 94661,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\manifest.py",
+          "start_line": 94662,
+          "end_line": 94682,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\manifest_builder.py",
+          "start_line": 94683,
+          "end_line": 94729,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\packager.py",
+          "start_line": 94730,
+          "end_line": 94766,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\profiles.py",
+          "start_line": 94767,
+          "end_line": 94873,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\project_inventory.py",
+          "start_line": 94874,
+          "end_line": 94994,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\readme_generator.py",
+          "start_line": 94995,
+          "end_line": 95086,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\review_package_generator.py",
+          "start_line": 95087,
+          "end_line": 95252,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\MANIFEST_TEMPLATE.json",
+          "start_line": 95253,
+          "end_line": 95295,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\OKE_TO_OPSCORE_MAP.md",
+          "start_line": 95296,
+          "end_line": 95445,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\PROJECT_SUMMARY.md",
+          "start_line": 95446,
+          "end_line": 95594,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\README.md",
+          "start_line": 95595,
+          "end_line": 95602,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "start_line": 95603,
+          "end_line": 95673,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\extractors\\__init__.py",
+          "start_line": 95674,
+          "end_line": 95681,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\extractors\\database_extractor.py",
+          "start_line": 95682,
+          "end_line": 95700,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\generators\\generate_database_book.py",
+          "start_line": 95701,
+          "end_line": 95861,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\generators\\specialist_generator.py",
+          "start_line": 95862,
+          "end_line": 95900,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\__init__.py",
+          "start_line": 95901,
+          "end_line": 95908,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\auditor.py",
+          "start_line": 95909,
+          "end_line": 95916,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules.py",
+          "start_line": 95944,
+          "end_line": 95962,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\__init__.py",
+          "start_line": 95963,
+          "end_line": 95970,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\analyzer_rule.py",
+          "start_line": 95971,
+          "end_line": 95978,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\architecture_rule.py",
+          "start_line": 95979,
+          "end_line": 95986,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\base_rule.py",
+          "start_line": 95987,
+          "end_line": 96005,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\pipeline_rule.py",
+          "start_line": 96006,
+          "end_line": 96013,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+          "start_line": 96014,
+          "end_line": 96078,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\validator.py",
+          "start_line": 96079,
+          "end_line": 96142,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\knowledge\\__init__.py",
+          "start_line": 96143,
+          "end_line": 96150,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\knowledge\\module_map.py",
+          "start_line": 96151,
+          "end_line": 96173,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\knowledge\\regression_map.py",
+          "start_line": 96174,
+          "end_line": 96232,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\__init__.py",
+          "start_line": 96233,
+          "end_line": 96240,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\database_schema.py",
+          "start_line": 96241,
+          "end_line": 96279,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\engineering_metrics.py",
+          "start_line": 96280,
+          "end_line": 96297,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "start_line": 96323,
+          "end_line": 96330,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "start_line": 96331,
+          "end_line": 96390,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\__init__.py",
+          "start_line": 96391,
+          "end_line": 96398,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "start_line": 96399,
+          "end_line": 96452,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\README.md",
+          "start_line": 96453,
+          "end_line": 96597,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\registry\\__init__.py",
+          "start_line": 96598,
+          "end_line": 96607,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "start_line": 96608,
+          "end_line": 96637,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\registry\\registry.py",
+          "start_line": 96638,
+          "end_line": 96682,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\results\\__init__.py",
+          "start_line": 96683,
+          "end_line": 96690,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\results\\specialist_result.py",
+          "start_line": 96691,
+          "end_line": 96710,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\rules\\__init__.py",
+          "start_line": 96711,
+          "end_line": 96718,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\rules\\engineering_metrics.py",
+          "start_line": 96719,
+          "end_line": 96746,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\rules\\engineering_rules.py",
+          "start_line": 96747,
+          "end_line": 96768,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\__init__.py",
+          "start_line": 96837,
+          "end_line": 96844,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\api\\__init__.py",
+          "start_line": 96845,
+          "end_line": 96852,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\api\\specialist.py",
+          "start_line": 96853,
+          "end_line": 96860,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\base.py",
+          "start_line": 96861,
+          "end_line": 96890,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\__init__.py",
+          "start_line": 96891,
+          "end_line": 96898,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\analyzer.py",
+          "start_line": 96899,
+          "end_line": 96906,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\builder.py",
+          "start_line": 96907,
+          "end_line": 96914,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\knowledge.py",
+          "start_line": 96915,
+          "end_line": 96922,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\model.py",
+          "start_line": 96923,
+          "end_line": 96930,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\pipeline.py",
+          "start_line": 96931,
+          "end_line": 96938,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\README.md",
+          "start_line": 96939,
+          "end_line": 96946,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\rule.py",
+          "start_line": 96947,
+          "end_line": 96954,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\service.py",
+          "start_line": 96955,
+          "end_line": 96962,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\specialist.py",
+          "start_line": 96963,
+          "end_line": 97001,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\__init__.py",
+          "start_line": 97002,
+          "end_line": 97009,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\analyzers\\__init__.py",
+          "start_line": 97010,
+          "end_line": 97017,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\builders\\__init__.py",
+          "start_line": 97018,
+          "end_line": 97025,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\knowledge\\__init__.py",
+          "start_line": 97026,
+          "end_line": 97033,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\models\\__init__.py",
+          "start_line": 97034,
+          "end_line": 97041,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\pipelines\\__init__.py",
+          "start_line": 97042,
+          "end_line": 97049,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\rules\\__init__.py",
+          "start_line": 97050,
+          "end_line": 97057,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\services\\__init__.py",
+          "start_line": 97058,
+          "end_line": 97065,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\specialist.py",
+          "start_line": 97066,
+          "end_line": 97125,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\deployment\\__init__.py",
+          "start_line": 97126,
+          "end_line": 97133,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\deployment\\specialist.py",
+          "start_line": 97134,
+          "end_line": 97141,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\docs\\__init__.py",
+          "start_line": 97142,
+          "end_line": 97149,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\docs\\specialist.py",
+          "start_line": 97150,
+          "end_line": 97157,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\__init__.py",
+          "start_line": 97158,
+          "end_line": 97165,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\analyzer.py",
+          "start_line": 97166,
+          "end_line": 97173,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\builder.py",
+          "start_line": 97174,
+          "end_line": 97181,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\knowledge.py",
+          "start_line": 97182,
+          "end_line": 97189,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\model.py",
+          "start_line": 97190,
+          "end_line": 97197,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\pipeline.py",
+          "start_line": 97198,
+          "end_line": 97205,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\README.md",
+          "start_line": 97206,
+          "end_line": 97213,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\rule.py",
+          "start_line": 97214,
+          "end_line": 97221,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\service.py",
+          "start_line": 97222,
+          "end_line": 97229,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\specialist.py",
+          "start_line": 97230,
+          "end_line": 97268,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\__init__.py",
+          "start_line": 97269,
+          "end_line": 97276,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\analyzer.py",
+          "start_line": 97277,
+          "end_line": 97284,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\builder.py",
+          "start_line": 97285,
+          "end_line": 97292,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\knowledge.py",
+          "start_line": 97293,
+          "end_line": 97300,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\model.py",
+          "start_line": 97301,
+          "end_line": 97308,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\pipeline.py",
+          "start_line": 97309,
+          "end_line": 97316,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\README.md",
+          "start_line": 97317,
+          "end_line": 97324,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\rule.py",
+          "start_line": 97325,
+          "end_line": 97332,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\service.py",
+          "start_line": 97333,
+          "end_line": 97340,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\specialist.py",
+          "start_line": 97341,
+          "end_line": 97379,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\__init__.py",
+          "start_line": 97491,
+          "end_line": 97498,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\analyzer.py",
+          "start_line": 97499,
+          "end_line": 97506,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\builder.py",
+          "start_line": 97507,
+          "end_line": 97514,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\knowledge.py",
+          "start_line": 97515,
+          "end_line": 97522,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\model.py",
+          "start_line": 97523,
+          "end_line": 97530,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\pipeline.py",
+          "start_line": 97531,
+          "end_line": 97538,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\README.md",
+          "start_line": 97539,
+          "end_line": 97546,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\rule.py",
+          "start_line": 97547,
+          "end_line": 97554,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\service.py",
+          "start_line": 97555,
+          "end_line": 97562,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\specialist.py",
+          "start_line": 97563,
+          "end_line": 97601,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\security\\__init__.py",
+          "start_line": 97602,
+          "end_line": 97609,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\security\\specialist.py",
+          "start_line": 97610,
+          "end_line": 97617,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\source\\__init__.py",
+          "start_line": 97618,
+          "end_line": 97625,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\source\\specialist.py",
+          "start_line": 97626,
+          "end_line": 97665,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\template\\__init__.py",
+          "start_line": 97666,
+          "end_line": 97673,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\template\\specialist.py",
+          "start_line": 97674,
+          "end_line": 97711,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\testing\\__init__.py",
+          "start_line": 97712,
+          "end_line": 97719,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\testing\\specialist.py",
+          "start_line": 97720,
+          "end_line": 97727,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\ui\\__init__.py",
+          "start_line": 97728,
+          "end_line": 97735,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\ui\\specialist.py",
+          "start_line": 97736,
+          "end_line": 97743,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specs\\database_schema_spec.md",
+          "start_line": 97744,
+          "end_line": 97751,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\__init__.py",
+          "start_line": 97752,
+          "end_line": 97759,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\analyzer_standard.py",
+          "start_line": 97760,
+          "end_line": 97767,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\pipeline_standard.py",
+          "start_line": 97768,
+          "end_line": 97775,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\specialist_standard.py",
+          "start_line": 97784,
+          "end_line": 97791,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\database_book_template.md",
+          "start_line": 97792,
+          "end_line": 97852,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\__init__.py",
+          "start_line": 97853,
+          "end_line": 97860,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\analyzer.py",
+          "start_line": 97861,
+          "end_line": 97868,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\builder.py",
+          "start_line": 97869,
+          "end_line": 97876,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\knowledge.py",
+          "start_line": 97877,
+          "end_line": 97884,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\model.py",
+          "start_line": 97885,
+          "end_line": 97892,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\pipeline.py",
+          "start_line": 97893,
+          "end_line": 97900,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\README.md",
+          "start_line": 97901,
+          "end_line": 97908,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\rule.py",
+          "start_line": 97909,
+          "end_line": 97916,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\service.py",
+          "start_line": 97917,
+          "end_line": 97924,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\specialist.py",
+          "start_line": 97925,
+          "end_line": 97963,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\timeline\\__init__.py",
+          "start_line": 97964,
+          "end_line": 97973,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\timeline\\event.py",
+          "start_line": 97974,
+          "end_line": 97996,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\timeline\\timeline.py",
+          "start_line": 97997,
+          "end_line": 98027,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\VERSION.md",
+          "start_line": 98028,
+          "end_line": 98035,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\__init__.py",
+          "start_line": 98036,
+          "end_line": 98047,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\comparator.py",
+          "start_line": 98048,
+          "end_line": 98083,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\repository.py",
+          "start_line": 98199,
+          "end_line": 98265,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\snapshot_manager.py",
+          "start_line": 98266,
+          "end_line": 98339,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\snapshots\\employees.json",
+          "start_line": 98340,
+          "end_line": 98357,
+          "module": "employees"
+        },
+        {
+          "file": ".\\OKE\\workspace\\workspace_manager.py",
+          "start_line": 98358,
+          "end_line": 98396,
+          "module": "general"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "start_line": 98397,
+          "end_line": 102360,
+          "module": "general"
+        }
+      ]
+    }
+  }
+}
+``
+
+# .\OKE\workspace\reports\payroll_records.json
+
+Lines: 33
+
+``json
+{
+  "name": "payroll_records",
+  "generated_at": "2026-06-28T13:45:44.738304",
+  "data": {
+    "task": "analyze payroll_records table",
+    "table": "payroll_records",
+    "risk": "LOW",
+    "metrics": {
+      "columns": 68,
+      "primary_keys": 1,
+      "foreign_keys": 3,
+      "referenced_by": 0,
+      "dependencies": 0
+    },
+    "impact": {
+      "affected_tables": [],
+      "affected_table_count": 0,
+      "affected_modules": [
+        "Payroll"
+      ],
+      "affected_module_count": 1
+    },
+    "regression": {
+      "checklist": [
+        "Generate Payroll",
+        "Payslip Generation",
+        "Release Payroll"
+      ],
+      "check_count": 3
+    },
+    "recommendation": "Moderate impact change. Run the listed regression checks before deployment."
+  }
+}
+``
+
+# .\OKE\workspace\reports\relation_employees.json
+
+Lines: 114
+
+``json
+{
+  "name": "relation_employees",
+  "generated_at": "2026-06-28T13:56:27.470170",
+  "data": {
+    "table": "employees",
+    "outgoing_foreign_keys": [
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "employees_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "system_role_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_roles",
+        "foreign_column_name": "id",
+        "constraint_name": "employees_system_role_id_fkey"
+      }
+    ],
+    "incoming_references": [
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "attendance_entries_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "biometric_mappings_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_cash_advance_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_leave_requests_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "payroll_records_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "closed_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_sessions_closed_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "opened_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_sessions_opened_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "system_users",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "system_users_employee_id_fkey"
+      }
+    ],
+    "summary": {
+      "depends_on_count": 2,
+      "referenced_by_count": 9
+    }
+  }
+}
+``
+
+# .\OKE\workspace\reports\repo_test.json
 
 Lines: 3
 
@@ -98096,8 +110954,447 @@ Lines: 3
 }
 ``
 
-# .\OKE\workspace\reports\test.json
+# .\OKE\workspace\reports\source_approval_requests.json
 
+Lines: 305
+
+``json
+{
+  "name": "source_approval_requests",
+  "generated_at": "2026-06-28T14:23:11.219336",
+  "data": {
+    "search_text": "approval_requests",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 42,
+    "matches": [
+      {
+        "file": ".\\app\\(app)\\audit\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 3369,
+        "text": "getRowsFromTable(\"approval_requests\"),"
+      },
+      {
+        "file": ".\\app\\(app)\\backup\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 4437,
+        "text": "{ title: \"Approval Requests\", description: \"Export UAT/live approval request history.\", table: \"approval_requests\", fileName: \"approval_requests_backup\", group: \"Approvals\" },"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\expense-requests\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 11397,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 23759,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 23801,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 25121,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 25148,
+        "text": "alert(\"Adjustment was saved, but Approval Center request failed. Please check approval_requests columns.\");"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 25760,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40470,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40586,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40676,
+        "text": "const { error } = await supabase.from(\"approval_requests\").insert({"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 61923,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 62296,
+        "text": "const { error } = await supabase.from(\"approval_requests\").insert({"
+      },
+      {
+        "file": ".\\app\\api\\admin\\data-cleanup\\route.ts",
+        "area": "API",
+        "module": "general",
+        "line": 78178,
+        "text": "{ key: \"approval_requests\", label: \"Approval Requests\", table: \"approval_requests\", group: \"Approvals\", mode: \"delete\" },"
+      },
+      {
+        "file": ".\\app\\api\\approval\\list\\route.ts",
+        "area": "API",
+        "module": "approval",
+        "line": 78587,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\api\\approval\\pending\\route.ts",
+        "area": "API",
+        "module": "approval",
+        "line": 78625,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\api\\hr\\delete-employee\\route.ts",
+        "area": "API",
+        "module": "employees",
+        "line": 79586,
+        "text": "{ table: \"approval_requests\", column: \"employee_id\" },"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 80751,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81034,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81681,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81703,
+        "text": "alert(\"Leave was saved, but approval request failed. Check approval_requests columns.\");"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81771,
+        "text": "const { error } = await supabase.from(\"approval_requests\").insert({"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81921,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81988,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 82164,
+        "text": "table: \"approval_requests\","
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-actions.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 83719,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84147,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84485,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84528,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84582,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84619,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84639,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85334,
+        "text": "table: \"approval_requests\","
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85405,
+        "text": "table: \"approval_requests\","
+      },
+      {
+        "file": ".\\components\\Sidebar.tsx",
+        "area": "COMPONENT",
+        "module": "general",
+        "line": 87502,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88193,
+        "text": "- `public.approval_requests`"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88471,
+        "text": "# approval_requests"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88477,
+        "text": "- `id` (approval_requests_pkey)"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88481,
+        "text": "- `company_id` \u00e2\u2020\u2019 `public.companies.id` (fk_approval_requests_company)"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88874,
+        "text": "- `approval_requests.company_id` \u00e2\u2020\u2019 `companies.id`"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\module_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96170,
+        "text": "\"approval_requests\": [\"Approval Center\"],"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 100341,
+        "text": "\"approval_requests\": [\"Approval Center\"],"
+      }
+    ]
+  }
+}
+``
+
+# .\OKE\workspace\reports\source_finance_cash_movements.json
+
+Lines: 121
+
+``json
+{
+  "name": "source_finance_cash_movements",
+  "generated_at": "2026-06-28T13:58:29.304075",
+  "data": {
+    "search_text": "finance_cash_movements",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 22,
+    "matches": [
+      {
+        "file": null,
+        "line": 3368,
+        "text": "getRowsFromTable(\"finance_cash_movements\"),"
+      },
+      {
+        "file": null,
+        "line": 4467,
+        "text": "{ title: \"Cash Movements\", description: \"Export cash in, cash out, remittance, and release records.\", table: \"finance_cash_movements\", fileName: \"finance_cash_movements_backup\", group: \"Finance\" },"
+      },
+      {
+        "file": null,
+        "line": 5581,
+        "text": "\"finance_cash_movements\","
+      },
+      {
+        "file": null,
+        "line": 5734,
+        "text": "fetchAllRows(\"finance_cash_movements\", \"business_date\", false),"
+      },
+      {
+        "file": null,
+        "line": 33963,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": null,
+        "line": 78187,
+        "text": "{ key: \"finance_cash_movements\", label: \"Cash Movements\", table: \"finance_cash_movements\", group: \"Finance\", mode: \"delete\" },"
+      },
+      {
+        "file": null,
+        "line": 81966,
+        "text": "// Rejected cash requests must never post finance_cash_movements."
+      },
+      {
+        "file": null,
+        "line": 83765,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": null,
+        "line": 84188,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": null,
+        "line": 85100,
+        "text": "* - This is the only cash module allowed to insert finance_cash_movements."
+      },
+      {
+        "file": null,
+        "line": 85195,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": null,
+        "line": 85311,
+        "text": "table: \"finance_cash_movements\","
+      },
+      {
+        "file": null,
+        "line": 85392,
+        "text": "table: \"finance_cash_movements\","
+      },
+      {
+        "file": null,
+        "line": 85504,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": null,
+        "line": 85562,
+        "text": "* It does NOT create finance_cash_movements."
+      },
+      {
+        "file": null,
+        "line": 85633,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": null,
+        "line": 86234,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": null,
+        "line": 88230,
+        "text": "- `public.finance_cash_movements`"
+      },
+      {
+        "file": null,
+        "line": 88884,
+        "text": "- `finance_cash_movements.company_id` \u00e2\u2020\u2019 `companies.id`"
+      },
+      {
+        "file": null,
+        "line": 89651,
+        "text": "# finance_cash_movements"
+      },
+      {
+        "file": null,
+        "line": 89657,
+        "text": "- `id` (finance_cash_movements_pkey)"
+      },
+      {
+        "file": null,
+        "line": 89661,
+        "text": "- `company_id` \u00e2\u2020\u2019 `public.companies.id` (fk_finance_cash_movements_company)"
+      }
+    ]
+  }
+}
+``
+
+# .\OKE\workspace\reports\test.json
 
 Lines: 7
 
@@ -98111,8 +111408,775 @@ Lines: 7
 }
 ``
 
-# .\OKE\workspace\repository.py
+# .\OKE\workspace\reports\trace_BaseCommand.json
 
+Lines: 269
+
+``json
+{
+  "name": "trace_BaseCommand",
+  "generated_at": "2026-06-28T14:44:13.914762",
+  "data": {
+    "keyword": "BaseCommand",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 18,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92204,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92211,
+          "text": "class AnalyzeCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\base_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92316,
+          "text": "class BaseCommand(ABC):"
+        },
+        {
+          "file": ".\\OKE\\commands\\base_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92326,
+          "text": "BaseCommand._registry[cls.name] = cls"
+        },
+        {
+          "file": ".\\OKE\\commands\\create_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92343,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\commands\\create_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92347,
+          "text": "class CreateCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92374,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92385,
+          "text": "registry = BaseCommand.registry()"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96614,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96625,
+          "text": "registry = BaseCommand.registry()"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99103,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99110,
+          "text": "class AnalyzeCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99214,
+          "text": "class BaseCommand(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99224,
+          "text": "BaseCommand._registry[cls.name] = cls"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99240,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99244,
+          "text": "class CreateCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99270,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99281,
+          "text": "registry = BaseCommand.registry()"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92204,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92211,
+        "text": "class AnalyzeCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\base_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92316,
+        "text": "class BaseCommand(ABC):"
+      },
+      {
+        "file": ".\\OKE\\commands\\base_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92326,
+        "text": "BaseCommand._registry[cls.name] = cls"
+      },
+      {
+        "file": ".\\OKE\\commands\\create_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92343,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\commands\\create_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92347,
+        "text": "class CreateCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92374,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92385,
+        "text": "registry = BaseCommand.registry()"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96614,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96625,
+        "text": "registry = BaseCommand.registry()"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99103,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99110,
+        "text": "class AnalyzeCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99214,
+        "text": "class BaseCommand(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99224,
+        "text": "BaseCommand._registry[cls.name] = cls"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99240,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99244,
+        "text": "class CreateCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99270,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99281,
+        "text": "registry = BaseCommand.registry()"
+      }
+    ]
+  }
+}
+``
+
+# .\OKE\workspace\reports\trace_CommandRegistry.json
+
+Lines: 129
+
+``json
+{
+  "name": "trace_CommandRegistry",
+  "generated_at": "2026-06-28T14:44:13.440217",
+  "data": {
+    "keyword": "CommandRegistry",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 8,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\__main__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91499,
+          "text": "from OKE.registry.command_registry import CommandRegistry"
+        },
+        {
+          "file": ".\\OKE\\__main__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91511,
+          "text": "return CommandRegistry().dispatch("
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92381,
+          "text": "class CommandRegistry:"
+        },
+        {
+          "file": ".\\OKE\\registry\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96605,
+          "text": "from .command_registry import CommandRegistry"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96621,
+          "text": "class CommandRegistry:"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 98422,
+          "text": "from OKE.commands.registry import CommandRegistry"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 98435,
+          "text": "return CommandRegistry().dispatch("
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99277,
+          "text": "class CommandRegistry:"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\__main__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91499,
+        "text": "from OKE.registry.command_registry import CommandRegistry"
+      },
+      {
+        "file": ".\\OKE\\__main__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91511,
+        "text": "return CommandRegistry().dispatch("
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92381,
+        "text": "class CommandRegistry:"
+      },
+      {
+        "file": ".\\OKE\\registry\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96605,
+        "text": "from .command_registry import CommandRegistry"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96621,
+        "text": "class CommandRegistry:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 98422,
+        "text": "from OKE.commands.registry import CommandRegistry"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 98435,
+        "text": "return CommandRegistry().dispatch("
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99277,
+        "text": "class CommandRegistry:"
+      }
+    ]
+  }
+}
+``
+
+# .\OKE\workspace\reports\trace_finance_cash_movements.json
+
+Lines: 331
+
+``json
+{
+  "name": "trace_finance_cash_movements",
+  "generated_at": "2026-06-28T14:23:10.281400",
+  "data": {
+    "keyword": "finance_cash_movements",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 22,
+    "grouped": {
+      "UI": [
+        {
+          "file": ".\\app\\(app)\\audit\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 3368,
+          "text": "getRowsFromTable(\"finance_cash_movements\"),"
+        },
+        {
+          "file": ".\\app\\(app)\\backup\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 4467,
+          "text": "{ title: \"Cash Movements\", description: \"Export cash in, cash out, remittance, and release records.\", table: \"finance_cash_movements\", fileName: \"finance_cash_movements_backup\", group: \"Finance\" },"
+        },
+        {
+          "file": ".\\app\\employee-portal\\page.tsx",
+          "area": "UI",
+          "module": "employees",
+          "line": 81966,
+          "text": "// Rejected cash requests must never post finance_cash_movements."
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\app\\(app)\\dashboard\\page.tsx",
+          "area": "REPORT",
+          "module": "general",
+          "line": 5581,
+          "text": "\"finance_cash_movements\","
+        },
+        {
+          "file": ".\\app\\(app)\\dashboard\\page.tsx",
+          "area": "REPORT",
+          "module": "general",
+          "line": 5734,
+          "text": "fetchAllRows(\"finance_cash_movements\", \"business_date\", false),"
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\watcher\\page.tsx",
+          "area": "REPORT",
+          "module": "finance",
+          "line": 33963,
+          "text": ".from(\"finance_cash_movements\")"
+        }
+      ],
+      "API": [
+        {
+          "file": ".\\app\\api\\admin\\data-cleanup\\route.ts",
+          "area": "API",
+          "module": "general",
+          "line": 78187,
+          "text": "{ key: \"finance_cash_movements\", label: \"Cash Movements\", table: \"finance_cash_movements\", group: \"Finance\", mode: \"delete\" },"
+        }
+      ],
+      "ENGINE_OR_SERVICE": [
+        {
+          "file": ".\\app\\lib\\approvals\\approval-actions.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "approval",
+          "line": 83765,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\approvals\\approval-engine.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "approval",
+          "line": 84188,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-engine.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85100,
+          "text": "* - This is the only cash module allowed to insert finance_cash_movements."
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-engine.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85195,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85311,
+          "text": "table: \"finance_cash_movements\","
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85392,
+          "text": "table: \"finance_cash_movements\","
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-snapshot.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85504,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\drawer-core.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85562,
+          "text": "* It does NOT create finance_cash_movements."
+        },
+        {
+          "file": ".\\app\\lib\\cash\\drawer-core.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85633,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\watcher\\financial-watcher.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "general",
+          "line": 86234,
+          "text": ".from(\"finance_cash_movements\")"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 88230,
+          "text": "- `public.finance_cash_movements`"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 88884,
+          "text": "- `finance_cash_movements.company_id` \u00e2\u2020\u2019 `companies.id`"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 89651,
+          "text": "# finance_cash_movements"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 89657,
+          "text": "- `id` (finance_cash_movements_pkey)"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 89661,
+          "text": "- `company_id` \u00e2\u2020\u2019 `public.companies.id` (fk_finance_cash_movements_company)"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\app\\(app)\\audit\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 3368,
+        "text": "getRowsFromTable(\"finance_cash_movements\"),"
+      },
+      {
+        "file": ".\\app\\(app)\\backup\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 4467,
+        "text": "{ title: \"Cash Movements\", description: \"Export cash in, cash out, remittance, and release records.\", table: \"finance_cash_movements\", fileName: \"finance_cash_movements_backup\", group: \"Finance\" },"
+      },
+      {
+        "file": ".\\app\\(app)\\dashboard\\page.tsx",
+        "area": "REPORT",
+        "module": "general",
+        "line": 5581,
+        "text": "\"finance_cash_movements\","
+      },
+      {
+        "file": ".\\app\\(app)\\dashboard\\page.tsx",
+        "area": "REPORT",
+        "module": "general",
+        "line": 5734,
+        "text": "fetchAllRows(\"finance_cash_movements\", \"business_date\", false),"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\watcher\\page.tsx",
+        "area": "REPORT",
+        "module": "finance",
+        "line": 33963,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\api\\admin\\data-cleanup\\route.ts",
+        "area": "API",
+        "module": "general",
+        "line": 78187,
+        "text": "{ key: \"finance_cash_movements\", label: \"Cash Movements\", table: \"finance_cash_movements\", group: \"Finance\", mode: \"delete\" },"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81966,
+        "text": "// Rejected cash requests must never post finance_cash_movements."
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-actions.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 83765,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84188,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85100,
+        "text": "* - This is the only cash module allowed to insert finance_cash_movements."
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85195,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85311,
+        "text": "table: \"finance_cash_movements\","
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85392,
+        "text": "table: \"finance_cash_movements\","
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-snapshot.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85504,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\drawer-core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85562,
+        "text": "* It does NOT create finance_cash_movements."
+      },
+      {
+        "file": ".\\app\\lib\\cash\\drawer-core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85633,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\watcher\\financial-watcher.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "general",
+        "line": 86234,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88230,
+        "text": "- `public.finance_cash_movements`"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88884,
+        "text": "- `finance_cash_movements.company_id` \u00e2\u2020\u2019 `companies.id`"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 89651,
+        "text": "# finance_cash_movements"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 89657,
+        "text": "- `id` (finance_cash_movements_pkey)"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 89661,
+        "text": "- `company_id` \u00e2\u2020\u2019 `public.companies.id` (fk_finance_cash_movements_company)"
+      }
+    ]
+  }
+}
+``
+
+# .\OKE\workspace\reports\trace_SourceBookParser.json
+
+Lines: 11
+
+``json
+{
+  "name": "trace_SourceBookParser",
+  "generated_at": "2026-06-28T14:44:14.358471",
+  "data": {
+    "keyword": "SourceBookParser",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 0,
+    "grouped": {},
+    "matches": []
+  }
+}
+``
+
+# .\OKE\workspace\repository.py
 
 Lines: 59
 
@@ -98179,7 +112243,6 @@ class WorkspaceRepository:
 ``
 
 # .\OKE\workspace\snapshot_manager.py
-
 
 Lines: 66
 
@@ -98254,7 +112317,6 @@ class SnapshotManager:
 
 # .\OKE\workspace\snapshots\employees.json
 
-
 Lines: 10
 
 ``json
@@ -98271,7 +112333,6 @@ Lines: 10
 ``
 
 # .\OKE\workspace\workspace_manager.py
-
 
 Lines: 31
 
@@ -98310,7 +112371,6 @@ class WorkspaceManager:
 ``
 
 # .\OKE_FULL_AUDIT_SOURCE.md
-
 
 Lines: 3956
 
@@ -102275,7 +116335,6 @@ class WorkspaceManager:
 
 # .\package.json
 
-
 Lines: 32
 
 ``json
@@ -102314,7 +116373,6 @@ Lines: 32
 ``
 
 # .\package-lock.json
-
 
 Lines: 7413
 
@@ -109736,7 +123794,6 @@ Lines: 7413
 
 # .\postcss.config.mjs
 
-
 Lines: 8
 
 ``mjs
@@ -109751,7 +123808,6 @@ export default config;
 ``
 
 # .\public\sw.js
-
 
 Lines: 13
 
@@ -109772,7 +123828,6 @@ self.addEventListener("fetch", (event) => {
 ``
 
 # .\README.md
-
 
 Lines: 37
 
@@ -109818,14 +123873,12 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 # .\scripts\export-database-book.sql
 
-
 Lines: 0
 
 ``sql
 ``
 
 # .\tsconfig.json
-
 
 Lines: 43
 

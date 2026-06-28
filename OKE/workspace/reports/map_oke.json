@@ -1,0 +1,1343 @@
+{
+  "name": "map_oke",
+  "generated_at": "2026-06-28T14:44:12.973981",
+  "data": {
+    "module": "oke",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "file_count": 219,
+    "flow": [
+      "UI",
+      "API",
+      "ENGINE_OR_SERVICE",
+      "DATABASE",
+      "REPORT"
+    ],
+    "buckets": {
+      "UI": [],
+      "API": [],
+      "ENGINE_OR_SERVICE": [],
+      "SHARED_LIB": [],
+      "COMPONENT": [],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\governance\\report.py",
+          "start_line": 95917,
+          "end_line": 95943,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\engineering_report.py",
+          "start_line": 96298,
+          "end_line": 96322,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\services\\engineering_report_service.py",
+          "start_line": 96769,
+          "end_line": 96836,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\__init__.py",
+          "start_line": 97380,
+          "end_line": 97387,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\analyzer.py",
+          "start_line": 97388,
+          "end_line": 97395,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\builder.py",
+          "start_line": 97396,
+          "end_line": 97403,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\knowledge.py",
+          "start_line": 97404,
+          "end_line": 97411,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\model.py",
+          "start_line": 97412,
+          "end_line": 97419,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\pipeline.py",
+          "start_line": 97420,
+          "end_line": 97427,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\README.md",
+          "start_line": 97428,
+          "end_line": 97435,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\rule.py",
+          "start_line": 97436,
+          "end_line": 97443,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\service.py",
+          "start_line": 97444,
+          "end_line": 97451,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\specialist.py",
+          "start_line": 97452,
+          "end_line": 97490,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\report_standard.py",
+          "start_line": 97776,
+          "end_line": 97783,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\employees.json",
+          "start_line": 98084,
+          "end_line": 98157,
+          "module": "employees"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\manager_test.json",
+          "start_line": 98158,
+          "end_line": 98172,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\repo_test.json",
+          "start_line": 98173,
+          "end_line": 98183,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\test.json",
+          "start_line": 98184,
+          "end_line": 98198,
+          "module": "general"
+        }
+      ],
+      "OKE": [
+        {
+          "file": ".\\OKE\\__init__.py",
+          "start_line": 91483,
+          "end_line": 91490,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\__main__.py",
+          "start_line": 91491,
+          "end_line": 91520,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\__init__.py",
+          "start_line": 91521,
+          "end_line": 91528,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\database_adapter.py",
+          "start_line": 91529,
+          "end_line": 91554,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\dummy_adapter.py",
+          "start_line": 91555,
+          "end_line": 91612,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\adapters\\supabase_adapter.py",
+          "start_line": 91613,
+          "end_line": 91661,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\aggregators\\__init__.py",
+          "start_line": 91662,
+          "end_line": 91669,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\aggregators\\result_aggregator.py",
+          "start_line": 91670,
+          "end_line": 91694,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\__init__.py",
+          "start_line": 91695,
+          "end_line": 91702,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\impact_analyzer.py",
+          "start_line": 91703,
+          "end_line": 91729,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\module_analyzer.py",
+          "start_line": 91730,
+          "end_line": 91767,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\recommendation_analyzer.py",
+          "start_line": 91768,
+          "end_line": 91806,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+          "start_line": 91807,
+          "end_line": 91838,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\__init__.py",
+          "start_line": 91839,
+          "end_line": 91846,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\database_schema_builder.py",
+          "start_line": 91847,
+          "end_line": 91870,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\dependency_builder.py",
+          "start_line": 91871,
+          "end_line": 91894,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\builders\\relationship_builder.py",
+          "start_line": 91895,
+          "end_line": 91923,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli.py",
+          "start_line": 91924,
+          "end_line": 92038,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\__init__.py",
+          "start_line": 92039,
+          "end_line": 92048,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\__main__.py",
+          "start_line": 92049,
+          "end_line": 92060,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\commands.py",
+          "start_line": 92061,
+          "end_line": 92081,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\cli\\main.py",
+          "start_line": 92082,
+          "end_line": 92117,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commander\\__init__.py",
+          "start_line": 92118,
+          "end_line": 92125,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commander\\commander.py",
+          "start_line": 92126,
+          "end_line": 92157,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "start_line": 92158,
+          "end_line": 92188,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\__init__.py",
+          "start_line": 92189,
+          "end_line": 92196,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "start_line": 92197,
+          "end_line": 92306,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\base_command.py",
+          "start_line": 92307,
+          "end_line": 92336,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\create_command.py",
+          "start_line": 92337,
+          "end_line": 92367,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "start_line": 92368,
+          "end_line": 92397,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\context\\__init__.py",
+          "start_line": 92398,
+          "end_line": 92407,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\context\\database_context.py",
+          "start_line": 92408,
+          "end_line": 92425,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\context\\engineering_context.py",
+          "start_line": 92426,
+          "end_line": 92442,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\contracts\\builder.py",
+          "start_line": 92443,
+          "end_line": 92459,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\contracts\\database_book.md",
+          "start_line": 92460,
+          "end_line": 92585,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "start_line": 92586,
+          "end_line": 92593,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "start_line": 92594,
+          "end_line": 92655,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\COMPASS.md",
+          "start_line": 92656,
+          "end_line": 92920,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\CURRENT_MISSION.md",
+          "start_line": 92921,
+          "end_line": 93117,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\01_MISSION.md",
+          "start_line": 93118,
+          "end_line": 93275,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\02_ARCHITECTURE.md",
+          "start_line": 93276,
+          "end_line": 93283,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\03_ENGINEERING_PRINCIPLES.md",
+          "start_line": 93284,
+          "end_line": 93291,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\04_HOW_TO_CREATE_SPECIALIST.md",
+          "start_line": 93292,
+          "end_line": 93299,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\05_HOW_TO_CREATE_ANALYZER.md",
+          "start_line": 93300,
+          "end_line": 93307,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\06_HOW_PIPELINES_WORK.md",
+          "start_line": 93308,
+          "end_line": 93315,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\07_CONTRIBUTING.md",
+          "start_line": 93316,
+          "end_line": 93323,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\08_GLOSSARY.md",
+          "start_line": 93324,
+          "end_line": 93331,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\09_ENGINEERING_CONSTITUTION.md",
+          "start_line": 93332,
+          "end_line": 93394,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\10_FOLDER_RESPONSIBILITIES.md",
+          "start_line": 93395,
+          "end_line": 93599,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\11_AI_ONBOARDING.md",
+          "start_line": 93600,
+          "end_line": 93733,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\12_FOUNDATION_CHECKLIST.md",
+          "start_line": 93734,
+          "end_line": 93818,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\EXPORT_V1.md",
+          "start_line": 93819,
+          "end_line": 94018,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\PROJECT_HISTORY.md",
+          "start_line": 94019,
+          "end_line": 94234,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\docs\\START_HERE.md",
+          "start_line": 94235,
+          "end_line": 94242,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\events\\__init__.py",
+          "start_line": 94243,
+          "end_line": 94258,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\events\\event_bus.py",
+          "start_line": 94259,
+          "end_line": 94290,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\events\\events.py",
+          "start_line": 94291,
+          "end_line": 94356,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\__init__.py",
+          "start_line": 94357,
+          "end_line": 94367,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\collector.py",
+          "start_line": 94368,
+          "end_line": 94461,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\copy_manager.py",
+          "start_line": 94462,
+          "end_line": 94573,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "start_line": 94574,
+          "end_line": 94620,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\file_locator.py",
+          "start_line": 94621,
+          "end_line": 94661,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\manifest.py",
+          "start_line": 94662,
+          "end_line": 94682,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\manifest_builder.py",
+          "start_line": 94683,
+          "end_line": 94729,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\packager.py",
+          "start_line": 94730,
+          "end_line": 94766,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\profiles.py",
+          "start_line": 94767,
+          "end_line": 94873,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\project_inventory.py",
+          "start_line": 94874,
+          "end_line": 94994,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\readme_generator.py",
+          "start_line": 94995,
+          "end_line": 95086,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\review_package_generator.py",
+          "start_line": 95087,
+          "end_line": 95252,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\MANIFEST_TEMPLATE.json",
+          "start_line": 95253,
+          "end_line": 95295,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\OKE_TO_OPSCORE_MAP.md",
+          "start_line": 95296,
+          "end_line": 95445,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\PROJECT_SUMMARY.md",
+          "start_line": 95446,
+          "end_line": 95594,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\README.md",
+          "start_line": 95595,
+          "end_line": 95602,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "start_line": 95603,
+          "end_line": 95673,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\extractors\\__init__.py",
+          "start_line": 95674,
+          "end_line": 95681,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\extractors\\database_extractor.py",
+          "start_line": 95682,
+          "end_line": 95700,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\generators\\generate_database_book.py",
+          "start_line": 95701,
+          "end_line": 95861,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\generators\\specialist_generator.py",
+          "start_line": 95862,
+          "end_line": 95900,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\__init__.py",
+          "start_line": 95901,
+          "end_line": 95908,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\auditor.py",
+          "start_line": 95909,
+          "end_line": 95916,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules.py",
+          "start_line": 95944,
+          "end_line": 95962,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\__init__.py",
+          "start_line": 95963,
+          "end_line": 95970,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\analyzer_rule.py",
+          "start_line": 95971,
+          "end_line": 95978,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\architecture_rule.py",
+          "start_line": 95979,
+          "end_line": 95986,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\base_rule.py",
+          "start_line": 95987,
+          "end_line": 96005,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\pipeline_rule.py",
+          "start_line": 96006,
+          "end_line": 96013,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+          "start_line": 96014,
+          "end_line": 96078,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\governance\\validator.py",
+          "start_line": 96079,
+          "end_line": 96142,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\knowledge\\__init__.py",
+          "start_line": 96143,
+          "end_line": 96150,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\knowledge\\module_map.py",
+          "start_line": 96151,
+          "end_line": 96173,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\knowledge\\regression_map.py",
+          "start_line": 96174,
+          "end_line": 96232,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\__init__.py",
+          "start_line": 96233,
+          "end_line": 96240,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\database_schema.py",
+          "start_line": 96241,
+          "end_line": 96279,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\models\\engineering_metrics.py",
+          "start_line": 96280,
+          "end_line": 96297,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "start_line": 96323,
+          "end_line": 96330,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "start_line": 96331,
+          "end_line": 96390,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\__init__.py",
+          "start_line": 96391,
+          "end_line": 96398,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "start_line": 96399,
+          "end_line": 96452,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\README.md",
+          "start_line": 96453,
+          "end_line": 96597,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\registry\\__init__.py",
+          "start_line": 96598,
+          "end_line": 96607,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "start_line": 96608,
+          "end_line": 96637,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\registry\\registry.py",
+          "start_line": 96638,
+          "end_line": 96682,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\results\\__init__.py",
+          "start_line": 96683,
+          "end_line": 96690,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\results\\specialist_result.py",
+          "start_line": 96691,
+          "end_line": 96710,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\rules\\__init__.py",
+          "start_line": 96711,
+          "end_line": 96718,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\rules\\engineering_metrics.py",
+          "start_line": 96719,
+          "end_line": 96746,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\rules\\engineering_rules.py",
+          "start_line": 96747,
+          "end_line": 96768,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\__init__.py",
+          "start_line": 96837,
+          "end_line": 96844,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\api\\__init__.py",
+          "start_line": 96845,
+          "end_line": 96852,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\api\\specialist.py",
+          "start_line": 96853,
+          "end_line": 96860,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\base.py",
+          "start_line": 96861,
+          "end_line": 96890,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\__init__.py",
+          "start_line": 96891,
+          "end_line": 96898,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\analyzer.py",
+          "start_line": 96899,
+          "end_line": 96906,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\builder.py",
+          "start_line": 96907,
+          "end_line": 96914,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\knowledge.py",
+          "start_line": 96915,
+          "end_line": 96922,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\model.py",
+          "start_line": 96923,
+          "end_line": 96930,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\pipeline.py",
+          "start_line": 96931,
+          "end_line": 96938,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\README.md",
+          "start_line": 96939,
+          "end_line": 96946,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\rule.py",
+          "start_line": 96947,
+          "end_line": 96954,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\service.py",
+          "start_line": 96955,
+          "end_line": 96962,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\specialist.py",
+          "start_line": 96963,
+          "end_line": 97001,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\__init__.py",
+          "start_line": 97002,
+          "end_line": 97009,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\analyzers\\__init__.py",
+          "start_line": 97010,
+          "end_line": 97017,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\builders\\__init__.py",
+          "start_line": 97018,
+          "end_line": 97025,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\knowledge\\__init__.py",
+          "start_line": 97026,
+          "end_line": 97033,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\models\\__init__.py",
+          "start_line": 97034,
+          "end_line": 97041,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\pipelines\\__init__.py",
+          "start_line": 97042,
+          "end_line": 97049,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\rules\\__init__.py",
+          "start_line": 97050,
+          "end_line": 97057,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\services\\__init__.py",
+          "start_line": 97058,
+          "end_line": 97065,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\specialist.py",
+          "start_line": 97066,
+          "end_line": 97125,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\deployment\\__init__.py",
+          "start_line": 97126,
+          "end_line": 97133,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\deployment\\specialist.py",
+          "start_line": 97134,
+          "end_line": 97141,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\docs\\__init__.py",
+          "start_line": 97142,
+          "end_line": 97149,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\docs\\specialist.py",
+          "start_line": 97150,
+          "end_line": 97157,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\__init__.py",
+          "start_line": 97158,
+          "end_line": 97165,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\analyzer.py",
+          "start_line": 97166,
+          "end_line": 97173,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\builder.py",
+          "start_line": 97174,
+          "end_line": 97181,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\knowledge.py",
+          "start_line": 97182,
+          "end_line": 97189,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\model.py",
+          "start_line": 97190,
+          "end_line": 97197,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\pipeline.py",
+          "start_line": 97198,
+          "end_line": 97205,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\README.md",
+          "start_line": 97206,
+          "end_line": 97213,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\rule.py",
+          "start_line": 97214,
+          "end_line": 97221,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\service.py",
+          "start_line": 97222,
+          "end_line": 97229,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\specialist.py",
+          "start_line": 97230,
+          "end_line": 97268,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\__init__.py",
+          "start_line": 97269,
+          "end_line": 97276,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\analyzer.py",
+          "start_line": 97277,
+          "end_line": 97284,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\builder.py",
+          "start_line": 97285,
+          "end_line": 97292,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\knowledge.py",
+          "start_line": 97293,
+          "end_line": 97300,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\model.py",
+          "start_line": 97301,
+          "end_line": 97308,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\pipeline.py",
+          "start_line": 97309,
+          "end_line": 97316,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\README.md",
+          "start_line": 97317,
+          "end_line": 97324,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\rule.py",
+          "start_line": 97325,
+          "end_line": 97332,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\service.py",
+          "start_line": 97333,
+          "end_line": 97340,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\specialist.py",
+          "start_line": 97341,
+          "end_line": 97379,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\__init__.py",
+          "start_line": 97491,
+          "end_line": 97498,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\analyzer.py",
+          "start_line": 97499,
+          "end_line": 97506,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\builder.py",
+          "start_line": 97507,
+          "end_line": 97514,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\knowledge.py",
+          "start_line": 97515,
+          "end_line": 97522,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\model.py",
+          "start_line": 97523,
+          "end_line": 97530,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\pipeline.py",
+          "start_line": 97531,
+          "end_line": 97538,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\README.md",
+          "start_line": 97539,
+          "end_line": 97546,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\rule.py",
+          "start_line": 97547,
+          "end_line": 97554,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\service.py",
+          "start_line": 97555,
+          "end_line": 97562,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\specialist.py",
+          "start_line": 97563,
+          "end_line": 97601,
+          "module": "reservations"
+        },
+        {
+          "file": ".\\OKE\\specialists\\security\\__init__.py",
+          "start_line": 97602,
+          "end_line": 97609,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\security\\specialist.py",
+          "start_line": 97610,
+          "end_line": 97617,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\source\\__init__.py",
+          "start_line": 97618,
+          "end_line": 97625,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\source\\specialist.py",
+          "start_line": 97626,
+          "end_line": 97665,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\template\\__init__.py",
+          "start_line": 97666,
+          "end_line": 97673,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\template\\specialist.py",
+          "start_line": 97674,
+          "end_line": 97711,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\testing\\__init__.py",
+          "start_line": 97712,
+          "end_line": 97719,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\testing\\specialist.py",
+          "start_line": 97720,
+          "end_line": 97727,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\ui\\__init__.py",
+          "start_line": 97728,
+          "end_line": 97735,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specialists\\ui\\specialist.py",
+          "start_line": 97736,
+          "end_line": 97743,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\specs\\database_schema_spec.md",
+          "start_line": 97744,
+          "end_line": 97751,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\__init__.py",
+          "start_line": 97752,
+          "end_line": 97759,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\analyzer_standard.py",
+          "start_line": 97760,
+          "end_line": 97767,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\pipeline_standard.py",
+          "start_line": 97768,
+          "end_line": 97775,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\standards\\specialist_standard.py",
+          "start_line": 97784,
+          "end_line": 97791,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\database_book_template.md",
+          "start_line": 97792,
+          "end_line": 97852,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\__init__.py",
+          "start_line": 97853,
+          "end_line": 97860,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\analyzer.py",
+          "start_line": 97861,
+          "end_line": 97868,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\builder.py",
+          "start_line": 97869,
+          "end_line": 97876,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\knowledge.py",
+          "start_line": 97877,
+          "end_line": 97884,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\model.py",
+          "start_line": 97885,
+          "end_line": 97892,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\pipeline.py",
+          "start_line": 97893,
+          "end_line": 97900,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\README.md",
+          "start_line": 97901,
+          "end_line": 97908,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\rule.py",
+          "start_line": 97909,
+          "end_line": 97916,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\service.py",
+          "start_line": 97917,
+          "end_line": 97924,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\specialist.py",
+          "start_line": 97925,
+          "end_line": 97963,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\timeline\\__init__.py",
+          "start_line": 97964,
+          "end_line": 97973,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\timeline\\event.py",
+          "start_line": 97974,
+          "end_line": 97996,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\timeline\\timeline.py",
+          "start_line": 97997,
+          "end_line": 98027,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\VERSION.md",
+          "start_line": 98028,
+          "end_line": 98035,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\__init__.py",
+          "start_line": 98036,
+          "end_line": 98047,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\comparator.py",
+          "start_line": 98048,
+          "end_line": 98083,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\repository.py",
+          "start_line": 98199,
+          "end_line": 98265,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\snapshot_manager.py",
+          "start_line": 98266,
+          "end_line": 98339,
+          "module": "general"
+        },
+        {
+          "file": ".\\OKE\\workspace\\snapshots\\employees.json",
+          "start_line": 98340,
+          "end_line": 98357,
+          "module": "employees"
+        },
+        {
+          "file": ".\\OKE\\workspace\\workspace_manager.py",
+          "start_line": 98358,
+          "end_line": 98396,
+          "module": "general"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "start_line": 98397,
+          "end_line": 102360,
+          "module": "general"
+        }
+      ]
+    }
+  }
+}

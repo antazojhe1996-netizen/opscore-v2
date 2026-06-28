@@ -1,0 +1,114 @@
+{
+  "name": "relation_employees",
+  "generated_at": "2026-06-28T13:56:27.470170",
+  "data": {
+    "table": "employees",
+    "outgoing_foreign_keys": [
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "employees_company_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employees",
+        "column_name": "system_role_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "system_roles",
+        "foreign_column_name": "id",
+        "constraint_name": "employees_system_role_id_fkey"
+      }
+    ],
+    "incoming_references": [
+      {
+        "table_schema": "public",
+        "table_name": "attendance_entries",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "attendance_entries_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "biometric_mappings",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "biometric_mappings_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "cash_advance_requests",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_cash_advance_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "leave_requests",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_leave_requests_employee"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payroll_records",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "payroll_records_employee_id_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "closed_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_sessions_closed_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "pos_sessions",
+        "column_name": "opened_by",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "pos_sessions_opened_by_fkey"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "system_users",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "system_users_employee_id_fkey"
+      }
+    ],
+    "summary": {
+      "depends_on_count": 2,
+      "referenced_by_count": 9
+    }
+  }
+}

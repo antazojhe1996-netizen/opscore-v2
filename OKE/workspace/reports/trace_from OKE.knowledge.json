@@ -1,0 +1,73 @@
+{
+  "name": "trace_from OKE.knowledge",
+  "generated_at": "2026-06-28T16:10:39.836076",
+  "data": {
+    "keyword": "from OKE.knowledge",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 4,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\analyzers\\module_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91210,
+          "text": "from OKE.knowledge.module_map import TABLE_MODULES"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91285,
+          "text": "from OKE.knowledge.regression_map import REGRESSION_MAP"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112646,
+          "text": "from OKE.knowledge.module_map import TABLE_MODULES"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112721,
+          "text": "from OKE.knowledge.regression_map import REGRESSION_MAP"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\analyzers\\module_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91210,
+        "text": "from OKE.knowledge.module_map import TABLE_MODULES"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91285,
+        "text": "from OKE.knowledge.regression_map import REGRESSION_MAP"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112646,
+        "text": "from OKE.knowledge.module_map import TABLE_MODULES"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112721,
+        "text": "from OKE.knowledge.regression_map import REGRESSION_MAP"
+      }
+    ]
+  }
+}

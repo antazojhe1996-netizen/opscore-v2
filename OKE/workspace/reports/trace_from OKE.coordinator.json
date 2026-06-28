@@ -1,0 +1,45 @@
+{
+  "name": "trace_from OKE.coordinator",
+  "generated_at": "2026-06-28T16:10:41.229495",
+  "data": {
+    "keyword": "from OKE.coordinator",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 2,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91581,
+          "text": "from OKE.coordinator.coordinator import Coordinator"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113098,
+          "text": "from OKE.coordinator.coordinator import Coordinator"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91581,
+        "text": "from OKE.coordinator.coordinator import Coordinator"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113098,
+        "text": "from OKE.coordinator.coordinator import Coordinator"
+      }
+    ]
+  }
+}

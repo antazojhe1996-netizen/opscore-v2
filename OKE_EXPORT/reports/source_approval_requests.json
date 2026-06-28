@@ -1,0 +1,305 @@
+{
+  "name": "source_approval_requests",
+  "generated_at": "2026-06-28T14:23:11.219336",
+  "data": {
+    "search_text": "approval_requests",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 42,
+    "matches": [
+      {
+        "file": ".\\app\\(app)\\audit\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 3369,
+        "text": "getRowsFromTable(\"approval_requests\"),"
+      },
+      {
+        "file": ".\\app\\(app)\\backup\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 4437,
+        "text": "{ title: \"Approval Requests\", description: \"Export UAT/live approval request history.\", table: \"approval_requests\", fileName: \"approval_requests_backup\", group: \"Approvals\" },"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\expense-requests\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 11397,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 23759,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 23801,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 25121,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 25148,
+        "text": "alert(\"Adjustment was saved, but Approval Center request failed. Please check approval_requests columns.\");"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 25760,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40470,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40586,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40676,
+        "text": "const { error } = await supabase.from(\"approval_requests\").insert({"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 61923,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 62296,
+        "text": "const { error } = await supabase.from(\"approval_requests\").insert({"
+      },
+      {
+        "file": ".\\app\\api\\admin\\data-cleanup\\route.ts",
+        "area": "API",
+        "module": "general",
+        "line": 78178,
+        "text": "{ key: \"approval_requests\", label: \"Approval Requests\", table: \"approval_requests\", group: \"Approvals\", mode: \"delete\" },"
+      },
+      {
+        "file": ".\\app\\api\\approval\\list\\route.ts",
+        "area": "API",
+        "module": "approval",
+        "line": 78587,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\api\\approval\\pending\\route.ts",
+        "area": "API",
+        "module": "approval",
+        "line": 78625,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\api\\hr\\delete-employee\\route.ts",
+        "area": "API",
+        "module": "employees",
+        "line": 79586,
+        "text": "{ table: \"approval_requests\", column: \"employee_id\" },"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 80751,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81034,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81681,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81703,
+        "text": "alert(\"Leave was saved, but approval request failed. Check approval_requests columns.\");"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81771,
+        "text": "const { error } = await supabase.from(\"approval_requests\").insert({"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81921,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81988,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 82164,
+        "text": "table: \"approval_requests\","
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-actions.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 83719,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84147,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84485,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84528,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84582,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84619,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84639,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85334,
+        "text": "table: \"approval_requests\","
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85405,
+        "text": "table: \"approval_requests\","
+      },
+      {
+        "file": ".\\components\\Sidebar.tsx",
+        "area": "COMPONENT",
+        "module": "general",
+        "line": 87502,
+        "text": ".from(\"approval_requests\")"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88193,
+        "text": "- `public.approval_requests`"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88471,
+        "text": "# approval_requests"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88477,
+        "text": "- `id` (approval_requests_pkey)"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88481,
+        "text": "- `company_id` \u00e2\u2020\u2019 `public.companies.id` (fk_approval_requests_company)"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88874,
+        "text": "- `approval_requests.company_id` \u00e2\u2020\u2019 `companies.id`"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\module_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96170,
+        "text": "\"approval_requests\": [\"Approval Center\"],"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 100341,
+        "text": "\"approval_requests\": [\"Approval Center\"],"
+      }
+    ]
+  }
+}

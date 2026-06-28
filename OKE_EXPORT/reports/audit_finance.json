@@ -1,0 +1,212 @@
+{
+  "name": "audit_finance",
+  "generated_at": "2026-06-28T14:07:07.802558",
+  "data": {
+    "module": "finance",
+    "score": {
+      "architecture": 3,
+      "maintainability": 7,
+      "consistency": 9,
+      "documentation": 6,
+      "technical_debt": "HIGH"
+    },
+    "findings": {
+      "direct_supabase_usage": [
+        {
+          "file": null,
+          "line": 9704,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9767,
+          "text": "const { error } = await supabase.from(\"finance_bills\").insert({"
+        },
+        {
+          "file": null,
+          "line": 9799,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9822,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9869,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 9940,
+          "text": ".from(\"finance_bills\")"
+        },
+        {
+          "file": null,
+          "line": 11161,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 11169,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 11180,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 11242,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 11252,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 12889,
+          "text": ".from(\"finance_payment_methods\")"
+        },
+        {
+          "file": null,
+          "line": 12895,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 12901,
+          "text": ".from(\"finance_expense_sources\")"
+        },
+        {
+          "file": null,
+          "line": 29151,
+          "text": ".from(\"finance_hotel_reservations\")"
+        },
+        {
+          "file": null,
+          "line": 31966,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 31974,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 31983,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 32037,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 32047,
+          "text": ".from(\"finance_workflow_settings\")"
+        },
+        {
+          "file": null,
+          "line": 32825,
+          "text": ".from(\"finance_payment_methods\")"
+        },
+        {
+          "file": null,
+          "line": 32830,
+          "text": ".from(\"finance_expense_areas\")"
+        },
+        {
+          "file": null,
+          "line": 32835,
+          "text": ".from(\"finance_expense_sources\")"
+        },
+        {
+          "file": null,
+          "line": 32840,
+          "text": ".from(\"finance_revenue_sources\")"
+        },
+        {
+          "file": null,
+          "line": 32846,
+          "text": ".from(\"finance_cash_sources\")"
+        },
+        {
+          "file": null,
+          "line": 32931,
+          "text": ".from(\"finance_payment_methods\")"
+        },
+        {
+          "file": null,
+          "line": 33963,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 36009,
+          "text": ".from(\"finance_hotel_reservations\")"
+        },
+        {
+          "file": null,
+          "line": 83765,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 84188,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 84777,
+          "text": ".from(\"finance_cash_audit_logs\")"
+        },
+        {
+          "file": null,
+          "line": 85195,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 85504,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 85633,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": null,
+          "line": 86234,
+          "text": ".from(\"finance_cash_movements\")"
+        }
+      ],
+      "hardcoded_business_terms": [
+        {
+          "file": null,
+          "line": 4461,
+          "text": "{ title: \"Cash Advance Requests\", description: \"Export cash advance request records.\", table: \"cash_advance_requests\", fileName: \"cash_advance_requests_backup\", group: \"Finance\" },"
+        },
+        {
+          "file": null,
+          "line": 4468,
+          "text": "{ title: \"Hotel Reservations\", description: \"Export hotel reservations / room sales records.\", table: \"finance_hotel_reservations\", fileName: \"finance_hotel_reservations_backup\", group: \"Finance\" },"
+        },
+        {
+          "file": null,
+          "line": 78181,
+          "text": "{ key: \"cash_advance_requests\", label: \"Cash Advance Requests\", table: \"cash_advance_requests\", group: \"Finance\", mode: \"delete\" },"
+        }
+      ],
+      "large_file_signals": [],
+      "todo_fixme": []
+    }
+  }
+}

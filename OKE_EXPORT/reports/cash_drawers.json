@@ -1,0 +1,36 @@
+{
+  "name": "cash_drawers",
+  "generated_at": "2026-06-28T13:45:42.616857",
+  "data": {
+    "task": "analyze cash_drawers table",
+    "table": "cash_drawers",
+    "risk": "LOW",
+    "metrics": {
+      "columns": 9,
+      "primary_keys": 1,
+      "foreign_keys": 1,
+      "referenced_by": 1,
+      "dependencies": 1
+    },
+    "impact": {
+      "affected_tables": [
+        "cash_movements"
+      ],
+      "affected_table_count": 1,
+      "affected_modules": [
+        "Cash Management",
+        "Finance"
+      ],
+      "affected_module_count": 2
+    },
+    "regression": {
+      "checklist": [
+        "Cash Drawer",
+        "Cash In",
+        "Cash Out"
+      ],
+      "check_count": 3
+    },
+    "recommendation": "Moderate impact change. Run the listed regression checks before deployment."
+  }
+}

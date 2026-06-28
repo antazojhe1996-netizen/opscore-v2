@@ -1,0 +1,33 @@
+{
+  "name": "payroll_records",
+  "generated_at": "2026-06-28T13:45:44.738304",
+  "data": {
+    "task": "analyze payroll_records table",
+    "table": "payroll_records",
+    "risk": "LOW",
+    "metrics": {
+      "columns": 68,
+      "primary_keys": 1,
+      "foreign_keys": 3,
+      "referenced_by": 0,
+      "dependencies": 0
+    },
+    "impact": {
+      "affected_tables": [],
+      "affected_table_count": 0,
+      "affected_modules": [
+        "Payroll"
+      ],
+      "affected_module_count": 1
+    },
+    "regression": {
+      "checklist": [
+        "Generate Payroll",
+        "Payslip Generation",
+        "Release Payroll"
+      ],
+      "check_count": 3
+    },
+    "recommendation": "Moderate impact change. Run the listed regression checks before deployment."
+  }
+}

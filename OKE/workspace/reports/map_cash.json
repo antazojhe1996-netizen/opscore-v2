@@ -1,0 +1,125 @@
+{
+  "name": "map_cash",
+  "generated_at": "2026-06-28T14:23:10.704524",
+  "data": {
+    "module": "cash",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "file_count": 16,
+    "flow": [
+      "UI",
+      "API",
+      "ENGINE_OR_SERVICE",
+      "DATABASE",
+      "REPORT"
+    ],
+    "buckets": {
+      "UI": [
+        {
+          "file": ".\\app\\(app)\\finance\\cash-management\\page.tsx",
+          "start_line": 10418,
+          "end_line": 10915,
+          "module": "finance"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\cashiers\\page.tsx",
+          "start_line": 45156,
+          "end_line": 45531,
+          "module": "pos"
+        }
+      ],
+      "API": [
+        {
+          "file": ".\\app\\api\\cash\\drawer\\close\\route.ts",
+          "start_line": 78747,
+          "end_line": 78780,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\drawer\\list\\route.ts",
+          "start_line": 78781,
+          "end_line": 78820,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\drawer\\open\\route.ts",
+          "start_line": 78821,
+          "end_line": 78867,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\insert\\route.ts",
+          "start_line": 78868,
+          "end_line": 78931,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\api\\cash\\movements\\route.ts",
+          "start_line": 78932,
+          "end_line": 78973,
+          "module": "cash"
+        }
+      ],
+      "ENGINE_OR_SERVICE": [
+        {
+          "file": ".\\app\\lib\\cash\\cash-audit.ts",
+          "start_line": 84754,
+          "end_line": 84805,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-core.ts",
+          "start_line": 84806,
+          "end_line": 85084,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-engine.ts",
+          "start_line": 85085,
+          "end_line": 85259,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+          "start_line": 85260,
+          "end_line": 85353,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+          "start_line": 85354,
+          "end_line": 85420,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-snapshot.ts",
+          "start_line": 85421,
+          "end_line": 85539,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\drawer-core.ts",
+          "start_line": 85540,
+          "end_line": 85813,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\index.ts",
+          "start_line": 85814,
+          "end_line": 85839,
+          "module": "cash"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\variance-engine.ts",
+          "start_line": 85840,
+          "end_line": 85889,
+          "module": "cash"
+        }
+      ],
+      "SHARED_LIB": [],
+      "COMPONENT": [],
+      "REPORT": [],
+      "OKE": [],
+      "OTHER": []
+    }
+  }
+}

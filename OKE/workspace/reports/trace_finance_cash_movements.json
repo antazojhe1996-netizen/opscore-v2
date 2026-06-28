@@ -1,0 +1,331 @@
+{
+  "name": "trace_finance_cash_movements",
+  "generated_at": "2026-06-28T14:23:10.281400",
+  "data": {
+    "keyword": "finance_cash_movements",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 22,
+    "grouped": {
+      "UI": [
+        {
+          "file": ".\\app\\(app)\\audit\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 3368,
+          "text": "getRowsFromTable(\"finance_cash_movements\"),"
+        },
+        {
+          "file": ".\\app\\(app)\\backup\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 4467,
+          "text": "{ title: \"Cash Movements\", description: \"Export cash in, cash out, remittance, and release records.\", table: \"finance_cash_movements\", fileName: \"finance_cash_movements_backup\", group: \"Finance\" },"
+        },
+        {
+          "file": ".\\app\\employee-portal\\page.tsx",
+          "area": "UI",
+          "module": "employees",
+          "line": 81966,
+          "text": "// Rejected cash requests must never post finance_cash_movements."
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\app\\(app)\\dashboard\\page.tsx",
+          "area": "REPORT",
+          "module": "general",
+          "line": 5581,
+          "text": "\"finance_cash_movements\","
+        },
+        {
+          "file": ".\\app\\(app)\\dashboard\\page.tsx",
+          "area": "REPORT",
+          "module": "general",
+          "line": 5734,
+          "text": "fetchAllRows(\"finance_cash_movements\", \"business_date\", false),"
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\watcher\\page.tsx",
+          "area": "REPORT",
+          "module": "finance",
+          "line": 33963,
+          "text": ".from(\"finance_cash_movements\")"
+        }
+      ],
+      "API": [
+        {
+          "file": ".\\app\\api\\admin\\data-cleanup\\route.ts",
+          "area": "API",
+          "module": "general",
+          "line": 78187,
+          "text": "{ key: \"finance_cash_movements\", label: \"Cash Movements\", table: \"finance_cash_movements\", group: \"Finance\", mode: \"delete\" },"
+        }
+      ],
+      "ENGINE_OR_SERVICE": [
+        {
+          "file": ".\\app\\lib\\approvals\\approval-actions.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "approval",
+          "line": 83765,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\approvals\\approval-engine.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "approval",
+          "line": 84188,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-engine.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85100,
+          "text": "* - This is the only cash module allowed to insert finance_cash_movements."
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-engine.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85195,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85311,
+          "text": "table: \"finance_cash_movements\","
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85392,
+          "text": "table: \"finance_cash_movements\","
+        },
+        {
+          "file": ".\\app\\lib\\cash\\cash-snapshot.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85504,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\cash\\drawer-core.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85562,
+          "text": "* It does NOT create finance_cash_movements."
+        },
+        {
+          "file": ".\\app\\lib\\cash\\drawer-core.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "cash",
+          "line": 85633,
+          "text": ".from(\"finance_cash_movements\")"
+        },
+        {
+          "file": ".\\app\\lib\\watcher\\financial-watcher.ts",
+          "area": "ENGINE_OR_SERVICE",
+          "module": "general",
+          "line": 86234,
+          "text": ".from(\"finance_cash_movements\")"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 88230,
+          "text": "- `public.finance_cash_movements`"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 88884,
+          "text": "- `finance_cash_movements.company_id` \u00e2\u2020\u2019 `companies.id`"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 89651,
+          "text": "# finance_cash_movements"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 89657,
+          "text": "- `id` (finance_cash_movements_pkey)"
+        },
+        {
+          "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 89661,
+          "text": "- `company_id` \u00e2\u2020\u2019 `public.companies.id` (fk_finance_cash_movements_company)"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\app\\(app)\\audit\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 3368,
+        "text": "getRowsFromTable(\"finance_cash_movements\"),"
+      },
+      {
+        "file": ".\\app\\(app)\\backup\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 4467,
+        "text": "{ title: \"Cash Movements\", description: \"Export cash in, cash out, remittance, and release records.\", table: \"finance_cash_movements\", fileName: \"finance_cash_movements_backup\", group: \"Finance\" },"
+      },
+      {
+        "file": ".\\app\\(app)\\dashboard\\page.tsx",
+        "area": "REPORT",
+        "module": "general",
+        "line": 5581,
+        "text": "\"finance_cash_movements\","
+      },
+      {
+        "file": ".\\app\\(app)\\dashboard\\page.tsx",
+        "area": "REPORT",
+        "module": "general",
+        "line": 5734,
+        "text": "fetchAllRows(\"finance_cash_movements\", \"business_date\", false),"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\watcher\\page.tsx",
+        "area": "REPORT",
+        "module": "finance",
+        "line": 33963,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\api\\admin\\data-cleanup\\route.ts",
+        "area": "API",
+        "module": "general",
+        "line": 78187,
+        "text": "{ key: \"finance_cash_movements\", label: \"Cash Movements\", table: \"finance_cash_movements\", group: \"Finance\", mode: \"delete\" },"
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 81966,
+        "text": "// Rejected cash requests must never post finance_cash_movements."
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-actions.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 83765,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\approvals\\approval-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "approval",
+        "line": 84188,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85100,
+        "text": "* - This is the only cash module allowed to insert finance_cash_movements."
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-engine.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85195,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85311,
+        "text": "table: \"finance_cash_movements\","
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-realtime-watcher.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85392,
+        "text": "table: \"finance_cash_movements\","
+      },
+      {
+        "file": ".\\app\\lib\\cash\\cash-snapshot.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85504,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\cash\\drawer-core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85562,
+        "text": "* It does NOT create finance_cash_movements."
+      },
+      {
+        "file": ".\\app\\lib\\cash\\drawer-core.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "cash",
+        "line": 85633,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\app\\lib\\watcher\\financial-watcher.ts",
+        "area": "ENGINE_OR_SERVICE",
+        "module": "general",
+        "line": 86234,
+        "text": ".from(\"finance_cash_movements\")"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88230,
+        "text": "- `public.finance_cash_movements`"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 88884,
+        "text": "- `finance_cash_movements.company_id` \u00e2\u2020\u2019 `companies.id`"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 89651,
+        "text": "# finance_cash_movements"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 89657,
+        "text": "- `id` (finance_cash_movements_pkey)"
+      },
+      {
+        "file": ".\\docs\\database-books\\OPSCORE_DATABASE_BOOK.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 89661,
+        "text": "- `company_id` \u00e2\u2020\u2019 `public.companies.id` (fk_finance_cash_movements_company)"
+      }
+    ]
+  }
+}

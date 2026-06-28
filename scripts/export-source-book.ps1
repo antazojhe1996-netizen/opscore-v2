@@ -1,140 +1,138 @@
-$ProjectName = "OPSCORE V3"
+$ProjectName = "OPSCORE V3 + OKE"
 $OutputDir = "OKE_EXPORT"
 $LatestFile = Join-Path $OutputDir "OPSCORE_SOURCE_BOOK.md"
 
 $IncludeExtensions = @(
-  ".py",
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".css",
-  ".json",
-  ".sql",
-  ".md",
-  ".cjs",
-  ".mjs"
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".css",
+    ".json",
+    ".sql",
+    ".md",
+    ".cjs",
+    ".mjs"
 )
 
 $ExcludeExtensions = @(
-  ".pyc"
+    ".pyc"
 )
 
 $ExcludeFolders = @(
-  "node_modules",
-  ".next",
-  ".git",
-  "dist",
-  "build",
-  ".vercel",
-  "__pycache__",
-  "docs\source-books",
-  "OKE_EXPORT"
+    "node_modules",
+    ".next",
+    ".git",
+    "dist",
+    "build",
+    ".vercel",
+    "__pycache__",
+    "OKE_EXPORT",
+    ".turbo",
+    ".vscode"
 )
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 $files = Get-ChildItem -Recurse -File |
-  Where-Object {
-    $file = $_
-    $extension = $file.Extension.ToLower()
+Where-Object {
 
-    $include = $IncludeExtensions -contains $extension
-    $excludedExt = $ExcludeExtensions -contains $extension
-    $excludedFolder = $false
+    $extension = $_.Extension.ToLower()
 
-    foreach ($folder in $ExcludeFolders) {
-      if ($file.FullName -like "*\$folder\*") {
-        $excludedFolder = $true
-      }
+    if ($IncludeExtensions -notcontains $extension) {
+        return $false
     }
 
-    $include -and -not $excludedExt -and -not $excludedFolder
-  } |
-  Sort-Object FullName
+    if ($ExcludeExtensions -contains $extension) {
+        return $false
+    }
+
+    foreach ($folder in $ExcludeFolders) {
+        if ($_.FullName -match [regex]::Escape($folder)) {
+            return $false
+        }
+    }
+
+    return $true
+
+} | Sort-Object FullName
 
 $totalFiles = $files.Count
 $totalLines = 0
 
 foreach ($file in $files) {
-  try {
-    $totalLines += (Get-Content -LiteralPath $file.FullName | Measure-Object -Line).Lines
-  } catch {}
+    try {
+        $totalLines += (Get-Content $file.FullName | Measure-Object -Line).Lines
+    }
+    catch {}
 }
 
-$header = @"
+@"
 # $ProjectName Source Book
 
 Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
-## Summary
+Files: $totalFiles
+Lines: $totalLines
 
-- Files: $totalFiles
-- Lines: $totalLines
+Purpose
 
-## Purpose
+This Source Book contains the complete engineering source snapshot
+of OPSCORE and OKE.
 
-This file is the full source snapshot of OPSCORE V3 and OKE for audit, refactor planning, architecture review, and regression tracking.
+Rules
 
-## Rules
-
-- No guessing.
-- Audit first.
-- Engine first.
-- UI must not contain business logic.
-- API routes must be gateways only.
-- Source Book must be regenerated after major architecture changes.
-- Python OKE files must be included.
-- Runtime/cache/generated export folders must be excluded.
-- This file is overwritten on every run.
+- Audit before coding.
+- Never assume architecture.
+- UI must remain thin.
+- Engine owns business logic.
+- API should remain gateways.
+- Regenerate after significant changes.
 
 ---
-
-## Table of Contents
-
-"@
-
-Set-Content -Path $LatestFile -Value $header -Encoding UTF8
+"@ | Set-Content $LatestFile -Encoding UTF8
 
 foreach ($file in $files) {
-  $relative = Resolve-Path -Relative $file.FullName
 
-  if ([string]::IsNullOrWhiteSpace($relative)) {
-    continue
-  }
+    $relative = Resolve-Path -Relative $file.FullName
 
-  $anchor = $relative.ToLower().Replace('\','').Replace('/','').Replace('.','').Replace(' ','-')
-  Add-Content -Path $LatestFile -Value "- [$relative](#$anchor)"
-}
+    if ([string]::IsNullOrWhiteSpace($relative)) {
+        continue
+    }
 
-Add-Content -Path $LatestFile -Value "`n---`n"
+    $extension = $file.Extension.TrimStart(".")
 
-foreach ($file in $files) {
-  $relative = Resolve-Path -Relative $file.FullName
+    try {
 
-  if ([string]::IsNullOrWhiteSpace($relative)) {
-    continue
-  }
+        $content = Get-Content $file.FullName -Raw
 
-  $ext = $file.Extension.TrimStart(".")
-  $lineCount = 0
+    }
+    catch {
 
-  try {
-    $content = Get-Content -LiteralPath $file.FullName -Raw
+        $content = "[Unable to read file]"
+
+    }
+
     $lineCount = ($content -split "`n").Count
-  } catch {
-    $content = "[Unable to read file]"
-  }
 
-  Add-Content -Path $LatestFile -Value "`n# $relative`n"
-  Add-Content -Path $LatestFile -Value "`nLines: $lineCount`n"
-  Add-Content -Path $LatestFile -Value "````$ext"
-  Add-Content -Path $LatestFile -Value $content
-  Add-Content -Path $LatestFile -Value "````"
+    Add-Content $LatestFile ""
+    Add-Content $LatestFile "# $relative"
+    Add-Content $LatestFile ""
+    Add-Content $LatestFile "Lines: $lineCount"
+    Add-Content $LatestFile ""
+
+    Add-Content $LatestFile "````$extension"
+    Add-Content $LatestFile $content
+    Add-Content $LatestFile "````"
 }
 
 Write-Host ""
-Write-Host "Source Book generated successfully." -ForegroundColor Green
-Write-Host "Output: $LatestFile" -ForegroundColor Cyan
-Write-Host "Files: $totalFiles"
-Write-Host "Lines: $totalLines"
+Write-Host "==========================================" -ForegroundColor Green
+Write-Host "OPSCORE SOURCE BOOK GENERATED" -ForegroundColor Green
+Write-Host "==========================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Output : $LatestFile"
+Write-Host "Files  : $totalFiles"
+Write-Host "Lines  : $totalLines"
+Write-Host ""

@@ -2,11 +2,18 @@
 
 from OKE.registry.command_registry import CommandRegistry
 
-def main():
 
+def main():
     if len(sys.argv) < 2:
         print("Usage:")
-        print("py -m OKE create specialist <name>")
+        print("py -m OKE <command> [args]")
+        print()
+        print("Examples:")
+        print("py -m OKE create specialist cash")
+        print("py -m OKE analyze employees")
+        print("py -m OKE database all")
+        print("py -m OKE relation employees")
+        print("py -m OKE source finance_cash_movements")
         return
 
     command_name = sys.argv[1]

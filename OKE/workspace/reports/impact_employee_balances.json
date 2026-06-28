@@ -1,0 +1,37 @@
+{
+  "name": "impact_employee_balances",
+  "generated_at": "2026-06-28T14:06:57.206994",
+  "data": {
+    "table": "employee_balances",
+    "risk": "LOW",
+    "depends_on": [
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "company_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "companies",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_company"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "employee_balances",
+        "column_name": "employee_id",
+        "foreign_table_schema": "public",
+        "foreign_table_name": "employees",
+        "foreign_column_name": "id",
+        "constraint_name": "fk_employee_balances_employee"
+      }
+    ],
+    "referenced_by": [],
+    "regression_checklist": [
+      "Check UI pages that read/write this table",
+      "Check API routes that insert/update/delete this table",
+      "Check engines/services that compute values from this table",
+      "Check reports/dashboard totals",
+      "Check multi-company company_id filtering",
+      "Check foreign key and orphan records"
+    ]
+  }
+}
