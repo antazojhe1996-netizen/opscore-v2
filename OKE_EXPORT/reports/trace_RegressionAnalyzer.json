@@ -1,0 +1,101 @@
+{
+  "name": "trace_RegressionAnalyzer",
+  "generated_at": "2026-06-28T16:02:47.235211",
+  "data": {
+    "keyword": "RegressionAnalyzer",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 6,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91293,
+          "text": "class RegressionAnalyzer:"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96579,
+          "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96606,
+          "text": "regression = RegressionAnalyzer().analyze(modules)"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112729,
+          "text": "class RegressionAnalyzer:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114563,
+          "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114590,
+          "text": "regression = RegressionAnalyzer().analyze(modules)"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91293,
+        "text": "class RegressionAnalyzer:"
+      },
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96579,
+        "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+      },
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96606,
+        "text": "regression = RegressionAnalyzer().analyze(modules)"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112729,
+        "text": "class RegressionAnalyzer:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114563,
+        "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114590,
+        "text": "regression = RegressionAnalyzer().analyze(modules)"
+      }
+    ]
+  }
+}

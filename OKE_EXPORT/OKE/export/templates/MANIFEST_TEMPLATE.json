@@ -1,0 +1,35 @@
+{
+    "project": {
+        "name": "OKE",
+        "full_name": "OPSCORE Knowledge Engine",
+        "type": "Engineering Operating System",
+        "language": "Python"
+    },
+
+    "engineering": {
+        "architecture": "Layered",
+        "governance": true,
+        "workspace": true,
+        "timeline": true,
+        "knowledge_engine": true
+    },
+
+    "export": {
+        "version": "{{EXPORT_VERSION}}",
+        "generated_at": "{{GENERATED_AT}}",
+        "generator": "OKE Export Manager"
+    },
+
+    "statistics": {
+        "python_files": "{{PYTHON_FILES}}",
+        "specialists": "{{SPECIALISTS}}",
+        "commands": "{{COMMANDS}}",
+        "pipelines": "{{PIPELINES}}",
+        "services": "{{SERVICES}}"
+    },
+
+    "phase": {
+        "current": "{{CURRENT_PHASE}}",
+        "next": "{{NEXT_PHASE}}"
+    }
+}

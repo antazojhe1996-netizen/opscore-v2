@@ -1,0 +1,1097 @@
+{
+  "name": "trace_orchestrator",
+  "generated_at": "2026-06-28T15:15:51.320026",
+  "data": {
+    "keyword": "orchestrator",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 77,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91582,
+          "text": "from OKE.orchestrator.orchestrator import Orchestrator"
+        },
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91612,
+          "text": "result = Orchestrator().execute("
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\09_ENGINEERING_CONSTITUTION.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 93254,
+          "text": "Orchestrator"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\10_FOLDER_RESPONSIBILITIES.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 93418,
+          "text": "## orchestrator"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96319,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96320,
+          "text": "Lines: 0"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96321,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96322,
+          "text": "``py"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96323,
+          "text": "``"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96324,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96326,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96327,
+          "text": "Lines: 52"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96328,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96329,
+          "text": "``py"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96330,
+          "text": "from dataclasses import dataclass"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96331,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96332,
+          "text": "from OKE.events import ("
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96333,
+          "text": "EngineeringFinished,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96334,
+          "text": "EngineeringStarted,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96335,
+          "text": "EventBus,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96336,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96337,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96338,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96339,
+          "text": "@dataclass"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96340,
+          "text": "class OrchestratorResult:"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96341,
+          "text": "plan: object"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96342,
+          "text": "specialist_results: dict"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96343,
+          "text": "aggregated: object"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96344,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96345,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96346,
+          "text": "class Orchestrator:"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96347,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96348,
+          "text": "def __init__(self, event_bus=None):"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96349,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96350,
+          "text": "self.event_bus = event_bus or EventBus()"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96351,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96352,
+          "text": "def execute("
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96353,
+          "text": "self,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96354,
+          "text": "coordinator,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96355,
+          "text": "**kwargs,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96356,
+          "text": "):"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96357,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96358,
+          "text": "task = kwargs.pop(\"task\")"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96359,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96360,
+          "text": "self.event_bus.publish("
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96361,
+          "text": "EngineeringStarted(task)"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96362,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96363,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96364,
+          "text": "plan = coordinator.plan(task)"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96365,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96366,
+          "text": "result = coordinator.execute("
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96367,
+          "text": "task,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96368,
+          "text": "**kwargs,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96369,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96370,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96371,
+          "text": "aggregated = result[\"aggregated\"]"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96372,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96373,
+          "text": "self.event_bus.publish("
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96374,
+          "text": "EngineeringFinished(task)"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96375,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96376,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96377,
+          "text": "return OrchestratorResult("
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96378,
+          "text": "plan=plan,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96379,
+          "text": "specialist_results=aggregated.results,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96380,
+          "text": "aggregated=aggregated,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96381,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96382,
+          "text": "``"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96383,
+          "text": ""
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 110155,
+          "text": "\"file\": \".\\\\OKE\\\\orchestrator\\\\__init__.py\","
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 110161,
+          "text": "\"file\": \".\\\\OKE\\\\orchestrator\\\\orchestrator.py\","
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113099,
+          "text": "from OKE.orchestrator.orchestrator import Orchestrator"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113129,
+          "text": "result = Orchestrator().execute("
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114484,
+          "text": "## OKE\\orchestrator\\__init__.py"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114491,
+          "text": "## OKE\\orchestrator\\orchestrator.py"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114504,
+          "text": "class OrchestratorResult:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114510,
+          "text": "class Orchestrator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114541,
+          "text": "return OrchestratorResult("
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91582,
+        "text": "from OKE.orchestrator.orchestrator import Orchestrator"
+      },
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91612,
+        "text": "result = Orchestrator().execute("
+      },
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\09_ENGINEERING_CONSTITUTION.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93254,
+        "text": "Orchestrator"
+      },
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\10_FOLDER_RESPONSIBILITIES.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93418,
+        "text": "## orchestrator"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96319,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96320,
+        "text": "Lines: 0"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96321,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96322,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96323,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96324,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96326,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96327,
+        "text": "Lines: 52"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96328,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96329,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96330,
+        "text": "from dataclasses import dataclass"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96331,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96332,
+        "text": "from OKE.events import ("
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96333,
+        "text": "EngineeringFinished,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96334,
+        "text": "EngineeringStarted,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96335,
+        "text": "EventBus,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96336,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96337,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96338,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96339,
+        "text": "@dataclass"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96340,
+        "text": "class OrchestratorResult:"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96341,
+        "text": "plan: object"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96342,
+        "text": "specialist_results: dict"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96343,
+        "text": "aggregated: object"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96344,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96345,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96346,
+        "text": "class Orchestrator:"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96347,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96348,
+        "text": "def __init__(self, event_bus=None):"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96349,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96350,
+        "text": "self.event_bus = event_bus or EventBus()"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96351,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96352,
+        "text": "def execute("
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96353,
+        "text": "self,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96354,
+        "text": "coordinator,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96355,
+        "text": "**kwargs,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96356,
+        "text": "):"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96357,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96358,
+        "text": "task = kwargs.pop(\"task\")"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96359,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96360,
+        "text": "self.event_bus.publish("
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96361,
+        "text": "EngineeringStarted(task)"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96362,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96363,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96364,
+        "text": "plan = coordinator.plan(task)"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96365,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96366,
+        "text": "result = coordinator.execute("
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96367,
+        "text": "task,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96368,
+        "text": "**kwargs,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96369,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96370,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96371,
+        "text": "aggregated = result[\"aggregated\"]"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96372,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96373,
+        "text": "self.event_bus.publish("
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96374,
+        "text": "EngineeringFinished(task)"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96375,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96376,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96377,
+        "text": "return OrchestratorResult("
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96378,
+        "text": "plan=plan,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96379,
+        "text": "specialist_results=aggregated.results,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96380,
+        "text": "aggregated=aggregated,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96381,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96382,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96383,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 110155,
+        "text": "\"file\": \".\\\\OKE\\\\orchestrator\\\\__init__.py\","
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 110161,
+        "text": "\"file\": \".\\\\OKE\\\\orchestrator\\\\orchestrator.py\","
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113099,
+        "text": "from OKE.orchestrator.orchestrator import Orchestrator"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113129,
+        "text": "result = Orchestrator().execute("
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114484,
+        "text": "## OKE\\orchestrator\\__init__.py"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114491,
+        "text": "## OKE\\orchestrator\\orchestrator.py"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114504,
+        "text": "class OrchestratorResult:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114510,
+        "text": "class Orchestrator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114541,
+        "text": "return OrchestratorResult("
+      }
+    ]
+  }
+}

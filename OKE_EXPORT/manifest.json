@@ -5,19 +5,19 @@
     "type": "Engineering Operating System",
     "primary_language": "Python"
   },
-  "generated_at": "2026-06-28T04:44:50.171256",
+  "generated_at": "2026-06-28T19:15:32.856152",
   "status": {
     "foundation": "IN_PROGRESS",
     "architecture": "STABLE",
     "export_system": "IN_PROGRESS"
   },
   "counts": {
-    "commands": 2,
-    "specialists": 14,
+    "commands": 16,
+    "specialists": 17,
     "pipelines": 1,
     "services": 1,
     "builders": 3,
-    "analyzers": 4,
+    "analyzers": 12,
     "handbook_chapters": 12
   },
   "inventory": {
@@ -28,9 +28,79 @@
         "file": "analyze_command.py"
       },
       {
+        "name": "audit",
+        "class": "AuditCommand",
+        "file": "audit_command.py"
+      },
+      {
         "name": "create",
         "class": "CreateCommand",
         "file": "create_command.py"
+      },
+      {
+        "name": "database",
+        "class": "DatabaseCommand",
+        "file": "database_command.py"
+      },
+      {
+        "name": "dependency",
+        "class": "DependencyCommand",
+        "file": "dependency_command.py"
+      },
+      {
+        "name": "doctor",
+        "class": "DoctorCommand",
+        "file": "doctor_command.py"
+      },
+      {
+        "name": "export",
+        "class": "ExportCommand",
+        "file": "export_command.py"
+      },
+      {
+        "name": "impact",
+        "class": "ImpactCommand",
+        "file": "impact_command.py"
+      },
+      {
+        "name": "map",
+        "class": "MapCommand",
+        "file": "map_command.py"
+      },
+      {
+        "name": "relation",
+        "class": "RelationCommand",
+        "file": "relation_command.py"
+      },
+      {
+        "name": "release",
+        "class": "ReleaseCommand",
+        "file": "release_command.py"
+      },
+      {
+        "name": "self_audit",
+        "class": "SelfAuditCommand",
+        "file": "self_audit_command.py"
+      },
+      {
+        "name": "source",
+        "class": "SourceCommand",
+        "file": "source_command.py"
+      },
+      {
+        "name": "specialist_report",
+        "class": "SpecialistReportCommand",
+        "file": "specialist_report_command.py"
+      },
+      {
+        "name": "trace",
+        "class": "TraceCommand",
+        "file": "trace_command.py"
+      },
+      {
+        "name": "validate_export",
+        "class": "ValidateExportCommand",
+        "file": "validate_export_command.py"
       }
     ],
     "specialists": [
@@ -39,7 +109,15 @@
         "status": "ACTIVE"
       },
       {
+        "name": "approval",
+        "status": "ACTIVE"
+      },
+      {
         "name": "billing",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "cash",
         "status": "ACTIVE"
       },
       {
@@ -60,6 +138,10 @@
       },
       {
         "name": "payments",
+        "status": "ACTIVE"
+      },
+      {
+        "name": "payroll",
         "status": "ACTIVE"
       },
       {
@@ -110,9 +192,34 @@
     ],
     "analyzers": [
       {
+        "name": "dependency_analyzer",
+        "type": "analyzer",
+        "file": "dependency_analyzer.py"
+      },
+      {
+        "name": "doctor_analyzer",
+        "type": "analyzer",
+        "file": "doctor_analyzer.py"
+      },
+      {
+        "name": "engineering_analyzer",
+        "type": "analyzer",
+        "file": "engineering_analyzer.py"
+      },
+      {
+        "name": "export_validator",
+        "type": "analyzer",
+        "file": "export_validator.py"
+      },
+      {
         "name": "impact_analyzer",
         "type": "analyzer",
         "file": "impact_analyzer.py"
+      },
+      {
+        "name": "knowledge_analyzer",
+        "type": "analyzer",
+        "file": "knowledge_analyzer.py"
       },
       {
         "name": "module_analyzer",
@@ -125,9 +232,24 @@
         "file": "recommendation_analyzer.py"
       },
       {
+        "name": "registry_analyzer",
+        "type": "analyzer",
+        "file": "registry_analyzer.py"
+      },
+      {
         "name": "regression_analyzer",
         "type": "analyzer",
         "file": "regression_analyzer.py"
+      },
+      {
+        "name": "runtime_analyzer",
+        "type": "analyzer",
+        "file": "runtime_analyzer.py"
+      },
+      {
+        "name": "specialist_analyzer",
+        "type": "analyzer",
+        "file": "specialist_analyzer.py"
       }
     ],
     "pipelines": [

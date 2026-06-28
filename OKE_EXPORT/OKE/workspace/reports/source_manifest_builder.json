@@ -1,0 +1,53 @@
+{
+  "name": "source_manifest_builder",
+  "generated_at": "2026-06-28T16:26:57.647147",
+  "data": {
+    "search_text": "manifest_builder",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 6,
+    "matches": [
+      {
+        "file": ".\\OKE\\export\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94429,
+        "text": "from .manifest_builder import ManifestBuilder"
+      },
+      {
+        "file": ".\\OKE\\export\\readme_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95012,
+        "text": "from OKE.export.manifest_builder import ManifestBuilder"
+      },
+      {
+        "file": ".\\OKE\\export\\review_package_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95104,
+        "text": "from OKE.export.manifest_builder import ManifestBuilder"
+      },
+      {
+        "file": ".\\OKE\\export\\review_package_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95115,
+        "text": "self.manifest_builder = ManifestBuilder()"
+      },
+      {
+        "file": ".\\OKE\\export\\review_package_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95219,
+        "text": "manifest = self.manifest_builder.build()"
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 109969,
+        "text": "\"file\": \".\\\\OKE\\\\export\\\\manifest_builder.py\","
+      }
+    ]
+  }
+}

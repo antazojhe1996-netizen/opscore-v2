@@ -1,0 +1,3495 @@
+{
+  "name": "trace_class ",
+  "generated_at": "2026-06-28T16:10:38.395962",
+  "data": {
+    "keyword": "class ",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 248,
+    "grouped": {
+      "UI": [
+        {
+          "file": ".\\app\\(app)\\admin\\database-health\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 2010,
+          "text": "const valueClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\admin\\database-health\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 2017,
+          "text": "const cardClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\audit\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 2953,
+          "text": "const getIssueBadgeClass = (priority: FinancialIssuePriority) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\audit\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 3832,
+          "text": "const badgeClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\audit\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 3918,
+          "text": "const severityClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\bills\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 9947,
+          "text": "const valueClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 14097,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\payroll\\attendance\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 14725,
+          "text": "const getShiftColorClass = (shiftName?: string | null) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\payroll\\employee-balances\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 18225,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\payroll\\manager\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 19473,
+          "text": "const getStatusClass = (status: RecordStatus) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\payroll\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 21798,
+          "text": "const valueClass = tone === \"blue\" ? \"text-blue-100\" : \"text-slate-100\";"
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 27436,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\payroll\\settings\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 27834,
+          "text": "const inputClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\room-sales\\page.tsx",
+          "area": "UI",
+          "module": "finance",
+          "line": 31184,
+          "text": "const valueClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\forecasting\\page.tsx",
+          "area": "UI",
+          "module": "reservations",
+          "line": 35774,
+          "text": "const getBadgeClass = (status: string) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\forecasting\\page.tsx",
+          "area": "UI",
+          "module": "reservations",
+          "line": 35798,
+          "text": "const getGapClass = (gap: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\leave-management\\page.tsx",
+          "area": "UI",
+          "module": "leave_management",
+          "line": 40288,
+          "text": "const getStatusBadgeClass = (status: string) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\leave-management\\page.tsx",
+          "area": "UI",
+          "module": "leave_management",
+          "line": 40713,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\performance\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 42325,
+          "text": "const getScoreClass = (score: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\performance\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 42333,
+          "text": "const getBadgeClass = (score: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\performance\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 42341,
+          "text": "const getTrendClass = (delta: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\performance\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 43565,
+          "text": "const valueClass = danger"
+        },
+        {
+          "file": ".\\app\\(app)\\performance\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 43650,
+          "text": "const getScoreClass = (score: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\categories\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 45965,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\menu-items\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 47578,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\menu-items\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 47632,
+          "text": "const activeClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\parked-orders\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 48041,
+          "text": "const getStatusClass = (status: string) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\parked-orders\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 48067,
+          "text": "const getAgeClass = (minutes: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\production\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 48787,
+          "text": "const getLaneClass = (lane: LaneKey) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\production\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 48793,
+          "text": "const getLaneTextClass = (lane: LaneKey) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\production\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 48799,
+          "text": "const getActionClass = (lane: LaneKey) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\sessions\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 49611,
+          "text": "const varianceClass = (value: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\settings\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 54366,
+          "text": "const toneClass = {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\settings\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 54392,
+          "text": "const toneClass = {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\terminal\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 55391,
+          "text": "const getPaymentButtonClass = (code: string, active: boolean) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\terminal\\transactions\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 60219,
+          "text": "const getStatusClass = (status: string | null) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 61308,
+          "text": "const getStatusBadgeClass = (status: string | null) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+          "area": "UI",
+          "module": "pos",
+          "line": 62510,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\scheduling\\page.tsx",
+          "area": "UI",
+          "module": "general",
+          "line": 64837,
+          "text": "const getShiftColorClass = (shiftName: string) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\settings\\leave-credits\\page.tsx",
+          "area": "UI",
+          "module": "settings",
+          "line": 71302,
+          "text": "const getRemainingBadgeClass = (remaining: number) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\settings\\property\\page.tsx",
+          "area": "UI",
+          "module": "settings",
+          "line": 73274,
+          "text": "const getStatusBadgeClass = (unitStatus?: string | null) => {"
+        },
+        {
+          "file": ".\\app\\(app)\\settings\\user-credentials\\page.tsx",
+          "area": "UI",
+          "module": "settings",
+          "line": 74749,
+          "text": "const getBadgeClass = ("
+        },
+        {
+          "file": ".\\app\\employee-portal\\page.tsx",
+          "area": "UI",
+          "module": "employees",
+          "line": 82647,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\app\\employee-portal\\page.tsx",
+          "area": "UI",
+          "module": "employees",
+          "line": 82656,
+          "text": "const iconClass ="
+        },
+        {
+          "file": ".\\app\\employee-portal\\page.tsx",
+          "area": "UI",
+          "module": "employees",
+          "line": 82687,
+          "text": "const toneClass ="
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\app\\(app)\\dashboard\\page.tsx",
+          "area": "REPORT",
+          "module": "general",
+          "line": 6381,
+          "text": "const shellClass = isDanger"
+        },
+        {
+          "file": ".\\app\\(app)\\dashboard\\page.tsx",
+          "area": "REPORT",
+          "module": "general",
+          "line": 6387,
+          "text": "const dotClass = isDanger"
+        },
+        {
+          "file": ".\\app\\(app)\\dashboard\\page.tsx",
+          "area": "REPORT",
+          "module": "general",
+          "line": 6492,
+          "text": "const iconClass ="
+        },
+        {
+          "file": ".\\app\\(app)\\finance\\watcher\\page.tsx",
+          "area": "REPORT",
+          "module": "finance",
+          "line": 34177,
+          "text": "const toneClass ="
+        },
+        {
+          "file": ".\\OKE\\governance\\report.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 95923,
+          "text": "class GovernanceFinding:"
+        },
+        {
+          "file": ".\\OKE\\governance\\report.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 95930,
+          "text": "class GovernanceReport:"
+        },
+        {
+          "file": ".\\OKE\\models\\engineering_report.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 96306,
+          "text": "class EngineeringReport:"
+        },
+        {
+          "file": ".\\OKE\\services\\engineering_report_service.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 96952,
+          "text": "class EngineeringReportService:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reports\\specialist.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 97822,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111455,
+          "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111462,
+          "text": "\"text\": \"class BaseCommand(ABC):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111483,
+          "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111527,
+          "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111534,
+          "text": "\"text\": \"class BaseCommand(ABC):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111555,
+          "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111586,
+          "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111593,
+          "text": "\"text\": \"class BaseCommand(ABC):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111614,
+          "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111656,
+          "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111663,
+          "text": "\"text\": \"class BaseCommand(ABC):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111684,
+          "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111738,
+          "text": "\"text\": \"class CommandRegistry:\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111752,
+          "text": "\"text\": \"class CommandRegistry:\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111775,
+          "text": "\"text\": \"class CommandRegistry:\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111799,
+          "text": "\"text\": \"class CommandRegistry:\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111813,
+          "text": "\"text\": \"class CommandRegistry:\""
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 111834,
+          "text": "\"text\": \"class CommandRegistry:\""
+        }
+      ],
+      "COMPONENT": [
+        {
+          "file": ".\\components\\OpscoreAssistant.tsx",
+          "area": "COMPONENT",
+          "module": "general",
+          "line": 86233,
+          "text": "const dotClass = hasCritical"
+        }
+      ],
+      "OKE": [
+        {
+          "file": ".\\OKE\\adapters\\database_adapter.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91019,
+          "text": "class DatabaseAdapter(ABC):"
+        },
+        {
+          "file": ".\\OKE\\adapters\\database_adapter.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91021,
+          "text": "Base class for every database adapter."
+        },
+        {
+          "file": ".\\OKE\\adapters\\dummy_adapter.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91048,
+          "text": "class DummyAdapter(DatabaseAdapter):"
+        },
+        {
+          "file": ".\\OKE\\adapters\\supabase_adapter.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91104,
+          "text": "class SupabaseAdapter(DatabaseAdapter):"
+        },
+        {
+          "file": ".\\OKE\\aggregators\\result_aggregator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91155,
+          "text": "class AggregatedResult:"
+        },
+        {
+          "file": ".\\OKE\\aggregators\\result_aggregator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91160,
+          "text": "class ResultAggregator:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\impact_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91186,
+          "text": "class ImpactReport:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\impact_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91192,
+          "text": "class ImpactAnalyzer:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\module_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91214,
+          "text": "class ModuleImpact:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\module_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91218,
+          "text": "class ModuleAnalyzer:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\recommendation_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91249,
+          "text": "class EngineeringRecommendation:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\recommendation_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91253,
+          "text": "class RecommendationAnalyzer:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91289,
+          "text": "class RegressionPlan:"
+        },
+        {
+          "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91293,
+          "text": "class RegressionAnalyzer:"
+        },
+        {
+          "file": ".\\OKE\\cli\\commands.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91451,
+          "text": "class CLICommands:"
+        },
+        {
+          "file": ".\\OKE\\commander\\commander.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91513,
+          "text": "class Commander:"
+        },
+        {
+          "file": ".\\OKE\\commander\\commander.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91520,
+          "text": "specialist_class = self.registry.get(specialist_name)"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91547,
+          "text": "class SpecialistRegistry:"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91553,
+          "text": "specialist_class = registry.get(specialist_name)"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91555,
+          "text": "if specialist_class is None:"
+        },
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91586,
+          "text": "class AnalyzeCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\audit_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91692,
+          "text": "class AuditCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\base_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91810,
+          "text": "class BaseCommand(ABC):"
+        },
+        {
+          "file": ".\\OKE\\commands\\create_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91840,
+          "text": "class CreateCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\database_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91871,
+          "text": "class DatabaseCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\impact_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91944,
+          "text": "class ImpactCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\map_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92013,
+          "text": "class MapCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92104,
+          "text": "class CommandRegistry:"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92110,
+          "text": "command_class = registry.get(command_name)"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92112,
+          "text": "if command_class is None:"
+        },
+        {
+          "file": ".\\OKE\\commands\\relation_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92135,
+          "text": "class RelationCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\source_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92204,
+          "text": "class SourceCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\trace_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92256,
+          "text": "class TraceCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\context\\database_context.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92321,
+          "text": "class DatabaseContext:"
+        },
+        {
+          "file": ".\\OKE\\context\\engineering_context.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92340,
+          "text": "class EngineeringContext:"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92489,
+          "text": "class CoordinationPlan:"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92494,
+          "text": "class Coordinator:"
+        },
+        {
+          "file": ".\\OKE\\docs\\PROJECT_HISTORY.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 94013,
+          "text": "Engineering knowledge became a first-class part of the project."
+        },
+        {
+          "file": ".\\OKE\\events\\event_bus.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94335,
+          "text": "class EventBus:"
+        },
+        {
+          "file": ".\\OKE\\events\\events.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94367,
+          "text": "class Event:"
+        },
+        {
+          "file": ".\\OKE\\events\\events.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94374,
+          "text": "class EngineeringStarted(Event):"
+        },
+        {
+          "file": ".\\OKE\\events\\events.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94386,
+          "text": "class EngineeringFinished(Event):"
+        },
+        {
+          "file": ".\\OKE\\events\\events.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94399,
+          "text": "class SpecialistStarted(Event):"
+        },
+        {
+          "file": ".\\OKE\\events\\events.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94411,
+          "text": "class SpecialistFinished(Event):"
+        },
+        {
+          "file": ".\\OKE\\export\\collector.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94443,
+          "text": "class CollectionResult:"
+        },
+        {
+          "file": ".\\OKE\\export\\collector.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94453,
+          "text": "class ExportCollector:"
+        },
+        {
+          "file": ".\\OKE\\export\\copy_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94535,
+          "text": "class CopyManager:"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94647,
+          "text": "class ExportManager:"
+        },
+        {
+          "file": ".\\OKE\\export\\file_locator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94691,
+          "text": "class FileLocator:"
+        },
+        {
+          "file": ".\\OKE\\export\\manifest.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94731,
+          "text": "class ExportManifest:"
+        },
+        {
+          "file": ".\\OKE\\export\\packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94752,
+          "text": "class ExportPackager:"
+        },
+        {
+          "file": ".\\OKE\\export\\profiles.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94784,
+          "text": "class ExportProfiles:"
+        },
+        {
+          "file": ".\\OKE\\export\\project_inventory.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94893,
+          "text": "class ProjectInventory:"
+        },
+        {
+          "file": ".\\OKE\\export\\readme_generator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95015,
+          "text": "class ReadmeGenerator:"
+        },
+        {
+          "file": ".\\OKE\\export\\review_package_generator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95108,
+          "text": "class ReviewPackageGenerator:"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95618,
+          "text": "class ZipPackager:"
+        },
+        {
+          "file": ".\\OKE\\extractors\\database_extractor.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95693,
+          "text": "class DatabaseExtractor:"
+        },
+        {
+          "file": ".\\OKE\\generators\\generate_database_book.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95710,
+          "text": "class DatabaseBookGenerator:"
+        },
+        {
+          "file": ".\\OKE\\generators\\specialist_generator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95871,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95948,
+          "text": "class BaseGovernanceRule(ABC):"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\base_rule.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95987,
+          "text": "class BaseGovernanceRule(ABC):"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96014,
+          "text": "class SpecialistRule(BaseGovernanceRule):"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96035,
+          "text": "for name, specialist_class in registry.items():"
+        },
+        {
+          "file": ".\\OKE\\governance\\validator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96079,
+          "text": "class GovernanceValidator:"
+        },
+        {
+          "file": ".\\OKE\\models\\database_schema.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96249,
+          "text": "class DatabaseColumn:"
+        },
+        {
+          "file": ".\\OKE\\models\\database_schema.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96258,
+          "text": "class DatabaseTable:"
+        },
+        {
+          "file": ".\\OKE\\models\\database_schema.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96265,
+          "text": "class DatabaseSchema:"
+        },
+        {
+          "file": ".\\OKE\\models\\engineering_metrics.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96286,
+          "text": "class EngineeringMetrics:"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96340,
+          "text": "class OrchestratorResult:"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96346,
+          "text": "class Orchestrator:"
+        },
+        {
+          "file": ".\\OKE\\parsers\\sourcebook_parser.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96399,
+          "text": "class SourceBookParser:"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96583,
+          "text": "class EngineeringPipeline:"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96795,
+          "text": "class CommandRegistry:"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96801,
+          "text": "command_class = registry.get(command_name)"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96803,
+          "text": "if command_class is None:"
+        },
+        {
+          "file": ".\\OKE\\registry\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96820,
+          "text": "class Registry:"
+        },
+        {
+          "file": ".\\OKE\\results\\specialist_result.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96876,
+          "text": "class SpecialistResult:"
+        },
+        {
+          "file": ".\\OKE\\rules\\engineering_metrics.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96900,
+          "text": "class EngineeringMetricsCalculator:"
+        },
+        {
+          "file": ".\\OKE\\rules\\engineering_rules.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96924,
+          "text": "class EngineeringRules:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\approval\\specialist.py",
+          "area": "OKE",
+          "module": "approval",
+          "line": 97093,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\base.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97130,
+          "text": "class BaseSpecialist(ABC):"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97216,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\cash\\specialist.py",
+          "area": "OKE",
+          "module": "cash",
+          "line": 97310,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97397,
+          "text": "class DatabaseSpecialist(BaseSpecialist):"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97540,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97634,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payroll\\specialist.py",
+          "area": "OKE",
+          "module": "payroll",
+          "line": 97728,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\specialist.py",
+          "area": "OKE",
+          "module": "reservations",
+          "line": 97916,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\source\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97971,
+          "text": "class SourceSpecialist:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\template\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98020,
+          "text": "class TemplateSpecialist(BaseSpecialist):"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98314,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\timeline\\event.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98363,
+          "text": "class EngineeringEvent:"
+        },
+        {
+          "file": ".\\OKE\\timeline\\timeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98382,
+          "text": "class EngineeringTimeline:"
+        },
+        {
+          "file": ".\\OKE\\workspace\\comparator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98427,
+          "text": "class SnapshotComparator:"
+        },
+        {
+          "file": ".\\OKE\\workspace\\repository.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 112206,
+          "text": "class WorkspaceRepository:"
+        },
+        {
+          "file": ".\\OKE\\workspace\\snapshot_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 112273,
+          "text": "class SnapshotManager:"
+        },
+        {
+          "file": ".\\OKE\\workspace\\workspace_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 112363,
+          "text": "class WorkspaceManager:"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112455,
+          "text": "class DatabaseAdapter(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112457,
+          "text": "Base class for every database adapter."
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112484,
+          "text": "class DummyAdapter(DatabaseAdapter):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112540,
+          "text": "class SupabaseAdapter(DatabaseAdapter):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112591,
+          "text": "class AggregatedResult:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112596,
+          "text": "class ResultAggregator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112622,
+          "text": "class ImpactReport:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112628,
+          "text": "class ImpactAnalyzer:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112650,
+          "text": "class ModuleImpact:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112654,
+          "text": "class ModuleAnalyzer:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112685,
+          "text": "class EngineeringRecommendation:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112689,
+          "text": "class RecommendationAnalyzer:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112725,
+          "text": "class RegressionPlan:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112729,
+          "text": "class RegressionAnalyzer:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112760,
+          "text": "class DatabaseSchemaBuilder:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112783,
+          "text": "class DependencyBuilder(Builder):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112806,
+          "text": "class RelationshipBuilder(Builder):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112968,
+          "text": "class CLICommands:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113030,
+          "text": "class Commander:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113037,
+          "text": "specialist_class = self.registry.get(specialist_name)"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113064,
+          "text": "class SpecialistRegistry:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113070,
+          "text": "specialist_class = registry.get(specialist_name)"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113072,
+          "text": "if specialist_class is None:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113103,
+          "text": "class AnalyzeCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113207,
+          "text": "class BaseCommand(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113237,
+          "text": "class CreateCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113270,
+          "text": "class CommandRegistry:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113276,
+          "text": "command_class = registry.get(command_name)"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113278,
+          "text": "if command_class is None:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113305,
+          "text": "class DatabaseContext:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113324,
+          "text": "class EngineeringContext:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113337,
+          "text": "class Builder(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113489,
+          "text": "class CoordinationPlan:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113494,
+          "text": "class Coordinator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113767,
+          "text": "class EventBus:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113799,
+          "text": "class Event:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113806,
+          "text": "class EngineeringStarted(Event):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113818,
+          "text": "class EngineeringFinished(Event):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113831,
+          "text": "class SpecialistStarted(Event):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113843,
+          "text": "class SpecialistFinished(Event):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113871,
+          "text": "class DatabaseExtractor:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113888,
+          "text": "class DatabaseBookGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114049,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114101,
+          "text": "class GovernanceFinding:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114108,
+          "text": "class GovernanceReport:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114126,
+          "text": "class BaseGovernanceRule(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114165,
+          "text": "class BaseGovernanceRule(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114192,
+          "text": "class SpecialistRule(BaseGovernanceRule):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114213,
+          "text": "for name, specialist_class in registry.items():"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114257,
+          "text": "class GovernanceValidator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114413,
+          "text": "class DatabaseColumn:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114422,
+          "text": "class DatabaseTable:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114429,
+          "text": "class DatabaseSchema:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114450,
+          "text": "class EngineeringMetrics:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114470,
+          "text": "class EngineeringReport:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114504,
+          "text": "class OrchestratorResult:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114510,
+          "text": "class Orchestrator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114567,
+          "text": "class EngineeringPipeline:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114769,
+          "text": "class SpecialistResult:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114793,
+          "text": "class EngineeringMetricsCalculator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114817,
+          "text": "class EngineeringRules:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114845,
+          "text": "class EngineeringReportService:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114929,
+          "text": "class BaseSpecialist(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115022,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115116,
+          "text": "class DatabaseSpecialist(BaseSpecialist):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115266,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115367,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115468,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115569,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115624,
+          "text": "class SourceSpecialist:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115673,
+          "text": "class TemplateSpecialist(BaseSpecialist):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115904,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115953,
+          "text": "class EngineeringEvent:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115972,
+          "text": "class EngineeringTimeline:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 116017,
+          "text": "class SnapshotComparator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 116167,
+          "text": "class WorkspaceRepository:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 116234,
+          "text": "class SnapshotManager:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 116324,
+          "text": "class WorkspaceManager:"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\app\\(app)\\admin\\database-health\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 2010,
+        "text": "const valueClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\admin\\database-health\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 2017,
+        "text": "const cardClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\audit\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 2953,
+        "text": "const getIssueBadgeClass = (priority: FinancialIssuePriority) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\audit\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 3832,
+        "text": "const badgeClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\audit\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 3918,
+        "text": "const severityClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\dashboard\\page.tsx",
+        "area": "REPORT",
+        "module": "general",
+        "line": 6381,
+        "text": "const shellClass = isDanger"
+      },
+      {
+        "file": ".\\app\\(app)\\dashboard\\page.tsx",
+        "area": "REPORT",
+        "module": "general",
+        "line": 6387,
+        "text": "const dotClass = isDanger"
+      },
+      {
+        "file": ".\\app\\(app)\\dashboard\\page.tsx",
+        "area": "REPORT",
+        "module": "general",
+        "line": 6492,
+        "text": "const iconClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\bills\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 9947,
+        "text": "const valueClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 14097,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\attendance\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 14725,
+        "text": "const getShiftColorClass = (shiftName?: string | null) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\employee-balances\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 18225,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\manager\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 19473,
+        "text": "const getStatusClass = (status: RecordStatus) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 21798,
+        "text": "const valueClass = tone === \"blue\" ? \"text-blue-100\" : \"text-slate-100\";"
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\register\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 27436,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\payroll\\settings\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 27834,
+        "text": "const inputClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\room-sales\\page.tsx",
+        "area": "UI",
+        "module": "finance",
+        "line": 31184,
+        "text": "const valueClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\finance\\watcher\\page.tsx",
+        "area": "REPORT",
+        "module": "finance",
+        "line": 34177,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\forecasting\\page.tsx",
+        "area": "UI",
+        "module": "reservations",
+        "line": 35774,
+        "text": "const getBadgeClass = (status: string) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\forecasting\\page.tsx",
+        "area": "UI",
+        "module": "reservations",
+        "line": 35798,
+        "text": "const getGapClass = (gap: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40288,
+        "text": "const getStatusBadgeClass = (status: string) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\leave-management\\page.tsx",
+        "area": "UI",
+        "module": "leave_management",
+        "line": 40713,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\performance\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 42325,
+        "text": "const getScoreClass = (score: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\performance\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 42333,
+        "text": "const getBadgeClass = (score: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\performance\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 42341,
+        "text": "const getTrendClass = (delta: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\performance\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 43565,
+        "text": "const valueClass = danger"
+      },
+      {
+        "file": ".\\app\\(app)\\performance\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 43650,
+        "text": "const getScoreClass = (score: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\categories\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 45965,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\menu-items\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 47578,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\menu-items\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 47632,
+        "text": "const activeClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\parked-orders\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 48041,
+        "text": "const getStatusClass = (status: string) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\parked-orders\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 48067,
+        "text": "const getAgeClass = (minutes: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\production\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 48787,
+        "text": "const getLaneClass = (lane: LaneKey) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\production\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 48793,
+        "text": "const getLaneTextClass = (lane: LaneKey) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\production\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 48799,
+        "text": "const getActionClass = (lane: LaneKey) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\sessions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 49611,
+        "text": "const varianceClass = (value: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\settings\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 54366,
+        "text": "const toneClass = {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\settings\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 54392,
+        "text": "const toneClass = {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\terminal\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 55391,
+        "text": "const getPaymentButtonClass = (code: string, active: boolean) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\terminal\\transactions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 60219,
+        "text": "const getStatusClass = (status: string | null) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 61308,
+        "text": "const getStatusBadgeClass = (status: string | null) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\pos\\transactions\\page.tsx",
+        "area": "UI",
+        "module": "pos",
+        "line": 62510,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\(app)\\scheduling\\page.tsx",
+        "area": "UI",
+        "module": "general",
+        "line": 64837,
+        "text": "const getShiftColorClass = (shiftName: string) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\settings\\leave-credits\\page.tsx",
+        "area": "UI",
+        "module": "settings",
+        "line": 71302,
+        "text": "const getRemainingBadgeClass = (remaining: number) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\settings\\property\\page.tsx",
+        "area": "UI",
+        "module": "settings",
+        "line": 73274,
+        "text": "const getStatusBadgeClass = (unitStatus?: string | null) => {"
+      },
+      {
+        "file": ".\\app\\(app)\\settings\\user-credentials\\page.tsx",
+        "area": "UI",
+        "module": "settings",
+        "line": 74749,
+        "text": "const getBadgeClass = ("
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 82647,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 82656,
+        "text": "const iconClass ="
+      },
+      {
+        "file": ".\\app\\employee-portal\\page.tsx",
+        "area": "UI",
+        "module": "employees",
+        "line": 82687,
+        "text": "const toneClass ="
+      },
+      {
+        "file": ".\\components\\OpscoreAssistant.tsx",
+        "area": "COMPONENT",
+        "module": "general",
+        "line": 86233,
+        "text": "const dotClass = hasCritical"
+      },
+      {
+        "file": ".\\OKE\\adapters\\database_adapter.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91019,
+        "text": "class DatabaseAdapter(ABC):"
+      },
+      {
+        "file": ".\\OKE\\adapters\\database_adapter.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91021,
+        "text": "Base class for every database adapter."
+      },
+      {
+        "file": ".\\OKE\\adapters\\dummy_adapter.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91048,
+        "text": "class DummyAdapter(DatabaseAdapter):"
+      },
+      {
+        "file": ".\\OKE\\adapters\\supabase_adapter.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91104,
+        "text": "class SupabaseAdapter(DatabaseAdapter):"
+      },
+      {
+        "file": ".\\OKE\\aggregators\\result_aggregator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91155,
+        "text": "class AggregatedResult:"
+      },
+      {
+        "file": ".\\OKE\\aggregators\\result_aggregator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91160,
+        "text": "class ResultAggregator:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\impact_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91186,
+        "text": "class ImpactReport:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\impact_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91192,
+        "text": "class ImpactAnalyzer:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\module_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91214,
+        "text": "class ModuleImpact:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\module_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91218,
+        "text": "class ModuleAnalyzer:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\recommendation_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91249,
+        "text": "class EngineeringRecommendation:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\recommendation_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91253,
+        "text": "class RecommendationAnalyzer:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91289,
+        "text": "class RegressionPlan:"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91293,
+        "text": "class RegressionAnalyzer:"
+      },
+      {
+        "file": ".\\OKE\\cli\\commands.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91451,
+        "text": "class CLICommands:"
+      },
+      {
+        "file": ".\\OKE\\commander\\commander.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91513,
+        "text": "class Commander:"
+      },
+      {
+        "file": ".\\OKE\\commander\\commander.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91520,
+        "text": "specialist_class = self.registry.get(specialist_name)"
+      },
+      {
+        "file": ".\\OKE\\commander\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91547,
+        "text": "class SpecialistRegistry:"
+      },
+      {
+        "file": ".\\OKE\\commander\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91553,
+        "text": "specialist_class = registry.get(specialist_name)"
+      },
+      {
+        "file": ".\\OKE\\commander\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91555,
+        "text": "if specialist_class is None:"
+      },
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91586,
+        "text": "class AnalyzeCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\audit_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91692,
+        "text": "class AuditCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\base_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91810,
+        "text": "class BaseCommand(ABC):"
+      },
+      {
+        "file": ".\\OKE\\commands\\create_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91840,
+        "text": "class CreateCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\database_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91871,
+        "text": "class DatabaseCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\impact_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91944,
+        "text": "class ImpactCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\map_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92013,
+        "text": "class MapCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92104,
+        "text": "class CommandRegistry:"
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92110,
+        "text": "command_class = registry.get(command_name)"
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92112,
+        "text": "if command_class is None:"
+      },
+      {
+        "file": ".\\OKE\\commands\\relation_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92135,
+        "text": "class RelationCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\source_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92204,
+        "text": "class SourceCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\trace_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92256,
+        "text": "class TraceCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\context\\database_context.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92321,
+        "text": "class DatabaseContext:"
+      },
+      {
+        "file": ".\\OKE\\context\\engineering_context.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92340,
+        "text": "class EngineeringContext:"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92489,
+        "text": "class CoordinationPlan:"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92494,
+        "text": "class Coordinator:"
+      },
+      {
+        "file": ".\\OKE\\docs\\PROJECT_HISTORY.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 94013,
+        "text": "Engineering knowledge became a first-class part of the project."
+      },
+      {
+        "file": ".\\OKE\\events\\event_bus.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94335,
+        "text": "class EventBus:"
+      },
+      {
+        "file": ".\\OKE\\events\\events.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94367,
+        "text": "class Event:"
+      },
+      {
+        "file": ".\\OKE\\events\\events.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94374,
+        "text": "class EngineeringStarted(Event):"
+      },
+      {
+        "file": ".\\OKE\\events\\events.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94386,
+        "text": "class EngineeringFinished(Event):"
+      },
+      {
+        "file": ".\\OKE\\events\\events.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94399,
+        "text": "class SpecialistStarted(Event):"
+      },
+      {
+        "file": ".\\OKE\\events\\events.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94411,
+        "text": "class SpecialistFinished(Event):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94443,
+        "text": "class CollectionResult:"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94453,
+        "text": "class ExportCollector:"
+      },
+      {
+        "file": ".\\OKE\\export\\copy_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94535,
+        "text": "class CopyManager:"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94647,
+        "text": "class ExportManager:"
+      },
+      {
+        "file": ".\\OKE\\export\\file_locator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94691,
+        "text": "class FileLocator:"
+      },
+      {
+        "file": ".\\OKE\\export\\manifest.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94731,
+        "text": "class ExportManifest:"
+      },
+      {
+        "file": ".\\OKE\\export\\packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94752,
+        "text": "class ExportPackager:"
+      },
+      {
+        "file": ".\\OKE\\export\\profiles.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94784,
+        "text": "class ExportProfiles:"
+      },
+      {
+        "file": ".\\OKE\\export\\project_inventory.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94893,
+        "text": "class ProjectInventory:"
+      },
+      {
+        "file": ".\\OKE\\export\\readme_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95015,
+        "text": "class ReadmeGenerator:"
+      },
+      {
+        "file": ".\\OKE\\export\\review_package_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95108,
+        "text": "class ReviewPackageGenerator:"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95618,
+        "text": "class ZipPackager:"
+      },
+      {
+        "file": ".\\OKE\\extractors\\database_extractor.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95693,
+        "text": "class DatabaseExtractor:"
+      },
+      {
+        "file": ".\\OKE\\generators\\generate_database_book.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95710,
+        "text": "class DatabaseBookGenerator:"
+      },
+      {
+        "file": ".\\OKE\\generators\\specialist_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95871,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\governance\\report.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 95923,
+        "text": "class GovernanceFinding:"
+      },
+      {
+        "file": ".\\OKE\\governance\\report.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 95930,
+        "text": "class GovernanceReport:"
+      },
+      {
+        "file": ".\\OKE\\governance\\rules.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95948,
+        "text": "class BaseGovernanceRule(ABC):"
+      },
+      {
+        "file": ".\\OKE\\governance\\rules\\base_rule.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95987,
+        "text": "class BaseGovernanceRule(ABC):"
+      },
+      {
+        "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96014,
+        "text": "class SpecialistRule(BaseGovernanceRule):"
+      },
+      {
+        "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96035,
+        "text": "for name, specialist_class in registry.items():"
+      },
+      {
+        "file": ".\\OKE\\governance\\validator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96079,
+        "text": "class GovernanceValidator:"
+      },
+      {
+        "file": ".\\OKE\\models\\database_schema.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96249,
+        "text": "class DatabaseColumn:"
+      },
+      {
+        "file": ".\\OKE\\models\\database_schema.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96258,
+        "text": "class DatabaseTable:"
+      },
+      {
+        "file": ".\\OKE\\models\\database_schema.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96265,
+        "text": "class DatabaseSchema:"
+      },
+      {
+        "file": ".\\OKE\\models\\engineering_metrics.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96286,
+        "text": "class EngineeringMetrics:"
+      },
+      {
+        "file": ".\\OKE\\models\\engineering_report.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 96306,
+        "text": "class EngineeringReport:"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96340,
+        "text": "class OrchestratorResult:"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96346,
+        "text": "class Orchestrator:"
+      },
+      {
+        "file": ".\\OKE\\parsers\\sourcebook_parser.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96399,
+        "text": "class SourceBookParser:"
+      },
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96583,
+        "text": "class EngineeringPipeline:"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96795,
+        "text": "class CommandRegistry:"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96801,
+        "text": "command_class = registry.get(command_name)"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96803,
+        "text": "if command_class is None:"
+      },
+      {
+        "file": ".\\OKE\\registry\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96820,
+        "text": "class Registry:"
+      },
+      {
+        "file": ".\\OKE\\results\\specialist_result.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96876,
+        "text": "class SpecialistResult:"
+      },
+      {
+        "file": ".\\OKE\\rules\\engineering_metrics.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96900,
+        "text": "class EngineeringMetricsCalculator:"
+      },
+      {
+        "file": ".\\OKE\\rules\\engineering_rules.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96924,
+        "text": "class EngineeringRules:"
+      },
+      {
+        "file": ".\\OKE\\services\\engineering_report_service.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 96952,
+        "text": "class EngineeringReportService:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\approval\\specialist.py",
+        "area": "OKE",
+        "module": "approval",
+        "line": 97093,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\base.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97130,
+        "text": "class BaseSpecialist(ABC):"
+      },
+      {
+        "file": ".\\OKE\\specialists\\billing\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97216,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\cash\\specialist.py",
+        "area": "OKE",
+        "module": "cash",
+        "line": 97310,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\database\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97397,
+        "text": "class DatabaseSpecialist(BaseSpecialist):"
+      },
+      {
+        "file": ".\\OKE\\specialists\\inventory\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97540,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\payments\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97634,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\payroll\\specialist.py",
+        "area": "OKE",
+        "module": "payroll",
+        "line": 97728,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\reports\\specialist.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 97822,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\reservation\\specialist.py",
+        "area": "OKE",
+        "module": "reservations",
+        "line": 97916,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\source\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97971,
+        "text": "class SourceSpecialist:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\template\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98020,
+        "text": "class TemplateSpecialist(BaseSpecialist):"
+      },
+      {
+        "file": ".\\OKE\\templates\\specialist\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98314,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\timeline\\event.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98363,
+        "text": "class EngineeringEvent:"
+      },
+      {
+        "file": ".\\OKE\\timeline\\timeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98382,
+        "text": "class EngineeringTimeline:"
+      },
+      {
+        "file": ".\\OKE\\workspace\\comparator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98427,
+        "text": "class SnapshotComparator:"
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111455,
+        "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111462,
+        "text": "\"text\": \"class BaseCommand(ABC):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111483,
+        "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111527,
+        "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111534,
+        "text": "\"text\": \"class BaseCommand(ABC):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111555,
+        "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111586,
+        "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111593,
+        "text": "\"text\": \"class BaseCommand(ABC):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111614,
+        "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111656,
+        "text": "\"text\": \"class AnalyzeCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111663,
+        "text": "\"text\": \"class BaseCommand(ABC):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111684,
+        "text": "\"text\": \"class CreateCommand(BaseCommand):\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111738,
+        "text": "\"text\": \"class CommandRegistry:\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111752,
+        "text": "\"text\": \"class CommandRegistry:\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111775,
+        "text": "\"text\": \"class CommandRegistry:\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111799,
+        "text": "\"text\": \"class CommandRegistry:\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111813,
+        "text": "\"text\": \"class CommandRegistry:\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 111834,
+        "text": "\"text\": \"class CommandRegistry:\""
+      },
+      {
+        "file": ".\\OKE\\workspace\\repository.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 112206,
+        "text": "class WorkspaceRepository:"
+      },
+      {
+        "file": ".\\OKE\\workspace\\snapshot_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 112273,
+        "text": "class SnapshotManager:"
+      },
+      {
+        "file": ".\\OKE\\workspace\\workspace_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 112363,
+        "text": "class WorkspaceManager:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112455,
+        "text": "class DatabaseAdapter(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112457,
+        "text": "Base class for every database adapter."
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112484,
+        "text": "class DummyAdapter(DatabaseAdapter):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112540,
+        "text": "class SupabaseAdapter(DatabaseAdapter):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112591,
+        "text": "class AggregatedResult:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112596,
+        "text": "class ResultAggregator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112622,
+        "text": "class ImpactReport:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112628,
+        "text": "class ImpactAnalyzer:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112650,
+        "text": "class ModuleImpact:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112654,
+        "text": "class ModuleAnalyzer:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112685,
+        "text": "class EngineeringRecommendation:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112689,
+        "text": "class RecommendationAnalyzer:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112725,
+        "text": "class RegressionPlan:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112729,
+        "text": "class RegressionAnalyzer:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112760,
+        "text": "class DatabaseSchemaBuilder:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112783,
+        "text": "class DependencyBuilder(Builder):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112806,
+        "text": "class RelationshipBuilder(Builder):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112968,
+        "text": "class CLICommands:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113030,
+        "text": "class Commander:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113037,
+        "text": "specialist_class = self.registry.get(specialist_name)"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113064,
+        "text": "class SpecialistRegistry:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113070,
+        "text": "specialist_class = registry.get(specialist_name)"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113072,
+        "text": "if specialist_class is None:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113103,
+        "text": "class AnalyzeCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113207,
+        "text": "class BaseCommand(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113237,
+        "text": "class CreateCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113270,
+        "text": "class CommandRegistry:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113276,
+        "text": "command_class = registry.get(command_name)"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113278,
+        "text": "if command_class is None:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113305,
+        "text": "class DatabaseContext:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113324,
+        "text": "class EngineeringContext:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113337,
+        "text": "class Builder(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113489,
+        "text": "class CoordinationPlan:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113494,
+        "text": "class Coordinator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113767,
+        "text": "class EventBus:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113799,
+        "text": "class Event:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113806,
+        "text": "class EngineeringStarted(Event):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113818,
+        "text": "class EngineeringFinished(Event):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113831,
+        "text": "class SpecialistStarted(Event):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113843,
+        "text": "class SpecialistFinished(Event):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113871,
+        "text": "class DatabaseExtractor:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113888,
+        "text": "class DatabaseBookGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114049,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114101,
+        "text": "class GovernanceFinding:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114108,
+        "text": "class GovernanceReport:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114126,
+        "text": "class BaseGovernanceRule(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114165,
+        "text": "class BaseGovernanceRule(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114192,
+        "text": "class SpecialistRule(BaseGovernanceRule):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114213,
+        "text": "for name, specialist_class in registry.items():"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114257,
+        "text": "class GovernanceValidator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114413,
+        "text": "class DatabaseColumn:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114422,
+        "text": "class DatabaseTable:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114429,
+        "text": "class DatabaseSchema:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114450,
+        "text": "class EngineeringMetrics:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114470,
+        "text": "class EngineeringReport:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114504,
+        "text": "class OrchestratorResult:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114510,
+        "text": "class Orchestrator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114567,
+        "text": "class EngineeringPipeline:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114769,
+        "text": "class SpecialistResult:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114793,
+        "text": "class EngineeringMetricsCalculator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114817,
+        "text": "class EngineeringRules:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114845,
+        "text": "class EngineeringReportService:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114929,
+        "text": "class BaseSpecialist(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115022,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115116,
+        "text": "class DatabaseSpecialist(BaseSpecialist):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115266,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115367,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115468,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115569,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115624,
+        "text": "class SourceSpecialist:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115673,
+        "text": "class TemplateSpecialist(BaseSpecialist):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115904,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115953,
+        "text": "class EngineeringEvent:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115972,
+        "text": "class EngineeringTimeline:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 116017,
+        "text": "class SnapshotComparator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 116167,
+        "text": "class WorkspaceRepository:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 116234,
+        "text": "class SnapshotManager:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 116324,
+        "text": "class WorkspaceManager:"
+      }
+    ]
+  }
+}

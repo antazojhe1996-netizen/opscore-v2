@@ -7,10 +7,10 @@ Primary Language: Python
 
 ## Counts
 
-- Commands: 2
-- Specialists: 14
+- Commands: 16
+- Specialists: 17
 - Builders: 3
-- Analyzers: 4
+- Analyzers: 12
 - Pipelines: 1
 - Services: 1
 

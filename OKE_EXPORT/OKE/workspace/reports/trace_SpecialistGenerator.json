@@ -1,0 +1,313 @@
+{
+  "name": "trace_SpecialistGenerator",
+  "generated_at": "2026-06-28T15:15:49.799544",
+  "data": {
+    "keyword": "SpecialistGenerator",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 21,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\cli\\commands.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91448,
+          "text": "from OKE.generators.specialist_generator import SpecialistGenerator"
+        },
+        {
+          "file": ".\\OKE\\cli\\commands.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91455,
+          "text": "generator = SpecialistGenerator()"
+        },
+        {
+          "file": ".\\OKE\\generators\\specialist_generator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95871,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\approval\\specialist.py",
+          "area": "OKE",
+          "module": "approval",
+          "line": 97093,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\billing\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97216,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\cash\\specialist.py",
+          "area": "OKE",
+          "module": "cash",
+          "line": 97310,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\inventory\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97540,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payments\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97634,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\payroll\\specialist.py",
+          "area": "OKE",
+          "module": "payroll",
+          "line": 97728,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\specialists\\reservation\\specialist.py",
+          "area": "OKE",
+          "module": "reservations",
+          "line": 97916,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE\\templates\\specialist\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98314,
+          "text": "class SpecialistGenerator:"
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\specialists\\reports\\specialist.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 97822,
+          "text": "class SpecialistGenerator:"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112965,
+          "text": "from OKE.generators.specialist_generator import SpecialistGenerator"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112972,
+          "text": "generator = SpecialistGenerator()"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114049,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115022,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115266,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115367,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115468,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115569,
+          "text": "class SpecialistGenerator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115904,
+          "text": "class SpecialistGenerator:"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\cli\\commands.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91448,
+        "text": "from OKE.generators.specialist_generator import SpecialistGenerator"
+      },
+      {
+        "file": ".\\OKE\\cli\\commands.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91455,
+        "text": "generator = SpecialistGenerator()"
+      },
+      {
+        "file": ".\\OKE\\generators\\specialist_generator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95871,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\approval\\specialist.py",
+        "area": "OKE",
+        "module": "approval",
+        "line": 97093,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\billing\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97216,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\cash\\specialist.py",
+        "area": "OKE",
+        "module": "cash",
+        "line": 97310,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\inventory\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97540,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\payments\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97634,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\payroll\\specialist.py",
+        "area": "OKE",
+        "module": "payroll",
+        "line": 97728,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\reports\\specialist.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 97822,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\specialists\\reservation\\specialist.py",
+        "area": "OKE",
+        "module": "reservations",
+        "line": 97916,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE\\templates\\specialist\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98314,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112965,
+        "text": "from OKE.generators.specialist_generator import SpecialistGenerator"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112972,
+        "text": "generator = SpecialistGenerator()"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114049,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115022,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115266,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115367,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115468,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115569,
+        "text": "class SpecialistGenerator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115904,
+        "text": "class SpecialistGenerator:"
+      }
+    ]
+  }
+}

@@ -1,0 +1,1039 @@
+{
+  "name": "trace_zip_packager",
+  "generated_at": "2026-06-28T16:20:01.444491",
+  "data": {
+    "keyword": "zip_packager",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 73,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94644,
+          "text": "from OKE.export.zip_packager import ZipPackager"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94653,
+          "text": "self.zip_packager = ZipPackager()"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94671,
+          "text": "zip_result = self.zip_packager.package(profile)"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95608,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95609,
+          "text": "Lines: 63"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95610,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95611,
+          "text": "``py"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95612,
+          "text": "from pathlib import Path"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95613,
+          "text": "from zipfile import ZIP_DEFLATED, ZipFile"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95614,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95615,
+          "text": "from OKE.export.profiles import ExportProfiles"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95616,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95617,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95618,
+          "text": "class ZipPackager:"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95619,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95620,
+          "text": "def __init__(self):"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95621,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95622,
+          "text": "self.project_root = Path.cwd()"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95623,
+          "text": "self.export_dir = self.project_root / \"OKE_EXPORT\""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95624,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95625,
+          "text": "def package(self, profile=\"review\"):"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95626,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95627,
+          "text": "export_profile = ExportProfiles.get(profile)"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95628,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95629,
+          "text": "self.export_dir.mkdir(parents=True, exist_ok=True)"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95630,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95631,
+          "text": "output_zip = self.export_dir / export_profile[\"output_zip\"]"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95632,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95633,
+          "text": "files = []"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95634,
+          "text": "missing = []"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95635,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95636,
+          "text": "with ZipFile(output_zip, \"w\", ZIP_DEFLATED) as archive:"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95637,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95638,
+          "text": "for artifact in export_profile[\"artifacts\"]:"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95639,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95640,
+          "text": "path = self.export_dir / artifact"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95641,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95642,
+          "text": "if not path.exists():"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95643,
+          "text": "missing.append(artifact)"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95644,
+          "text": "continue"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95645,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95646,
+          "text": "if path.is_file():"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95647,
+          "text": "archive.write("
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95648,
+          "text": "path,"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95649,
+          "text": "arcname=path.relative_to(self.export_dir),"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95650,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95651,
+          "text": "files.append(artifact)"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95652,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95653,
+          "text": "if path.is_dir():"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95654,
+          "text": "for child in sorted(path.rglob(\"*\")):"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95655,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95656,
+          "text": "if not child.is_file():"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95657,
+          "text": "continue"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95658,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95659,
+          "text": "archive.write("
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95660,
+          "text": "child,"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95661,
+          "text": "arcname=child.relative_to(self.export_dir),"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95662,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95663,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95664,
+          "text": "files.append(str(child.relative_to(self.export_dir)))"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95665,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95666,
+          "text": "return {"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95667,
+          "text": "\"profile\": profile,"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95668,
+          "text": "\"name\": export_profile[\"name\"],"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95669,
+          "text": "\"zip\": str(output_zip),"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95670,
+          "text": "\"files\": files,"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95671,
+          "text": "\"missing\": missing,"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95672,
+          "text": "\"count\": len(files),"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95673,
+          "text": "\"passed\": output_zip.exists() and len(missing) == 0,"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95674,
+          "text": "}"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95675,
+          "text": "``"
+        },
+        {
+          "file": ".\\OKE\\export\\zip_packager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95676,
+          "text": ""
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 110029,
+          "text": "\"file\": \".\\\\OKE\\\\export\\\\zip_packager.py\","
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94644,
+        "text": "from OKE.export.zip_packager import ZipPackager"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94653,
+        "text": "self.zip_packager = ZipPackager()"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94671,
+        "text": "zip_result = self.zip_packager.package(profile)"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95608,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95609,
+        "text": "Lines: 63"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95610,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95611,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95612,
+        "text": "from pathlib import Path"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95613,
+        "text": "from zipfile import ZIP_DEFLATED, ZipFile"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95614,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95615,
+        "text": "from OKE.export.profiles import ExportProfiles"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95616,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95617,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95618,
+        "text": "class ZipPackager:"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95619,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95620,
+        "text": "def __init__(self):"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95621,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95622,
+        "text": "self.project_root = Path.cwd()"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95623,
+        "text": "self.export_dir = self.project_root / \"OKE_EXPORT\""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95624,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95625,
+        "text": "def package(self, profile=\"review\"):"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95626,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95627,
+        "text": "export_profile = ExportProfiles.get(profile)"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95628,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95629,
+        "text": "self.export_dir.mkdir(parents=True, exist_ok=True)"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95630,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95631,
+        "text": "output_zip = self.export_dir / export_profile[\"output_zip\"]"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95632,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95633,
+        "text": "files = []"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95634,
+        "text": "missing = []"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95635,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95636,
+        "text": "with ZipFile(output_zip, \"w\", ZIP_DEFLATED) as archive:"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95637,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95638,
+        "text": "for artifact in export_profile[\"artifacts\"]:"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95639,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95640,
+        "text": "path = self.export_dir / artifact"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95641,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95642,
+        "text": "if not path.exists():"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95643,
+        "text": "missing.append(artifact)"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95644,
+        "text": "continue"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95645,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95646,
+        "text": "if path.is_file():"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95647,
+        "text": "archive.write("
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95648,
+        "text": "path,"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95649,
+        "text": "arcname=path.relative_to(self.export_dir),"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95650,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95651,
+        "text": "files.append(artifact)"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95652,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95653,
+        "text": "if path.is_dir():"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95654,
+        "text": "for child in sorted(path.rglob(\"*\")):"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95655,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95656,
+        "text": "if not child.is_file():"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95657,
+        "text": "continue"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95658,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95659,
+        "text": "archive.write("
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95660,
+        "text": "child,"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95661,
+        "text": "arcname=child.relative_to(self.export_dir),"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95662,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95663,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95664,
+        "text": "files.append(str(child.relative_to(self.export_dir)))"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95665,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95666,
+        "text": "return {"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95667,
+        "text": "\"profile\": profile,"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95668,
+        "text": "\"name\": export_profile[\"name\"],"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95669,
+        "text": "\"zip\": str(output_zip),"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95670,
+        "text": "\"files\": files,"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95671,
+        "text": "\"missing\": missing,"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95672,
+        "text": "\"count\": len(files),"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95673,
+        "text": "\"passed\": output_zip.exists() and len(missing) == 0,"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95674,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95675,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\export\\zip_packager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95676,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 110029,
+        "text": "\"file\": \".\\\\OKE\\\\export\\\\zip_packager.py\","
+      }
+    ]
+  }
+}

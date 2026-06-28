@@ -1,0 +1,269 @@
+{
+  "name": "trace_BaseCommand",
+  "generated_at": "2026-06-28T14:44:13.914762",
+  "data": {
+    "keyword": "BaseCommand",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 18,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92204,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92211,
+          "text": "class AnalyzeCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\base_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92316,
+          "text": "class BaseCommand(ABC):"
+        },
+        {
+          "file": ".\\OKE\\commands\\base_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92326,
+          "text": "BaseCommand._registry[cls.name] = cls"
+        },
+        {
+          "file": ".\\OKE\\commands\\create_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92343,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\commands\\create_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92347,
+          "text": "class CreateCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92374,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92385,
+          "text": "registry = BaseCommand.registry()"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96614,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96625,
+          "text": "registry = BaseCommand.registry()"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99103,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99110,
+          "text": "class AnalyzeCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99214,
+          "text": "class BaseCommand(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99224,
+          "text": "BaseCommand._registry[cls.name] = cls"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99240,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99244,
+          "text": "class CreateCommand(BaseCommand):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99270,
+          "text": "from OKE.commands.base_command import BaseCommand"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99281,
+          "text": "registry = BaseCommand.registry()"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92204,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92211,
+        "text": "class AnalyzeCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\base_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92316,
+        "text": "class BaseCommand(ABC):"
+      },
+      {
+        "file": ".\\OKE\\commands\\base_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92326,
+        "text": "BaseCommand._registry[cls.name] = cls"
+      },
+      {
+        "file": ".\\OKE\\commands\\create_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92343,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\commands\\create_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92347,
+        "text": "class CreateCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92374,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92385,
+        "text": "registry = BaseCommand.registry()"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96614,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96625,
+        "text": "registry = BaseCommand.registry()"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99103,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99110,
+        "text": "class AnalyzeCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99214,
+        "text": "class BaseCommand(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99224,
+        "text": "BaseCommand._registry[cls.name] = cls"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99240,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99244,
+        "text": "class CreateCommand(BaseCommand):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99270,
+        "text": "from OKE.commands.base_command import BaseCommand"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99281,
+        "text": "registry = BaseCommand.registry()"
+      }
+    ]
+  }
+}

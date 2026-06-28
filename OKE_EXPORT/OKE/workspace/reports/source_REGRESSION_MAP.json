@@ -1,0 +1,459 @@
+{
+  "name": "source_REGRESSION_MAP",
+  "generated_at": "2026-06-28T16:03:53.628655",
+  "data": {
+    "search_text": "REGRESSION_MAP",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 64,
+    "matches": [
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91285,
+        "text": "from OKE.knowledge.regression_map import REGRESSION_MAP"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91301,
+        "text": "REGRESSION_MAP.get(module, [])"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96175,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96176,
+        "text": "Lines: 51"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96177,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96178,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96179,
+        "text": "REGRESSION_MAP = {"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96180,
+        "text": "\"Workforce\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96181,
+        "text": "\"Create Employee\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96182,
+        "text": "\"Edit Employee\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96183,
+        "text": "\"Deactivate Employee\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96184,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96185,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96186,
+        "text": "\"Attendance\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96187,
+        "text": "\"Time In\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96188,
+        "text": "\"Time Out\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96189,
+        "text": "\"Attendance Import\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96190,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96191,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96192,
+        "text": "\"Payroll\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96193,
+        "text": "\"Generate Payroll\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96194,
+        "text": "\"Release Payroll\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96195,
+        "text": "\"Payslip Generation\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96196,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96197,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96198,
+        "text": "\"Leave\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96199,
+        "text": "\"Leave Request\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96200,
+        "text": "\"Leave Approval\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96201,
+        "text": "\"Leave Balance\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96202,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96203,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96204,
+        "text": "\"Finance\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96205,
+        "text": "\"Cash In\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96206,
+        "text": "\"Cash Out\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96207,
+        "text": "\"Cash Drawer\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96208,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96209,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96210,
+        "text": "\"POS\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96211,
+        "text": "\"Open Session\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96212,
+        "text": "\"Close Session\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96213,
+        "text": "\"POS Login\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96214,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96215,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96216,
+        "text": "\"Security\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96217,
+        "text": "\"User Login\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96218,
+        "text": "\"Role Permission\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96219,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96220,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96221,
+        "text": "\"Approval Center\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96222,
+        "text": "\"Approval Routing\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96223,
+        "text": "\"Approval Decision\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96224,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96225,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96226,
+        "text": "\"Core\": ["
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96227,
+        "text": "\"Company Loading\","
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96228,
+        "text": "],"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96229,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96230,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\knowledge\\regression_map.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96231,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 110131,
+        "text": "\"file\": \".\\\\OKE\\\\knowledge\\\\regression_map.py\","
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112721,
+        "text": "from OKE.knowledge.regression_map import REGRESSION_MAP"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112737,
+        "text": "REGRESSION_MAP.get(module, [])"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114340,
+        "text": "## OKE\\knowledge\\regression_map.py"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114343,
+        "text": "REGRESSION_MAP = {"
+      }
+    ]
+  }
+}

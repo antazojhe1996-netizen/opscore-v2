@@ -1,0 +1,57 @@
+{
+  "name": "trace_from OKE.parsers",
+  "generated_at": "2026-06-28T16:10:40.298153",
+  "data": {
+    "keyword": "from OKE.parsers",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 3,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\commands\\map_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92010,
+          "text": "from OKE.parsers.sourcebook_parser import SourceBookParser"
+        },
+        {
+          "file": ".\\OKE\\commands\\source_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92201,
+          "text": "from OKE.parsers.sourcebook_parser import SourceBookParser"
+        },
+        {
+          "file": ".\\OKE\\commands\\trace_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92253,
+          "text": "from OKE.parsers.sourcebook_parser import SourceBookParser"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\commands\\map_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92010,
+        "text": "from OKE.parsers.sourcebook_parser import SourceBookParser"
+      },
+      {
+        "file": ".\\OKE\\commands\\source_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92201,
+        "text": "from OKE.parsers.sourcebook_parser import SourceBookParser"
+      },
+      {
+        "file": ".\\OKE\\commands\\trace_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92253,
+        "text": "from OKE.parsers.sourcebook_parser import SourceBookParser"
+      }
+    ]
+  }
+}

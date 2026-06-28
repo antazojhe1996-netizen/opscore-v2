@@ -1,0 +1,45 @@
+{
+  "name": "trace_from OKE.services",
+  "generated_at": "2026-06-28T16:10:40.771928",
+  "data": {
+    "keyword": "from OKE.services",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 2,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96580,
+          "text": "from OKE.services.engineering_report_service import EngineeringReportService"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114564,
+          "text": "from OKE.services.engineering_report_service import EngineeringReportService"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96580,
+        "text": "from OKE.services.engineering_report_service import EngineeringReportService"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114564,
+        "text": "from OKE.services.engineering_report_service import EngineeringReportService"
+      }
+    ]
+  }
+}

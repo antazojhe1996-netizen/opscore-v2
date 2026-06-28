@@ -1,0 +1,409 @@
+{
+  "name": "trace_BaseSpecialist",
+  "generated_at": "2026-06-28T15:15:49.310398",
+  "data": {
+    "keyword": "BaseSpecialist",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 28,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91541,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91544,
+          "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91551,
+          "text": "registry = BaseSpecialist.registry()"
+        },
+        {
+          "file": ".\\OKE\\commander\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91563,
+          "text": "return sorted(BaseSpecialist.registry().keys())"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96011,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96023,
+          "text": "registry = BaseSpecialist.registry()"
+        },
+        {
+          "file": ".\\OKE\\governance\\validator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96075,
+          "text": "# Import specialists to trigger BaseSpecialist auto-registration"
+        },
+        {
+          "file": ".\\OKE\\governance\\validator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96076,
+          "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+        },
+        {
+          "file": ".\\OKE\\specialists\\base.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97130,
+          "text": "class BaseSpecialist(ABC):"
+        },
+        {
+          "file": ".\\OKE\\specialists\\base.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97140,
+          "text": "BaseSpecialist._registry[cls.name] = cls"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97394,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE\\specialists\\database\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 97397,
+          "text": "class DatabaseSpecialist(BaseSpecialist):"
+        },
+        {
+          "file": ".\\OKE\\specialists\\template\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98017,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE\\specialists\\template\\specialist.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 98020,
+          "text": "class TemplateSpecialist(BaseSpecialist):"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113058,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113061,
+          "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113068,
+          "text": "registry = BaseSpecialist.registry()"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113080,
+          "text": "return sorted(BaseSpecialist.registry().keys())"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114189,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114201,
+          "text": "registry = BaseSpecialist.registry()"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114253,
+          "text": "# Import specialists to trigger BaseSpecialist auto-registration"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114254,
+          "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114929,
+          "text": "class BaseSpecialist(ABC):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114939,
+          "text": "BaseSpecialist._registry[cls.name] = cls"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115113,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115116,
+          "text": "class DatabaseSpecialist(BaseSpecialist):"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115670,
+          "text": "from OKE.specialists.base import BaseSpecialist"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 115673,
+          "text": "class TemplateSpecialist(BaseSpecialist):"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\commander\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91541,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE\\commander\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91544,
+        "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+      },
+      {
+        "file": ".\\OKE\\commander\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91551,
+        "text": "registry = BaseSpecialist.registry()"
+      },
+      {
+        "file": ".\\OKE\\commander\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91563,
+        "text": "return sorted(BaseSpecialist.registry().keys())"
+      },
+      {
+        "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96011,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE\\governance\\rules\\specialist_rule.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96023,
+        "text": "registry = BaseSpecialist.registry()"
+      },
+      {
+        "file": ".\\OKE\\governance\\validator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96075,
+        "text": "# Import specialists to trigger BaseSpecialist auto-registration"
+      },
+      {
+        "file": ".\\OKE\\governance\\validator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96076,
+        "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+      },
+      {
+        "file": ".\\OKE\\specialists\\base.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97130,
+        "text": "class BaseSpecialist(ABC):"
+      },
+      {
+        "file": ".\\OKE\\specialists\\base.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97140,
+        "text": "BaseSpecialist._registry[cls.name] = cls"
+      },
+      {
+        "file": ".\\OKE\\specialists\\database\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97394,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE\\specialists\\database\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 97397,
+        "text": "class DatabaseSpecialist(BaseSpecialist):"
+      },
+      {
+        "file": ".\\OKE\\specialists\\template\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98017,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE\\specialists\\template\\specialist.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 98020,
+        "text": "class TemplateSpecialist(BaseSpecialist):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113058,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113061,
+        "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113068,
+        "text": "registry = BaseSpecialist.registry()"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113080,
+        "text": "return sorted(BaseSpecialist.registry().keys())"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114189,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114201,
+        "text": "registry = BaseSpecialist.registry()"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114253,
+        "text": "# Import specialists to trigger BaseSpecialist auto-registration"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114254,
+        "text": "from OKE.specialists.database.specialist import DatabaseSpecialist"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114929,
+        "text": "class BaseSpecialist(ABC):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114939,
+        "text": "BaseSpecialist._registry[cls.name] = cls"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115113,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115116,
+        "text": "class DatabaseSpecialist(BaseSpecialist):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115670,
+        "text": "from OKE.specialists.base import BaseSpecialist"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 115673,
+        "text": "class TemplateSpecialist(BaseSpecialist):"
+      }
+    ]
+  }
+}

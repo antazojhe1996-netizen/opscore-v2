@@ -1,0 +1,710 @@
+{
+  "name": "dependency_audit",
+  "generated_at": "2026-06-28T16:11:38.292509",
+  "data": {
+    "score": 100.0,
+    "status": "READY",
+    "layers": [
+      {
+        "name": "CLI",
+        "status": "PASS",
+        "score": 100.0,
+        "items": [
+          {
+            "path": "OKE/__main__.py",
+            "exists": true,
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "name": "Registry",
+        "status": "PASS",
+        "score": 100.0,
+        "items": [
+          {
+            "path": "OKE/registry/command_registry.py",
+            "exists": true,
+            "type": "file"
+          },
+          {
+            "path": "OKE/commands/base_command.py",
+            "exists": true,
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "name": "Commands",
+        "status": "PASS",
+        "score": 100,
+        "folder": "OKE/commands",
+        "file_count": 14,
+        "items": [
+          {
+            "path": "OKE\\commands\\analyze_command.py",
+            "size": 3516
+          },
+          {
+            "path": "OKE\\commands\\audit_command.py",
+            "size": 3633
+          },
+          {
+            "path": "OKE\\commands\\base_command.py",
+            "size": 481
+          },
+          {
+            "path": "OKE\\commands\\create_command.py",
+            "size": 534
+          },
+          {
+            "path": "OKE\\commands\\database_command.py",
+            "size": 1906
+          },
+          {
+            "path": "OKE\\commands\\dependency_command.py",
+            "size": 1280
+          },
+          {
+            "path": "OKE\\commands\\doctor_command.py",
+            "size": 2460
+          },
+          {
+            "path": "OKE\\commands\\impact_command.py",
+            "size": 1964
+          },
+          {
+            "path": "OKE\\commands\\map_command.py",
+            "size": 2211
+          },
+          {
+            "path": "OKE\\commands\\relation_command.py",
+            "size": 1665
+          },
+          {
+            "path": "OKE\\commands\\self_audit_command.py",
+            "size": 8669
+          },
+          {
+            "path": "OKE\\commands\\source_command.py",
+            "size": 1269
+          },
+          {
+            "path": "OKE\\commands\\specialist_report_command.py",
+            "size": 2198
+          },
+          {
+            "path": "OKE\\commands\\trace_command.py",
+            "size": 1506
+          }
+        ]
+      },
+      {
+        "name": "Coordinator",
+        "status": "PASS",
+        "score": 100,
+        "folder": "OKE/coordinator",
+        "file_count": 1,
+        "items": [
+          {
+            "path": "OKE\\coordinator\\coordinator.py",
+            "size": 1301
+          }
+        ]
+      },
+      {
+        "name": "Orchestrator",
+        "status": "PASS",
+        "score": 100,
+        "folder": "OKE/orchestrator",
+        "file_count": 1,
+        "items": [
+          {
+            "path": "OKE\\orchestrator\\orchestrator.py",
+            "size": 996
+          }
+        ]
+      },
+      {
+        "name": "Specialists",
+        "status": "PASS",
+        "score": 100,
+        "folder": "OKE/specialists",
+        "file_count": 74,
+        "items": [
+          {
+            "path": "OKE\\specialists\\api\\specialist.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\approval\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\base.py",
+            "size": 491
+          },
+          {
+            "path": "OKE\\specialists\\billing\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\billing\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\billing\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\billing\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\billing\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\billing\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\billing\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\billing\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\cash\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\cash\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\cash\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\cash\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\cash\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\cash\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\cash\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\cash\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\database\\specialist.py",
+            "size": 1453
+          },
+          {
+            "path": "OKE\\specialists\\deployment\\specialist.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\docs\\specialist.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\inventory\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\payments\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payments\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payments\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payments\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payments\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payments\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payments\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payments\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\payroll\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\reports\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reports\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reports\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reports\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reports\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reports\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reports\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reports\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\analyzer.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\builder.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\knowledge.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\model.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\pipeline.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\rule.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\service.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\reservation\\specialist.py",
+            "size": 646
+          },
+          {
+            "path": "OKE\\specialists\\security\\specialist.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\source\\specialist.py",
+            "size": 810
+          },
+          {
+            "path": "OKE\\specialists\\template\\specialist.py",
+            "size": 774
+          },
+          {
+            "path": "OKE\\specialists\\testing\\specialist.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\specialists\\ui\\specialist.py",
+            "size": 0
+          }
+        ]
+      },
+      {
+        "name": "Knowledge",
+        "status": "PASS",
+        "score": 100,
+        "folder": "OKE/knowledge",
+        "file_count": 4,
+        "items": [
+          {
+            "path": "OKE\\knowledge\\knowledge_graph.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\knowledge\\module_graph.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\knowledge\\module_map.py",
+            "size": 566
+          },
+          {
+            "path": "OKE\\knowledge\\regression_map.py",
+            "size": 876
+          }
+        ]
+      },
+      {
+        "name": "Parsers",
+        "status": "PASS",
+        "score": 100,
+        "folder": "OKE/parsers",
+        "file_count": 2,
+        "items": [
+          {
+            "path": "OKE\\parsers\\database_parser.py",
+            "size": 0
+          },
+          {
+            "path": "OKE\\parsers\\sourcebook_parser.py",
+            "size": 5063
+          }
+        ]
+      },
+      {
+        "name": "Workspace",
+        "status": "PASS",
+        "score": 100.0,
+        "items": [
+          {
+            "path": "OKE/workspace",
+            "exists": true,
+            "type": "dir"
+          },
+          {
+            "path": "OKE/workspace/reports",
+            "exists": true,
+            "type": "dir"
+          }
+        ]
+      },
+      {
+        "name": "Reports",
+        "status": "PASS",
+        "score": 100,
+        "folder": "OKE/workspace/reports",
+        "file_count": 43,
+        "items": [
+          {
+            "path": "OKE\\workspace\\reports\\approval_requests.json",
+            "size": 791
+          },
+          {
+            "path": "OKE\\workspace\\reports\\audit_finance.json",
+            "size": 5814
+          },
+          {
+            "path": "OKE\\workspace\\reports\\cash_drawers.json",
+            "size": 835
+          },
+          {
+            "path": "OKE\\workspace\\reports\\database_all.json",
+            "size": 314701
+          },
+          {
+            "path": "OKE\\workspace\\reports\\dependency_audit.json",
+            "size": 17390
+          },
+          {
+            "path": "OKE\\workspace\\reports\\doctor_report.json",
+            "size": 35088
+          },
+          {
+            "path": "OKE\\workspace\\reports\\employees.json",
+            "size": 1604
+          },
+          {
+            "path": "OKE\\workspace\\reports\\finance_cash_movements.json",
+            "size": 676
+          },
+          {
+            "path": "OKE\\workspace\\reports\\impact_employee_balances.json",
+            "size": 1222
+          },
+          {
+            "path": "OKE\\workspace\\reports\\manager_test.json",
+            "size": 120
+          },
+          {
+            "path": "OKE\\workspace\\reports\\map_cash.json",
+            "size": 3338
+          },
+          {
+            "path": "OKE\\workspace\\reports\\map_oke.json",
+            "size": 39465
+          },
+          {
+            "path": "OKE\\workspace\\reports\\oke_self_audit.json",
+            "size": 28035
+          },
+          {
+            "path": "OKE\\workspace\\reports\\payroll_records.json",
+            "size": 806
+          },
+          {
+            "path": "OKE\\workspace\\reports\\relation_employees.json",
+            "size": 3806
+          },
+          {
+            "path": "OKE\\workspace\\reports\\repo_test.json",
+            "size": 24
+          },
+          {
+            "path": "OKE\\workspace\\reports\\source_approval_requests.json",
+            "size": 9771
+          },
+          {
+            "path": "OKE\\workspace\\reports\\source_finance_cash_movements.json",
+            "size": 3413
+          },
+          {
+            "path": "OKE\\workspace\\reports\\source_module_impact.json",
+            "size": 1602
+          },
+          {
+            "path": "OKE\\workspace\\reports\\source_REGRESSION_MAP.json",
+            "size": 12300
+          },
+          {
+            "path": "OKE\\workspace\\reports\\source_RegressionPlan.json",
+            "size": 1069
+          },
+          {
+            "path": "OKE\\workspace\\reports\\specialist_report.json",
+            "size": 10196
+          },
+          {
+            "path": "OKE\\workspace\\reports\\test.json",
+            "size": 112
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_BaseCommand.json",
+            "size": 8112
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_BaseSpecialist.json",
+            "size": 12938
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_class .json",
+            "size": 104772
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_CommandRegistry.json",
+            "size": 3693
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_coordinator.json",
+            "size": 35664
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_finance_cash_movements.json",
+            "size": 11281
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.analyzers.json",
+            "size": 4257
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.coordinator.json",
+            "size": 1289
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.events.json",
+            "size": 1173
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.knowledge.json",
+            "size": 2225
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.models.json",
+            "size": 7458
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.orchestrator.json",
+            "size": 1303
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.parsers.json",
+            "size": 1758
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_from OKE.services.json",
+            "size": 1395
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_orchestrator.json",
+            "size": 30682
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_REGRESSION_MAP.json",
+            "size": 25306
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_RegressionAnalyzer.json",
+            "size": 3095
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_SourceBookParser.json",
+            "size": 303
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_SpecialistGenerator.json",
+            "size": 9294
+          },
+          {
+            "path": "OKE\\workspace\\reports\\trace_specialists.json",
+            "size": 483526
+          }
+        ]
+      },
+      {
+        "name": "Export",
+        "status": "PASS",
+        "score": 100.0,
+        "items": [
+          {
+            "path": "OKE_EXPORT",
+            "exists": true,
+            "type": "dir"
+          },
+          {
+            "path": "OKE_EXPORT/OPSCORE_SOURCE_BOOK.md",
+            "exists": true,
+            "type": "file"
+          },
+          {
+            "path": "OKE_EXPORT/OPSCORE_DATABASE_BOOK.md",
+            "exists": true,
+            "type": "file"
+          }
+        ]
+      }
+    ],
+    "flow": [
+      "CLI",
+      "Registry",
+      "Commands",
+      "Coordinator",
+      "Orchestrator",
+      "Specialists",
+      "Knowledge",
+      "Parsers",
+      "Workspace",
+      "Reports",
+      "Export"
+    ]
+  }
+}

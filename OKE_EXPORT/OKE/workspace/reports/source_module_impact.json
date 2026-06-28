@@ -1,0 +1,53 @@
+{
+  "name": "source_module_impact",
+  "generated_at": "2026-06-28T16:03:54.583718",
+  "data": {
+    "search_text": "module_impact",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 6,
+    "matches": [
+      {
+        "file": ".\\OKE\\analyzers\\recommendation_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91255,
+        "text": "def analyze(self, report, impact, module_impact, regression_plan):"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91295,
+        "text": "def analyze(self, module_impact):"
+      },
+      {
+        "file": ".\\OKE\\analyzers\\regression_analyzer.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91299,
+        "text": "for module in module_impact.modules:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112691,
+        "text": "def analyze(self, report, impact, module_impact, regression_plan):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112731,
+        "text": "def analyze(self, module_impact):"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112735,
+        "text": "for module in module_impact.modules:"
+      }
+    ]
+  }
+}

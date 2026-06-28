@@ -1,0 +1,263 @@
+{
+  "name": "export_validation",
+  "generated_at": "2026-06-28T17:25:32.216947",
+  "data": {
+    "score": 100.0,
+    "status": "READY FOR NEW CHAT",
+    "sections": {
+      "core_package": {
+        "score": 100.0,
+        "status": "PASS",
+        "passed": 5,
+        "total": 5,
+        "missing": [],
+        "items": [
+          {
+            "path": "README.md",
+            "exists": true,
+            "size": 714
+          },
+          {
+            "path": "manifest.json",
+            "exists": true,
+            "size": 7301
+          },
+          {
+            "path": "PROJECT_SUMMARY.md",
+            "exists": true,
+            "size": 365
+          },
+          {
+            "path": "AI_CONTEXT.md",
+            "exists": true,
+            "size": 762
+          },
+          {
+            "path": "ENGINEERING_STATUS.md",
+            "exists": true,
+            "size": 416
+          }
+        ]
+      },
+      "engineering_docs": {
+        "score": 100.0,
+        "status": "PASS",
+        "passed": 14,
+        "total": 14,
+        "missing": [],
+        "items": [
+          {
+            "path": "00_START_HERE.md",
+            "exists": true,
+            "size": 526
+          },
+          {
+            "path": "01_ENGINEERING_CONSTITUTION.md",
+            "exists": true,
+            "size": 563
+          },
+          {
+            "path": "02_CURRENT_PROJECT_STATE.md",
+            "exists": true,
+            "size": 599
+          },
+          {
+            "path": "03_OKE_COMMAND_REFERENCE.md",
+            "exists": true,
+            "size": 712
+          },
+          {
+            "path": "04_ENGINEERING_WORKFLOW.md",
+            "exists": true,
+            "size": 628
+          },
+          {
+            "path": "05_RECOVERY_GUIDE.md",
+            "exists": true,
+            "size": 576
+          },
+          {
+            "path": "06_ARCHITECTURE.md",
+            "exists": true,
+            "size": 641
+          },
+          {
+            "path": "07_KNOWLEDGE_BASE.md",
+            "exists": true,
+            "size": 365
+          },
+          {
+            "path": "08_NEXT_ROADMAP.md",
+            "exists": true,
+            "size": 478
+          },
+          {
+            "path": "09_CHAT_BOOTSTRAP_PROMPT.md",
+            "exists": true,
+            "size": 526
+          },
+          {
+            "path": "10_OKE_AUDIT_SUMMARY.md",
+            "exists": true,
+            "size": 509
+          },
+          {
+            "path": "11_OKE_ARCHITECTURE_BOOK.md",
+            "exists": true,
+            "size": 595
+          },
+          {
+            "path": "12_OKE_COMMAND_PLAYBOOK.md",
+            "exists": true,
+            "size": 407
+          },
+          {
+            "path": "13_OKE_TRANSITION_GUIDE.md",
+            "exists": true,
+            "size": 689
+          }
+        ]
+      },
+      "knowledge_books": {
+        "score": 100.0,
+        "status": "PASS",
+        "passed": 2,
+        "total": 2,
+        "missing": [],
+        "items": [
+          {
+            "path": "OPSCORE_SOURCE_BOOK.md",
+            "exists": true,
+            "size": 4192312
+          },
+          {
+            "path": "OPSCORE_DATABASE_BOOK.md",
+            "exists": true,
+            "size": 83018
+          }
+        ]
+      },
+      "manifest": {
+        "score": 100.0,
+        "status": "PASS",
+        "passed": 5,
+        "total": 5,
+        "missing": [],
+        "items": [
+          {
+            "path": "project",
+            "exists": true,
+            "size": 1
+          },
+          {
+            "path": "generated_at",
+            "exists": true,
+            "size": 1
+          },
+          {
+            "path": "status",
+            "exists": true,
+            "size": 1
+          },
+          {
+            "path": "counts",
+            "exists": true,
+            "size": 1
+          },
+          {
+            "path": "inventory",
+            "exists": true,
+            "size": 1
+          }
+        ]
+      },
+      "oke_source": {
+        "score": 100.0,
+        "status": "PASS",
+        "passed": 9,
+        "total": 9,
+        "missing": [],
+        "items": [
+          {
+            "path": "OKE",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/commands",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/registry",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/analyzers",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/specialists",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/knowledge",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/parsers",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/export",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "OKE/workspace",
+            "exists": true,
+            "size": 0
+          }
+        ]
+      },
+      "reports": {
+        "score": 100.0,
+        "status": "PASS",
+        "passed": 1,
+        "total": 1,
+        "missing": [],
+        "items": [
+          {
+            "path": "reports",
+            "exists": true,
+            "size": 0
+          }
+        ]
+      },
+      "zip_files": {
+        "score": 100.0,
+        "status": "PASS",
+        "passed": 1,
+        "total": 1,
+        "missing": [],
+        "items": [
+          {
+            "path": "any .zip file",
+            "exists": true,
+            "size": 1763369
+          }
+        ],
+        "zip_files": [
+          "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_FULL_ENGINEERING_PACKAGE.zip",
+          "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_REVIEW_PACKAGE.zip"
+        ]
+      }
+    },
+    "missing": []
+  }
+}

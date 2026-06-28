@@ -1,0 +1,229 @@
+{
+  "name": "trace_from OKE.models",
+  "generated_at": "2026-06-28T16:10:38.890434",
+  "data": {
+    "keyword": "from OKE.models",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 15,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\adapters\\database_adapter.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91016,
+          "text": "from OKE.models.database_schema import DatabaseSchema"
+        },
+        {
+          "file": ".\\OKE\\adapters\\dummy_adapter.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91039,
+          "text": "from OKE.models.database_schema import ("
+        },
+        {
+          "file": ".\\OKE\\extractors\\database_extractor.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 95690,
+          "text": "from OKE.models.database_schema import DatabaseSchema"
+        },
+        {
+          "file": ".\\OKE\\rules\\engineering_metrics.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96897,
+          "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\models\\engineering_report.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 96302,
+          "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+        },
+        {
+          "file": ".\\OKE\\services\\engineering_report_service.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 96947,
+          "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+        },
+        {
+          "file": ".\\OKE\\services\\engineering_report_service.py",
+          "area": "REPORT",
+          "module": "general",
+          "line": 96948,
+          "text": "from OKE.models.engineering_report import EngineeringReport"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112452,
+          "text": "from OKE.models.database_schema import DatabaseSchema"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112475,
+          "text": "from OKE.models.database_schema import ("
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 112757,
+          "text": "from OKE.models.database_schema import DatabaseSchema"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113868,
+          "text": "from OKE.models.database_schema import DatabaseSchema"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114466,
+          "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114790,
+          "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114840,
+          "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114841,
+          "text": "from OKE.models.engineering_report import EngineeringReport"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\adapters\\database_adapter.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91016,
+        "text": "from OKE.models.database_schema import DatabaseSchema"
+      },
+      {
+        "file": ".\\OKE\\adapters\\dummy_adapter.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91039,
+        "text": "from OKE.models.database_schema import ("
+      },
+      {
+        "file": ".\\OKE\\extractors\\database_extractor.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 95690,
+        "text": "from OKE.models.database_schema import DatabaseSchema"
+      },
+      {
+        "file": ".\\OKE\\models\\engineering_report.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 96302,
+        "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+      },
+      {
+        "file": ".\\OKE\\rules\\engineering_metrics.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96897,
+        "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+      },
+      {
+        "file": ".\\OKE\\services\\engineering_report_service.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 96947,
+        "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+      },
+      {
+        "file": ".\\OKE\\services\\engineering_report_service.py",
+        "area": "REPORT",
+        "module": "general",
+        "line": 96948,
+        "text": "from OKE.models.engineering_report import EngineeringReport"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112452,
+        "text": "from OKE.models.database_schema import DatabaseSchema"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112475,
+        "text": "from OKE.models.database_schema import ("
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 112757,
+        "text": "from OKE.models.database_schema import DatabaseSchema"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113868,
+        "text": "from OKE.models.database_schema import DatabaseSchema"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114466,
+        "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114790,
+        "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114840,
+        "text": "from OKE.models.engineering_metrics import EngineeringMetrics"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114841,
+        "text": "from OKE.models.engineering_report import EngineeringReport"
+      }
+    ]
+  }
+}

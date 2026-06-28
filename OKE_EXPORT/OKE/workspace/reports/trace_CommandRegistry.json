@@ -1,0 +1,129 @@
+{
+  "name": "trace_CommandRegistry",
+  "generated_at": "2026-06-28T14:44:13.440217",
+  "data": {
+    "keyword": "CommandRegistry",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 8,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\__main__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91499,
+          "text": "from OKE.registry.command_registry import CommandRegistry"
+        },
+        {
+          "file": ".\\OKE\\__main__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91511,
+          "text": "return CommandRegistry().dispatch("
+        },
+        {
+          "file": ".\\OKE\\commands\\registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92381,
+          "text": "class CommandRegistry:"
+        },
+        {
+          "file": ".\\OKE\\registry\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96605,
+          "text": "from .command_registry import CommandRegistry"
+        },
+        {
+          "file": ".\\OKE\\registry\\command_registry.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96621,
+          "text": "class CommandRegistry:"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 98422,
+          "text": "from OKE.commands.registry import CommandRegistry"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 98435,
+          "text": "return CommandRegistry().dispatch("
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 99277,
+          "text": "class CommandRegistry:"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\__main__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91499,
+        "text": "from OKE.registry.command_registry import CommandRegistry"
+      },
+      {
+        "file": ".\\OKE\\__main__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91511,
+        "text": "return CommandRegistry().dispatch("
+      },
+      {
+        "file": ".\\OKE\\commands\\registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92381,
+        "text": "class CommandRegistry:"
+      },
+      {
+        "file": ".\\OKE\\registry\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96605,
+        "text": "from .command_registry import CommandRegistry"
+      },
+      {
+        "file": ".\\OKE\\registry\\command_registry.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96621,
+        "text": "class CommandRegistry:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 98422,
+        "text": "from OKE.commands.registry import CommandRegistry"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 98435,
+        "text": "return CommandRegistry().dispatch("
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 99277,
+        "text": "class CommandRegistry:"
+      }
+    ]
+  }
+}

@@ -1,0 +1,675 @@
+{
+  "name": "trace_export_manager",
+  "generated_at": "2026-06-28T16:20:00.964774",
+  "data": {
+    "keyword": "export_manager",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 47,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\export\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94428,
+          "text": "from .export_manager import ExportManager"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94638,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94639,
+          "text": "Lines: 39"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94640,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94641,
+          "text": "``py"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94642,
+          "text": "from OKE.export.review_package_generator import ReviewPackageGenerator"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94643,
+          "text": "from OKE.export.copy_manager import CopyManager"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94644,
+          "text": "from OKE.export.zip_packager import ZipPackager"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94645,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94646,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94647,
+          "text": "class ExportManager:"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94648,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94649,
+          "text": "def __init__(self):"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94650,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94651,
+          "text": "self.review_generator = ReviewPackageGenerator()"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94652,
+          "text": "self.copy_manager = CopyManager()"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94653,
+          "text": "self.zip_packager = ZipPackager()"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94654,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94655,
+          "text": "def export(self, profile=\"review\"):"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94656,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94657,
+          "text": "generated_files = self.review_generator.generate()"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94658,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94659,
+          "text": "copy_result = self.copy_manager.copy()"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94660,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94661,
+          "text": "if not copy_result[\"passed\"]:"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94662,
+          "text": "return {"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94663,
+          "text": "\"profile\": profile,"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94664,
+          "text": "\"passed\": False,"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94665,
+          "text": "\"stage\": \"copy\","
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94666,
+          "text": "\"generated_files\": [str(path) for path in generated_files],"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94667,
+          "text": "\"copy_result\": copy_result,"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94668,
+          "text": "\"zip_result\": None,"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94669,
+          "text": "}"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94670,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94671,
+          "text": "zip_result = self.zip_packager.package(profile)"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94672,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94673,
+          "text": "return {"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94674,
+          "text": "\"profile\": profile,"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94675,
+          "text": "\"passed\": zip_result[\"passed\"],"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94676,
+          "text": "\"stage\": \"complete\","
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94677,
+          "text": "\"generated_files\": [str(path) for path in generated_files],"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94678,
+          "text": "\"copy_result\": copy_result,"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94679,
+          "text": "\"zip_result\": zip_result,"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94680,
+          "text": "}"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94681,
+          "text": "``"
+        },
+        {
+          "file": ".\\OKE\\export\\export_manager.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 94682,
+          "text": ""
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 109951,
+          "text": "\"file\": \".\\\\OKE\\\\export\\\\export_manager.py\","
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\export\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94428,
+        "text": "from .export_manager import ExportManager"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94638,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94639,
+        "text": "Lines: 39"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94640,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94641,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94642,
+        "text": "from OKE.export.review_package_generator import ReviewPackageGenerator"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94643,
+        "text": "from OKE.export.copy_manager import CopyManager"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94644,
+        "text": "from OKE.export.zip_packager import ZipPackager"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94645,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94646,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94647,
+        "text": "class ExportManager:"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94648,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94649,
+        "text": "def __init__(self):"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94650,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94651,
+        "text": "self.review_generator = ReviewPackageGenerator()"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94652,
+        "text": "self.copy_manager = CopyManager()"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94653,
+        "text": "self.zip_packager = ZipPackager()"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94654,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94655,
+        "text": "def export(self, profile=\"review\"):"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94656,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94657,
+        "text": "generated_files = self.review_generator.generate()"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94658,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94659,
+        "text": "copy_result = self.copy_manager.copy()"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94660,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94661,
+        "text": "if not copy_result[\"passed\"]:"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94662,
+        "text": "return {"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94663,
+        "text": "\"profile\": profile,"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94664,
+        "text": "\"passed\": False,"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94665,
+        "text": "\"stage\": \"copy\","
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94666,
+        "text": "\"generated_files\": [str(path) for path in generated_files],"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94667,
+        "text": "\"copy_result\": copy_result,"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94668,
+        "text": "\"zip_result\": None,"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94669,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94670,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94671,
+        "text": "zip_result = self.zip_packager.package(profile)"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94672,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94673,
+        "text": "return {"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94674,
+        "text": "\"profile\": profile,"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94675,
+        "text": "\"passed\": zip_result[\"passed\"],"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94676,
+        "text": "\"stage\": \"complete\","
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94677,
+        "text": "\"generated_files\": [str(path) for path in generated_files],"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94678,
+        "text": "\"copy_result\": copy_result,"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94679,
+        "text": "\"zip_result\": zip_result,"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94680,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94681,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\export\\export_manager.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94682,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 109951,
+        "text": "\"file\": \".\\\\OKE\\\\export\\\\export_manager.py\","
+      }
+    ]
+  }
+}

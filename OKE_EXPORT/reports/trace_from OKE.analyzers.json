@@ -1,0 +1,129 @@
+{
+  "name": "trace_from OKE.analyzers",
+  "generated_at": "2026-06-28T16:10:42.222083",
+  "data": {
+    "keyword": "from OKE.analyzers",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 8,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96576,
+          "text": "from OKE.analyzers.impact_analyzer import ImpactAnalyzer"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96577,
+          "text": "from OKE.analyzers.module_analyzer import ModuleAnalyzer"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96578,
+          "text": "from OKE.analyzers.recommendation_analyzer import RecommendationAnalyzer"
+        },
+        {
+          "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96579,
+          "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114560,
+          "text": "from OKE.analyzers.impact_analyzer import ImpactAnalyzer"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114561,
+          "text": "from OKE.analyzers.module_analyzer import ModuleAnalyzer"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114562,
+          "text": "from OKE.analyzers.recommendation_analyzer import RecommendationAnalyzer"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114563,
+          "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96576,
+        "text": "from OKE.analyzers.impact_analyzer import ImpactAnalyzer"
+      },
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96577,
+        "text": "from OKE.analyzers.module_analyzer import ModuleAnalyzer"
+      },
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96578,
+        "text": "from OKE.analyzers.recommendation_analyzer import RecommendationAnalyzer"
+      },
+      {
+        "file": ".\\OKE\\pipelines\\engineering_pipeline.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96579,
+        "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114560,
+        "text": "from OKE.analyzers.impact_analyzer import ImpactAnalyzer"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114561,
+        "text": "from OKE.analyzers.module_analyzer import ModuleAnalyzer"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114562,
+        "text": "from OKE.analyzers.recommendation_analyzer import RecommendationAnalyzer"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114563,
+        "text": "from OKE.analyzers.regression_analyzer import RegressionAnalyzer"
+      }
+    ]
+  }
+}

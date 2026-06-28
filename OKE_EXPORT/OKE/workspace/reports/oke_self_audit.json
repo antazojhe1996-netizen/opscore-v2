@@ -1,0 +1,957 @@
+{
+  "name": "oke_self_audit",
+  "generated_at": "2026-06-28T16:11:39.106737",
+  "data": {
+    "generated_at": "2026-06-28T16:11:39.106429",
+    "overall_score": 83.53,
+    "level_1_structural_score": 100.0,
+    "level_2_registry_score": 100.0,
+    "level_3_specialist_score": 50.59,
+    "scores": {
+      "core_files": 100.0,
+      "commands": 100,
+      "parsers": 100,
+      "knowledge": 100,
+      "templates_export": 100,
+      "reports": 100,
+      "export_package": 100.0
+    },
+    "checks": {
+      "core_files": {
+        "type": "paths",
+        "total": 5,
+        "passed": 5,
+        "items": [
+          {
+            "path": "OKE/__main__.py",
+            "exists": true,
+            "size": 672
+          },
+          {
+            "path": "OKE/registry/command_registry.py",
+            "exists": true,
+            "size": 1310
+          },
+          {
+            "path": "OKE/commands/base_command.py",
+            "exists": true,
+            "size": 481
+          },
+          {
+            "path": "OKE/README.md",
+            "exists": true,
+            "size": 1911
+          },
+          {
+            "path": "OKE/VERSION.md",
+            "exists": true,
+            "size": 0
+          }
+        ]
+      },
+      "commands": {
+        "type": "folder",
+        "folder": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands",
+        "suffix": "_command.py",
+        "exists": true,
+        "total": 14,
+        "passed": 14,
+        "items": [
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\analyze_command.py",
+            "exists": true,
+            "size": 3516
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\audit_command.py",
+            "exists": true,
+            "size": 3633
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\base_command.py",
+            "exists": true,
+            "size": 481
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\create_command.py",
+            "exists": true,
+            "size": 534
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\database_command.py",
+            "exists": true,
+            "size": 1906
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\dependency_command.py",
+            "exists": true,
+            "size": 1280
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\doctor_command.py",
+            "exists": true,
+            "size": 2460
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\impact_command.py",
+            "exists": true,
+            "size": 1964
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\map_command.py",
+            "exists": true,
+            "size": 2211
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\relation_command.py",
+            "exists": true,
+            "size": 1665
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\self_audit_command.py",
+            "exists": true,
+            "size": 8669
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\source_command.py",
+            "exists": true,
+            "size": 1269
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\specialist_report_command.py",
+            "exists": true,
+            "size": 2198
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\trace_command.py",
+            "exists": true,
+            "size": 1506
+          }
+        ]
+      },
+      "parsers": {
+        "type": "folder",
+        "folder": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\parsers",
+        "suffix": "_parser.py",
+        "exists": true,
+        "total": 2,
+        "passed": 2,
+        "items": [
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\parsers\\database_parser.py",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\parsers\\sourcebook_parser.py",
+            "exists": true,
+            "size": 5063
+          }
+        ]
+      },
+      "knowledge": {
+        "type": "folder",
+        "folder": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\knowledge",
+        "suffix": ".py",
+        "exists": true,
+        "total": 5,
+        "passed": 5,
+        "items": [
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\knowledge\\__init__.py",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\knowledge\\knowledge_graph.py",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\knowledge\\module_graph.py",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\knowledge\\module_map.py",
+            "exists": true,
+            "size": 566
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\knowledge\\regression_map.py",
+            "exists": true,
+            "size": 876
+          }
+        ]
+      },
+      "templates_export": {
+        "type": "folder",
+        "folder": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export",
+        "suffix": ".md",
+        "exists": true,
+        "total": 10,
+        "passed": 10,
+        "items": [
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\00_START_HERE.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\01_ENGINEERING_CONSTITUTION.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\02_CURRENT_PROJECT_STATE.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\03_OKE_COMMAND_REFERENCE.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\04_ENGINEERING_WORKFLOW.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\05_RECOVERY_GUIDE.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\06_ARCHITECTURE.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\07_KNOWLEDGE_BASE.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\08_NEXT_ROADMAP.md",
+            "exists": true,
+            "size": 0
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\templates\\export\\09_CHAT_BOOTSTRAP_PROMPT.md",
+            "exists": true,
+            "size": 0
+          }
+        ]
+      },
+      "reports": {
+        "type": "folder",
+        "folder": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports",
+        "suffix": ".json",
+        "exists": true,
+        "total": 43,
+        "passed": 43,
+        "items": [
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\approval_requests.json",
+            "exists": true,
+            "size": 791
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\audit_finance.json",
+            "exists": true,
+            "size": 5814
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\cash_drawers.json",
+            "exists": true,
+            "size": 835
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\database_all.json",
+            "exists": true,
+            "size": 314701
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\dependency_audit.json",
+            "exists": true,
+            "size": 19569
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\doctor_report.json",
+            "exists": true,
+            "size": 35088
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\employees.json",
+            "exists": true,
+            "size": 1604
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\finance_cash_movements.json",
+            "exists": true,
+            "size": 676
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\impact_employee_balances.json",
+            "exists": true,
+            "size": 1222
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\manager_test.json",
+            "exists": true,
+            "size": 120
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\map_cash.json",
+            "exists": true,
+            "size": 3338
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\map_oke.json",
+            "exists": true,
+            "size": 39465
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\oke_self_audit.json",
+            "exists": true,
+            "size": 28035
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\payroll_records.json",
+            "exists": true,
+            "size": 806
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\relation_employees.json",
+            "exists": true,
+            "size": 3806
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\repo_test.json",
+            "exists": true,
+            "size": 24
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\source_approval_requests.json",
+            "exists": true,
+            "size": 9771
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\source_finance_cash_movements.json",
+            "exists": true,
+            "size": 3413
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\source_module_impact.json",
+            "exists": true,
+            "size": 1602
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\source_REGRESSION_MAP.json",
+            "exists": true,
+            "size": 12300
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\source_RegressionPlan.json",
+            "exists": true,
+            "size": 1069
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\specialist_report.json",
+            "exists": true,
+            "size": 10196
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\test.json",
+            "exists": true,
+            "size": 112
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_BaseCommand.json",
+            "exists": true,
+            "size": 8112
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_BaseSpecialist.json",
+            "exists": true,
+            "size": 12938
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_class .json",
+            "exists": true,
+            "size": 104772
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_CommandRegistry.json",
+            "exists": true,
+            "size": 3693
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_coordinator.json",
+            "exists": true,
+            "size": 35664
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_finance_cash_movements.json",
+            "exists": true,
+            "size": 11281
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.analyzers.json",
+            "exists": true,
+            "size": 4257
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.coordinator.json",
+            "exists": true,
+            "size": 1289
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.events.json",
+            "exists": true,
+            "size": 1173
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.knowledge.json",
+            "exists": true,
+            "size": 2225
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.models.json",
+            "exists": true,
+            "size": 7458
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.orchestrator.json",
+            "exists": true,
+            "size": 1303
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.parsers.json",
+            "exists": true,
+            "size": 1758
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_from OKE.services.json",
+            "exists": true,
+            "size": 1395
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_orchestrator.json",
+            "exists": true,
+            "size": 30682
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_REGRESSION_MAP.json",
+            "exists": true,
+            "size": 25306
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_RegressionAnalyzer.json",
+            "exists": true,
+            "size": 3095
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_SourceBookParser.json",
+            "exists": true,
+            "size": 303
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_SpecialistGenerator.json",
+            "exists": true,
+            "size": 9294
+          },
+          {
+            "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\workspace\\reports\\trace_specialists.json",
+            "exists": true,
+            "size": 483526
+          }
+        ]
+      },
+      "export_package": {
+        "type": "paths",
+        "total": 8,
+        "passed": 8,
+        "items": [
+          {
+            "path": "OKE_EXPORT/OPSCORE_SOURCE_BOOK.md",
+            "exists": true,
+            "size": 4192312
+          },
+          {
+            "path": "OKE_EXPORT/OPSCORE_DATABASE_BOOK.md",
+            "exists": true,
+            "size": 83018
+          },
+          {
+            "path": "OKE_EXPORT/OKE_TREE.txt",
+            "exists": true,
+            "size": 32216
+          },
+          {
+            "path": "OKE_EXPORT/EXPORT_TREE.txt",
+            "exists": true,
+            "size": 18392
+          },
+          {
+            "path": "OKE_EXPORT/AI_CONTEXT.md",
+            "exists": true,
+            "size": 566
+          },
+          {
+            "path": "OKE_EXPORT/COMPASS.md",
+            "exists": true,
+            "size": 3503
+          },
+          {
+            "path": "OKE_EXPORT/CURRENT_MISSION.md",
+            "exists": true,
+            "size": 3123
+          },
+          {
+            "path": "OKE_EXPORT/ENGINEERING_STATUS.md",
+            "exists": true,
+            "size": 267
+          }
+        ]
+      }
+    },
+    "level_2_registry": {
+      "score": 100.0,
+      "command_file_count": 14,
+      "command_class_count": 14,
+      "registered_count": 14,
+      "orphan_count": 0,
+      "registered_commands": [
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\analyze_command.py",
+          "class_name": "AnalyzeCommand",
+          "command_name": "analyze",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\audit_command.py",
+          "class_name": "AuditCommand",
+          "command_name": "audit",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\base_command.py",
+          "class_name": "BaseCommand",
+          "command_name": "base",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\create_command.py",
+          "class_name": "CreateCommand",
+          "command_name": "create",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\database_command.py",
+          "class_name": "DatabaseCommand",
+          "command_name": "database",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\dependency_command.py",
+          "class_name": "DependencyCommand",
+          "command_name": "dependency",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\doctor_command.py",
+          "class_name": "DoctorCommand",
+          "command_name": "doctor",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\impact_command.py",
+          "class_name": "ImpactCommand",
+          "command_name": "impact",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\map_command.py",
+          "class_name": "MapCommand",
+          "command_name": "map",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\relation_command.py",
+          "class_name": "RelationCommand",
+          "command_name": "relation",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\self_audit_command.py",
+          "class_name": "SelfAuditCommand",
+          "command_name": "self-audit",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\source_command.py",
+          "class_name": "SourceCommand",
+          "command_name": "source",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\specialist_report_command.py",
+          "class_name": "SpecialistReportCommand",
+          "command_name": "specialist-report",
+          "parse_error": null,
+          "registered": true
+        },
+        {
+          "file": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\commands\\trace_command.py",
+          "class_name": "TraceCommand",
+          "command_name": "trace",
+          "parse_error": null,
+          "registered": true
+        }
+      ],
+      "orphan_commands": []
+    },
+    "level_3_specialists": {
+      "score": 50.59,
+      "summary": {
+        "total_specialists": 17,
+        "ACTIVE": 0,
+        "PARTIAL": 1,
+        "STRUCTURAL": 0,
+        "GENERATED_TEMPLATE": 8,
+        "PLACEHOLDER": 4,
+        "SKELETON": 1,
+        "ORPHAN": 3
+      },
+      "specialists": [
+        {
+          "name": "api",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\api",
+          "file_count": 2,
+          "non_empty_file_count": 0,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 130,
+          "base_specialist_count": 0,
+          "generator_count": 0,
+          "status": "ORPHAN"
+        },
+        {
+          "name": "approval",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\approval",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 1192,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "billing",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\billing",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 61,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "cash",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\cash",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 1996,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "database",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\database",
+          "file_count": 11,
+          "non_empty_file_count": 3,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 373,
+          "base_specialist_count": 3,
+          "generator_count": 0,
+          "status": "PARTIAL"
+        },
+        {
+          "name": "deployment",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\deployment",
+          "file_count": 2,
+          "non_empty_file_count": 0,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 32,
+          "base_specialist_count": 0,
+          "generator_count": 0,
+          "status": "PLACEHOLDER"
+        },
+        {
+          "name": "docs",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\docs",
+          "file_count": 2,
+          "non_empty_file_count": 0,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 85,
+          "base_specialist_count": 0,
+          "generator_count": 0,
+          "status": "PLACEHOLDER"
+        },
+        {
+          "name": "inventory",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\inventory",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 85,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "payments",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\payments",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 220,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "payroll",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\payroll",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 1663,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "reports",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\reports",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 129,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "reservation",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\reservation",
+          "file_count": 10,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": true,
+          "has_pipeline": true,
+          "has_analyzer": true,
+          "has_service": true,
+          "has_knowledge": true,
+          "has_model": true,
+          "has_rule": true,
+          "reference_count": 170,
+          "base_specialist_count": 0,
+          "generator_count": 1,
+          "status": "GENERATED_TEMPLATE"
+        },
+        {
+          "name": "security",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\security",
+          "file_count": 2,
+          "non_empty_file_count": 0,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 32,
+          "base_specialist_count": 0,
+          "generator_count": 0,
+          "status": "ORPHAN"
+        },
+        {
+          "name": "source",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\source",
+          "file_count": 2,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 890,
+          "base_specialist_count": 0,
+          "generator_count": 0,
+          "status": "SKELETON"
+        },
+        {
+          "name": "template",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\template",
+          "file_count": 2,
+          "non_empty_file_count": 1,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 282,
+          "base_specialist_count": 2,
+          "generator_count": 0,
+          "status": "PLACEHOLDER"
+        },
+        {
+          "name": "testing",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\testing",
+          "file_count": 2,
+          "non_empty_file_count": 0,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 9,
+          "base_specialist_count": 0,
+          "generator_count": 0,
+          "status": "PLACEHOLDER"
+        },
+        {
+          "name": "ui",
+          "path": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE\\specialists\\ui",
+          "file_count": 2,
+          "non_empty_file_count": 0,
+          "has_specialist_py": true,
+          "has_readme": false,
+          "has_pipeline": false,
+          "has_analyzer": false,
+          "has_service": false,
+          "has_knowledge": false,
+          "has_model": false,
+          "has_rule": false,
+          "reference_count": 1498,
+          "base_specialist_count": 0,
+          "generator_count": 0,
+          "status": "ORPHAN"
+        }
+      ]
+    },
+    "status": "NEEDS REVIEW",
+    "next_actions": [
+      "Review 3 orphan specialist(s).",
+      "Review 1 skeleton specialist(s).",
+      "Review 1 partial specialist(s).",
+      "Review specialist integrity."
+    ]
+  }
+}

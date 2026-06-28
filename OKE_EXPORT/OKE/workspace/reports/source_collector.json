@@ -1,0 +1,683 @@
+{
+  "name": "source_collector",
+  "generated_at": "2026-06-28T16:26:58.149914",
+  "data": {
+    "search_text": "collector",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 96,
+    "matches": [
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\12_FOUNDATION_CHECKLIST.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93656,
+        "text": "- [x] Collector"
+      },
+      {
+        "file": ".\\OKE\\docs\\EXPORT_V1.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93780,
+        "text": "## ExportCollector"
+      },
+      {
+        "file": ".\\OKE\\docs\\EXPORT_V1.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93864,
+        "text": "Collectors collect."
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94434,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94435,
+        "text": "Lines: 86"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94436,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94437,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94438,
+        "text": "from pathlib import Path"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94439,
+        "text": "from dataclasses import dataclass"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94440,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94441,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94442,
+        "text": "@dataclass"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94443,
+        "text": "class CollectionResult:"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94444,
+        "text": "source_files: list"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94445,
+        "text": "excluded_files: list"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94446,
+        "text": "missing_files: list"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94447,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94448,
+        "text": "@property"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94449,
+        "text": "def passed(self):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94450,
+        "text": "return len(self.missing_files) == 0"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94451,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94452,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94453,
+        "text": "class ExportCollector:"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94454,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94455,
+        "text": "def __init__(self):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94456,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94457,
+        "text": "self.project_root = Path.cwd()"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94458,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94459,
+        "text": "self.allowed_extensions = {"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94460,
+        "text": "\".py\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94461,
+        "text": "\".ts\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94462,
+        "text": "\".tsx\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94463,
+        "text": "\".js\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94464,
+        "text": "\".jsx\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94465,
+        "text": "\".json\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94466,
+        "text": "\".md\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94467,
+        "text": "\".sql\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94468,
+        "text": "\".css\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94469,
+        "text": "\".mjs\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94470,
+        "text": "\".cjs\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94471,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94472,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94473,
+        "text": "self.excluded_folders = {"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94474,
+        "text": "\"__pycache__\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94475,
+        "text": "\".git\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94476,
+        "text": "\".next\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94477,
+        "text": "\"node_modules\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94478,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94479,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94480,
+        "text": "self.excluded_extensions = {"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94481,
+        "text": "\".pyc\","
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94482,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94483,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94484,
+        "text": "def should_exclude(self, path):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94485,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94486,
+        "text": "if any(part in self.excluded_folders for part in path.parts):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94487,
+        "text": "return True"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94488,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94489,
+        "text": "if path.suffix in self.excluded_extensions:"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94490,
+        "text": "return True"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94491,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94492,
+        "text": "return False"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94493,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94494,
+        "text": "def is_source_file(self, path):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94495,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94496,
+        "text": "return path.is_file() and path.suffix in self.allowed_extensions"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94497,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94498,
+        "text": "def collect(self):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94499,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94500,
+        "text": "source_files = []"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94501,
+        "text": "excluded_files = []"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94502,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94503,
+        "text": "for path in self.project_root.rglob(\"*\"):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94504,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94505,
+        "text": "if not path.is_file():"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94506,
+        "text": "continue"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94507,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94508,
+        "text": "if self.should_exclude(path):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94509,
+        "text": "excluded_files.append(path)"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94510,
+        "text": "continue"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94511,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94512,
+        "text": "if self.is_source_file(path):"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94513,
+        "text": "source_files.append(path)"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94514,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94515,
+        "text": "# Since collect() scans directly from filesystem,"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94516,
+        "text": "# missing_files should only be populated by future package validation."
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94517,
+        "text": "missing_files = []"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94518,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94519,
+        "text": "return CollectionResult("
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94520,
+        "text": "source_files=sorted(source_files),"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94521,
+        "text": "excluded_files=sorted(excluded_files),"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94522,
+        "text": "missing_files=missing_files,"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94523,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94524,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\export\\collector.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 94525,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 109939,
+        "text": "\"file\": \".\\\\OKE\\\\export\\\\collector.py\","
+      }
+    ]
+  }
+}

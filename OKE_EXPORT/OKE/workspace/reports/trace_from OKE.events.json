@@ -1,0 +1,45 @@
+{
+  "name": "trace_from OKE.events",
+  "generated_at": "2026-06-28T16:10:39.379508",
+  "data": {
+    "keyword": "from OKE.events",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 2,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96332,
+          "text": "from OKE.events import ("
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114496,
+          "text": "from OKE.events import ("
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96332,
+        "text": "from OKE.events import ("
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114496,
+        "text": "from OKE.events import ("
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # OPSCORE Knowledge Engine
 
-Generated: 2026-06-28 04:44:50
+Generated: 2026-06-28 19:15:32
 
 ---
 
@@ -22,10 +22,10 @@ Generated: 2026-06-28 04:44:50
 
 ## Inventory
 
-- Commands : 2
-- Specialists : 14
+- Commands : 16
+- Specialists : 17
 - Builders : 3
-- Analyzers : 4
+- Analyzers : 12
 - Pipelines : 1
 - Services : 1
 

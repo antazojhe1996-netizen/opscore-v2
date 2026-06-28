@@ -1,0 +1,1265 @@
+{
+  "name": "trace_coordinator",
+  "generated_at": "2026-06-28T15:15:50.852684",
+  "data": {
+    "keyword": "coordinator",
+    "source_book": "C:\\Users\\antaz\\Desktop\\opscore-v2\\OKE_EXPORT\\OPSCORE_SOURCE_BOOK.md",
+    "match_count": 89,
+    "grouped": {
+      "OKE": [
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91581,
+          "text": "from OKE.coordinator.coordinator import Coordinator"
+        },
+        {
+          "file": ".\\OKE\\commands\\analyze_command.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 91613,
+          "text": "Coordinator(),"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92471,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92472,
+          "text": "Lines: 0"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92473,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92474,
+          "text": "``py"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92475,
+          "text": "``"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\__init__.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92476,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92478,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92479,
+          "text": "Lines: 54"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92480,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92481,
+          "text": "``py"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92482,
+          "text": "from dataclasses import dataclass"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92483,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92484,
+          "text": "from OKE.aggregators.result_aggregator import ResultAggregator"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92485,
+          "text": "from OKE.commander.commander import Commander"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92486,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92487,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92488,
+          "text": "@dataclass"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92489,
+          "text": "class CoordinationPlan:"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92490,
+          "text": "task: str"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92491,
+          "text": "required_specialists: list[str]"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92492,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92493,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92494,
+          "text": "class Coordinator:"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92495,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92496,
+          "text": "def plan(self, task):"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92497,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92498,
+          "text": "required_specialists = []"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92499,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92500,
+          "text": "task_lower = task.lower()"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92501,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92502,
+          "text": "if ("
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92503,
+          "text": "\"database\" in task_lower"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92504,
+          "text": "or \"table\" in task_lower"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92505,
+          "text": "or \"schema\" in task_lower"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92506,
+          "text": "):"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92507,
+          "text": "required_specialists.append(\"database\")"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92508,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92509,
+          "text": "return CoordinationPlan("
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92510,
+          "text": "task=task,"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92511,
+          "text": "required_specialists=required_specialists,"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92512,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92513,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92514,
+          "text": "def execute(self, task, action=\"analyze\", **kwargs):"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92515,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92516,
+          "text": "plan = self.plan(task)"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92517,
+          "text": "commander = Commander()"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92518,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92519,
+          "text": "specialist_results = {}"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92520,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92521,
+          "text": "for specialist_name in plan.required_specialists:"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92522,
+          "text": "specialist_results[specialist_name] = commander.dispatch("
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92523,
+          "text": "specialist_name=specialist_name,"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92524,
+          "text": "action=action,"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92525,
+          "text": "**kwargs,"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92526,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92527,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92528,
+          "text": "aggregated = ResultAggregator().aggregate("
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92529,
+          "text": "specialist_results"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92530,
+          "text": ")"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92531,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92532,
+          "text": "return {"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92533,
+          "text": "\"plan\": plan,"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92534,
+          "text": "\"aggregated\": aggregated,"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92535,
+          "text": "}"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92536,
+          "text": "``"
+        },
+        {
+          "file": ".\\OKE\\coordinator\\coordinator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 92537,
+          "text": ""
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\01_MISSION.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 93088,
+          "text": "The Coordinator plans."
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\09_ENGINEERING_CONSTITUTION.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 93256,
+          "text": "Coordinator"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\10_FOLDER_RESPONSIBILITIES.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 93352,
+          "text": "## coordinator"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\11_AI_ONBOARDING.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 93540,
+          "text": "Coordinator"
+        },
+        {
+          "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\12_FOUNDATION_CHECKLIST.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 93633,
+          "text": "- [x] Coordinator"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\PROJECT_SUMMARY.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 95539,
+          "text": "Coordinator"
+        },
+        {
+          "file": ".\\OKE\\export\\templates\\PROJECT_SUMMARY.md",
+          "area": "OKE",
+          "module": "general",
+          "line": 95567,
+          "text": "- Coordinator"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96354,
+          "text": "coordinator,"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96364,
+          "text": "plan = coordinator.plan(task)"
+        },
+        {
+          "file": ".\\OKE\\orchestrator\\orchestrator.py",
+          "area": "OKE",
+          "module": "general",
+          "line": 96366,
+          "text": "result = coordinator.execute("
+        }
+      ],
+      "REPORT": [
+        {
+          "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 109801,
+          "text": "\"file\": \".\\\\OKE\\\\coordinator\\\\__init__.py\","
+        },
+        {
+          "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+          "area": "REPORT",
+          "module": "general",
+          "line": 109807,
+          "text": "\"file\": \".\\\\OKE\\\\coordinator\\\\coordinator.py\","
+        }
+      ],
+      "OTHER": [
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113098,
+          "text": "from OKE.coordinator.coordinator import Coordinator"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113130,
+          "text": "Coordinator(),"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113472,
+          "text": "## OKE\\coordinator\\__init__.py"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113479,
+          "text": "## OKE\\coordinator\\coordinator.py"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113494,
+          "text": "class Coordinator:"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 113621,
+          "text": "The Coordinator plans."
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114518,
+          "text": "coordinator,"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114528,
+          "text": "plan = coordinator.plan(task)"
+        },
+        {
+          "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+          "area": "OTHER",
+          "module": "general",
+          "line": 114530,
+          "text": "result = coordinator.execute("
+        }
+      ]
+    },
+    "matches": [
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91581,
+        "text": "from OKE.coordinator.coordinator import Coordinator"
+      },
+      {
+        "file": ".\\OKE\\commands\\analyze_command.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 91613,
+        "text": "Coordinator(),"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92471,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92472,
+        "text": "Lines: 0"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92473,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92474,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92475,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\__init__.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92476,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92478,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92479,
+        "text": "Lines: 54"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92480,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92481,
+        "text": "``py"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92482,
+        "text": "from dataclasses import dataclass"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92483,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92484,
+        "text": "from OKE.aggregators.result_aggregator import ResultAggregator"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92485,
+        "text": "from OKE.commander.commander import Commander"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92486,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92487,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92488,
+        "text": "@dataclass"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92489,
+        "text": "class CoordinationPlan:"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92490,
+        "text": "task: str"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92491,
+        "text": "required_specialists: list[str]"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92492,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92493,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92494,
+        "text": "class Coordinator:"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92495,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92496,
+        "text": "def plan(self, task):"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92497,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92498,
+        "text": "required_specialists = []"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92499,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92500,
+        "text": "task_lower = task.lower()"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92501,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92502,
+        "text": "if ("
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92503,
+        "text": "\"database\" in task_lower"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92504,
+        "text": "or \"table\" in task_lower"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92505,
+        "text": "or \"schema\" in task_lower"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92506,
+        "text": "):"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92507,
+        "text": "required_specialists.append(\"database\")"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92508,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92509,
+        "text": "return CoordinationPlan("
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92510,
+        "text": "task=task,"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92511,
+        "text": "required_specialists=required_specialists,"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92512,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92513,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92514,
+        "text": "def execute(self, task, action=\"analyze\", **kwargs):"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92515,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92516,
+        "text": "plan = self.plan(task)"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92517,
+        "text": "commander = Commander()"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92518,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92519,
+        "text": "specialist_results = {}"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92520,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92521,
+        "text": "for specialist_name in plan.required_specialists:"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92522,
+        "text": "specialist_results[specialist_name] = commander.dispatch("
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92523,
+        "text": "specialist_name=specialist_name,"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92524,
+        "text": "action=action,"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92525,
+        "text": "**kwargs,"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92526,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92527,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92528,
+        "text": "aggregated = ResultAggregator().aggregate("
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92529,
+        "text": "specialist_results"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92530,
+        "text": ")"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92531,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92532,
+        "text": "return {"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92533,
+        "text": "\"plan\": plan,"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92534,
+        "text": "\"aggregated\": aggregated,"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92535,
+        "text": "}"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92536,
+        "text": "``"
+      },
+      {
+        "file": ".\\OKE\\coordinator\\coordinator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 92537,
+        "text": ""
+      },
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\01_MISSION.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93088,
+        "text": "The Coordinator plans."
+      },
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\09_ENGINEERING_CONSTITUTION.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93256,
+        "text": "Coordinator"
+      },
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\10_FOLDER_RESPONSIBILITIES.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93352,
+        "text": "## coordinator"
+      },
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\11_AI_ONBOARDING.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93540,
+        "text": "Coordinator"
+      },
+      {
+        "file": ".\\OKE\\docs\\ENGINEERING_HANDBOOK\\12_FOUNDATION_CHECKLIST.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 93633,
+        "text": "- [x] Coordinator"
+      },
+      {
+        "file": ".\\OKE\\export\\templates\\PROJECT_SUMMARY.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 95539,
+        "text": "Coordinator"
+      },
+      {
+        "file": ".\\OKE\\export\\templates\\PROJECT_SUMMARY.md",
+        "area": "OKE",
+        "module": "general",
+        "line": 95567,
+        "text": "- Coordinator"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96354,
+        "text": "coordinator,"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96364,
+        "text": "plan = coordinator.plan(task)"
+      },
+      {
+        "file": ".\\OKE\\orchestrator\\orchestrator.py",
+        "area": "OKE",
+        "module": "general",
+        "line": 96366,
+        "text": "result = coordinator.execute("
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 109801,
+        "text": "\"file\": \".\\\\OKE\\\\coordinator\\\\__init__.py\","
+      },
+      {
+        "file": ".\\OKE\\workspace\\reports\\map_oke.json",
+        "area": "REPORT",
+        "module": "general",
+        "line": 109807,
+        "text": "\"file\": \".\\\\OKE\\\\coordinator\\\\coordinator.py\","
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113098,
+        "text": "from OKE.coordinator.coordinator import Coordinator"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113130,
+        "text": "Coordinator(),"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113472,
+        "text": "## OKE\\coordinator\\__init__.py"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113479,
+        "text": "## OKE\\coordinator\\coordinator.py"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113494,
+        "text": "class Coordinator:"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 113621,
+        "text": "The Coordinator plans."
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114518,
+        "text": "coordinator,"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114528,
+        "text": "plan = coordinator.plan(task)"
+      },
+      {
+        "file": ".\\OKE_FULL_AUDIT_SOURCE.md",
+        "area": "OTHER",
+        "module": "general",
+        "line": 114530,
+        "text": "result = coordinator.execute("
+      }
+    ]
+  }
+}
